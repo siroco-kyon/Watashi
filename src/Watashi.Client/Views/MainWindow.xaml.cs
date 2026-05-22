@@ -14,18 +14,12 @@ public partial class MainWindow : Window
         _vm = vm;
         DataContext = vm;
         Loaded += OnLoaded;
-        Closed += OnClosed;
     }
 
     private async void OnLoaded(object? sender, RoutedEventArgs e)
     {
         Loaded -= OnLoaded;
         await _vm.Remote.LoadHostsAndLocationsAsync();
-    }
-
-    private void OnClosed(object? sender, EventArgs e)
-    {
-        Closed -= OnClosed;
     }
 
     private void OnRefresh(object sender, RoutedEventArgs e)
@@ -46,14 +40,11 @@ public partial class MainWindow : Window
         }
         sp.GetRequiredService<Services.CredentialStore>().ClearDeviceToken();
         session.Clear();
-        ((App)Application.Current).RestartLoginFlow();
-        Close();
+        ((App)Application.Current).RequestLogout();
     }
 
     private void OnAbout(object sender, RoutedEventArgs e)
-    {
-        MessageBox.Show("Watashi 社内 CIFS ファイル管理ツール", "バージョン情報", MessageBoxButton.OK, MessageBoxImage.Information);
-    }
+        => MessageBox.Show("Watashi 社内 CIFS ファイル管理ツール", "バージョン情報", MessageBoxButton.OK, MessageBoxImage.Information);
 
     private void OnOpenAdmin(object sender, RoutedEventArgs e)
     {
@@ -68,11 +59,26 @@ public partial class MainWindow : Window
 
     private void OnLocalPathKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter) _vm.Local.RefreshCommand.Execute(null);
+        if (e.Key == Key.Enter) { e.Handled = true; _vm.Local.NavigateCommand.Execute(_vm.Local.CurrentPath); }
     }
+
     private void OnRemotePathKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter) _ = _vm.Remote.RefreshAsync();
+        if (e.Key == Key.Enter) { e.Handled = true; _vm.Remote.NavigateCommand.Execute(_vm.Remote.CurrentPath); }
+    }
+
+    private void OnLocalGo(object sender, RoutedEventArgs e) => _vm.Local.NavigateCommand.Execute(_vm.Local.CurrentPath);
+    private void OnRemoteGo(object sender, RoutedEventArgs e) => _vm.Remote.NavigateCommand.Execute(_vm.Remote.CurrentPath);
+
+    // ListView 上で BackSpace → 親フォルダへ
+    private void OnLocalListKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Back) { e.Handled = true; _vm.Local.GoUpCommand.Execute(null); }
+    }
+
+    private void OnRemoteListKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Back) { e.Handled = true; _vm.Remote.GoUpCommand.Execute(null); }
     }
 
     private async void OnNewRemoteFolder(object sender, RoutedEventArgs e)

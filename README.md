@@ -36,22 +36,24 @@ FFFTP 風の 2 ペイン WPF クライアントから、中央サーバー経由
 ```powershell
 # 1. 中央サーバーをローカルで起動
 cd src\Watashi.Server
-$env:ASPNETCORE_ENVIRONMENT = "Development"
 dotnet run
-# → http://localhost:8080 で起動
+# → http://127.0.0.1:18080 で起動 (Development 環境は launchSettings/appsettings 由来で自動設定)
 # → watashi-dev.db が同フォルダに自動生成
 # → admin / Admin123!@# でログイン可能 (初回パスワード変更が必要)
 
 # 2. 別ウィンドウで動作確認
-curl http://localhost:8080/health
-curl -X POST http://localhost:8080/api/auth/login `
-     -H "Content-Type: application/json" `
-     -d '{"username":"admin","password":"Admin123!@#"}'
+# PowerShell では curl は Invoke-WebRequest のエイリアスなので、curl.exe を明示するか
+# Invoke-RestMethod を使う。以下は PowerShell ネイティブ例:
+Invoke-RestMethod http://127.0.0.1:18080/        # 利用可能エンドポイント一覧
+Invoke-RestMethod http://127.0.0.1:18080/health  # {"status":"ok",...}
+$body = @{ username = 'admin'; password = 'Admin123!@#' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:18080/api/auth/login `
+    -ContentType 'application/json' -Body $body
 
 # 3. WPF クライアントを起動
 cd ..\..\src\Watashi.Client
 dotnet run
-# 初回起動 → 接続設定で http://localhost:8080 を指定 → admin でログイン
+# 初回起動 → 接続設定で http://127.0.0.1:18080 を指定 → admin でログイン
 ```
 
 詳細手順 (本番デプロイ含む) は [docs/SETUP.md](docs/SETUP.md) を参照。
