@@ -12,6 +12,7 @@ public class SessionManager
     private string? _refreshTokenId;
     private string? _refreshToken;
     private System.Threading.Timer? _idleTimer;
+    private TimeSpan _idleTimeout = TimeSpan.FromMinutes(30);
     public int? UserId { get; private set; }
     public string? Username { get; private set; }
     public bool IsAdmin { get; private set; }
@@ -37,6 +38,7 @@ public class SessionManager
         _accessExpiresUtc = DateTime.UtcNow.AddSeconds(res.ExpiresIn);
         MustChangePassword = res.MustChangePassword;
         PasswordExpiresInDays = res.PasswordExpiresInDays;
+        if (res.IdleMinutes > 0) _idleTimeout = TimeSpan.FromMinutes(res.IdleMinutes);
         ParseClaims(_accessToken);
         ResetIdleTimer();
     }
@@ -63,6 +65,8 @@ public class SessionManager
             var res = await RefreshDelegate(_refreshTokenId, _refreshToken, ct);
             _accessToken = res.AccessToken;
             _accessExpiresUtc = DateTime.UtcNow.AddSeconds(res.ExpiresIn);
+            if (!string.IsNullOrEmpty(res.RefreshToken)) _refreshToken = res.RefreshToken;
+            if (!string.IsNullOrEmpty(res.RefreshTokenId)) _refreshTokenId = res.RefreshTokenId;
             MustChangePassword = res.MustChangePassword;
             if (res.MustChangePassword) RefreshNeedsPasswordChange?.Invoke();
             ParseClaims(_accessToken);
@@ -73,8 +77,10 @@ public class SessionManager
 
     public void ResetIdleTimer()
     {
-        _idleTimer?.Dispose();
-        _idleTimer = new System.Threading.Timer(_ => IdleTimedOut?.Invoke(), null, TimeSpan.FromMinutes(30), Timeout.InfiniteTimeSpan);
+        if (_idleTimer is null)
+            _idleTimer = new System.Threading.Timer(_ => IdleTimedOut?.Invoke(), null, _idleTimeout, Timeout.InfiniteTimeSpan);
+        else
+            _idleTimer.Change(_idleTimeout, Timeout.InfiniteTimeSpan);
     }
 
     private void ParseClaims(string? token)

@@ -6,12 +6,11 @@ using Watashi.Shared.DTOs.Admin;
 
 namespace Watashi.Client.ViewModels.Admin;
 
-public partial class UserManagementViewModel : ObservableObject
+public partial class UserManagementViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
     public ObservableCollection<UserDto> Items { get; } = new();
     [ObservableProperty] private UserDto? selected;
-    [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private string newUsername = string.Empty;
     [ObservableProperty] private string newPassword = string.Empty;
     [ObservableProperty] private bool newIsAdmin;
@@ -19,49 +18,36 @@ public partial class UserManagementViewModel : ObservableObject
     public UserManagementViewModel(ApiClient api) { _api = api; }
 
     [RelayCommand]
-    public async Task RefreshAsync()
-    {
-        try
-        {
-            Items.Clear();
-            foreach (var u in await _api.GetUsersAsync()) Items.Add(u);
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+    public Task RefreshAsync() => SafeAsync(async () => ReplaceAll(Items, await _api.GetUsersAsync()));
 
     [RelayCommand]
-    public async Task CreateAsync()
+    public Task CreateAsync() => SafeAsync(async () =>
     {
-        try
-        {
-            await _api.CreateUserAsync(new CreateUserRequest { Username = NewUsername, Password = NewPassword, IsAdmin = NewIsAdmin });
-            NewUsername = NewPassword = string.Empty; NewIsAdmin = false;
-            await RefreshAsync();
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.CreateUserAsync(new CreateUserRequest { Username = NewUsername, Password = NewPassword, IsAdmin = NewIsAdmin });
+        NewUsername = NewPassword = string.Empty; NewIsAdmin = false;
+        await RefreshAsync();
+    });
 
     [RelayCommand]
-    public async Task DeleteAsync()
+    public Task DeleteAsync() => SafeAsync(async () =>
     {
         if (Selected is null) return;
-        try { await _api.DeleteUserAsync(Selected.Id); await RefreshAsync(); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.DeleteUserAsync(Selected.Id);
+        await RefreshAsync();
+    });
 
     [RelayCommand]
-    public async Task UnlockAsync()
+    public Task UnlockAsync() => SafeAsync(async () =>
     {
         if (Selected is null) return;
-        try { await _api.UnlockUserAsync(Selected.Id); await RefreshAsync(); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.UnlockUserAsync(Selected.Id);
+        await RefreshAsync();
+    });
 
     [RelayCommand]
-    public async Task ResetPasswordAsync(string newPw)
+    public Task ResetPasswordAsync(string newPw) => SafeAsync(async () =>
     {
         if (Selected is null || string.IsNullOrWhiteSpace(newPw)) return;
-        try { await _api.ResetPasswordAsync(Selected.Id, new ResetPasswordRequest { NewPassword = newPw }); StatusMessage = "リセットしました。"; }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.ResetPasswordAsync(Selected.Id, new ResetPasswordRequest { NewPassword = newPw });
+    }, successMessage: "リセットしました。");
 }

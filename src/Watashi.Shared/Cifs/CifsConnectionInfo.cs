@@ -1,4 +1,4 @@
-namespace Watashi.Agent.Services.Cifs;
+namespace Watashi.Shared.Cifs;
 
 public record CifsConnectionInfo(
     string HostAddress,

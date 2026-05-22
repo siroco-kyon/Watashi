@@ -1,3 +1,5 @@
+using System.Net.Http.Json;
+
 namespace Watashi.Agent.Services;
 
 public class HeartbeatService : BackgroundService
@@ -25,7 +27,8 @@ public class HeartbeatService : BackgroundService
 
         var client = _http.CreateClient("central");
         client.BaseAddress = new Uri(central);
-        while (!ct.IsCancellationRequested)
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        do
         {
             try
             {
@@ -34,12 +37,8 @@ public class HeartbeatService : BackgroundService
                 if (!res.IsSuccessStatusCode)
                     _log.LogWarning("Heartbeat 非 2xx: {Code}", (int)res.StatusCode);
             }
-            catch (Exception ex)
-            {
-                _log.LogWarning(ex, "Heartbeat 送信失敗");
-            }
-            try { await Task.Delay(TimeSpan.FromSeconds(30), ct); }
             catch (OperationCanceledException) { break; }
-        }
+            catch (Exception ex) { _log.LogWarning(ex, "Heartbeat 送信失敗"); }
+        } while (await timer.WaitForNextTickAsync(ct));
     }
 }

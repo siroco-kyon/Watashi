@@ -6,38 +6,32 @@ using Watashi.Shared.DTOs.Admin;
 
 namespace Watashi.Client.ViewModels.Admin;
 
-public partial class DeviceManagementViewModel : ObservableObject
+public partial class DeviceManagementViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
     public ObservableCollection<UserDto> Users { get; } = new();
     public ObservableCollection<DeviceDto> Devices { get; } = new();
     [ObservableProperty] private UserDto? selectedUser;
-    [ObservableProperty] private string statusMessage = string.Empty;
 
     public DeviceManagementViewModel(ApiClient api) { _api = api; }
 
     [RelayCommand]
-    public async Task RefreshAsync()
-    {
-        try { Users.Clear(); foreach (var u in await _api.GetUsersAsync()) Users.Add(u); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+    public Task RefreshAsync() => SafeAsync(async () => ReplaceAll(Users, await _api.GetUsersAsync()));
 
     partial void OnSelectedUserChanged(UserDto? value) => _ = LoadDevicesAsync();
 
-    private async Task LoadDevicesAsync()
+    private Task LoadDevicesAsync() => SafeAsync(async () =>
     {
         Devices.Clear();
         if (SelectedUser is null) return;
-        try { foreach (var d in await _api.GetDevicesAsync(SelectedUser.Id)) Devices.Add(d); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        ReplaceAll(Devices, await _api.GetDevicesAsync(SelectedUser.Id));
+    });
 
     [RelayCommand]
-    public async Task RevokeAllAsync()
+    public Task RevokeAllAsync() => SafeAsync(async () =>
     {
         if (SelectedUser is null) return;
-        try { await _api.RevokeDevicesAsync(SelectedUser.Id); await LoadDevicesAsync(); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.RevokeDevicesAsync(SelectedUser.Id);
+        await LoadDevicesAsync();
+    });
 }

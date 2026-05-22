@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Watashi.Server.Services;
 using Watashi.Shared.DTOs.Auth;
+using Watashi.Shared.Helpers;
 
 namespace Watashi.Server.Endpoints;
 
@@ -29,7 +31,7 @@ public static class AuthEndpoints
                 return Results.Unauthorized();
 
             return Results.Ok(result.Response);
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting("login-ip");
 
         group.MapPost("/auto-login", async (
             AutoLoginRequest req,
@@ -54,7 +56,7 @@ public static class AuthEndpoints
             if (result.Failure == LoginFailureReason.InvalidCredentials || result.Response is null)
                 return Results.Unauthorized();
             return Results.Ok(result.Response);
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting("login-ip");
 
         group.MapPost("/trust-device", async (
             TrustDeviceRequest req,
@@ -68,8 +70,7 @@ public static class AuthEndpoints
             if (!ctx.Request.IsHttps && !allowHttp)
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
 
-            var uidClaim = principal.FindFirst("uid")?.Value;
-            if (!int.TryParse(uidClaim, out var userId))
+            if (!principal.TryGetUserId(out var userId))
                 return Results.Unauthorized();
 
             if (string.IsNullOrWhiteSpace(req.MachineName) || string.IsNullOrWhiteSpace(req.WindowsUsername))
@@ -112,8 +113,7 @@ public static class AuthEndpoints
             ClaimsPrincipal principal,
             CancellationToken ct) =>
         {
-            var uidClaim = principal.FindFirst("uid")?.Value;
-            if (!int.TryParse(uidClaim, out var userId))
+            if (!principal.TryGetUserId(out var userId))
                 return Results.Unauthorized();
 
             var (ok, error) = await auth.ChangePasswordAsync(userId, req.CurrentPassword, req.NewPassword, ct);

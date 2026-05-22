@@ -1,14 +1,23 @@
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using Watashi.Server.Auth;
 using Watashi.Server.Data;
 using Watashi.Server.Endpoints;
 using Watashi.Server.Services;
+using Watashi.Shared.Cifs;
+using Watashi.Shared.Constants;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService(o => o.ServiceName = "Watashi.Server");
 
 builder.Host.UseSerilog((ctx, lc) => lc
     .ReadFrom.Configuration(ctx.Configuration)
@@ -27,24 +36,52 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 });
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtSecret = jwtSection["Secret"]
+    ?? throw new InvalidOperationException("Jwt:Secret が設定されていません。");
+ValidateProductionSecret(builder.Environment, jwtSecret, "Jwt:Secret", "CHANGE-ME");
+
 var jwtOptions = new AuthServiceOptions
 {
-    Secret = jwtSection["Secret"] ?? throw new InvalidOperationException("Jwt:Secret が設定されていません。"),
+    Secret = jwtSecret,
     Issuer = jwtSection["Issuer"] ?? "Watashi",
     Audience = jwtSection["Audience"] ?? "Watashi",
     AccessTokenMinutes = jwtSection.GetValue<int?>("AccessTokenMinutes") ?? 15,
     RefreshTokenDays = jwtSection.GetValue<int?>("RefreshTokenDays") ?? 30,
 };
 builder.Services.AddSingleton(jwtOptions);
+
+// Encryption master key の存在 + プレースホルダ検出は EncryptionService の Singleton 解決時に行う。
+var encKey = Environment.GetEnvironmentVariable("WATASHI_MASTER_KEY")
+    ?? builder.Configuration["Encryption:MasterKey"];
+ValidateProductionSecret(builder.Environment, encKey, "Encryption:MasterKey", "REPLACE-WITH");
+
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddSingleton<EncryptionService>();
+builder.Services.AddSingleton<CifsSessionPool>(_ => new CifsSessionPool(
+    idleTtl: TimeSpan.FromSeconds(builder.Configuration.GetValue<int?>("Cifs:SessionIdleSeconds") ?? 60),
+    maxPerKey: builder.Configuration.GetValue<int?>("Cifs:MaxSessionsPerKey") ?? 4));
 builder.Services.AddSingleton<CifsService>();
 builder.Services.AddSingleton<AgentForwarder>();
 builder.Services.AddSingleton<NodeRouter>();
 builder.Services.AddHostedService<NodeHealthMonitor>();
 builder.Services.AddHttpClient("agent").AddMtls(builder.Configuration);
+
+// === mTLS (任意): Routing:UseMtls=true で Agent からの inbound にクライアント証明書を要求 ===
+var useMtls = builder.Configuration.GetValue<bool>("Routing:UseMtls");
+if (useMtls)
+{
+    builder.WebHost.ConfigureKestrel(o =>
+    {
+        o.ConfigureHttpsDefaults(https =>
+        {
+            https.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
+            https.AllowAnyClientCertificate();
+        });
+    });
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -60,12 +97,50 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
             ClockSkew = TimeSpan.FromSeconds(30),
             NameClaimType = "name",
-            RoleClaimType = "role",
+            RoleClaimType = AuthClaims.Role,
+        };
+    })
+    .AddCertificate(CertificateAuthenticationDefaults.AuthenticationScheme, options =>
+    {
+        options.AllowedCertificateTypes = CertificateTypes.All;
+        options.ValidateCertificateUse = false;
+        options.ValidateValidityPeriod = true;
+        options.RevocationMode = X509RevocationMode.NoCheck;
+        options.Events = new CertificateAuthenticationEvents
+        {
+            OnCertificateValidated = AgentCertificateValidator.OnValidated,
+            OnAuthenticationFailed = ctx =>
+            {
+                ctx.NoResult();
+                return Task.CompletedTask;
+            },
         };
     });
+
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("Admin", policy => policy.RequireClaim("role", "Admin"));
+    options.AddPolicy("Admin", policy => policy.RequireClaim(AuthClaims.Role, AuthClaims.Admin));
+    options.AddPolicy("Agent", policy =>
+    {
+        policy.AuthenticationSchemes = new[] { CertificateAuthenticationDefaults.AuthenticationScheme };
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(AgentCertificateValidator.AgentIdClaim);
+    });
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login-ip", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = builder.Configuration.GetValue<int?>("Auth:LoginPerMinutePerIp") ?? 10,
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
 });
 
 var app = builder.Build();
@@ -78,6 +153,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 }
 
 app.UseSerilogRequestLogging();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -100,9 +176,18 @@ app.Run();
 
 static void EnsureSqliteDirectoryExists(string connectionString)
 {
-    var builder = new SqliteConnectionStringBuilder(connectionString);
-    if (string.IsNullOrWhiteSpace(builder.DataSource)) return;
-    var dir = Path.GetDirectoryName(Path.GetFullPath(builder.DataSource));
+    var b = new SqliteConnectionStringBuilder(connectionString);
+    if (string.IsNullOrWhiteSpace(b.DataSource)) return;
+    var dir = Path.GetDirectoryName(Path.GetFullPath(b.DataSource));
     if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
         Directory.CreateDirectory(dir);
+}
+
+static void ValidateProductionSecret(IWebHostEnvironment env, string? value, string name, string forbiddenPrefix)
+{
+    if (string.IsNullOrEmpty(value)) return;
+    if (!value.StartsWith(forbiddenPrefix, StringComparison.OrdinalIgnoreCase)) return;
+    if (env.IsProduction())
+        throw new InvalidOperationException($"{name} がデフォルトのプレースホルダ値のままです。本番環境では必ず実値に差し替えてください。");
+    Console.Error.WriteLine($"[WARN] {name} がプレースホルダ値です。本番運用前に必ず差し替えてください。");
 }

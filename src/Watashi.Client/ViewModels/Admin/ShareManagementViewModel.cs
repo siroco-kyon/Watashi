@@ -6,13 +6,12 @@ using Watashi.Shared.DTOs.Admin;
 
 namespace Watashi.Client.ViewModels.Admin;
 
-public partial class ShareManagementViewModel : ObservableObject
+public partial class ShareManagementViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
     public ObservableCollection<ShareDto> Items { get; } = new();
     public ObservableCollection<HostDto> Hosts { get; } = new();
     [ObservableProperty] private ShareDto? selected;
-    [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private HostDto? newHost;
     [ObservableProperty] private string newShareName = string.Empty;
     [ObservableProperty] private string newDisplayName = string.Empty;
@@ -20,36 +19,29 @@ public partial class ShareManagementViewModel : ObservableObject
     public ShareManagementViewModel(ApiClient api) { _api = api; }
 
     [RelayCommand]
-    public async Task RefreshAsync()
+    public Task RefreshAsync() => SafeAsync(async () =>
     {
-        try
-        {
-            Items.Clear();
-            foreach (var s in await _api.GetAdminSharesAsync()) Items.Add(s);
-            Hosts.Clear();
-            foreach (var h in await _api.GetAdminHostsAsync()) Hosts.Add(h);
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        var sharesTask = _api.GetAdminSharesAsync();
+        var hostsTask = _api.GetAdminHostsAsync();
+        await Task.WhenAll(sharesTask, hostsTask);
+        ReplaceAll(Items, sharesTask.Result);
+        ReplaceAll(Hosts, hostsTask.Result);
+    });
 
     [RelayCommand]
-    public async Task CreateAsync()
+    public Task CreateAsync() => SafeAsync(async () =>
     {
         if (NewHost is null) { StatusMessage = "ホストを選んでください。"; return; }
-        try
-        {
-            await _api.CreateShareAsync(new CreateShareRequest { HostId = NewHost.Id, ShareName = NewShareName, DisplayName = NewDisplayName });
-            NewShareName = NewDisplayName = string.Empty;
-            await RefreshAsync();
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.CreateShareAsync(new CreateShareRequest { HostId = NewHost.Id, ShareName = NewShareName, DisplayName = NewDisplayName });
+        NewShareName = NewDisplayName = string.Empty;
+        await RefreshAsync();
+    });
 
     [RelayCommand]
-    public async Task DeleteAsync()
+    public Task DeleteAsync() => SafeAsync(async () =>
     {
         if (Selected is null) return;
-        try { await _api.DeleteShareAsync(Selected.Id); await RefreshAsync(); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.DeleteShareAsync(Selected.Id);
+        await RefreshAsync();
+    });
 }

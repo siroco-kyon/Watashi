@@ -8,14 +8,16 @@ namespace Watashi.Client.ViewModels;
 public partial class ConnectionSettingsViewModel : ObservableObject
 {
     private readonly AppSettings _settings;
+    private readonly IHttpClientFactory _http;
 
     [ObservableProperty] private string serverUrl = string.Empty;
     [ObservableProperty] private string protocol = "HTTPS";
     [ObservableProperty] private string statusMessage = string.Empty;
 
-    public ConnectionSettingsViewModel(AppSettings settings)
+    public ConnectionSettingsViewModel(AppSettings settings, IHttpClientFactory http)
     {
         _settings = settings;
+        _http = http;
         serverUrl = settings.ServerUrl;
         protocol = string.IsNullOrEmpty(settings.Protocol) ? "HTTPS" : settings.Protocol;
     }
@@ -26,7 +28,7 @@ public partial class ConnectionSettingsViewModel : ObservableObject
         StatusMessage = "接続中...";
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            var http = _http.CreateClient("settings-test");
             using var res = await http.GetAsync(NormalizedUrl().TrimEnd('/') + "/health");
             StatusMessage = res.IsSuccessStatusCode ? "✓ 接続できました。" : $"✗ HTTP {(int)res.StatusCode}";
         }

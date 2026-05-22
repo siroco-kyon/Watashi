@@ -1,11 +1,18 @@
+using System.Security.Cryptography.X509Certificates;
+using Microsoft.AspNetCore.Authentication.Certificate;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Watashi.Agent.Auth;
 using Watashi.Agent.Data;
 using Watashi.Agent.Endpoints;
 using Watashi.Agent.Services;
+using Watashi.Shared.Cifs;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService(o => o.ServiceName = "Watashi.Agent");
 builder.Host.UseSerilog((ctx, lc) => lc.ReadFrom.Configuration(ctx.Configuration).Enrich.FromLogContext());
 
 var connStr = builder.Configuration.GetConnectionString("Buffer")
@@ -20,9 +27,62 @@ builder.Services.AddDbContext<AgentDbContext>((sp, options) =>
 
 var maxConcurrency = builder.Configuration.GetValue<int?>("Agent:MaxConcurrency") ?? 20;
 builder.Services.AddSingleton(new ConcurrencyLimiter(maxConcurrency));
+builder.Services.AddSingleton<CifsSessionPool>(_ => new CifsSessionPool(
+    idleTtl: TimeSpan.FromSeconds(builder.Configuration.GetValue<int?>("Cifs:SessionIdleSeconds") ?? 60),
+    maxPerKey: builder.Configuration.GetValue<int?>("Cifs:MaxSessionsPerKey") ?? 4));
 builder.Services.AddSingleton<CifsService>();
 
-builder.Services.AddHttpClient("central"); // mTLS 設定は Phase 7 で AgentForwarder と合わせて構成
+// === inbound mTLS: 中央サーバが Agent を呼び出すときの証明書検証 ===
+var useMtls = builder.Configuration.GetValue<bool>("Routing:UseMtls");
+if (useMtls)
+{
+    builder.WebHost.ConfigureKestrel(o =>
+    {
+        o.ConfigureHttpsDefaults(https =>
+        {
+            https.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
+            https.AllowAnyClientCertificate();
+        });
+    });
+}
+
+builder.Services.AddAuthentication(CertificateAuthenticationDefaults.AuthenticationScheme)
+    .AddCertificate(options =>
+    {
+        options.AllowedCertificateTypes = CertificateTypes.All;
+        options.ValidateCertificateUse = false;
+        options.ValidateValidityPeriod = true;
+        options.RevocationMode = X509RevocationMode.NoCheck;
+        options.Events = new CertificateAuthenticationEvents
+        {
+            OnCertificateValidated = CentralCertificateValidator.OnValidated,
+            OnAuthenticationFailed = ctx => { ctx.NoResult(); return Task.CompletedTask; },
+        };
+    });
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IAuthorizationHandler, CentralOrSharedSecretHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("CentralOrSharedSecret", policy =>
+    {
+        policy.AuthenticationSchemes = new[] { CertificateAuthenticationDefaults.AuthenticationScheme };
+        policy.Requirements.Add(new CentralOrSharedSecretRequirement());
+    });
+});
+
+// === outbound (中央サーバへの heartbeat/log) ===
+builder.Services.AddHttpClient("central").ConfigurePrimaryHttpMessageHandler(sp =>
+{
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    var handler = new HttpClientHandler();
+    var certPath = cfg["Certificate:Path"];
+    var certPass = cfg["Certificate:Password"];
+    if (!string.IsNullOrWhiteSpace(certPath) && File.Exists(certPath))
+        handler.ClientCertificates.Add(new X509Certificate2(certPath, certPass));
+    return handler;
+});
+
 builder.Services.AddHostedService<HeartbeatService>();
 builder.Services.AddHostedService<LogSyncService>();
 
@@ -35,6 +95,9 @@ await using (var scope = app.Services.CreateAsyncScope())
 }
 
 app.UseSerilogRequestLogging();
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok", at = DateTime.UtcNow }));
 app.MapAgentEndpoints();
 
@@ -42,9 +105,9 @@ app.Run();
 
 static void EnsureSqliteDirectoryExists(string connectionString)
 {
-    var builder = new SqliteConnectionStringBuilder(connectionString);
-    if (string.IsNullOrWhiteSpace(builder.DataSource)) return;
-    var dir = Path.GetDirectoryName(Path.GetFullPath(builder.DataSource));
+    var b = new SqliteConnectionStringBuilder(connectionString);
+    if (string.IsNullOrWhiteSpace(b.DataSource)) return;
+    var dir = Path.GetDirectoryName(Path.GetFullPath(b.DataSource));
     if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
         Directory.CreateDirectory(dir);
 }

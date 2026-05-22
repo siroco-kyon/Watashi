@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Data;
 using Watashi.Server.Services;
-using Watashi.Server.Services.Cifs;
+using Watashi.Shared.Cifs;
+using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
 using Watashi.Shared.Models;
 
@@ -15,7 +17,7 @@ public static class AdminHostEndpoints
 
         group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
         {
-            var items = await (from h in db.CifsHosts
+            var items = await (from h in db.CifsHosts.AsNoTracking()
                 join n in db.ExecutionNodes on h.ExecutionNodeId equals n.Id
                 select new HostDto
                 {
@@ -32,11 +34,11 @@ public static class AdminHostEndpoints
             return Results.Ok(items);
         });
 
-        group.MapPost("/", async (CreateHostRequest req, AppDbContext db, EncryptionService enc, CancellationToken ct) =>
+        group.MapPost("/", async (CreateHostRequest req, AppDbContext db, EncryptionService enc, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.HostAddress))
                 return Results.BadRequest(new { error = "Name/HostAddress は必須です。" });
-            if (!await db.ExecutionNodes.AnyAsync(n => n.Id == req.ExecutionNodeId, ct))
+            if (!await db.ExecutionNodes.AsNoTracking().AnyAsync(n => n.Id == req.ExecutionNodeId, ct))
                 return Results.BadRequest(new { error = "指定された ExecutionNode が存在しません。" });
             var h = new CifsHost
             {
@@ -51,10 +53,11 @@ public static class AdminHostEndpoints
             };
             db.CifsHosts.Add(h);
             await db.SaveChangesAsync(ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.HostCreate, $"host:{h.Id}", ct: ct);
             return Results.Created($"/api/admin/hosts/{h.Id}", new { id = h.Id });
         });
 
-        group.MapPatch("/{id:int}", async (int id, UpdateHostRequest req, AppDbContext db, EncryptionService enc, CancellationToken ct) =>
+        group.MapPatch("/{id:int}", async (int id, UpdateHostRequest req, AppDbContext db, EncryptionService enc, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var h = await db.CifsHosts.FindAsync(new object?[] { id }, ct);
             if (h is null) return Results.NotFound();
@@ -66,26 +69,30 @@ public static class AdminHostEndpoints
             if (!string.IsNullOrEmpty(req.CredPassword)) h.CredPasswordEnc = enc.Encrypt(req.CredPassword);
             if (req.ExecutionNodeId.HasValue) h.ExecutionNodeId = req.ExecutionNodeId.Value;
             await db.SaveChangesAsync(ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.HostUpdate, $"host:{id}", ct: ct);
             return Results.NoContent();
         });
 
-        group.MapDelete("/{id:int}", async (int id, AppDbContext db, CancellationToken ct) =>
+        group.MapDelete("/{id:int}", async (int id, AppDbContext db, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var h = await db.CifsHosts.FindAsync(new object?[] { id }, ct);
             if (h is null) return Results.NotFound();
             db.CifsHosts.Remove(h);
             await db.SaveChangesAsync(ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.HostDelete, $"host:{id}", ct: ct);
             return Results.NoContent();
         });
 
-        group.MapPost("/{id:int}/test", async (int id, AppDbContext db, EncryptionService enc, CifsService cifs, CancellationToken ct) =>
+        group.MapPost("/{id:int}/test", async (int id, AppDbContext db, EncryptionService enc, CifsService cifs, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
-            var h = await db.CifsHosts.FindAsync(new object?[] { id }, ct);
+            var h = await db.CifsHosts.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
             if (h is null) return Results.NotFound();
-            var anyShare = await db.CifsShares.FirstOrDefaultAsync(s => s.HostId == id, ct);
+            var anyShare = await db.CifsShares.AsNoTracking().FirstOrDefaultAsync(s => s.HostId == id, ct);
             if (anyShare is null) return Results.BadRequest(new { error = "テスト用の共有が登録されていません。" });
             var info = new CifsConnectionInfo(h.HostAddress, h.Port, h.CredUsername, enc.Decrypt(h.CredPasswordEnc), anyShare.ShareName);
             var ok = await Task.Run(() => cifs.TestConnection(info), ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.HostTest, $"host:{id}",
+                ok ? AuditResults.Success : AuditResults.Failure, ct: ct);
             return Results.Ok(new { ok });
         });
 

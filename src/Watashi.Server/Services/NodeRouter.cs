@@ -1,4 +1,4 @@
-using Watashi.Server.Services.Cifs;
+using Watashi.Shared.Cifs;
 using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Files;
 using Watashi.Shared.Models;

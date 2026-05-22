@@ -1,25 +1,30 @@
 using SMBLibrary;
-using Watashi.Server.Services.Cifs;
+using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Files;
 using FileAttributes = SMBLibrary.FileAttributes;
 
-namespace Watashi.Server.Services;
+namespace Watashi.Shared.Cifs;
 
 /// <summary>
-/// SMBLibrary を使った直接 CIFS 操作。
-/// 各メソッドは内部で TCP/SMB セッションを張り、操作後にクローズする。
-/// ストリーミング用メソッドは Stream の Dispose でセッションをクローズする。
+/// SMBLibrary を使った CIFS 操作。CifsSessionPool 経由で接続を再利用する。
 /// </summary>
 public class CifsService
 {
+    private readonly CifsSessionPool _pool;
+
+    public CifsService(CifsSessionPool pool)
+    {
+        _pool = pool;
+    }
+
+    private CifsSession Acquire(CifsConnectionInfo info) => _pool.Acquire(info);
+
     public IReadOnlyList<FileEntry> List(CifsConnectionInfo info, string path)
     {
-        using var session = CifsSession.Connect(info);
+        using var session = Acquire(info);
         var smbPath = ToSmbDirectory(path);
         var status = session.Store.CreateFile(
-            out object dirHandle,
-            out FileStatus _,
-            smbPath,
+            out object dirHandle, out FileStatus _, smbPath,
             AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE,
             FileAttributes.Directory,
             ShareAccess.Read | ShareAccess.Write,
@@ -27,12 +32,12 @@ public class CifsService
             CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
             null);
         if (status != NTStatus.STATUS_SUCCESS)
-            throw new IOException($"ディレクトリを開けません ({smbPath}): {status}");
+            throw new IOException($"ディレクトリを開けません: {status}");
         try
         {
             var queryStatus = session.Store.QueryDirectory(out var entries, dirHandle, "*", FileInformationClass.FileDirectoryInformation);
             if (queryStatus != NTStatus.STATUS_SUCCESS && queryStatus != NTStatus.STATUS_NO_MORE_FILES)
-                throw new IOException($"ディレクトリ列挙失敗: {queryStatus}");
+                throw new IOException($"ディレクトリ列挙エラー: {queryStatus}");
 
             var list = new List<FileEntry>();
             foreach (var item in entries.OfType<FileDirectoryInformation>())
@@ -42,7 +47,7 @@ public class CifsService
                 list.Add(new FileEntry
                 {
                     Name = item.FileName,
-                    Type = isDir ? "directory" : "file",
+                    Type = isDir ? FileEntryTypes.Directory : FileEntryTypes.File,
                     Size = isDir ? null : item.EndOfFile,
                     ModifiedAt = DateTime.SpecifyKind(item.LastWriteTime, DateTimeKind.Utc),
                 });
@@ -51,20 +56,18 @@ public class CifsService
         }
         finally
         {
-            session.Store.CloseFile(dirHandle);
+            try { session.Store.CloseFile(dirHandle); } catch { }
         }
     }
 
     public Stream OpenRead(CifsConnectionInfo info, string path)
     {
-        var session = CifsSession.Connect(info);
+        var session = Acquire(info);
         try
         {
             var smbPath = ToSmbFile(path);
             var status = session.Store.CreateFile(
-                out object handle,
-                out FileStatus _,
-                smbPath,
+                out object handle, out FileStatus _, smbPath,
                 AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE,
                 FileAttributes.Normal,
                 ShareAccess.Read,
@@ -72,7 +75,7 @@ public class CifsService
                 CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
                 null);
             if (status != NTStatus.STATUS_SUCCESS)
-                throw new IOException($"ファイルを開けません ({smbPath}): {status}");
+                throw new IOException($"ファイルを開けません: {status}");
 
             var infoStatus = session.Store.GetFileInformation(out FileInformation infoObj, handle, FileInformationClass.FileStandardInformation);
             long size = 0;
@@ -90,14 +93,12 @@ public class CifsService
 
     public Stream OpenWrite(CifsConnectionInfo info, string path)
     {
-        var session = CifsSession.Connect(info);
+        var session = Acquire(info);
         try
         {
             var smbPath = ToSmbFile(path);
             var status = session.Store.CreateFile(
-                out object handle,
-                out FileStatus _,
-                smbPath,
+                out object handle, out FileStatus _, smbPath,
                 AccessMask.GENERIC_WRITE | AccessMask.SYNCHRONIZE,
                 FileAttributes.Normal,
                 ShareAccess.None,
@@ -105,7 +106,7 @@ public class CifsService
                 CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
                 null);
             if (status != NTStatus.STATUS_SUCCESS)
-                throw new IOException($"ファイル書き込みオープン失敗 ({smbPath}): {status}");
+                throw new IOException($"ファイル書き込みオープンエラー: {status}");
             return new SmbWriteStream(session, handle);
         }
         catch
@@ -117,12 +118,10 @@ public class CifsService
 
     public void Delete(CifsConnectionInfo info, string path)
     {
-        using var session = CifsSession.Connect(info);
+        using var session = Acquire(info);
         var smbPath = ToSmbFile(path);
         var status = session.Store.CreateFile(
-            out object handle,
-            out FileStatus _,
-            smbPath,
+            out object handle, out FileStatus _, smbPath,
             AccessMask.DELETE | AccessMask.SYNCHRONIZE,
             FileAttributes.Normal,
             ShareAccess.None,
@@ -130,19 +129,17 @@ public class CifsService
             CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
             null);
         if (status != NTStatus.STATUS_SUCCESS)
-            throw new IOException($"削除失敗 ({smbPath}): {status}");
-        session.Store.CloseFile(handle);
+            throw new IOException($"削除エラー: {status}");
+        try { session.Store.CloseFile(handle); } catch { }
     }
 
     public void Rename(CifsConnectionInfo info, string oldPath, string newPath)
     {
-        using var session = CifsSession.Connect(info);
+        using var session = Acquire(info);
         var smbOld = ToSmbFile(oldPath);
         var smbNew = ToSmbFile(newPath);
         var status = session.Store.CreateFile(
-            out object handle,
-            out FileStatus _,
-            smbOld,
+            out object handle, out FileStatus _, smbOld,
             AccessMask.DELETE | AccessMask.SYNCHRONIZE,
             FileAttributes.Normal,
             ShareAccess.Read | ShareAccess.Write,
@@ -150,28 +147,26 @@ public class CifsService
             CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
             null);
         if (status != NTStatus.STATUS_SUCCESS)
-            throw new IOException($"リネーム対象を開けません ({smbOld}): {status}");
+            throw new IOException($"リネーム対象を開けません: {status}");
         try
         {
             var rename = new FileRenameInformationType2 { ReplaceIfExists = false, FileName = smbNew };
             var setStatus = session.Store.SetFileInformation(handle, rename);
             if (setStatus != NTStatus.STATUS_SUCCESS)
-                throw new IOException($"リネーム失敗: {setStatus}");
+                throw new IOException($"リネームエラー: {setStatus}");
         }
         finally
         {
-            session.Store.CloseFile(handle);
+            try { session.Store.CloseFile(handle); } catch { }
         }
     }
 
     public void Mkdir(CifsConnectionInfo info, string path)
     {
-        using var session = CifsSession.Connect(info);
+        using var session = Acquire(info);
         var smbPath = ToSmbDirectory(path);
         var status = session.Store.CreateFile(
-            out object handle,
-            out FileStatus _,
-            smbPath,
+            out object handle, out FileStatus _, smbPath,
             AccessMask.GENERIC_WRITE | AccessMask.SYNCHRONIZE,
             FileAttributes.Directory,
             ShareAccess.None,
@@ -179,15 +174,15 @@ public class CifsService
             CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
             null);
         if (status != NTStatus.STATUS_SUCCESS)
-            throw new IOException($"フォルダ作成失敗 ({smbPath}): {status}");
-        session.Store.CloseFile(handle);
+            throw new IOException($"フォルダ作成エラー: {status}");
+        try { session.Store.CloseFile(handle); } catch { }
     }
 
     public bool TestConnection(CifsConnectionInfo info)
     {
         try
         {
-            using var session = CifsSession.Connect(info);
+            using var _ = Acquire(info);
             return true;
         }
         catch
@@ -196,14 +191,12 @@ public class CifsService
         }
     }
 
-    /// <summary>"/a/b" → "a\b"、ルートは空文字。</summary>
     private static string ToSmbDirectory(string path)
     {
         var p = (path ?? "/").Replace('\\', '/').Trim('/');
         return string.IsNullOrEmpty(p) ? string.Empty : p.Replace('/', '\\');
     }
 
-    /// <summary>ファイル用パス。先頭スラッシュを除いた "a\b\file.txt"。</summary>
     private static string ToSmbFile(string path)
     {
         var p = (path ?? string.Empty).Replace('\\', '/').TrimStart('/');

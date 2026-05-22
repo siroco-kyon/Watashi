@@ -64,6 +64,9 @@ public class ApiClient
     public Task<List<LocationDto>> GetLocationsAsync(int hostId, int shareId, CancellationToken ct = default) =>
         GetAsync<List<LocationDto>>($"api/hosts/{hostId}/shares/{shareId}/locations", ct);
 
+    public Task<UserCatalogResponse> GetUserCatalogAsync(CancellationToken ct = default) =>
+        GetAsync<UserCatalogResponse>("api/hosts/catalog", ct);
+
     public Task<List<HostBrief>> GetHostsAsync(CancellationToken ct = default) =>
         GetAsync<List<HostBrief>>("api/hosts", ct);
 
@@ -78,9 +81,8 @@ public class ApiClient
 
     public async Task DownloadAsync(int hostId, int shareId, string path, Stream output, IProgress<long>? progress, CancellationToken ct = default)
     {
-        await EnsureAuthAsync(ct);
         var qs = $"hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path)}";
-        using var req = new HttpRequestMessage(HttpMethod.Get, $"api/files/download?{qs}");
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Get, $"api/files/download?{qs}", ct);
         using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         await ThrowIfErrorAsync(res, ct);
         await using var stream = await res.Content.ReadAsStreamAsync(ct);
@@ -97,12 +99,13 @@ public class ApiClient
 
     public async Task UploadAsync(int hostId, int shareId, string path, Stream input, long? totalBytes, IProgress<long>? progress, CancellationToken ct = default)
     {
-        await EnsureAuthAsync(ct);
         var qs = $"hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path)}";
         using var content = new ProgressStreamContent(input, 4 * 1024 * 1024, progress);
         if (totalBytes.HasValue) content.Headers.ContentLength = totalBytes;
         content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        using var res = await _http.PostAsync($"api/files/upload?{qs}", content, ct);
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Post, $"api/files/upload?{qs}", ct);
+        req.Content = content;
+        using var res = await _http.SendAsync(req, ct);
         await ThrowIfErrorAsync(res, ct);
     }
 
@@ -120,8 +123,10 @@ public class ApiClient
 
     // === Admin ===
     public Task<List<UserDto>> GetUsersAsync(CancellationToken ct = default) => GetAsync<List<UserDto>>("api/admin/users", ct);
-    public Task<int> CreateUserAsync(CreateUserRequest req, CancellationToken ct = default) =>
-        PostJsonAsync<IdResponse>("api/admin/users", req, ct: ct).ContinueWith(t => t.Result.Id, ct);
+
+    public async Task<int> CreateUserAsync(CreateUserRequest req, CancellationToken ct = default)
+        => (await PostJsonAsync<IdResponse>("api/admin/users", req, ct: ct)).Id;
+
     public Task UpdateUserAsync(int id, UpdateUserRequest req, CancellationToken ct = default) =>
         PatchJsonNoContentAsync($"api/admin/users/{id}", req, ct);
     public Task DeleteUserAsync(int id, CancellationToken ct = default) =>
@@ -136,19 +141,24 @@ public class ApiClient
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/users/{userId}/devices", null, ct);
 
     public Task<List<HostDto>> GetAdminHostsAsync(CancellationToken ct = default) => GetAsync<List<HostDto>>("api/admin/hosts", ct);
-    public Task<int> CreateHostAsync(CreateHostRequest req, CancellationToken ct = default) =>
-        PostJsonAsync<IdResponse>("api/admin/hosts", req, ct: ct).ContinueWith(t => t.Result.Id, ct);
+
+    public async Task<int> CreateHostAsync(CreateHostRequest req, CancellationToken ct = default)
+        => (await PostJsonAsync<IdResponse>("api/admin/hosts", req, ct: ct)).Id;
+
     public Task UpdateHostAsync(int id, UpdateHostRequest req, CancellationToken ct = default) =>
         PatchJsonNoContentAsync($"api/admin/hosts/{id}", req, ct);
     public Task DeleteHostAsync(int id, CancellationToken ct = default) =>
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/hosts/{id}", null, ct);
-    public Task<bool> TestHostAsync(int id, CancellationToken ct = default) =>
-        PostJsonAsync<OkResponse>($"api/admin/hosts/{id}/test", new { }, ct: ct).ContinueWith(t => t.Result.Ok, ct);
+
+    public async Task<bool> TestHostAsync(int id, CancellationToken ct = default)
+        => (await PostJsonAsync<OkResponse>($"api/admin/hosts/{id}/test", new { }, ct: ct)).Ok;
 
     public Task<List<ShareDto>> GetAdminSharesAsync(int? hostId = null, CancellationToken ct = default) =>
         GetAsync<List<ShareDto>>(hostId is null ? "api/admin/shares" : $"api/admin/shares?hostId={hostId}", ct);
-    public Task<int> CreateShareAsync(CreateShareRequest req, CancellationToken ct = default) =>
-        PostJsonAsync<IdResponse>("api/admin/shares", req, ct: ct).ContinueWith(t => t.Result.Id, ct);
+
+    public async Task<int> CreateShareAsync(CreateShareRequest req, CancellationToken ct = default)
+        => (await PostJsonAsync<IdResponse>("api/admin/shares", req, ct: ct)).Id;
+
     public Task UpdateShareAsync(int id, UpdateShareRequest req, CancellationToken ct = default) =>
         PatchJsonNoContentAsync($"api/admin/shares/{id}", req, ct);
     public Task DeleteShareAsync(int id, CancellationToken ct = default) =>
@@ -165,14 +175,18 @@ public class ApiClient
 
     public Task<List<UserPermissionDto>> GetUserPermissionsAsync(int? userId = null, CancellationToken ct = default) =>
         GetAsync<List<UserPermissionDto>>(userId is null ? "api/admin/user-permissions" : $"api/admin/user-permissions?userId={userId}", ct);
-    public Task<int> CreateUserPermissionAsync(CreateUserPermissionRequest req, CancellationToken ct = default) =>
-        PostJsonAsync<IdResponse>("api/admin/user-permissions", req, ct: ct).ContinueWith(t => t.Result.Id, ct);
+
+    public async Task<int> CreateUserPermissionAsync(CreateUserPermissionRequest req, CancellationToken ct = default)
+        => (await PostJsonAsync<IdResponse>("api/admin/user-permissions", req, ct: ct)).Id;
+
     public Task DeleteUserPermissionAsync(int id, CancellationToken ct = default) =>
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/user-permissions/{id}", null, ct);
 
     public Task<List<NodeDto>> GetNodesAsync(CancellationToken ct = default) => GetAsync<List<NodeDto>>("api/admin/nodes", ct);
-    public Task<int> CreateNodeAsync(CreateNodeRequest req, CancellationToken ct = default) =>
-        PostJsonAsync<IdResponse>("api/admin/nodes", req, ct: ct).ContinueWith(t => t.Result.Id, ct);
+
+    public async Task<int> CreateNodeAsync(CreateNodeRequest req, CancellationToken ct = default)
+        => (await PostJsonAsync<IdResponse>("api/admin/nodes", req, ct: ct)).Id;
+
     public Task UpdateNodeAsync(int id, UpdateNodeRequest req, CancellationToken ct = default) =>
         PatchJsonNoContentAsync($"api/admin/nodes/{id}", req, ct);
     public Task DeleteNodeAsync(int id, CancellationToken ct = default) =>
@@ -194,14 +208,13 @@ public class ApiClient
 
     public async Task DownloadLogsCsvAsync(Stream output, string? user, string? op, DateTime? from, DateTime? to, CancellationToken ct = default)
     {
-        await EnsureAuthAsync(ct);
         var qs = new List<string>();
         if (!string.IsNullOrWhiteSpace(user)) qs.Add($"user={Uri.EscapeDataString(user)}");
         if (!string.IsNullOrWhiteSpace(op)) qs.Add($"op={Uri.EscapeDataString(op)}");
         if (from.HasValue) qs.Add($"from={from.Value.ToString("o")}");
         if (to.HasValue) qs.Add($"to={to.Value.ToString("o")}");
         var url = "api/admin/logs/export.csv" + (qs.Count > 0 ? "?" + string.Join('&', qs) : string.Empty);
-        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Get, url, ct);
         using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         await ThrowIfErrorAsync(res, ct);
         await using var src = await res.Content.ReadAsStreamAsync(ct);
@@ -212,16 +225,19 @@ public class ApiClient
         GetAsync<BrowseResponse>($"api/admin/browse?hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path ?? "/")}", ct);
 
     // === Helpers ===
-    private async Task EnsureAuthAsync(CancellationToken ct)
+    private async Task<HttpRequestMessage> CreateAuthedRequestAsync(HttpMethod method, string url, CancellationToken ct)
     {
         var token = await _session.GetValidAccessTokenAsync(ct);
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var req = new HttpRequestMessage(method, url);
+        if (!string.IsNullOrEmpty(token))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return req;
     }
 
     private async Task<T> GetAsync<T>(string url, CancellationToken ct)
     {
-        await EnsureAuthAsync(ct);
-        using var res = await _http.GetAsync(url, ct);
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Get, url, ct);
+        using var res = await _http.SendAsync(req, ct);
         await ThrowIfErrorAsync(res, ct);
         var data = await res.Content.ReadFromJsonAsync<T>(JsonOptions, ct);
         return data!;
@@ -229,8 +245,14 @@ public class ApiClient
 
     private async Task<T> PostJsonAsync<T>(string url, object body, bool anonymous = false, CancellationToken ct = default)
     {
-        if (!anonymous) await EnsureAuthAsync(ct);
-        using var res = await _http.PostAsJsonAsync(url, body, JsonOptions, ct);
+        using var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body, options: JsonOptions) };
+        if (!anonymous)
+        {
+            var token = await _session.GetValidAccessTokenAsync(ct);
+            if (!string.IsNullOrEmpty(token))
+                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        using var res = await _http.SendAsync(req, ct);
         await ThrowIfErrorAsync(res, ct);
         var data = await res.Content.ReadFromJsonAsync<T>(JsonOptions, ct);
         return data!;
@@ -238,23 +260,23 @@ public class ApiClient
 
     private async Task PostJsonNoContentAsync(string url, object body, CancellationToken ct = default)
     {
-        await EnsureAuthAsync(ct);
-        using var res = await _http.PostAsJsonAsync(url, body, JsonOptions, ct);
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Post, url, ct);
+        req.Content = JsonContent.Create(body, options: JsonOptions);
+        using var res = await _http.SendAsync(req, ct);
         await ThrowIfErrorAsync(res, ct);
     }
 
     private async Task PatchJsonNoContentAsync(string url, object body, CancellationToken ct)
     {
-        await EnsureAuthAsync(ct);
-        using var req = new HttpRequestMessage(HttpMethod.Patch, url) { Content = JsonContent.Create(body, options: JsonOptions) };
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Patch, url, ct);
+        req.Content = JsonContent.Create(body, options: JsonOptions);
         using var res = await _http.SendAsync(req, ct);
         await ThrowIfErrorAsync(res, ct);
     }
 
     private async Task SendNoContentAsync(HttpMethod method, string url, object? body, CancellationToken ct)
     {
-        await EnsureAuthAsync(ct);
-        using var req = new HttpRequestMessage(method, url);
+        using var req = await CreateAuthedRequestAsync(method, url, ct);
         if (body is not null) req.Content = JsonContent.Create(body, options: JsonOptions);
         using var res = await _http.SendAsync(req, ct);
         await ThrowIfErrorAsync(res, ct);
@@ -270,7 +292,16 @@ public class ApiClient
             using var doc = await JsonDocument.ParseAsync(s, cancellationToken: ct);
             if (doc.RootElement.TryGetProperty("error", out var e)) msg = e.GetString();
         }
-        catch { }
+        catch
+        {
+            try
+            {
+                var body = await res.Content.ReadAsStringAsync(ct);
+                if (!string.IsNullOrWhiteSpace(body))
+                    msg = body.Length > 200 ? body[..200] : body;
+            }
+            catch { }
+        }
         throw new ApiException(res.StatusCode, msg);
     }
 
@@ -283,4 +314,8 @@ public class ApiClient
     public record SettingItem(string Key, string Value, DateTime UpdatedAt);
     public record AuditPage(int TotalCount, int Page, int PageSize, List<AuditLogDto> Items);
     public record BrowseResponse(string CurrentPath, List<FileEntry> Entries);
+
+    public record UserCatalogHost(int Id, string Name, string? Description, List<UserCatalogShare> Shares);
+    public record UserCatalogShare(int Id, string ShareName, string DisplayName, List<LocationDto> Locations);
+    public record UserCatalogResponse(List<UserCatalogHost> Hosts);
 }

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Watashi.Client.Services;
+using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs;
 using Watashi.Shared.DTOs.Files;
 using Watashi.Shared.Helpers;
@@ -35,17 +36,13 @@ public partial class RemotePaneViewModel : ObservableObject
         try
         {
             IsBusy = true;
+            // catalog エンドポイントで host/share/location を 1 リクエスト集約取得。
+            var catalog = await _api.GetUserCatalogAsync();
             Locations.Clear();
-            var hosts = await _api.GetHostsAsync();
-            foreach (var h in hosts)
-            {
-                var shares = await _api.GetSharesAsync(h.Id);
-                foreach (var s in shares)
-                {
-                    var locs = await _api.GetLocationsAsync(h.Id, s.Id);
-                    foreach (var l in locs) Locations.Add(l);
-                }
-            }
+            foreach (var h in catalog.Hosts)
+                foreach (var s in h.Shares)
+                    foreach (var l in s.Locations)
+                        Locations.Add(l);
             if (Locations.Count > 0) SelectedLocation = Locations[0];
         }
         catch (Exception ex) { StatusMessage = "ロケーション取得失敗: " + ex.Message; }
@@ -59,8 +56,8 @@ public partial class RemotePaneViewModel : ObservableObject
         try
         {
             IsBusy = true;
-            Entries.Clear();
             var res = await _api.ListFilesAsync(SelectedLocation.HostId, SelectedLocation.ShareId, CurrentPath);
+            Entries.Clear();
             foreach (var e in res.Entries) Entries.Add(e);
             StatusMessage = string.Empty;
         }
@@ -72,14 +69,14 @@ public partial class RemotePaneViewModel : ObservableObject
     public async Task OpenSelectedAsync()
     {
         if (Selected is null || SelectedLocation is null) return;
-        if (Selected.Type == "parent")
+        if (Selected.Type == FileEntryTypes.Parent)
         {
             if (Selected.CanGoUp != true) return;
             CurrentPath = PathHelper.GetParent(CurrentPath);
             await RefreshAsync();
             return;
         }
-        if (Selected.Type == "directory")
+        if (Selected.Type == FileEntryTypes.Directory)
         {
             CurrentPath = JoinPath(CurrentPath, Selected.Name);
             await RefreshAsync();
@@ -89,7 +86,7 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public async Task DeleteSelectedAsync()
     {
-        if (Selected is null || SelectedLocation is null || Selected.Type == "parent") return;
+        if (Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
         try
         {
             await _api.DeleteFileAsync(SelectedLocation.HostId, SelectedLocation.ShareId, JoinPath(CurrentPath, Selected.Name));
