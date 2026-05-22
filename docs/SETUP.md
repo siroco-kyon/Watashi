@@ -34,33 +34,47 @@
 CIFS サーバーが無くてもログイン / 認証 / DB 自動生成までは確認できます。
 
 ```powershell
-# 1) 中央サーバー起動
+# 1) 中央サーバー起動 (PowerShell でも cmd でも可)
 cd src\Watashi.Server
-$env:ASPNETCORE_ENVIRONMENT = "Development"
 dotnet run
+# → http://127.0.0.1:18080 で起動
+# → ASPNETCORE_ENVIRONMENT=Development は launchSettings.json で自動設定されるので、env 変数を手動指定する必要なし
+# (もし手動で指定したい場合は: PowerShell なら $env:ASPNETCORE_ENVIRONMENT="Development"、cmd なら set ASPNETCORE_ENVIRONMENT=Development)
 ```
 
 別ウィンドウで:
 
 ```powershell
-# 2) 疎通確認
-curl http://localhost:8080/health
+# 2) 疎通確認 (ブラウザで http://127.0.0.1:18080/ を開くとエンドポイント一覧が見える)
+Invoke-RestMethod http://127.0.0.1:18080/health
 # → {"status":"ok","at":"..."}
 
 # 3) ログイン (admin / Admin123!@#)
-curl -X POST http://localhost:8080/api/auth/login `
-     -H "Content-Type: application/json" `
-     -d '{"username":"admin","password":"Admin123!@#"}'
-# → mustChangePassword: true なので、初回はパスワード変更が必要
+$body = @{ username = 'admin'; password = 'Admin123!@#' } | ConvertTo-Json
+$login = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:18080/api/auth/login `
+    -ContentType 'application/json' -Body $body
+$login.mustChangePassword   # → True (初回はパスワード変更が必要)
+$login.accessToken          # → JWT
 ```
+
+> **PowerShell の注意**: `curl` は `Invoke-WebRequest` のエイリアスなので `curl -X POST -H ...` のような Unix 構文は通らない。
+> Unix 系の例を使いたい場合は `curl.exe` を明示（Windows 10 以降に同梱されている本物の curl が呼ばれる）:
+> ```powershell
+> curl.exe -X POST http://127.0.0.1:18080/api/auth/login `
+>     -H "Content-Type: application/json" `
+>     -d '{\"username\":\"admin\",\"password\":\"Admin123!@#\"}'
+> ```
 
 ```powershell
 # 4) WPF クライアント起動
 cd ..\Watashi.Client
 dotnet run
-# → 初回起動: 接続設定で http://localhost:8080 を入力
+# → 初回起動: 接続設定で http://127.0.0.1:18080 を入力
 # → ログイン: admin / Admin123!@# → パスワード変更画面 → メイン画面
 ```
+
+> 開発時のポート (18080) は `src\Watashi.Server\appsettings.Development.json` の `Kestrel:Endpoints:Http:Url` で設定されている。
+> 本番は `appsettings.json` 側で `Https:Url=https://0.0.0.0:8443` を使用する想定。
 
 ホストが未登録ならリモートペインは空。
 ホスト登録手順は [ADMIN-GUIDE.md](ADMIN-GUIDE.md) を参照（実 CIFS サーバーが必要）。

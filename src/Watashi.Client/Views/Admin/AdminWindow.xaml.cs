@@ -25,4 +25,6 @@ public partial class AdminWindow : Window
                 vm.Settings.RefreshAsync());
         }
     }
+
+    private void OnCloseClicked(object sender, RoutedEventArgs e) => Close();
 }

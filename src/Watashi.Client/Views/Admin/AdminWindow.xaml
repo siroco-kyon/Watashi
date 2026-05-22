@@ -2,16 +2,29 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="clr-namespace:Watashi.Client.Views.Admin"
-        Title="Watashi 管理" Width="1100" Height="700" WindowStartupLocation="CenterOwner">
-    <TabControl>
-        <TabItem Header="ユーザー">      <v:UserManagementView DataContext="{Binding Users}"/></TabItem>
-        <TabItem Header="ホスト">       <v:HostManagementView DataContext="{Binding Hosts}"/></TabItem>
-        <TabItem Header="共有">         <v:ShareManagementView DataContext="{Binding Shares}"/></TabItem>
-        <TabItem Header="テンプレート">  <v:PermissionTemplateView DataContext="{Binding Templates}"/></TabItem>
-        <TabItem Header="ユーザー権限">  <v:UserPermissionView DataContext="{Binding UserPermissions}"/></TabItem>
-        <TabItem Header="信頼デバイス">  <v:DeviceManagementView DataContext="{Binding Devices}"/></TabItem>
-        <TabItem Header="実行ノード">    <v:NodeManagementView DataContext="{Binding Nodes}"/></TabItem>
-        <TabItem Header="操作ログ">     <v:AuditLogView DataContext="{Binding Logs}"/></TabItem>
-        <TabItem Header="システム設定">  <v:SystemSettingsView DataContext="{Binding Settings}"/></TabItem>
-    </TabControl>
+        Title="Watashi 管理" Width="1100" Height="720" WindowStartupLocation="CenterOwner">
+    <DockPanel>
+        <!-- 上部ヘッダー: タイトル(左) + メイン画面に戻るボタン(右、X ボタンのすぐ下あたり) -->
+        <Border DockPanel.Dock="Top" Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="0,0,0,1" Padding="8,4">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="✕ メイン画面に戻る (Esc)"
+                        Click="OnCloseClicked" IsCancel="True"
+                        Padding="14,4" MinWidth="180" Height="28"
+                        ToolTip="変更は保存ボタンで確定済みです。閉じてもデータは消えません。"/>
+                <TextBlock Text="Watashi 管理画面" FontWeight="Bold" Foreground="#444"
+                           VerticalAlignment="Center" Margin="4,0,0,0"/>
+            </DockPanel>
+        </Border>
+        <TabControl>
+            <TabItem Header="ユーザー">      <v:UserManagementView DataContext="{Binding Users}"/></TabItem>
+            <TabItem Header="ホスト">       <v:HostManagementView DataContext="{Binding Hosts}"/></TabItem>
+            <TabItem Header="共有">         <v:ShareManagementView DataContext="{Binding Shares}"/></TabItem>
+            <TabItem Header="テンプレート">  <v:PermissionTemplateView DataContext="{Binding Templates}"/></TabItem>
+            <TabItem Header="ユーザー権限">  <v:UserPermissionView DataContext="{Binding UserPermissions}"/></TabItem>
+            <TabItem Header="信頼デバイス">  <v:DeviceManagementView DataContext="{Binding Devices}"/></TabItem>
+            <TabItem Header="実行ノード">    <v:NodeManagementView DataContext="{Binding Nodes}"/></TabItem>
+            <TabItem Header="操作ログ">     <v:AuditLogView DataContext="{Binding Logs}"/></TabItem>
+            <TabItem Header="システム設定">  <v:SystemSettingsView DataContext="{Binding Settings}"/></TabItem>
+        </TabControl>
+    </DockPanel>
 </Window>

@@ -18,20 +18,46 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        _settings = AppSettings.Load();
-        Services = BuildServices(_settings);
 
-        if (!_settings.IsConfigured)
+        // クラッシュ原因を黙って消さずに表示する。
+        DispatcherUnhandledException += (_, ev) =>
         {
-            var sw = Services.GetRequiredService<ConnectionSettingsWindow>();
-            if (sw.ShowDialog() != true) { Shutdown(); return; }
-            Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
-        }
+            ShowFatal("UI スレッド例外", ev.Exception);
+            ev.Handled = true;
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, ev) =>
+        {
+            if (ev.ExceptionObject is Exception ex) ShowFatal("未処理例外", ex);
+        };
+        TaskScheduler.UnobservedTaskException += (_, ev) =>
+        {
+            ShowFatal("非同期例外", ev.Exception);
+            ev.SetObserved();
+        };
 
-        await StartLoginFlowAsync();
+        try
+        {
+            _settings = AppSettings.Load();
+            Services = BuildServices(_settings);
+
+            if (!_settings.IsConfigured)
+            {
+                var sw = Services.GetRequiredService<ConnectionSettingsWindow>();
+                if (sw.ShowDialog() != true) { Shutdown(); return; }
+                Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
+            }
+
+            await StartLoginFlowAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowFatal("起動失敗", ex);
+            Shutdown();
+        }
     }
 
-    public async void RestartLoginFlow() => await StartLoginFlowAsync();
+    // 旧 API 互換（直接呼ぶ箇所がもう無くなったらこのメソッドごと削除可）。
+    public void RestartLoginFlow() => RequestLogout();
 
     private async Task StartLoginFlowAsync()
     {
@@ -62,23 +88,54 @@ public partial class App : Application
         ShowMain();
     }
 
+    private static void ShowFatal(string title, Exception ex)
+    {
+        var msg = $"{ex.GetType().Name}: {ex.Message}\n\n{ex.StackTrace}";
+        if (ex.InnerException is not null)
+            msg += $"\n\n--- Inner ---\n{ex.InnerException.GetType().Name}: {ex.InnerException.Message}\n{ex.InnerException.StackTrace}";
+        MessageBox.Show(msg, $"Watashi - {title}", MessageBoxButton.OK, MessageBoxImage.Error);
+        Console.Error.WriteLine($"[{title}] {ex}");
+    }
+
     private bool ShowLogin()
     {
         var w = Services.GetRequiredService<LoginWindow>();
         return w.ShowDialog() == true;
     }
 
-    private bool ShowChangePassword()
+    private bool _logoutInProgress;
+
+    /// <summary>ログアウト要求。MainWindow を閉じて再ログインフローを開始する。</summary>
+    public void RequestLogout()
     {
-        var w = Services.GetRequiredService<ChangePasswordWindow>();
-        return w.ShowDialog() == true;
+        _logoutInProgress = true;
+        MainWindow?.Close();
     }
 
     private void ShowMain()
     {
         var w = Services.GetRequiredService<MainWindow>();
         MainWindow = w;
+        w.Closed += async (_, _) =>
+        {
+            if (_logoutInProgress)
+            {
+                _logoutInProgress = false;
+                try { await StartLoginFlowAsync(); }
+                catch (Exception ex) { ShowFatal("再ログイン失敗", ex); Shutdown(); }
+            }
+            else
+            {
+                Shutdown();
+            }
+        };
         w.Show();
+    }
+
+    private bool ShowChangePassword()
+    {
+        var w = Services.GetRequiredService<ChangePasswordWindow>();
+        return w.ShowDialog() == true;
     }
 
     private static IServiceProvider BuildServices(AppSettings settings)

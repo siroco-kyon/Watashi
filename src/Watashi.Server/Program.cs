@@ -157,6 +157,26 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ブラウザで / を開いたときに 404 ではなく簡単な案内を返す。動作確認用。
+app.MapGet("/", () => Results.Ok(new
+{
+    service = "Watashi.Server",
+    docs = "https://github.com/siroco-kyon/Watashi",
+    endpoints = new[]
+    {
+        "GET  /health",
+        "POST /api/auth/login",
+        "POST /api/auth/auto-login",
+        "POST /api/auth/refresh",
+        "POST /api/auth/logout",
+        "GET  /api/hosts (要 JWT)",
+        "GET  /api/hosts/catalog (要 JWT)",
+        "GET  /api/files (要 JWT)",
+        "/api/admin/* (要 Admin)",
+        "/api/internal/* (要 mTLS Agent 証明書)",
+    },
+}));
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok", at = DateTime.UtcNow }));
 app.MapAuthEndpoints();
 app.MapHostEndpoints();

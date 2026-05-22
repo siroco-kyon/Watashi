@@ -12,6 +12,8 @@ public partial class LocalPaneViewModel : ObservableObject
 {
     private readonly LocalFileService _files;
     private readonly AppSettings _settings;
+    private readonly Stack<string> _back = new();
+    private readonly Stack<string> _forward = new();
     private DateTime _lastSettingsSave = DateTime.MinValue;
     public ObservableCollection<FileEntry> Entries { get; } = new();
 
@@ -19,6 +21,8 @@ public partial class LocalPaneViewModel : ObservableObject
     [ObservableProperty] private FileEntry? selected;
     [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private bool isBusy;
+    [ObservableProperty] private bool canGoBack;
+    [ObservableProperty] private bool canGoForward;
 
     public LocalPaneViewModel(LocalFileService files, AppSettings settings)
     {
@@ -29,6 +33,59 @@ public partial class LocalPaneViewModel : ObservableObject
         _ = RefreshAsync();
     }
 
+    /// <summary>
+    /// 任意のパスへ移動（履歴に積む）。テキストボックスの「移動」、Enter、フォルダのダブルクリックから呼ばれる。
+    /// </summary>
+    [RelayCommand]
+    public async Task NavigateAsync(string? newPath)
+    {
+        var target = (newPath ?? CurrentPath)?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(target)) return;
+        if (string.Equals(target, CurrentPath, StringComparison.OrdinalIgnoreCase))
+        {
+            await RefreshAsync();
+            return;
+        }
+        if (!string.IsNullOrEmpty(CurrentPath)) _back.Push(CurrentPath);
+        _forward.Clear();
+        CurrentPath = target;
+        UpdateHistoryFlags();
+        await RefreshAsync();
+    }
+
+    [RelayCommand]
+    public Task GoBackAsync()
+    {
+        if (_back.Count == 0) return Task.CompletedTask;
+        var prev = _back.Pop();
+        if (!string.IsNullOrEmpty(CurrentPath)) _forward.Push(CurrentPath);
+        CurrentPath = prev;
+        UpdateHistoryFlags();
+        return RefreshAsync();
+    }
+
+    [RelayCommand]
+    public Task GoForwardAsync()
+    {
+        if (_forward.Count == 0) return Task.CompletedTask;
+        var next = _forward.Pop();
+        if (!string.IsNullOrEmpty(CurrentPath)) _back.Push(CurrentPath);
+        CurrentPath = next;
+        UpdateHistoryFlags();
+        return RefreshAsync();
+    }
+
+    [RelayCommand]
+    public async Task GoUpAsync()
+    {
+        var parent = await Task.Run(() =>
+        {
+            try { return Directory.GetParent(CurrentPath); }
+            catch { return null; }
+        });
+        if (parent is not null) await NavigateAsync(parent.FullName);
+    }
+
     [RelayCommand]
     public async Task RefreshAsync()
     {
@@ -36,7 +93,11 @@ public partial class LocalPaneViewModel : ObservableObject
         {
             IsBusy = true;
             var path = CurrentPath;
-            var hasParent = await Task.Run(() => Directory.GetParent(path) is not null);
+            var hasParent = await Task.Run(() =>
+            {
+                try { return Directory.GetParent(path) is not null; }
+                catch { return false; }
+            });
             var items = await _files.ListAsync(path);
             Entries.Clear();
             if (hasParent)
@@ -55,14 +116,12 @@ public partial class LocalPaneViewModel : ObservableObject
         if (Selected is null) return;
         if (Selected.Type == FileEntryTypes.Parent)
         {
-            var parent = await Task.Run(() => Directory.GetParent(CurrentPath));
-            if (parent is not null) { CurrentPath = parent.FullName; await RefreshAsync(); }
+            await GoUpAsync();
             return;
         }
         if (Selected.Type == FileEntryTypes.Directory)
         {
-            CurrentPath = Path.Combine(CurrentPath, Selected.Name);
-            await RefreshAsync();
+            await NavigateAsync(Path.Combine(CurrentPath, Selected.Name));
         }
     }
 
@@ -97,9 +156,14 @@ public partial class LocalPaneViewModel : ObservableObject
         catch (Exception ex) { StatusMessage = ex.Message; }
     }
 
+    private void UpdateHistoryFlags()
+    {
+        CanGoBack = _back.Count > 0;
+        CanGoForward = _forward.Count > 0;
+    }
+
     private void SaveLastPathThrottled(string path)
     {
-        // 毎リフレッシュで Save するとパスを TextBox 経由でタイプしたときに disk が荒れるので、5 秒間隔で間引く。
         var now = DateTime.UtcNow;
         if ((now - _lastSettingsSave).TotalSeconds < 5 && _settings.LastLocalPath == path) return;
         _settings.LastLocalPath = path;
