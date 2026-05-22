@@ -1,6 +1,7 @@
+using System.Buffers;
 using SMBLibrary;
 
-namespace Watashi.Agent.Services.Cifs;
+namespace Watashi.Shared.Cifs;
 
 public sealed class SmbWriteStream : Stream
 {
@@ -20,7 +21,12 @@ public sealed class SmbWriteStream : Stream
     public override bool CanSeek => false;
     public override bool CanWrite => true;
     public override long Length => throw new NotSupportedException();
-    public override long Position { get => _position; set => throw new NotSupportedException(); }
+    public override long Position
+    {
+        get => _position;
+        set => throw new NotSupportedException();
+    }
+
     public override void Flush() { }
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
     public override void SetLength(long value) => throw new NotSupportedException();
@@ -31,19 +37,37 @@ public sealed class SmbWriteStream : Stream
         if (_disposed) throw new ObjectDisposedException(nameof(SmbWriteStream));
         int remaining = count;
         int bufferOffset = offset;
-        while (remaining > 0)
+        var pool = ArrayPool<byte>.Shared;
+        byte[]? rented = null;
+        try
         {
-            int toWrite = Math.Min(remaining, ChunkSize);
-            var chunk = new byte[toWrite];
-            Buffer.BlockCopy(buffer, bufferOffset, chunk, 0, toWrite);
-            var status = _session.Store.WriteFile(out int bytesWritten, _handle, _position, chunk);
-            if (status != NTStatus.STATUS_SUCCESS)
-                throw new IOException($"SMB 書き込み失敗: {status}");
-            if (bytesWritten <= 0) throw new IOException("SMB 書き込み: 0 バイトのみ書き込まれました。");
-            _position += bytesWritten;
-            bufferOffset += bytesWritten;
-            remaining -= bytesWritten;
+            while (remaining > 0)
+            {
+                int toWrite = Math.Min(remaining, ChunkSize);
+                rented ??= pool.Rent(ChunkSize);
+                Buffer.BlockCopy(buffer, bufferOffset, rented, 0, toWrite);
+                byte[] chunk = toWrite == rented.Length ? rented : Slice(rented, toWrite);
+                var status = _session.Store.WriteFile(out int bytesWritten, _handle, _position, chunk);
+                if (status != NTStatus.STATUS_SUCCESS)
+                    throw new IOException($"SMB 書き込みエラー: {status}");
+                if (bytesWritten <= 0)
+                    throw new IOException("SMB 書き込み: 0 バイトのみ書き込まれました。");
+                _position += bytesWritten;
+                bufferOffset += bytesWritten;
+                remaining -= bytesWritten;
+            }
         }
+        finally
+        {
+            if (rented is not null) pool.Return(rented);
+        }
+    }
+
+    private static byte[] Slice(byte[] source, int length)
+    {
+        var dst = new byte[length];
+        Buffer.BlockCopy(source, 0, dst, 0, length);
+        return dst;
     }
 
     protected override void Dispose(bool disposing)

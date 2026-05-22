@@ -1397,3 +1397,60 @@ MSI（WiX）またはPowerShellスクリプトで:
 | エージェント障害時 | 即時エラー（リトライなし）、503返却 |
 | タイムスタンプ | 全てUTC保管、クライアントでローカル変換 |
 | CIFS資格情報暗号化 | アプリ層 AES-256-GCM |
+
+---
+
+## 付録: 実装後の差分（v0.2 反映）
+
+初版仕様 (Phase 1〜11) からの主な変更点。詳細は各ドキュメント参照。
+
+### セキュリティ強化
+- **`/api/internal/*` (中央↔Agent) と `/agent/*` (Agent inbound) の認証必須化**
+  - mTLS: Agent クライアント証明書サムプリントを `ExecutionNode.ClientCertificateThumbprint` と照合 (中央側 `Agent` ポリシー)
+  - Agent inbound: 中央証明書 (`Auth:CentralCertificateThumbprint`) または X-Watashi-Secret ヘッダ (`Auth:SharedSecret`) で識別 (`CentralOrSharedSecret` ポリシー)
+- **AgentForwarder の認証情報を URL クエリ → POST body / X-Watashi-Cifs ヘッダ に変更**（アクセスログ漏洩を防止）
+- **リフレッシュトークンのローテーション + 再利用検知**（旧トークン失効 + 失効後の提示でファミリー失効）
+- **ログインのレート制限**（IP 単位 10/分、`Auth:LoginPerMinutePerIp` で変更可）
+- **管理者操作の監査ログ**（`ADMIN_USER_*`, `ADMIN_HOST_*`, `ADMIN_SHARE_*`, `ADMIN_TEMPLATE_*`, `ADMIN_PERMISSION_*`, `ADMIN_NODE_*`, `ADMIN_SETTING_UPDATE`）
+- **起動時シークレット検証**（`Jwt:Secret` / `Encryption:MasterKey` のプレースホルダ検出、Production で起動拒否）
+- **機微フィールドに `[JsonIgnore]`**（`User.PasswordHash`, `RefreshToken.TokenHash`, `TrustedDevice.DeviceTokenHash`, `CifsHost.CredPasswordEnc`）
+- **内部例外メッセージは `Results.Problem` でマスク**（クライアントへスタックトレース漏洩なし）
+
+### アーキテクチャ
+- **CIFS レイヤを `Watashi.Shared.Cifs` に統合**（Server/Agent の重複コード約 350 行削除）
+- **SMB セッションプール `CifsSessionPool`**（操作毎のハンドシェイクコスト削減、TTL 60s, キー単位 LRU 4）
+- **`/api/hosts/catalog` 集約 API**（クライアントの N×M HTTP ループを 1 リクエストに圧縮）
+- **`FileEndpoints.ExecuteAsync` 共通ヘルパー**（認可 + 監査 + 例外マップを統一）
+- **`AdminViewModelBase`**（Admin VM 共通 try/catch + ObservableCollection 一括差し替え）
+
+### パフォーマンス
+- **全 read-only クエリに `AsNoTracking`**
+- **PermissionService の per-request メモ化**（`HttpContext.Items`）
+- **`SmbWriteStream` で `ArrayPool<byte>.Shared` 利用**（LOH 圧迫排除）
+- **`PeriodicTimer` + `ExecuteUpdate/ExecuteDelete`**（NodeHealthMonitor, LogSyncService, TrustedDevice 失効）
+- **WPF Admin 画面の 9 並列ロード**（`Task.WhenAll`）
+- **ローカルペインの I/O を `Task.Run` + `EnumerateXxx`**（UI スレッドフリーズ解消）
+- **ApiClient の `DefaultRequestHeaders.Authorization` 競合を per-request ヘッダ化**
+- **CSV エクスポートを `AsNoTracking + Select` 射影 + バッチフラッシュ**（OOM 回避）
+
+### Windows サービス化
+- Server / Agent ともに `Microsoft.Extensions.Hosting.WindowsServices` 採用
+- インストールスクリプト: `deploy/install-server-service.ps1` / `install-agent-service.ps1`
+- 異常終了時の自動再起動（5s → 30s → 60s）
+
+### クライアント
+- **App.xaml.cs の `GetAwaiter().GetResult()` を排除**（async/await 化、auto-login に 8 秒タイムアウト）
+- **ContinueWith を排除**（async/await 化、`AggregateException` ラップ解消）
+- **`AdminWindow` の `Loaded` ハンドラ unsubscribe**（多重実行/メモリリーク対策）
+- **`MainWindow.Prompt` を `PromptDialog.xaml` に分離**（imperative WPF 構築の排除）
+- **`ConnectionSettingsViewModel` で `IHttpClientFactory` 利用**（ソケットリーク対策）
+- **`SessionIdleMinutes` をログイン応答経由でクライアントに配信**（ハードコード解除）
+- **`FileEntry.Type` を `FileEntryTypes` 定数化**
+
+### 設定追加
+- `Auth:LoginPerMinutePerIp` (デフォルト 10)
+- `Auth:CentralCertificateThumbprint` (Agent 側)
+- `Auth:SharedSecret` (中央↔Agent 双方)
+- `Routing:SharedSecret` (中央側、`Auth:SharedSecret` と同値)
+- `Cifs:SessionIdleSeconds` (デフォルト 60)
+- `Cifs:MaxSessionsPerKey` (デフォルト 4)

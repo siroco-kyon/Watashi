@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Watashi.Server.Data;
 using Watashi.Shared.Constants;
+using Watashi.Shared.Helpers;
 using Watashi.Shared.Models;
 
 namespace Watashi.Server.Services;
@@ -34,8 +35,8 @@ public class AuditLogService
         int? usedPermissionId = null,
         CancellationToken ct = default)
     {
-        int? userId = int.TryParse(principal.FindFirst("uid")?.Value, out var uid) ? uid : null;
-        var username = principal.FindFirst("name")?.Value ?? "(anonymous)";
+        int? userId = principal.GetUserId();
+        var username = principal.GetUsername() ?? "(anonymous)";
         await LogAsync(new AuditLog
         {
             Timestamp = DateTime.UtcNow,
@@ -57,4 +58,18 @@ public class AuditLogService
             UsedPermissionId = usedPermissionId,
         }, ct);
     }
+
+    /// <summary>
+    /// 管理者操作の監査ログを記録する軽量ヘルパー。target は "user:42" のような識別子。
+    /// </summary>
+    public Task LogAdminAsync(
+        ClaimsPrincipal principal,
+        HttpContext ctx,
+        string operation,
+        string? target,
+        string result = AuditResults.Success,
+        string? errorMessage = null,
+        CancellationToken ct = default)
+        => LogAsync(principal, ctx, operation, hostId: null, shareId: null, path: target,
+            result: result, errorMessage: errorMessage, ct: ct);
 }

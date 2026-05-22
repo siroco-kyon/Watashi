@@ -1,6 +1,9 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Data;
+using Watashi.Server.Services;
+using Watashi.Shared.Constants;
+using Watashi.Shared.Helpers;
 using Watashi.Shared.Models;
 
 namespace Watashi.Server.Endpoints;
@@ -13,19 +16,21 @@ public static class AdminSettingsEndpoints
 
         group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
         {
-            var items = await db.SystemSettings.Select(s => new { s.Key, s.Value, s.UpdatedAt }).ToListAsync(ct);
+            var items = await db.SystemSettings.AsNoTracking()
+                .Select(s => new { s.Key, s.Value, s.UpdatedAt })
+                .ToListAsync(ct);
             return Results.Ok(items);
         });
 
         group.MapGet("/{key}", async (string key, AppDbContext db, CancellationToken ct) =>
         {
-            var s = await db.SystemSettings.FindAsync(new object?[] { key }, ct);
+            var s = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key, ct);
             return s is null ? Results.NotFound() : Results.Ok(new { s.Key, s.Value, s.UpdatedAt });
         });
 
-        group.MapPut("/{key}", async (string key, SettingUpdate body, AppDbContext db, ClaimsPrincipal principal, CancellationToken ct) =>
+        group.MapPut("/{key}", async (string key, SettingUpdate body, AppDbContext db, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
-            int? uid = int.TryParse(principal.FindFirst("uid")?.Value, out var u) ? u : null;
+            int? uid = principal.GetUserId();
             var s = await db.SystemSettings.FindAsync(new object?[] { key }, ct);
             var now = DateTime.UtcNow;
             if (s is null)
@@ -39,6 +44,7 @@ public static class AdminSettingsEndpoints
                 s.UpdatedBy = uid;
             }
             await db.SaveChangesAsync(ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.SettingUpdate, $"setting:{key}", ct: ct);
             return Results.NoContent();
         });
 

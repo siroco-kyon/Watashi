@@ -7,12 +7,11 @@ using Watashi.Shared.DTOs.Admin;
 
 namespace Watashi.Client.ViewModels.Admin;
 
-public partial class NodeManagementViewModel : ObservableObject
+public partial class NodeManagementViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
     public ObservableCollection<NodeDto> Items { get; } = new();
     [ObservableProperty] private NodeDto? selected;
-    [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private string newName = string.Empty;
     [ObservableProperty] private string newType = NodeTypes.Direct;
     [ObservableProperty] private string? newEndpoint;
@@ -21,32 +20,24 @@ public partial class NodeManagementViewModel : ObservableObject
     public NodeManagementViewModel(ApiClient api) { _api = api; }
 
     [RelayCommand]
-    public async Task RefreshAsync()
-    {
-        try { Items.Clear(); foreach (var n in await _api.GetNodesAsync()) Items.Add(n); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+    public Task RefreshAsync() => SafeAsync(async () => ReplaceAll(Items, await _api.GetNodesAsync()));
 
     [RelayCommand]
-    public async Task CreateAsync()
+    public Task CreateAsync() => SafeAsync(async () =>
     {
-        try
+        await _api.CreateNodeAsync(new CreateNodeRequest
         {
-            await _api.CreateNodeAsync(new CreateNodeRequest
-            {
-                Name = NewName, NodeType = NewType, Endpoint = NewEndpoint, MaxConcurrency = NewMaxConcurrency,
-            });
-            NewName = string.Empty; NewEndpoint = null;
-            await RefreshAsync();
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+            Name = NewName, NodeType = NewType, Endpoint = NewEndpoint, MaxConcurrency = NewMaxConcurrency,
+        });
+        NewName = string.Empty; NewEndpoint = null;
+        await RefreshAsync();
+    });
 
     [RelayCommand]
-    public async Task DeleteAsync()
+    public Task DeleteAsync() => SafeAsync(async () =>
     {
         if (Selected is null) return;
-        try { await _api.DeleteNodeAsync(Selected.Id); await RefreshAsync(); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.DeleteNodeAsync(Selected.Id);
+        await RefreshAsync();
+    });
 }

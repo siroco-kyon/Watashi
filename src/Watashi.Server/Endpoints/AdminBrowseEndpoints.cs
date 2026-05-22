@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Data;
 using Watashi.Server.Services;
-using Watashi.Server.Services.Cifs;
+using Watashi.Shared.Cifs;
 using Watashi.Shared.Helpers;
 
 namespace Watashi.Server.Endpoints;
@@ -19,7 +19,7 @@ public static class AdminBrowseEndpoints
             EncryptionService enc,
             CancellationToken ct) =>
         {
-            var row = await (from h in db.CifsHosts
+            var row = await (from h in db.CifsHosts.AsNoTracking()
                 join s in db.CifsShares on h.Id equals s.HostId
                 where h.Id == hostId && s.Id == shareId
                 select new { h.HostAddress, h.Port, h.CredUsername, h.CredPasswordEnc, s.ShareName }

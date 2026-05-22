@@ -5,7 +5,8 @@ using Watashi.Shared.Constants;
 namespace Watashi.Server.Services;
 
 /// <summary>
-/// 30 秒以上ハートビートが無い Agent ノードを Unhealthy にし、復活したら Healthy へ戻す。
+/// 90 秒以上ハートビートが無い Agent ノードを Unhealthy にし、復活したら Healthy に戻す。
+/// 状態変化があったノードだけを ExecuteUpdate で書き込み、no-op の SaveChanges を避ける。
 /// </summary>
 public class NodeHealthMonitor : BackgroundService
 {
@@ -20,33 +21,29 @@ public class NodeHealthMonitor : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        do
         {
             try
             {
-                using var scope = _sp.CreateScope();
+                await using var scope = _sp.CreateAsyncScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var threshold = DateTime.UtcNow - _unhealthyAfter;
-                var nodes = await db.ExecutionNodes
+                var snapshot = await db.ExecutionNodes.AsNoTracking()
                     .Where(n => n.NodeType == NodeTypes.Agent)
+                    .Select(n => new { n.Id, n.HealthStatus, n.LastHeartbeatAt })
                     .ToListAsync(ct);
-                bool dirty = false;
-                foreach (var n in nodes)
+                foreach (var n in snapshot)
                 {
                     var desired = n.LastHeartbeatAt.HasValue && n.LastHeartbeatAt >= threshold
-                        ? HealthStatuses.Healthy
-                        : HealthStatuses.Unhealthy;
-                    if (n.HealthStatus != desired)
-                    {
-                        n.HealthStatus = desired;
-                        dirty = true;
-                    }
+                        ? HealthStatuses.Healthy : HealthStatuses.Unhealthy;
+                    if (n.HealthStatus == desired) continue;
+                    await db.ExecutionNodes.Where(x => x.Id == n.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(x => x.HealthStatus, desired), ct);
                 }
-                if (dirty) await db.SaveChangesAsync(ct);
             }
-            catch (Exception ex) { _log.LogWarning(ex, "NodeHealthMonitor ループ失敗"); }
-            try { await Task.Delay(TimeSpan.FromSeconds(15), ct); }
             catch (OperationCanceledException) { break; }
-        }
+            catch (Exception ex) { _log.LogWarning(ex, "NodeHealthMonitor ループ失敗"); }
+        } while (await timer.WaitForNextTickAsync(ct));
     }
 }

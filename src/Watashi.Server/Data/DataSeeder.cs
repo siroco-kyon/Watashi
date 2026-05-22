@@ -13,10 +13,10 @@ public static class DataSeeder
         if (!await db.SystemSettings.AnyAsync(ct))
         {
             db.SystemSettings.AddRange(
-                new SystemSetting { Key = "PasswordExpiryDays", Value = "90", UpdatedAt = now },
-                new SystemSetting { Key = "PasswordWarningDays", Value = "14", UpdatedAt = now },
-                new SystemSetting { Key = "AgentMaxConcurrency", Value = "20", UpdatedAt = now },
-                new SystemSetting { Key = "SessionIdleMinutes", Value = "30", UpdatedAt = now });
+                new SystemSetting { Key = SettingKeys.PasswordExpiryDays, Value = "90", UpdatedAt = now },
+                new SystemSetting { Key = SettingKeys.PasswordWarningDays, Value = "14", UpdatedAt = now },
+                new SystemSetting { Key = SettingKeys.AgentMaxConcurrency, Value = "20", UpdatedAt = now },
+                new SystemSetting { Key = SettingKeys.SessionIdleMinutes, Value = "30", UpdatedAt = now });
         }
 
         if (!await db.PermissionTemplates.AnyAsync(ct))

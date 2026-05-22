@@ -8,23 +8,25 @@
 ## エンドユーザー機能 (WPF クライアント)
 
 ### ファイル操作 (FFFTP 風 2 ペイン)
-- **ローカルペイン**: PC のフォルダを System.IO で直接ブラウズ
+- **ローカルペイン**: PC のフォルダを `EnumerateDirectories/Files` で増分ブラウズ（大量ファイルでも UI が固まらない）
 - **リモートペイン**: 中央サーバー越しに CIFS 共有をブラウズ
 - 一覧ソート (名前 / 日付 / サイズ、昇順/降順)
 - 1 ページ 200 件、ページング対応
 - 親フォルダへ移動 (`..`) — 権限ルートでは `..` がグレー
+- ローカル I/O は全て `Task.Run` でバックグラウンド実行（UI スレッドブロックなし）
 
 ### 転送
 - **アップロード** (ローカル → リモート): ストリーミング 4 MB チャンク、進捗バー
 - **ダウンロード** (リモート → ローカル): ストリーミング、SaveFileDialog で保存先指定
 - ファイルサイズ無制限
 - 転送中の進捗 % とファイル名がステータスバーに表示
+- `ArrayPool` 採用により、大容量転送でも LOH (Large Object Heap) アロケーションを排除
 
 ### その他のファイル操作
 | UI | 動作 |
 |---|---|
 | 削除ボタン | リモート/ローカル両ペインで削除 (確認ダイアログ) |
-| F2 / 新規フォルダ | リモート: API 経由 / ローカル: System.IO |
+| F2 / 新規フォルダ | リモート: API 経由 / ローカル: System.IO バックグラウンドスレッド |
 | ダブルクリック | フォルダ展開、ファイルは未操作 |
 | Enter キー (パス欄) | パス直接入力で移動 |
 
@@ -35,20 +37,21 @@
   - チェックボックスで有効化、Credential Manager に保存
   - 1 ユーザー = 1 デバイスのみ (新規登録で旧トークン失効)
 - **パスワード変更**: 期限切れ/初回ログインで強制画面
-- **アイドルタイムアウト**: 30 分操作なしで自動ログアウト
+- **アイドルタイムアウト**: サーバ `SystemSettings.SessionIdleMinutes` 由来（デフォルト 30 分、設定変更可）
 - **ログアウト**: メニューから手動。Credential Manager もクリア
 
 ### 接続
 - 接続設定画面でサーバー URL とプロトコル (HTTP/HTTPS) を選択
-- 接続テストボタンで `/health` を叩いて疎通確認
+- 接続テストボタンで `/health` を叩いて疎通確認（`IHttpClientFactory` 経由でソケット使い回し）
 - 設定は `%LocalAppData%\Watashi\settings.json` に保存
+- 起動時の自動ログインは 8 秒タイムアウトで UI フリーズを防ぐ
 
 ---
 
 ## 管理者機能 (Admin タブ)
 
 `IsAdmin=true` のユーザーがログインすると、メニューの「管理」が表示される。
-タブ構成 (TabControl):
+タブ構成 (TabControl) — 全 admin 操作は監査ログ（`ADMIN_*` プレフィックス）に記録される:
 
 ### 1. ユーザー
 - 一覧 / 追加 / 削除 / 管理者フラグ変更
@@ -61,6 +64,7 @@
 - 表示名、ホスト名/IP、ポート (デフォルト 445)、CIFS 資格情報、実行ノード
 - 接続テスト (登録済み共有を 1 つ使って SMB セッション確立を試す)
 - 資格情報は AES-256-GCM で暗号化して DB 保存
+- `CredPasswordEnc` は `[JsonIgnore]` で API レスポンスから自動除外
 
 ### 3. 共有
 - ホストに紐づく SMB 共有名と表示名
@@ -80,40 +84,51 @@
 ### 6. 信頼デバイス
 - ユーザーごとの自動ログインデバイスを一覧
 - 「全デバイス失効」で対象ユーザーの自動ログイン無効化 (退職時等)
+- 失効処理は `ExecuteUpdateAsync` でアトミック実行
 - 失効理由 (`admin_revoked`) と失効日時を記録
 
 ### 7. 実行ノード
 - 一覧 / 追加 / 削除
 - NodeType = `Direct` (中央サーバー自身) / `Agent` (踏み台)
-- HealthStatus 自動切替: 90 秒以上ハートビートなしで `Unhealthy`
+- HealthStatus 自動切替: 90 秒以上ハートビートなしで `Unhealthy`、状態変化のあったノードだけ `ExecuteUpdate`
 - MaxConcurrency (Agent の同時接続上限、デフォルト 20)
 - 削除前にホストでの使用チェック
+- mTLS モードでは `ClientCertificateThumbprint` で Agent を識別
 
 ### 8. 操作ログ
 - フィルタ: ユーザー名 / 操作種別 / 期間
 - 1 ページ 100 件、降順
-- CSV エクスポート (BOM 付き UTF-8)
+- CSV エクスポート (BOM 付き UTF-8、AsNoTracking + Select 射影で大規模テーブルでも安全)
 - 1 年経過分は日次バッチで自動削除
+- ファイル操作 (`READ/WRITE/DELETE/RENAME`) と管理者操作 (`ADMIN_*`) の両方を記録
 
 ### 9. システム設定
 - `PasswordExpiryDays` (デフォルト 90)
 - `PasswordWarningDays` (デフォルト 14)
 - `AgentMaxConcurrency` (デフォルト 20)
-- `SessionIdleMinutes` (デフォルト 30)
+- `SessionIdleMinutes` (デフォルト 30、ログイン応答経由でクライアントに反映)
 
 ---
 
 ## サーバー機能
 
 ### 認証
-- bcrypt によるパスワードハッシュ (ソルト自動付与)
+- bcrypt によるパスワードハッシュ (ソルト自動付与、`PasswordHash` は `[JsonIgnore]`)
 - JWT (HS256) アクセストークン 15 分
-- リフレッシュトークン 30 日 (DB 検証付き)
+- **リフレッシュトークンのローテーション**:
+  - 30 日間有効、リフレッシュ毎に新トークン発行 + 旧トークン即失効
+  - 失効済みトークンの再提示 → ファミリー全失効（盗難検知）
+  - 漏洩リスクの大幅低減
 - リフレッシュ毎に DB 状態確認:
   - User.IsLocked → 401
   - 紐づく TrustedDevice.IsRevoked → 401
   - User.MustChangePassword → レスポンスにフラグ付与
 - 5 回連続失敗で自動アカウントロック
+- **ログインレート制限**: `/api/auth/login` `/api/auth/auto-login` に IP 単位固定ウィンドウ (デフォルト 10/分)
+
+### 機微フィールドの API 漏洩防止
+- `User.PasswordHash`, `RefreshToken.TokenHash`, `TrustedDevice.DeviceTokenHash`, `CifsHost.CredPasswordEnc` は全て `[JsonIgnore]` 付き
+- エンドポイントが entity を誤って直接返した場合でも secret は流出しない（defense in depth）
 
 ### 権限モデル
 - 粒度: **(共有, サブパス)** 単位
@@ -121,6 +136,8 @@
 - 1 ユーザー × 1 共有 に複数の許可パスを持てる
 - 許可パスのルート自体は DELETE / RENAME 不可 (誤削除防止)
 - RENAME は同一親ディレクトリ内に限定 (隠れ MOVE 防止)
+- **PermissionService の結果は per-request メモ化** (`HttpContext.Items`)
+- 同一リクエスト内で何度 `CanPerformAsync` を呼んでも DB 1 回のみ
 
 ### ファイル操作 API
 | Method | Path | 用途 |
@@ -131,14 +148,20 @@
 | DELETE | `/api/files` | 削除 |
 | POST | `/api/files/rename` | リネーム (同一親限定) |
 | POST | `/api/files/mkdir` | フォルダ作成 |
+| GET | `/api/hosts/catalog` | host/share/location を 1 リクエストで集約取得 (N×M HTTP の解消) |
+
+`ExecuteAsync` 共通ヘルパーで認可 → 実行 → 監査ログ → エラーマップを統一処理。
+内部例外メッセージは `Results.Problem` でマスクし、クライアントには汎用メッセージのみ返す。
 
 ### ストリーミング
 - ダウンロード: SMB → クライアントへ 4 MB バッファでパススルー
 - アップロード: クライアント → SMB へ 4 MB バッファでパススルー
 - Agent 経由時も `HttpCompletionOption.ResponseHeadersRead` で全件メモリ展開を回避
+- `SmbWriteStream` は `ArrayPool<byte>.Shared` を利用、LOH 圧迫なし
 
 ### 監査ログ
 - 全ファイル操作の前後で記録
+- 全 admin 操作 (`ADMIN_USER_*`, `ADMIN_HOST_*`, `ADMIN_SHARE_*`, `ADMIN_TEMPLATE_*`, `ADMIN_PERMISSION_*`, `ADMIN_NODE_*`, `ADMIN_SETTING_UPDATE`) も記録
 - 記録項目: Timestamp / UserId / Username / Operation / Host/Share/Path / TargetPath / Result(success|failure) / ErrorMessage / ClientIp / Bytes / DurationMs / Protocol(HTTP|HTTPS) / ExecutionNodeId / UsedPermissionId
 - 索引: Timestamp 降順 / UserId / HostId
 
@@ -146,13 +169,26 @@
 - ホストに紐づく ExecutionNode で振分
 - `Direct` ノード → 中央サーバーから直接 SMB
 - `Agent` ノード → エージェントへ HTTP(S) フォワード、エージェントが SMB
+- 認証情報は **POST body または X-Watashi-Cifs ヘッダ (Base64 JSON)** で送信（URL クエリ漏洩を回避）
 - ストリーミング転送をリレーで実現 (全段でメモリ展開しない)
 - Unhealthy ノードは即座に 503 を返す (リトライなし)
 
 ### ヘルスモニタ
-- バックグラウンドで 15 秒毎に Agent ノードの LastHeartbeatAt をチェック
+- バックグラウンドで 15 秒毎に Agent ノードの LastHeartbeatAt をチェック（`PeriodicTimer`）
 - 90 秒以上音信不通 → `Unhealthy`、復活 → `Healthy`
+- 状態変化があったノードだけを `ExecuteUpdate` で書き込み（no-op SaveChanges を排除）
 - Direct ノードは常に `Healthy`
+
+### SMB セッションプール
+- `Watashi.Shared.Cifs.CifsSessionPool` で `(host, port, user, share)` キーの再利用プール
+- idle TTL（デフォルト 60 秒）+ キー単位上限（デフォルト 4）
+- 操作毎の TCP 接続 + SMB negotiate + Login + TreeConnect のコストを削減
+- バックグラウンド evict タイマーで idle セッションを自動破棄
+
+### EF Core 最適化
+- 全 read-only クエリに `AsNoTracking`
+- 監査ログ CSV エクスポートは `Select` 射影 + `AsAsyncEnumerable` でストリーミング出力
+- バッチ更新は `ExecuteUpdate` / `ExecuteDelete`（TrustedDevice 失効、PendingLog 削除など）
 
 ---
 
@@ -160,17 +196,25 @@
 
 ### CIFS 中継
 - 中央サーバーから HTTP(S) で受け取った操作を SMB に変換して実行
-- 認証情報は中央からリクエスト毎にクエリ/ボディで受領 (メモリ上のみ、永続化しない)
+- 認証情報は中央からリクエスト毎に **JSON body または X-Watashi-Cifs ヘッダ** で受領（メモリ上のみ、永続化しない）
 - ストリーミング転送対応
+- 共有 SMB セッションプールにより、複数操作で TCP/SMB セッションを再利用
+
+### 認証 (inbound)
+- mTLS モード: 中央サーバの **クライアント証明書サムプリント** を `Auth:CentralCertificateThumbprint` と照合
+- 共有秘密モード: `X-Watashi-Secret` ヘッダの値を `Auth:SharedSecret` と一致確認
+- 両方とも未設定だと全アクセス拒否（401）
 
 ### ハートビート
-- 30 秒毎に中央へ `/api/internal/heartbeat` を POST
+- 30 秒毎に中央へ `/api/internal/heartbeat` を POST（`PeriodicTimer`）
+- mTLS が有効ならクライアント証明書を提示
 - 中央側はこれを受けて `LastHeartbeatAt` を更新
 
 ### ログバッファ
 - 中央が一時的に到達不能でも操作を継続できるよう、ローカル SQLite (`PendingLogs`) に監査ログをバッファ可能
 - 10 秒毎に中央の `/api/internal/audit-logs/batch` へ送信を試行
-- 成功で削除、失敗で `AttemptCount` をインクリメント
+- 成功で `ExecuteDelete` で一括削除、失敗で `ExecuteUpdate` で `AttemptCount` をインクリメント
+- 連続失敗時は指数バックオフ（最大 5 分）、`AttemptCount >= 50` で送信対象外（dead-letter 扱い）
 
 ### 過負荷制御
 - `MaxConcurrency` (デフォルト 20) を超えると 503 + `Retry-After: 5`
@@ -178,11 +222,38 @@
 
 ---
 
+## デプロイ・運用機能
+
+### Windows Service
+- Server / Agent ともに `Microsoft.Extensions.Hosting.WindowsServices` で常駐サービス化
+- `deploy/install-server-service.ps1` / `install-agent-service.ps1` でワンコマンド登録
+- 異常終了時の自動再起動: 5 秒 → 30 秒 → 60 秒
+- アンインストールは `deploy/uninstall-service.ps1`
+
+### 起動時シークレット検証
+- `Jwt:Secret` のプレースホルダ (`CHANGE-ME...`) 検出 → Production で起動拒否、Dev/Stg で警告
+- `Encryption:MasterKey` の同様検証
+
+### DB
+- DB ファイル自動生成 (初回起動時 `MigrateAsync()`)
+- WAL モード + 推奨 PRAGMA (busy_timeout, cache_size, foreign_keys=ON)
+- バックアップ: `SqliteConnection.BackupDatabase()` 利用、日次タスクで 7 世代 + 月次 4 世代
+
+### ログ運用
+- ログ削除: 1 年経過分を日次 DELETE、月次 VACUUM
+- Serilog の日次ローテーション (`rollingInterval=Day`)
+- `*.log` は `.gitignore` で除外（誤コミット防止）
+
+### ClickOnce
+- 配布で自動アップデート (操作中は強制再起動しない)
+
+---
+
 ## セキュリティ
 
 ### 通信
 - Client ↔ Server: HTTP / HTTPS 選択式 (自動ログインは HTTPS 必須)
-- Server ↔ Agent: HTTP / HTTPS、mTLS は設定で ON/OFF
+- Server ↔ Agent: HTTP / HTTPS、**mTLS で双方向の証明書認証**
 - Server / Agent → CIFS: SMB2/3 (SMBLibrary)
 
 ### データ
@@ -190,6 +261,7 @@
 - JWT 署名: HMAC-SHA256
 - パスワード: bcrypt (work factor 11 デフォルト)
 - デバイストークン: 256 bit ランダム → bcrypt 保存、平文は Windows Credential Manager にユーザー単位で暗号化保存
+- 機微フィールドは `[JsonIgnore]` で API 漏洩防止
 
 ### パスワードポリシー
 - 12 文字以上
@@ -202,12 +274,17 @@
 2. `IsPathWithin(allowedPath, normalizedPath)` で許可範囲内か確認
 3. 範囲外なら 403、操作ログに `denied` を記録
 
----
+### 攻撃シナリオ別対策
 
-## 運用機能
-
-- DB ファイル自動生成 (初回起動時 `MigrateAsync()`)
-- WAL モード + 推奨 PRAGMA (busy_timeout, cache_size, foreign_keys=ON)
-- バックアップ: `SqliteConnection.BackupDatabase()` 利用、日次タスクで 7 世代 + 月次 4 世代
-- ログ削除: 1 年経過分を日次 DELETE、月次 VACUUM
-- ClickOnce 配布で自動アップデート (操作中は強制再起動しない)
+| 攻撃 | 対策 |
+|---|---|
+| クレデンシャル総当たり | bcrypt + 5 回ロック + IP レート制限 (10/分) |
+| ユーザー列挙 | 存在しないユーザーでもロックしない、login レート制限が IP 単位 |
+| リフレッシュトークン盗難 | ローテーション + 再利用検知でファミリー失効 |
+| Agent なりすまし | mTLS でサーバー証明書を Thumbprint レベルで確認 |
+| 中央サーバなりすまし | mTLS or SharedSecret で Agent inbound を保護 |
+| ディレクトリトラバーサル | 正規化 + IsPathWithin 二段チェック |
+| 平文ログ漏洩 | URL に資格情報を載せない（POST body / ヘッダのみ） |
+| 監査ログ偽造 | `/api/internal/*` を mTLS で保護、AgentId と証明書を相互照合 |
+| エンティティ直接シリアライズ | 機微フィールドに `[JsonIgnore]` を付与 |
+| 内部スタックトレース漏洩 | 例外メッセージは `Results.Problem` でマスク |

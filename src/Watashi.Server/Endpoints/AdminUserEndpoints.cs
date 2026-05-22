@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Data;
 using Watashi.Server.Services;
+using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
 using Watashi.Shared.Models;
 
@@ -14,7 +15,7 @@ public static class AdminUserEndpoints
 
         group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
         {
-            var items = await db.Users.Select(u => new UserDto
+            var items = await db.Users.AsNoTracking().Select(u => new UserDto
             {
                 Id = u.Id,
                 Username = u.Username,
@@ -28,14 +29,13 @@ public static class AdminUserEndpoints
             return Results.Ok(items);
         });
 
-        group.MapPost("/", async (CreateUserRequest req, AppDbContext db, CancellationToken ct) =>
+        group.MapPost("/", async (CreateUserRequest req, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
                 return Results.BadRequest(new { error = "Username/Password は必須です。" });
             var (ok, err) = PasswordPolicy.Validate(req.Password);
             if (!ok) return Results.BadRequest(new { error = err });
-            if (await db.Users.AnyAsync(u => u.Username == req.Username, ct))
-                return Results.BadRequest(new { error = "同名ユーザーが既に存在します。" });
+
             var days = await GetExpiryDaysAsync(db, ct);
             var now = DateTime.UtcNow;
             var u = new User
@@ -49,39 +49,51 @@ public static class AdminUserEndpoints
                 CreatedAt = now,
             };
             db.Users.Add(u);
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.UserCreate, $"user:{req.Username}", AuditResults.Failure, "username_conflict", ct);
+                return Results.BadRequest(new { error = "同名ユーザーが既に存在します。" });
+            }
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserCreate, $"user:{u.Id}", ct: ct);
             return Results.Created($"/api/admin/users/{u.Id}", new { id = u.Id });
         });
 
-        group.MapPatch("/{id:int}", async (int id, UpdateUserRequest req, AppDbContext db, CancellationToken ct) =>
+        group.MapPatch("/{id:int}", async (int id, UpdateUserRequest req, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
             if (req.IsAdmin.HasValue) u.IsAdmin = req.IsAdmin.Value;
             await db.SaveChangesAsync(ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserUpdate, $"user:{id}", ct: ct);
             return Results.NoContent();
         });
 
-        group.MapDelete("/{id:int}", async (int id, AppDbContext db, CancellationToken ct) =>
+        group.MapDelete("/{id:int}", async (int id, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
             db.Users.Remove(u);
             await db.SaveChangesAsync(ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserDelete, $"user:{id}", ct: ct);
             return Results.NoContent();
         });
 
-        group.MapPost("/{id:int}/unlock", async (int id, AppDbContext db, CancellationToken ct) =>
+        group.MapPost("/{id:int}/unlock", async (int id, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
             u.IsLocked = false;
             u.FailedLoginCount = 0;
             await db.SaveChangesAsync(ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserUnlock, $"user:{id}", ct: ct);
             return Results.NoContent();
         });
 
-        group.MapPost("/{id:int}/reset-password", async (int id, ResetPasswordRequest req, AppDbContext db, CancellationToken ct) =>
+        group.MapPost("/{id:int}/reset-password", async (int id, ResetPasswordRequest req, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
@@ -96,12 +108,13 @@ public static class AdminUserEndpoints
             u.FailedLoginCount = 0;
             u.IsLocked = false;
             await db.SaveChangesAsync(ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserResetPassword, $"user:{id}", ct: ct);
             return Results.NoContent();
         });
 
         group.MapGet("/{id:int}/devices", async (int id, AppDbContext db, CancellationToken ct) =>
         {
-            var devices = await db.TrustedDevices.Where(d => d.UserId == id)
+            var devices = await db.TrustedDevices.AsNoTracking().Where(d => d.UserId == id)
                 .Select(d => new DeviceDto
                 {
                     Id = d.Id,
@@ -118,17 +131,15 @@ public static class AdminUserEndpoints
             return Results.Ok(devices);
         });
 
-        group.MapDelete("/{id:int}/devices", async (int id, AppDbContext db, CancellationToken ct) =>
+        group.MapDelete("/{id:int}/devices", async (int id, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
-            var devices = db.TrustedDevices.Where(d => d.UserId == id);
             var now = DateTime.UtcNow;
-            await foreach (var d in devices.AsAsyncEnumerable().WithCancellation(ct))
-            {
-                d.IsRevoked = true;
-                d.RevokedAt = now;
-                d.RevokedReason = "admin_revoked";
-            }
-            await db.SaveChangesAsync(ct);
+            await db.TrustedDevices.Where(d => d.UserId == id && !d.IsRevoked)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(d => d.IsRevoked, true)
+                    .SetProperty(d => d.RevokedAt, now)
+                    .SetProperty(d => d.RevokedReason, "admin_revoked"), ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserRevokeDevices, $"user:{id}", ct: ct);
             return Results.NoContent();
         });
 
@@ -137,7 +148,7 @@ public static class AdminUserEndpoints
 
     private static async Task<int> GetExpiryDaysAsync(AppDbContext db, CancellationToken ct)
     {
-        var s = await db.SystemSettings.FirstOrDefaultAsync(x => x.Key == "PasswordExpiryDays", ct);
+        var s = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync(x => x.Key == SettingKeys.PasswordExpiryDays, ct);
         return s is not null && int.TryParse(s.Value, out var d) ? d : 90;
     }
 }

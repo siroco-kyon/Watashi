@@ -2,34 +2,36 @@ using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Data;
 using Watashi.Shared.DTOs;
 using Watashi.Shared.Helpers;
+using Watashi.Shared.Models;
 
 namespace Watashi.Server.Services;
 
 public class PermissionService
 {
     private readonly AppDbContext _db;
+    private readonly IHttpContextAccessor? _httpCtx;
 
-    public PermissionService(AppDbContext db) => _db = db;
+    public PermissionService(AppDbContext db, IHttpContextAccessor? httpCtx = null)
+    {
+        _db = db;
+        _httpCtx = httpCtx;
+    }
 
     public async Task<(bool allowed, int? permissionId)> CanPerformAsync(
         int userId, int shareId, string path, string operation, CancellationToken ct = default)
     {
         var normalized = PathHelper.NormalizePath(path);
-        var entries = await _db.UserPermissions
-            .Include(p => p.Template)
-            .Where(p => p.UserId == userId && p.ShareId == shareId)
-            .ToListAsync(ct);
+        var entries = await GetEntriesForShareAsync(userId, shareId, ct);
 
         foreach (var e in entries)
         {
-            if (e.Template is null) continue;
             if (!PathHelper.IsPathWithin(e.AllowedPath, normalized)) continue;
             bool allowed = operation switch
             {
-                Shared.Constants.Operations.Read => e.Template.CanRead,
-                Shared.Constants.Operations.Write => e.Template.CanWrite,
-                Shared.Constants.Operations.Delete => e.Template.CanDelete,
-                Shared.Constants.Operations.Rename => e.Template.CanRename,
+                Shared.Constants.Operations.Read => e.CanRead,
+                Shared.Constants.Operations.Write => e.CanWrite,
+                Shared.Constants.Operations.Delete => e.CanDelete,
+                Shared.Constants.Operations.Rename => e.CanRename,
                 _ => false,
             };
             if (allowed) return (true, e.Id);
@@ -40,14 +42,14 @@ public class PermissionService
     public async Task<bool> IsPermissionRootAsync(int userId, int shareId, string path, CancellationToken ct = default)
     {
         var n = PathHelper.NormalizePath(path);
-        return await _db.UserPermissions
-            .AnyAsync(p => p.UserId == userId && p.ShareId == shareId && p.AllowedPath == n, ct);
+        var entries = await GetEntriesForShareAsync(userId, shareId, ct);
+        return entries.Any(e => e.AllowedPath == n);
     }
 
     public async Task<List<LocationDto>> GetUserLocationsAsync(int userId, int? hostId = null, int? shareId = null, CancellationToken ct = default)
     {
         var query =
-            from p in _db.UserPermissions
+            from p in _db.UserPermissions.AsNoTracking()
             join s in _db.CifsShares on p.ShareId equals s.Id
             join h in _db.CifsHosts on s.HostId equals h.Id
             join t in _db.PermissionTemplates on p.TemplateId equals t.Id
@@ -65,12 +67,28 @@ public class PermissionService
                 ShareName = s.DisplayName,
                 Permissions = new LocationPermissions
                 {
-                    Read = t.CanRead,
-                    Write = t.CanWrite,
-                    Delete = t.CanDelete,
-                    Rename = t.CanRename,
+                    Read = t.CanRead, Write = t.CanWrite, Delete = t.CanDelete, Rename = t.CanRename,
                 },
             };
         return await query.ToListAsync(ct);
     }
+
+    private async Task<List<PermissionEntry>> GetEntriesForShareAsync(int userId, int shareId, CancellationToken ct)
+    {
+        var cacheKey = $"perm:{userId}:{shareId}";
+        var items = _httpCtx?.HttpContext?.Items;
+        if (items is not null && items.TryGetValue(cacheKey, out var cached) && cached is List<PermissionEntry> hit)
+            return hit;
+
+        var entries = await _db.UserPermissions.AsNoTracking()
+            .Where(p => p.UserId == userId && p.ShareId == shareId)
+            .Join(_db.PermissionTemplates.AsNoTracking(), p => p.TemplateId, t => t.Id,
+                (p, t) => new PermissionEntry(p.Id, p.AllowedPath, t.CanRead, t.CanWrite, t.CanDelete, t.CanRename))
+            .ToListAsync(ct);
+
+        if (items is not null) items[cacheKey] = entries;
+        return entries;
+    }
+
+    private record PermissionEntry(int Id, string AllowedPath, bool CanRead, bool CanWrite, bool CanDelete, bool CanRename);
 }

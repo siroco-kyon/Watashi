@@ -1,6 +1,6 @@
 using SMBLibrary;
 
-namespace Watashi.Agent.Services.Cifs;
+namespace Watashi.Shared.Cifs;
 
 public sealed class SmbReadStream : Stream
 {
@@ -22,7 +22,12 @@ public sealed class SmbReadStream : Stream
     public override bool CanSeek => false;
     public override bool CanWrite => false;
     public override long Length => _length;
-    public override long Position { get => _position; set => throw new NotSupportedException(); }
+    public override long Position
+    {
+        get => _position;
+        set => throw new NotSupportedException();
+    }
+
     public override void Flush() { }
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
     public override void SetLength(long value) => throw new NotSupportedException();
@@ -36,7 +41,7 @@ public sealed class SmbReadStream : Stream
         var status = _session.Store.ReadFile(out byte[] data, _handle, _position, toRead);
         if (status == NTStatus.STATUS_END_OF_FILE) return 0;
         if (status != NTStatus.STATUS_SUCCESS && status != NTStatus.STATUS_BUFFER_OVERFLOW)
-            throw new IOException($"SMB 読み取り失敗: {status}");
+            throw new IOException($"SMB 読み取りエラー: {status}");
         if (data == null || data.Length == 0) return 0;
         Buffer.BlockCopy(data, 0, buffer, offset, data.Length);
         _position += data.Length;

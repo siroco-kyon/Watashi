@@ -1,9 +1,8 @@
-using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Watashi.Agent.Data;
 using Watashi.Agent.Services;
-using Watashi.Agent.Services.Cifs;
+using Watashi.Shared.Cifs;
 using Watashi.Shared.DTOs.Files;
 using Watashi.Shared.Helpers;
 
@@ -13,74 +12,78 @@ public static class AgentEndpoints
 {
     public static IEndpointRouteBuilder MapAgentEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/agent");
+        // mTLS が有効な場合は "Agent" ポリシーで中央サーバ証明書を要求。
+        // 無効な場合は Auth:SharedSecret が一致する場合のみ許可する。
+        var group = app.MapGroup("/agent")
+            .RequireAuthorization("CentralOrSharedSecret");
 
-        group.MapGet("/files", (
-            string host, int port, string share, string? path, string credUser, string credPass,
-            CifsService cifs, ConcurrencyLimiter limiter, HttpContext ctx) =>
+        group.MapPost("/files/list", async (
+            AgentListRequest req, CifsService cifs, ConcurrencyLimiter limiter,
+            HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
-            var info = new CifsConnectionInfo(host, port, credUser, credPass, share);
-            var list = cifs.List(info, PathHelper.NormalizePath(path));
+            var info = req.ToInfo();
+            var list = await Task.Run(() => cifs.List(info, PathHelper.NormalizePath(req.Path)), ct);
             return Results.Ok(list);
         });
 
-        group.MapGet("/files/download", async (
-            string host, int port, string share, string path, string credUser, string credPass,
-            CifsService cifs, ConcurrencyLimiter limiter, HttpContext ctx, CancellationToken ct) =>
+        group.MapPost("/files/download", async (
+            AgentPathRequest req, CifsService cifs, ConcurrencyLimiter limiter,
+            HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
-            var info = new CifsConnectionInfo(host, port, credUser, credPass, share);
+            var info = req.ToInfo();
             ctx.Response.ContentType = "application/octet-stream";
-            await using var stream = cifs.OpenRead(info, PathHelper.NormalizePath(path));
+            await using var stream = cifs.OpenRead(info, PathHelper.NormalizePath(req.Path));
             await stream.CopyToAsync(ctx.Response.Body, 4 * 1024 * 1024, ct);
             return Results.Empty;
         });
 
         group.MapPost("/files/upload", async (
-            string host, int port, string share, string path, string credUser, string credPass,
-            CifsService cifs, ConcurrencyLimiter limiter, HttpContext ctx, CancellationToken ct) =>
+            HttpContext ctx, CifsService cifs, ConcurrencyLimiter limiter, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
-            var info = new CifsConnectionInfo(host, port, credUser, credPass, share);
-            await using var smb = cifs.OpenWrite(info, PathHelper.NormalizePath(path));
+            var meta = AgentUploadHeader.Extract(ctx);
+            if (meta is null) return Results.BadRequest(new { error = "X-Watashi-Cifs ヘッダが必要です。" });
+            var info = meta.ToInfo();
+            await using var smb = cifs.OpenWrite(info, PathHelper.NormalizePath(meta.Path));
             await ctx.Request.Body.CopyToAsync(smb, 4 * 1024 * 1024, ct);
             return Results.NoContent();
         });
 
-        group.MapDelete("/files", (
-            string host, int port, string share, string path, string credUser, string credPass,
-            CifsService cifs, ConcurrencyLimiter limiter, HttpContext ctx) =>
+        group.MapPost("/files/delete", async (
+            AgentPathRequest req, CifsService cifs, ConcurrencyLimiter limiter,
+            HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
-            var info = new CifsConnectionInfo(host, port, credUser, credPass, share);
-            cifs.Delete(info, PathHelper.NormalizePath(path));
+            var info = req.ToInfo();
+            await Task.Run(() => cifs.Delete(info, PathHelper.NormalizePath(req.Path)), ct);
             return Results.NoContent();
         });
 
-        group.MapPost("/files/rename", (
-            AgentRenameRequest req,
-            CifsService cifs, ConcurrencyLimiter limiter, HttpContext ctx) =>
+        group.MapPost("/files/rename", async (
+            AgentRenameRequest req, CifsService cifs, ConcurrencyLimiter limiter,
+            HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
-            var info = new CifsConnectionInfo(req.Host, req.Port, req.CredUser, req.CredPass, req.Share);
-            cifs.Rename(info, PathHelper.NormalizePath(req.OldPath), PathHelper.NormalizePath(req.NewPath));
+            var info = req.ToInfo();
+            await Task.Run(() => cifs.Rename(info, PathHelper.NormalizePath(req.OldPath), PathHelper.NormalizePath(req.NewPath)), ct);
             return Results.NoContent();
         });
 
-        group.MapPost("/files/mkdir", (
-            AgentMkdirRequest req,
-            CifsService cifs, ConcurrencyLimiter limiter, HttpContext ctx) =>
+        group.MapPost("/files/mkdir", async (
+            AgentPathRequest req, CifsService cifs, ConcurrencyLimiter limiter,
+            HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
-            var info = new CifsConnectionInfo(req.Host, req.Port, req.CredUser, req.CredPass, req.Share);
-            cifs.Mkdir(info, PathHelper.NormalizePath(req.Path));
+            var info = req.ToInfo();
+            await Task.Run(() => cifs.Mkdir(info, PathHelper.NormalizePath(req.Path)), ct);
             return Results.NoContent();
         });
 
@@ -89,13 +92,12 @@ public static class AgentEndpoints
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
-            var info = new CifsConnectionInfo(req.Host, req.Port, req.CredUser, req.CredPass, req.Share);
+            var info = req.ToInfo();
             var ok = cifs.TestConnection(info);
             return Results.Ok(new { ok });
         });
 
-        // 中央が一時的に到達不能な場合に備えてローカルに監査ログをバッファするためのエンドポイント。
-        // 中央サーバーが Forward 時に「処理結果」を Agent にも保存させたいときに使う。
+        // 中央サーバ到達不能時に Agent ローカルに監査ログをバッファするためのエンドポイント。
         group.MapPost("/internal/buffer-log", async (
             JsonElement log, AgentDbContext db, CancellationToken ct) =>
         {
@@ -112,6 +114,49 @@ public static class AgentEndpoints
     }
 }
 
-public record AgentRenameRequest(string Host, int Port, string Share, string CredUser, string CredPass, string OldPath, string NewPath);
-public record AgentMkdirRequest(string Host, int Port, string Share, string CredUser, string CredPass, string Path);
-public record AgentTestRequest(string Host, int Port, string Share, string CredUser, string CredPass);
+public record AgentCifsBase
+{
+    public string Host { get; init; } = string.Empty;
+    public int Port { get; init; } = 445;
+    public string Share { get; init; } = string.Empty;
+    public string CredUser { get; init; } = string.Empty;
+    public string CredPass { get; init; } = string.Empty;
+    public CifsConnectionInfo ToInfo() => new(Host, Port, CredUser, CredPass, Share);
+}
+
+public record AgentListRequest : AgentCifsBase { public string? Path { get; init; } }
+public record AgentPathRequest : AgentCifsBase { public string Path { get; init; } = "/"; }
+public record AgentRenameRequest : AgentCifsBase { public string OldPath { get; init; } = ""; public string NewPath { get; init; } = ""; }
+public record AgentTestRequest : AgentCifsBase;
+
+/// <summary>
+/// アップロードは Body がファイル本体なので接続情報を URL/Body に入れられない。
+/// X-Watashi-Cifs ヘッダに Base64(JSON) を載せて受け渡す。
+/// </summary>
+public record AgentUploadHeader : AgentCifsBase
+{
+    public string Path { get; init; } = "/";
+
+    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
+
+    public static AgentUploadHeader? Extract(HttpContext ctx)
+    {
+        if (!ctx.Request.Headers.TryGetValue("X-Watashi-Cifs", out var raw)) return null;
+        try
+        {
+            var bytes = Convert.FromBase64String(raw.ToString());
+            return JsonSerializer.Deserialize<AgentUploadHeader>(bytes, JsonOpts);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static string Encode(string host, int port, string share, string user, string pass, string path)
+    {
+        var payload = new AgentUploadHeader { Host = host, Port = port, Share = share, CredUser = user, CredPass = pass, Path = path };
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, JsonOpts);
+        return Convert.ToBase64String(bytes);
+    }
+}

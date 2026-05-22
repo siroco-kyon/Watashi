@@ -6,14 +6,14 @@ FFFTP 風の 2 ペイン WPF クライアントから、中央サーバー経由
 
 ```
 ┌──────────────────┐   HTTP/HTTPS   ┌──────────────────┐
-│ Watashi.Client   │ ─────────────▶ │ Watashi.Server   │
+│ Watashi.Client   │ ─────────────▶ │ Watashi.Server   │  Windows Service
 │ (WPF, ClickOnce) │ ◀───────────── │ (ASP.NET Core)   │
 └──────────────────┘                └──────┬───────────┘
                                            │ SMB (Direct)
-                                           │ または HTTP(S) (Agent経由)
+                                           │ または HTTP(S) + mTLS (Agent経由)
                                            ▼
                             ┌──────────────────┐    SMB    ┌──────────────┐
-                            │ Watashi.Agent    │ ────────▶ │ 社内 CIFS    │
+                            │ Watashi.Agent    │ ────────▶ │ 社内 CIFS    │  Windows Service
                             │ (踏み台に常駐)   │           │ ファイルサーバ│
                             └──────────────────┘           └──────────────┘
 ```
@@ -26,7 +26,7 @@ FFFTP 風の 2 ペイン WPF クライアントから、中央サーバー経由
 | **[docs/SETUP.md](docs/SETUP.md)** | 環境構築 — 0 から動かすまで (3 通りのネットワーク構成) |
 | **[docs/USER-GUIDE.md](docs/USER-GUIDE.md)** | 利用者ガイド — ログインからファイル操作まで |
 | **[docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md)** | 管理者ガイド — ユーザー / ホスト / 権限 / ノード管理 |
-| [deploy/README.md](deploy/README.md) | デプロイ手順 (ClickOnce + Agent インストーラ) |
+| [deploy/README.md](deploy/README.md) | デプロイ手順 (Windows Service + ClickOnce) |
 | [CifsTool_FINAL_SPEC.md](CifsTool_FINAL_SPEC.md) | 最終仕様書 (実装ガイド) |
 
 ## まず触ってみる (5 分コース)
@@ -64,18 +64,38 @@ dotnet run
 | **B: 混在** | HTTPS | HTTP | Server と Agent が同一セキュリティゾーン (推奨環境) |
 | **C: 全 HTTP** | HTTP | HTTP | 検証 / 内部ラボ専用 |
 
-設定方法は [docs/SETUP.md#ネットワーク構成](docs/SETUP.md#ネットワーク構成) を参照。
+設定方法は [docs/SETUP.md#ネットワーク構成](docs/SETUP.md#-ネットワーク構成) を参照。
 
 ## 主要機能 (ハイライト)
 
+### エンドユーザー機能
 - FFFTP 風 2 ペイン UI、ドラッグ&ドロップでのアップロード/ダウンロード
-- ユーザー単位の (共有 × サブパス) 権限、READ/WRITE/DELETE/RENAME 個別制御
-- 操作ログ全件記録 (1 年保管) + CSV エクスポート
-- 信頼デバイスによる自動ログイン (HTTPS のみ)
 - ストリーミング転送 (4 MB チャンク、ファイルサイズ無制限)
-- 踏み台越しアクセス対応 (Agent ノード)、複数 Agent の登録可能
-- アカウントロック (5 回失敗で自動ロック、管理者解除)
-- パスワード有効期限 (デフォルト 90 日、警告表示 14 日前)
+- パス入力 + Enter で直接移動
+- 自動ログイン (信頼デバイス, HTTPS のみ)、アイドルタイムアウト (デフォルト 30 分、設定変更可)
+
+### 認可・監査
+- ユーザー単位の **(共有 × サブパス) 権限**、READ/WRITE/DELETE/RENAME 個別制御
+- 操作ログ全件記録（1 年保管）+ CSV エクスポート
+- **管理者操作（ユーザー追加/削除/権限変更等）も全件監査ログに記録**
+
+### セキュリティ
+- bcrypt パスワード、ログイン **レート制限**（IP 単位 10/分）
+- **リフレッシュトークンのローテーション**＋再利用検知（漏洩トークン提示でファミリー全失効）
+- CIFS 資格情報は AES-256-GCM で暗号化、JWT は HS256
+- **mTLS** 対応（Server↔Agent 双方向、`ExecutionNode.ClientCertificateThumbprint` で照合）
+- 機微フィールド（パスワードハッシュ、トークンハッシュ、暗号化資格情報）は API レスポンスから自動除外
+
+### パフォーマンス
+- **SMB セッションプール**（操作毎の TCP/SMB ハンドシェイク削減、TTL 60 秒・キー単位 LRU）
+- **`/api/hosts/catalog` 集約 API** で host/share/location を 1 リクエストに圧縮
+- ストリーミング転送中も `ArrayPool` 利用で LOH 圧迫を回避
+- EF Core 全 read-only クエリに `AsNoTracking`、PermissionService 結果は per-request メモ化
+
+### 運用
+- **Server / Agent を Windows Service として常駐**（`deploy/install-*-service.ps1`）
+- 異常終了時の自動再起動（5s → 30s → 60s 段階的）
+- ハートビート未着 90 秒で Agent ノードを `Unhealthy`
 
 全機能は [docs/FEATURES.md](docs/FEATURES.md) 参照。
 
@@ -83,12 +103,12 @@ dotnet run
 
 ```
 src/
-├── Watashi.Shared/    # モデル、DTO、Helper (PathHelper, CryptoHelper)
-├── Watashi.Server/    # 中央サーバー (ASP.NET Core 8)
-├── Watashi.Agent/     # エージェント (踏み台に配置)
+├── Watashi.Shared/    # モデル、DTO、Helper、CIFS レイヤ (SMB セッションプール込み)
+├── Watashi.Server/    # 中央サーバー (ASP.NET Core 8, Windows Service)
+├── Watashi.Agent/     # エージェント (踏み台に配置、Windows Service)
 └── Watashi.Client/    # WPF デスクトップアプリ
 tests/Watashi.Tests/   # xUnit (47 ケース、PathHelper/Permission/Auth/Crypto)
-deploy/                # ClickOnce 設定、Agent インストーラ、IIS MIME
+deploy/                # Windows Service インストーラ、ClickOnce 設定、IIS MIME
 docs/                  # 本ドキュメント群
 ```
 
@@ -101,4 +121,4 @@ dotnet test  tests\Watashi.Tests
 
 ## ライセンス / 注意
 
-社内利用を想定した実装です。本番投入前に必ず [docs/SETUP.md#本番投入チェックリスト](docs/SETUP.md#本番投入チェックリスト) を完了させてください。
+社内利用を想定した実装です。本番投入前に必ず [docs/SETUP.md#-本番投入チェックリスト](docs/SETUP.md#-本番投入チェックリスト) を完了させてください。

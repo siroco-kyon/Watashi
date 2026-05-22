@@ -6,12 +6,11 @@ using Watashi.Shared.DTOs.Admin;
 
 namespace Watashi.Client.ViewModels.Admin;
 
-public partial class PermissionTemplateViewModel : ObservableObject
+public partial class PermissionTemplateViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
     public ObservableCollection<PermissionTemplateDto> Items { get; } = new();
     [ObservableProperty] private PermissionTemplateDto? selected;
-    [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private string newName = string.Empty;
     [ObservableProperty] private bool newCanRead = true;
     [ObservableProperty] private bool newCanWrite;
@@ -21,32 +20,24 @@ public partial class PermissionTemplateViewModel : ObservableObject
     public PermissionTemplateViewModel(ApiClient api) { _api = api; }
 
     [RelayCommand]
-    public async Task RefreshAsync()
-    {
-        try { Items.Clear(); foreach (var t in await _api.GetTemplatesAsync()) Items.Add(t); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+    public Task RefreshAsync() => SafeAsync(async () => ReplaceAll(Items, await _api.GetTemplatesAsync()));
 
     [RelayCommand]
-    public async Task CreateAsync()
+    public Task CreateAsync() => SafeAsync(async () =>
     {
-        try
+        await _api.CreateTemplateAsync(new PermissionTemplateDto
         {
-            await _api.CreateTemplateAsync(new PermissionTemplateDto
-            {
-                Name = NewName, CanRead = NewCanRead, CanWrite = NewCanWrite, CanDelete = NewCanDelete, CanRename = NewCanRename,
-            });
-            NewName = string.Empty;
-            await RefreshAsync();
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+            Name = NewName, CanRead = NewCanRead, CanWrite = NewCanWrite, CanDelete = NewCanDelete, CanRename = NewCanRename,
+        });
+        NewName = string.Empty;
+        await RefreshAsync();
+    });
 
     [RelayCommand]
-    public async Task DeleteAsync()
+    public Task DeleteAsync() => SafeAsync(async () =>
     {
         if (Selected is null) return;
-        try { await _api.DeleteTemplateAsync(Selected.Id); await RefreshAsync(); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.DeleteTemplateAsync(Selected.Id);
+        await RefreshAsync();
+    });
 }

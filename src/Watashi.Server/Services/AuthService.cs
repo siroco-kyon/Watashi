@@ -87,6 +87,7 @@ public class AuthService
         _db.RefreshTokens.Add(refreshTokenEntity);
         await _db.SaveChangesAsync(ct);
 
+        var idleMinutes = await GetSettingIntAsync(Shared.Constants.SettingKeys.SessionIdleMinutes, 30, ct);
         return new LoginResponse
         {
             AccessToken = accessToken,
@@ -95,7 +96,14 @@ public class AuthService
             ExpiresIn = _opts.AccessTokenMinutes * 60,
             MustChangePassword = user.MustChangePassword || user.PasswordExpiresAt <= now,
             PasswordExpiresInDays = ComputeExpiresInDays(user, now),
+            IdleMinutes = idleMinutes,
         };
+    }
+
+    private async Task<int> GetSettingIntAsync(string key, int defaultValue, CancellationToken ct)
+    {
+        var s = await _db.SystemSettings.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key, ct);
+        return s is not null && int.TryParse(s.Value, out var v) ? v : defaultValue;
     }
 
     public async Task<(RefreshResponse? response, string? error)> RefreshAsync(string refreshTokenId, string refreshTokenPlain, CancellationToken ct = default)
@@ -105,21 +113,44 @@ public class AuthService
             .Include(t => t.Device)
             .FirstOrDefaultAsync(t => t.Id == refreshTokenId, ct);
 
-        if (token is null || token.IsRevoked || token.ExpiresAt <= DateTime.UtcNow)
+        if (token is null || token.ExpiresAt <= DateTime.UtcNow)
             return (null, "invalid_token");
+
+        // 既に revoke 済みのトークンが再度提示された場合、ファミリー全体を失効させる（再利用検知）。
+        if (token.IsRevoked)
+        {
+            await RevokeFamilyAsync(token.UserId, ct);
+            return (null, "token_reuse_detected");
+        }
 
         if (!BCrypt.Net.BCrypt.Verify(refreshTokenPlain, token.TokenHash))
             return (null, "invalid_token");
 
         var user = token.User!;
-        if (user.IsLocked)
-            return (null, "account_locked");
-
-        if (token.Device is not null && token.Device.IsRevoked)
-            return (null, "device_revoked");
+        if (user.IsLocked) return (null, "account_locked");
+        if (token.Device is not null && token.Device.IsRevoked) return (null, "device_revoked");
 
         var now = DateTime.UtcNow;
+
+        // ローテーション: 旧トークンを失効させ、新しい refresh token を発行する。
+        token.IsRevoked = true;
         token.LastUsedAt = now;
+
+        var (newId, newPlain, newHash) = GenerateRefreshToken();
+        var newEntity = new RefreshToken
+        {
+            Id = newId,
+            UserId = user.Id,
+            TokenHash = newHash,
+            DeviceId = token.DeviceId,
+            IssuedAt = now,
+            ExpiresAt = now.AddDays(_opts.RefreshTokenDays),
+            LastUsedAt = now,
+            IsRevoked = false,
+            ClientIp = token.ClientIp,
+        };
+        _db.RefreshTokens.Add(newEntity);
+
         var access = CreateAccessToken(user, now);
         await _db.SaveChangesAsync(ct);
 
@@ -128,7 +159,16 @@ public class AuthService
             AccessToken = access,
             ExpiresIn = _opts.AccessTokenMinutes * 60,
             MustChangePassword = user.MustChangePassword || user.PasswordExpiresAt <= now,
+            RefreshToken = newPlain,
+            RefreshTokenId = newId,
         }, null);
+    }
+
+    private async Task RevokeFamilyAsync(int userId, CancellationToken ct)
+    {
+        await _db.RefreshTokens
+            .Where(t => t.UserId == userId && !t.IsRevoked)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.IsRevoked, true), ct);
     }
 
     public async Task<LoginResult> AutoLoginAsync(string machineName, string windowsUsername, string deviceToken, string? clientIp, CancellationToken ct = default)
@@ -222,10 +262,9 @@ public class AuthService
         {
             new("uid", user.Id.ToString()),
             new(JwtRegisteredClaimNames.Name, user.Username),
-            new("role", user.IsAdmin ? "Admin" : "User"),
         };
         if (user.IsAdmin)
-            claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+            claims.Add(new Claim("role", "Admin"));
 
         var jwt = new JwtSecurityToken(
             issuer: _opts.Issuer,
@@ -249,7 +288,8 @@ public class AuthService
 
     private async Task<int> GetPasswordExpiryDaysAsync(CancellationToken ct)
     {
-        var setting = await _db.SystemSettings.FirstOrDefaultAsync(s => s.Key == "PasswordExpiryDays", ct);
+        var setting = await _db.SystemSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Key == Shared.Constants.SettingKeys.PasswordExpiryDays, ct);
         if (setting is not null && int.TryParse(setting.Value, out var days))
             return days;
         return 90;

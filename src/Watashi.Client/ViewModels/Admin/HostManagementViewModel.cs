@@ -6,13 +6,12 @@ using Watashi.Shared.DTOs.Admin;
 
 namespace Watashi.Client.ViewModels.Admin;
 
-public partial class HostManagementViewModel : ObservableObject
+public partial class HostManagementViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
     public ObservableCollection<HostDto> Items { get; } = new();
     public ObservableCollection<NodeDto> Nodes { get; } = new();
     [ObservableProperty] private HostDto? selected;
-    [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private string name = string.Empty;
     [ObservableProperty] private string hostAddress = string.Empty;
     [ObservableProperty] private int port = 445;
@@ -23,51 +22,44 @@ public partial class HostManagementViewModel : ObservableObject
     public HostManagementViewModel(ApiClient api) { _api = api; }
 
     [RelayCommand]
-    public async Task RefreshAsync()
+    public Task RefreshAsync() => SafeAsync(async () =>
     {
-        try
-        {
-            Items.Clear();
-            foreach (var h in await _api.GetAdminHostsAsync()) Items.Add(h);
-            Nodes.Clear();
-            foreach (var n in await _api.GetNodesAsync()) Nodes.Add(n);
-            SelectedNode ??= Nodes.FirstOrDefault();
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        var hostsTask = _api.GetAdminHostsAsync();
+        var nodesTask = _api.GetNodesAsync();
+        await Task.WhenAll(hostsTask, nodesTask);
+        ReplaceAll(Items, hostsTask.Result);
+        ReplaceAll(Nodes, nodesTask.Result);
+        SelectedNode ??= Nodes.FirstOrDefault();
+    });
 
     [RelayCommand]
-    public async Task CreateAsync()
+    public Task CreateAsync() => SafeAsync(async () =>
     {
         if (SelectedNode is null) { StatusMessage = "ノードを選択してください。"; return; }
-        try
+        await _api.CreateHostAsync(new CreateHostRequest
         {
-            await _api.CreateHostAsync(new CreateHostRequest
-            {
-                Name = Name, HostAddress = HostAddress, Port = Port,
-                CredUsername = CredUser, CredPassword = CredPassword,
-                ExecutionNodeId = SelectedNode.Id,
-            });
-            Name = HostAddress = CredUser = CredPassword = string.Empty;
-            Port = 445;
-            await RefreshAsync();
-        }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+            Name = Name, HostAddress = HostAddress, Port = Port,
+            CredUsername = CredUser, CredPassword = CredPassword,
+            ExecutionNodeId = SelectedNode.Id,
+        });
+        Name = HostAddress = CredUser = CredPassword = string.Empty;
+        Port = 445;
+        await RefreshAsync();
+    });
 
     [RelayCommand]
-    public async Task DeleteAsync()
+    public Task DeleteAsync() => SafeAsync(async () =>
     {
         if (Selected is null) return;
-        try { await _api.DeleteHostAsync(Selected.Id); await RefreshAsync(); }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        await _api.DeleteHostAsync(Selected.Id);
+        await RefreshAsync();
+    });
 
     [RelayCommand]
-    public async Task TestAsync()
+    public Task TestAsync() => SafeAsync(async () =>
     {
         if (Selected is null) return;
-        try { var ok = await _api.TestHostAsync(Selected.Id); StatusMessage = ok ? "✓ 接続OK" : "✗ 接続失敗"; }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-    }
+        var ok = await _api.TestHostAsync(Selected.Id);
+        StatusMessage = ok ? "✓ 接続OK" : "✗ 接続失敗";
+    });
 }

@@ -101,7 +101,8 @@ public class AuthServiceTests
 
         var (res, err) = await svc.RefreshAsync(login.Response.RefreshTokenId, login.Response.RefreshToken);
         res.Should().BeNull();
-        err.Should().Be("invalid_token");
+        // 失効済みトークンの再提示は再利用検知として扱う（ファミリー失効）。
+        err.Should().Be("token_reuse_detected");
     }
 
     [Fact]

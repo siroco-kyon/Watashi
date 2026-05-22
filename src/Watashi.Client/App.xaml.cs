@@ -1,5 +1,7 @@
 using System.IO;
 using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Watashi.Client.Services;
@@ -13,7 +15,7 @@ public partial class App : Application
     public IServiceProvider Services { get; private set; } = null!;
     private AppSettings _settings = null!;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         _settings = AppSettings.Load();
@@ -26,12 +28,12 @@ public partial class App : Application
             Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
         }
 
-        StartLoginFlow();
+        await StartLoginFlowAsync();
     }
 
-    public void RestartLoginFlow() => StartLoginFlow();
+    public async void RestartLoginFlow() => await StartLoginFlowAsync();
 
-    private void StartLoginFlow()
+    private async Task StartLoginFlowAsync()
     {
         var session = Services.GetRequiredService<SessionManager>();
         var api = Services.GetRequiredService<ApiClient>();
@@ -44,7 +46,8 @@ public partial class App : Application
             {
                 try
                 {
-                    var res = api.AutoLoginAsync(saved.Value.machineName, saved.Value.windowsUser, saved.Value.token).GetAwaiter().GetResult();
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                    var res = await api.AutoLoginAsync(saved.Value.machineName, saved.Value.windowsUser, saved.Value.token, cts.Token);
                     session.SetFromLogin(res);
                     if (res.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
                     ShowMain();
@@ -91,6 +94,7 @@ public partial class App : Application
                 c.BaseAddress = new Uri(settings.ServerUrl.TrimEnd('/') + "/");
             c.Timeout = TimeSpan.FromMinutes(10);
         });
+        services.AddHttpClient("settings-test", c => c.Timeout = TimeSpan.FromSeconds(5));
 
         services.AddTransient<ConnectionSettingsViewModel>();
         services.AddTransient<LoginViewModel>();

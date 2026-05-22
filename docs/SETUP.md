@@ -4,7 +4,7 @@
 
 - [前提条件](#前提条件)
 - [① 5 分で動かす (開発機での動作確認)](#-5-分で動かす-開発機での動作確認)
-- [② ネットワーク構成](#ネットワーク構成) ← Client↔Server↔Agent の HTTPS/HTTP 組み合わせ
+- [② ネットワーク構成](#-ネットワーク構成) ← Client↔Server↔Agent の HTTPS/HTTP 組み合わせ
 - [③ 本番デプロイ](#-本番デプロイ)
   - [③-1 中央サーバー](#-1-中央サーバー-watashiserver)
   - [③-2 配布サーバー (ClickOnce)](#-2-配布サーバー-clickonce--iis)
@@ -20,13 +20,12 @@
 
 | 項目 | 要件 |
 |---|---|
-| OS (Server / Agent) | Windows Server 2019 以降 (Linux でも .NET 8 ランタイムがあれば動作) |
+| OS (Server / Agent) | Windows Server 2019 以降（Windows Service として常駐） |
 | OS (Client) | Windows 10 / 11 |
-| .NET ランタイム | 8.0 (Server / Agent / Client いずれも `net8.0`) |
+| .NET ランタイム | 8.0 (Server / Agent / Client いずれも `net8.0`、self-contained 発行ならランタイム不要) |
 | ネットワーク | 閉域網 (社内 LAN / VPN 内) を想定 |
 | 同時接続 | 50 ユーザー程度を想定 |
-
-ビルド機には .NET 8 SDK が必要。本番サーバーは self-contained 発行ならランタイム不要。
+| 権限 | サービス登録には管理者権限の PowerShell が必要 |
 
 ---
 
@@ -63,8 +62,8 @@ dotnet run
 # → ログイン: admin / Admin123!@# → パスワード変更画面 → メイン画面
 ```
 
-このタイミングでは「ホスト」が未登録なので、リモートペインは空。
-ホストを登録するには [ADMIN-GUIDE.md](ADMIN-GUIDE.md) を参照、ただし本物の CIFS サーバーが必要。
+ホストが未登録ならリモートペインは空。
+ホスト登録手順は [ADMIN-GUIDE.md](ADMIN-GUIDE.md) を参照（実 CIFS サーバーが必要）。
 
 DB ファイルは:
 - 開発: `src\Watashi.Server\watashi-dev.db`
@@ -79,7 +78,7 @@ DB ファイルは:
 ```
 [Client] ── 区間 A ── [Server] ── 区間 B ── [Agent] ── SMB ── [CIFS]
               ↑                     ↑
-        Client が選択         Node ごとに選択
+        Client が選択         Node ごとに選択（mTLS は推奨）
 ```
 
 ### サポートする 3 つのモード
@@ -87,11 +86,12 @@ DB ファイルは:
 | モード | 区間 A (Client↔Server) | 区間 B (Server↔Agent) | mTLS | 想定環境 |
 |---|---|---|---|---|
 | **A: 全 HTTPS + mTLS (推奨)** | HTTPS | HTTPS | ON | 本番、踏み台が別セキュリティゾーン |
-| **B: 混在** | HTTPS | HTTP | OFF | Server と Agent が同一信頼ゾーン (推奨環境) |
+| **B: 混在** | HTTPS | HTTP + 共有秘密 | OFF | Server と Agent が同一信頼ゾーン |
 | **C: 全 HTTP** | HTTP | HTTP | OFF | 検証 / 内部ラボ専用 |
 
-> 機密データ (CIFS 資格情報、ファイル内容) がネットワークを流れるため、Client↔Server は HTTPS を強く推奨。
-> Server↔Agent は社内 LAN 内で完結する場合 (例: 同一 DC, 同一 VLAN) は HTTP でも実用上問題ないが、業界規制 (PCI / 個人情報) がある場合は HTTPS + mTLS にすること。
+> 機密データ（CIFS 資格情報、ファイル内容）がネットワークを流れるため、Client↔Server は HTTPS 必須。
+> Server↔Agent が社内 LAN 内で完結する場合は HTTP でも実用上問題ないが、PCI / 個人情報など規制対象は mTLS にすること。
+> モード B でも **`Routing:SharedSecret`** を設定すれば Agent は X-Watashi-Secret ヘッダで中央を識別できる。
 
 ### モード A: 全 HTTPS + mTLS
 
@@ -114,29 +114,45 @@ DB ファイルは:
 }
 ```
 
+> `UseMtls=true` のときはサーバ Kestrel が `ClientCertificateMode.AllowCertificate` で起動し、
+> `/api/internal/*` は `Agent` ポリシーで証明書サムプリント検証が必須になる。
+> サムプリントは `ExecutionNode.ClientCertificateThumbprint` と照合される。
+
 **Agent `appsettings.json`**:
 ```json
 {
   "Agent": {
-    "ListenUrl": "https://0.0.0.0:8443",
-    "CentralUrl": "https://central.internal:8443"
+    "AgentId": "bastion-a",
+    "CentralUrl": "https://central.internal:8443",
+    "MaxConcurrency": 20
   },
+  "Certificate": {
+    "Path": "agent.pfx",
+    "Password": "..."
+  },
+  "Auth": {
+    "CentralCertificateThumbprint": "<中央サーバが提示するクライアント証明書 Thumbprint>",
+    "SharedSecret": ""
+  },
+  "Routing": { "UseMtls": true },
   "Kestrel": {
     "Endpoints": {
       "Https": {
         "Url": "https://0.0.0.0:8443",
-        "Certificate": { "Path": "agent.pfx", "Password": "..." },
-        "ClientCertificateMode": "RequireCertificate"
+        "Certificate": { "Path": "agent.pfx", "Password": "..." }
       }
     }
   }
 }
 ```
 
+> Agent inbound は `/agent/*` が `CentralOrSharedSecret` ポリシーで保護されており、
+> 中央クライアント証明書の Thumbprint が `Auth:CentralCertificateThumbprint` と一致すれば許可される。
+
 **中央 DB の ExecutionNodes**:
 ```
 Endpoint = https://bastion-a:8443
-ClientCertificateThumbprint = <Agent が提示するクライアント証明書の Thumbprint>
+ClientCertificateThumbprint = <Agent が提示するクライアント証明書 Thumbprint>
 ```
 
 **Client の接続設定**:
@@ -147,10 +163,9 @@ ClientCertificateThumbprint = <Agent が提示するクライアント証明書�
 
 ### モード B: 混在 (Client↔Server は HTTPS、Server↔Agent は HTTP)
 
-**こちらが現実的な落としどころ**。
-中央と踏み台が同一データセンタ / 同一信頼ゾーンで、クライアント PC は事務 LAN / VPN 越しでアクセスするケース。
+**現実的な落としどころ**。中央と踏み台が同一データセンタ / 同一信頼ゾーンで、クライアント PC は事務 LAN / VPN 越し。
 
-**Server `appsettings.json`**:
+**Server `appsettings.json`** (mTLS 無効):
 ```json
 {
   "Kestrel": {
@@ -162,7 +177,8 @@ ClientCertificateThumbprint = <Agent が提示するクライアント証明書�
     }
   },
   "Routing": {
-    "UseMtls": false
+    "UseMtls": false,
+    "SharedSecret": "<openssl rand -base64 32 で生成、Agent と同じ値>"
   }
 }
 ```
@@ -171,16 +187,23 @@ ClientCertificateThumbprint = <Agent が提示するクライアント証明書�
 ```json
 {
   "Agent": {
-    "ListenUrl": "http://0.0.0.0:8081",
-    "CentralUrl": "https://central.internal:8443"
+    "AgentId": "bastion-a",
+    "CentralUrl": "https://central.internal:8443",
+    "MaxConcurrency": 20
   },
+  "Auth": {
+    "CentralCertificateThumbprint": "",
+    "SharedSecret": "<Server と同じ値>"
+  },
+  "Routing": { "UseMtls": false },
   "Kestrel": {
-    "Endpoints": {
-      "Http": { "Url": "http://0.0.0.0:8081" }
-    }
+    "Endpoints": { "Http": { "Url": "http://0.0.0.0:8081" } }
   }
 }
 ```
+
+> `Auth:SharedSecret` を両側で設定すると、Agent は `X-Watashi-Secret` ヘッダで中央サーバを認証する。
+> mTLS が使えない場合の最低限の保護。
 
 **中央 DB の ExecutionNodes**:
 ```
@@ -188,25 +211,17 @@ Endpoint = http://bastion-a:8081
 ClientCertificateThumbprint = (空でよい)
 ```
 
-**Client の接続設定**:
-```
-サーバー URL: https://watashi.internal:8443
-プロトコル:  HTTPS
-```
-
 ### モード C: 全 HTTP
 
 検証・ラボでのみ使う。本番では使わないこと。
-Server `appsettings.json` から `Https` セクションを削除し `Http` のみ残す。
-Agent もすべて HTTP。Client は HTTP で接続。
+Server `appsettings.json` から `Https` セクションを削除し `Http` のみ残す。Agent もすべて HTTP。Client は HTTP で接続。
 
-**注意:** HTTP モードでは自動ログイン (信頼デバイス) は使用不可。
-ログイン画面のチェックボックスがグレーアウトする。
+**注意:** HTTP モードでは自動ログイン（信頼デバイス）は使用不可。ログイン画面のチェックボックスがグレーアウトする。
 
 ### 双方向は許可不要
 
 中央サーバーは Agent への HTTP/HTTPS 接続を **発信側** として行う。
-踏み台ファイアウォールに Agent ポート (例: 8081 / 8443) を中央サーバー IP からのみ許可すれば足りる。
+踏み台ファイアウォールに Agent ポート（例: 8081 / 8443）を中央サーバー IP からのみ許可すれば足りる。
 Agent → 中央 はハートビート / ログ送信に限定。
 
 ---
@@ -219,10 +234,8 @@ Agent → 中央 はハートビート / ログ送信に限定。
 ```powershell
 dotnet publish src\Watashi.Server\Watashi.Server.csproj `
     -c Release -r win-x64 --self-contained `
-    -o C:\Build\WatashiServer
+    -o D:\publish\WatashiServer
 ```
-
-`C:\Build\WatashiServer` を本番サーバーに配置。
 
 **サーバーでの設定** (`appsettings.json`):
 
@@ -233,8 +246,8 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
     "Default": "Data Source=C:\\ProgramData\\Watashi\\watashi.db;Cache=Shared;Foreign Keys=True;"
   },
   "Jwt": {
-    // 32 バイト以上のランダム値に必ず変更
-    "Secret": "<openssl rand -base64 48 で生成した値など>",
+    // 32 バイト以上のランダム値に必ず変更。Production で "CHANGE-ME" のままだと起動拒否
+    "Secret": "<openssl rand -base64 48 で生成>",
     "Issuer": "Watashi",
     "Audience": "Watashi",
     "AccessTokenMinutes": 15,
@@ -244,6 +257,16 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
     // 32 バイトの Base64 (= 44 文字)。CIFS パスワード暗号化に使用
     // 紛失すると全 CIFS 資格情報が復号不能になるので厳重管理
     "MasterKey": "<openssl rand -base64 32 で生成>"
+  },
+  "Auth": {
+    "AllowHttpForAutoLogin": false,
+    // IP 単位のログインレート制限 (回/分)
+    "LoginPerMinutePerIp": 10
+  },
+  "Cifs": {
+    // SMB セッションプールの挙動
+    "SessionIdleSeconds": 60,
+    "MaxSessionsPerKey": 4
   },
   "Kestrel": {
     "Endpoints": {
@@ -257,17 +280,37 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
   "Routing": {
     "UseMtls": true,
     "ClientCertificatePath": "C:\\Apps\\Watashi\\central-client.pfx",
-    "ClientCertificatePassword": "..."
+    "ClientCertificatePassword": "...",
+    "SharedSecret": ""
   }
 }
 ```
 
-**Windows サービス化**:
+> 起動時検証: `Jwt:Secret` が `CHANGE-ME` で始まり `ASPNETCORE_ENVIRONMENT=Production` の場合は例外で起動拒否。
+> 同様に `Encryption:MasterKey` も `REPLACE-WITH` プレフィックス検出。Dev/Stg では警告のみ。
+
+**Windows サービス化（同梱スクリプト使用）**:
 ```powershell
-sc.exe create WatashiServer binPath= "C:\Apps\WatashiServer\Watashi.Server.exe" start= auto
-sc.exe description WatashiServer "Watashi Central Server"
-sc.exe failure WatashiServer reset= 86400 actions= restart/5000/restart/10000/restart/30000
-Start-Service WatashiServer
+# 管理者 PowerShell で実行
+.\deploy\install-server-service.ps1 -PublishDir D:\publish\WatashiServer
+
+# 既定の動作:
+# - C:\Program Files\Watashi\Server に配置
+# - サービス名 Watashi.Server、自動起動、LocalSystem アカウント
+# - 異常終了時の自動再起動 (5s → 30s → 60s)
+```
+
+専用サービスアカウントを使う場合:
+```powershell
+.\deploy\install-server-service.ps1 `
+    -PublishDir D:\publish\WatashiServer `
+    -ServiceAccount "DOMAIN\svc-watashi"
+# パスワードプロンプトは sc.exe の制約上現状未対応。設定後 services.msc で資格情報を入れること
+```
+
+アンインストール:
+```powershell
+.\deploy\uninstall-service.ps1 -ServiceName Watashi.Server
 ```
 
 初回起動で `C:\ProgramData\Watashi\watashi.db` が自動生成され、admin (`admin` / `Admin123!@#`) でログイン可能になる。
@@ -296,38 +339,21 @@ Start-Service WatashiServer
 
 ### ③-3 エージェント (踏み台)
 
-中央と Agent をモード A (mTLS) で繋ぐ場合と、モード B (HTTP) で繋ぐ場合で証明書回りが変わる。
-
 **ビルド**:
 ```powershell
 dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
     -c Release -r win-x64 --self-contained `
-    -o C:\Build\WatashiAgent
+    -o D:\publish\WatashiAgent
 ```
 
-**踏み台サーバーへの配置 (PowerShell インストーラ使用)**:
+**踏み台サーバーで `appsettings.json` を編集** してから、Windows Service として登録:
 
 ```powershell
-# モード B (HTTP) の場合
-.\deploy\install-agent.ps1 `
-    -SourceDir C:\Build\WatashiAgent `
-    -AgentId bastion-a `
-    -CentralUrl https://central.internal:8443 `
-    -ListenUrl http://0.0.0.0:8081 `
-    -MaxConcurrency 20
-
-# モード A (HTTPS + mTLS) の場合
-.\deploy\install-agent.ps1 `
-    -SourceDir C:\Build\WatashiAgent `
-    -AgentId bastion-a `
-    -CentralUrl https://central.internal:8443 `
-    -ListenUrl https://0.0.0.0:8443 `
-    -CertificatePath C:\certs\bastion-a.pfx `
-    -CertificatePassword "..."
+# 管理者 PowerShell
+.\deploy\install-agent-service.ps1 -PublishDir D:\publish\WatashiAgent
 ```
 
-インストーラの実体は [deploy/install-agent.ps1](../deploy/install-agent.ps1)。
-1) ファイル配置 → 2) appsettings.json 生成 → 3) Windows サービス登録 → 4) 起動 まで自動で行う。
+`deploy/install-agent.ps1`（従来スクリプト、appsettings 生成 + 旧式 sc.exe 登録）も残してありますが、新規はサービス専用の `install-agent-service.ps1` を推奨。
 
 **中央側で ExecutionNode 登録** (管理画面 → 実行ノードタブ):
 - Name: `bastion-a` (Agent の AgentId と一致させる ← ハートビート紐付けに使用)
@@ -336,7 +362,7 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 - ClientCertificateThumbprint: モード A のみ、Agent が提示する証明書の Thumbprint
 - MaxConcurrency: 20
 
-ハートビートが届けば `HealthStatus` が `Healthy` に切り替わる (15 秒間隔チェック)。
+ハートビートが届けば `HealthStatus` が `Healthy` に切り替わる（15 秒間隔チェック、90 秒未着で `Unhealthy`）。
 
 ---
 
@@ -359,14 +385,20 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 
 | ✓ | 項目 |
 |---|---|
-| ☐ | `Jwt:Secret` を本番値 (32 バイト以上のランダム) に差し替え |
+| ☐ | `Jwt:Secret` を本番値 (32 バイト以上のランダム) に差し替え（プレースホルダのままだと Production で起動拒否） |
 | ☐ | `Encryption:MasterKey` を本番値 (32 バイト Base64) に差し替え + バックアップ確保 |
 | ☐ | Server HTTPS 証明書を社内 CA 発行のものに |
 | ☐ | クライアント PC に社内 CA ルート証明書を配布 |
 | ☐ | admin の初期パスワード変更 |
-| ☐ | (モード A の場合) Agent クライアント証明書を発行して Endpoint Thumbprint 登録 |
+| ☐ | (モード A の場合) Agent クライアント証明書を発行して `ExecutionNode.ClientCertificateThumbprint` に登録 |
+| ☐ | (モード A の場合) Agent 側 `Auth:CentralCertificateThumbprint` に中央サーバ証明書サムプリント設定 |
+| ☐ | (モード B の場合) `Routing:SharedSecret` を両側に同じ値で設定 |
+| ☐ | `Auth:LoginPerMinutePerIp` を環境に応じて調整 (デフォルト 10) |
+| ☐ | `Cifs:MaxSessionsPerKey` を環境に応じて調整 (デフォルト 4) |
 | ☐ | ClickOnce 用 Code Signing 証明書のサムプリントを `ClickOnceProfile.pubxml` に |
 | ☐ | IIS で `.application` `.manifest` `.deploy` の MIME を登録 |
+| ☐ | `install-server-service.ps1` でサービス登録、自動再起動の確認 |
+| ☐ | `install-agent-service.ps1` で各踏み台にサービス登録 |
 | ☐ | 日次 DB バックアップタスク登録 (`SqliteConnection.BackupDatabase` ベース) |
 | ☐ | 日次 AuditLogs 削除タスク登録 (1 年経過分) |
 | ☐ | Server / Agent のログファイルローテーション (Serilog `rollingInterval=Day`) |
@@ -383,7 +415,7 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 # C:\Apps\Watashi\backup.ps1
 $src  = "C:\ProgramData\Watashi\watashi.db"
 $dest = "D:\Backup\Watashi\watashi-$(Get-Date -Format yyyyMMdd).db"
-$asm = [Reflection.Assembly]::LoadFile((Get-ChildItem "C:\Apps\WatashiServer\Microsoft.Data.Sqlite.dll").FullName)
+$asm = [Reflection.Assembly]::LoadFile((Get-ChildItem "C:\Program Files\Watashi\Server\Microsoft.Data.Sqlite.dll").FullName)
 $conSrc  = New-Object Microsoft.Data.Sqlite.SqliteConnection("Data Source=$src")
 $conDst  = New-Object Microsoft.Data.Sqlite.SqliteConnection("Data Source=$dest")
 $conSrc.Open(); $conDst.Open()
@@ -425,14 +457,41 @@ curl --fail --max-time 10 http://bastion-a:8081/health
 
 `HealthStatus=Unhealthy` が長時間続く Agent ノードは管理画面 → ノードタブで確認。
 
+### サービス状態確認
+
+```powershell
+Get-Service Watashi.Server, Watashi.Agent | Format-Table
+# Status / Name / DisplayName
+# Running   Watashi.Server   Watashi Central Server
+# Running   Watashi.Agent    Watashi Agent
+```
+
+### 異常時の手動再起動
+
+```powershell
+Restart-Service Watashi.Server
+# あるいは
+sc.exe stop Watashi.Server
+sc.exe start Watashi.Server
+```
+
 ---
 
 ## トラブルシューティング
 
 ### サーバー起動時にコケる
-- `Jwt:Secret が設定されていません`: `appsettings.json` または環境変数 `WATASHI_MASTER_KEY` を確認
-- `Encryption:MasterKey は 32 バイト...`: Base64 文字列が正しく 32 バイトにデコードされるか確認
-- DB ファイルパスの親フォルダが作れない: 起動ユーザーの権限を確認 (ProgramData は通常書込可)
+- **「Jwt:Secret がデフォルトのプレースホルダ値のままです」**: Production 環境では実値必須。Dev/Stg なら警告だけで起動継続
+- **「Jwt:Secret が設定されていません」**: `appsettings.json` または環境変数 `WATASHI_MASTER_KEY` を確認
+- **「Encryption:MasterKey は 32 バイト...」**: Base64 文字列が正しく 32 バイトにデコードされるか確認
+- DB ファイルパスの親フォルダが作れない: 起動ユーザー（サービスアカウント）の権限を確認
+
+### Windows Service が起動しない
+```powershell
+# Event Viewer の Application ログを確認
+Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
+# あるいは直接実行してエラー確認
+& "C:\Program Files\Watashi\Server\Watashi.Server.exe"
+```
 
 ### ログインできない
 - ロックされている (5 連続失敗): 管理画面でロック解除、または DB を直接更新
@@ -440,22 +499,38 @@ curl --fail --max-time 10 http://bastion-a:8081/health
   UPDATE Users SET IsLocked=0, FailedLoginCount=0 WHERE Username='alice';
   ```
 - パスワード期限切れ: `MustChangePassword=true` になり、レスポンスにフラグが付く。クライアントは強制変更画面へ
+- **「429 Too Many Requests」**: ログイン試行が 1 分あたり 10 回を超えた。`Auth:LoginPerMinutePerIp` を緩めるか時間を空ける
 
 ### 自動ログインが効かない
 - 接続が HTTP: HTTPS 必須なので Client 設定で HTTPS に変更
 - Credential Manager から消えている: ログイン画面で再度「このPCを記憶する」をチェック
 - 管理者がデバイスを失効済み: 管理画面 → 信頼デバイスで確認
 
+### リフレッシュ失敗 (token_reuse_detected)
+- 失効済みリフレッシュトークンが提示された場合の応答。ファミリー全体が失効するため、ユーザーは再ログインが必要
+- 原因: 同じトークンを別端末から使った、ログアウト後にトークンが再生された、など
+- 影響: 該当ユーザーの全 active セッションが切断されるため、頻発する場合は配布ログ確認
+
 ### Agent が Unhealthy のまま
-- Agent サービスが起動しているか: `Get-Service WatashiAgent`
+- Agent サービスが起動しているか: `Get-Service Watashi.Agent`
 - 中央への heartbeat が届いているか: Agent 側ログ確認
 - ファイアウォール: Agent → 中央への送信が許可されているか
-- 中央 DB の ExecutionNodes.Name と Agent の AgentId が一致しているか (大文字小文字含む)
+- 中央 DB の `ExecutionNodes.Name` と Agent 側 `Agent:AgentId` が一致しているか（大文字小文字含む）
+- (mTLS モード) `ExecutionNode.ClientCertificateThumbprint` と Agent が提示する証明書サムプリントが一致しているか
+
+### Agent から 401/403 が返る
+- (mTLS モード) Agent 側 `Auth:CentralCertificateThumbprint` が中央サーバの実際の証明書と一致しているか確認
+- (HTTP モード) `Auth:SharedSecret` を両側で同じ値に設定したか
+- いずれも未設定だと匿名アクセスは拒否される
 
 ### ファイル一覧が空 / 403
 - ユーザー権限が登録されているか (管理画面 → ユーザー権限)
 - AllowedPath とリクエストパスの関係 (パスブラウザで実在ディレクトリを選んでいるか)
 - CIFS 資格情報が正しいか (管理画面 → ホスト → 接続テスト)
+
+### 操作が遅い / SMB ハンドシェイクが頻発
+- `Cifs:SessionIdleSeconds` を伸ばす（デフォルト 60 → 120）。プールアイドル時間が短すぎると再接続が増える
+- `Cifs:MaxSessionsPerKey` を増やす（デフォルト 4 → 8）。同時操作が多い環境向け
 
 ### "リネームでは親ディレクトリを変更できません"
 - 仕様。同一フォルダ内でのリネームのみ許可。フォルダ間の移動は禁止 (DELETE 権限の抜け穴対策)

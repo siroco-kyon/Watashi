@@ -9,17 +9,20 @@ public partial class AdminWindow : Window
     {
         InitializeComponent();
         DataContext = vm;
-        Loaded += async (_, _) =>
+        Loaded += OnLoaded;
+        async void OnLoaded(object? _, RoutedEventArgs __)
         {
-            await vm.Users.RefreshAsync();
-            await vm.Hosts.RefreshAsync();
-            await vm.Shares.RefreshAsync();
-            await vm.Templates.RefreshAsync();
-            await vm.UserPermissions.RefreshAsync();
-            await vm.Devices.RefreshAsync();
-            await vm.Nodes.RefreshAsync();
-            await vm.Logs.RefreshAsync();
-            await vm.Settings.RefreshAsync();
-        };
+            Loaded -= OnLoaded;
+            await Task.WhenAll(
+                vm.Users.RefreshAsync(),
+                vm.Hosts.RefreshAsync(),
+                vm.Shares.RefreshAsync(),
+                vm.Templates.RefreshAsync(),
+                vm.UserPermissions.RefreshAsync(),
+                vm.Devices.RefreshAsync(),
+                vm.Nodes.RefreshAsync(),
+                vm.Logs.RefreshAsync(),
+                vm.Settings.RefreshAsync());
+        }
     }
 }

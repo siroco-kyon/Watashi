@@ -29,7 +29,7 @@ public partial class MainViewModel : ObservableObject
     public async Task UploadAsync()
     {
         if (Local.Selected is null || Remote.SelectedLocation is null) return;
-        if (Local.Selected.Type != "file") return;
+        if (Local.Selected.Type != Watashi.Shared.Constants.FileEntryTypes.File) return;
         var local = Path.Combine(Local.CurrentPath, Local.Selected.Name);
         var fi = new FileInfo(local);
         var remote = RemotePaneViewModel.JoinPath(Remote.CurrentPath, Local.Selected.Name);
@@ -53,7 +53,7 @@ public partial class MainViewModel : ObservableObject
     public async Task DownloadAsync()
     {
         if (Remote.Selected is null || Remote.SelectedLocation is null) return;
-        if (Remote.Selected.Type != "file") return;
+        if (Remote.Selected.Type != Watashi.Shared.Constants.FileEntryTypes.File) return;
         var dlg = new SaveFileDialog
         {
             FileName = Remote.Selected.Name,
@@ -70,7 +70,7 @@ public partial class MainViewModel : ObservableObject
             await using var fs = File.Create(dlg.FileName);
             var progress = new Progress<long>(b => Transfer.BytesTransferred = b);
             await _api.DownloadAsync(Remote.SelectedLocation.HostId, Remote.SelectedLocation.ShareId, remotePath, fs, progress);
-            Local.Refresh();
+            await Local.RefreshAsync();
             StatusMessage = $"ダウンロード完了: {Remote.Selected.Name}";
         }
         catch (Exception ex) { StatusMessage = "ダウンロード失敗: " + ex.Message; }

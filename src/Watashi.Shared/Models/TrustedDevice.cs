@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Watashi.Shared.Models;
 
 public class TrustedDevice
@@ -7,7 +9,7 @@ public class TrustedDevice
     public User? User { get; set; }
     public string MachineName { get; set; } = string.Empty;
     public string WindowsUsername { get; set; } = string.Empty;
-    public string DeviceTokenHash { get; set; } = string.Empty;
+    [JsonIgnore] public string DeviceTokenHash { get; set; } = string.Empty;
     public DateTime RegisteredAt { get; set; }
     public DateTime LastUsedAt { get; set; }
     public bool IsRevoked { get; set; }

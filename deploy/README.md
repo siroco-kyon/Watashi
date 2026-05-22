@@ -4,8 +4,8 @@
 
 ```
 ┌────────────────────────┐
-│ Watashi.Server         │ Windows Service or IIS in-process
-│ (中央サーバー)         │ Kestrel HTTP/HTTPS, JWT, SQLite
+│ Watashi.Server         │ Windows Service (install-server-service.ps1)
+│ (中央サーバー)         │ Kestrel HTTP/HTTPS, JWT, SQLite, mTLS 対応
 └─┬──────────────────────┘
   │ ClickOnce 配布
   ▼
@@ -19,27 +19,54 @@
 └────────────────────────┘
 
 ┌────────────────────────┐
-│ Watashi.Agent          │ install-agent.ps1 で Windows Service 化
-│ (踏み台に配置)         │ mTLS で中央と通信
+│ Watashi.Agent          │ Windows Service (install-agent-service.ps1)
+│ (踏み台に配置)         │ mTLS or X-Watashi-Secret で中央認証
 └────────────────────────┘
 ```
+
+## 同梱スクリプト
+
+| ファイル | 用途 |
+|---|---|
+| `install-server-service.ps1` | 中央サーバを Windows Service として登録（推奨） |
+| `install-agent-service.ps1`  | Agent を Windows Service として登録（推奨） |
+| `uninstall-service.ps1`      | 上記サービスを停止・削除 |
+| `install-agent.ps1`          | 旧式: appsettings.json 生成 + sc.exe 登録（残置、互換用） |
+| `IIS-MIME.md`                | ClickOnce 配信のための IIS MIME 設定 |
 
 ## 1. 中央サーバー (Watashi.Server)
 
 ```powershell
 # ビルド
-dotnet publish src\Watashi.Server\Watashi.Server.csproj -c Release -r win-x64 --self-contained -o C:\Apps\WatashiServer
+dotnet publish src\Watashi.Server\Watashi.Server.csproj `
+    -c Release -r win-x64 --self-contained `
+    -o D:\publish\WatashiServer
 
-# 設定
-notepad C:\Apps\WatashiServer\appsettings.json
-#   - Jwt:Secret を 32 バイト以上のランダム文字列に
-#   - Encryption:MasterKey を 32 バイトの Base64 に
+# 設定（必ず実値に差し替え）
+notepad D:\publish\WatashiServer\appsettings.json
+#   - Jwt:Secret           32 バイト以上のランダム文字列（CHANGE-ME のままだと Production で起動拒否）
+#   - Encryption:MasterKey 32 バイトの Base64
 #   - Kestrel:Endpoints:Https:Certificate に PFX のパスとパスワード
-#   - ConnectionStrings:Default は本番では C:\ProgramData\Watashi\watashi.db のまま
+#   - Routing:UseMtls=true なら ClientCertificatePath / Password
+#   - Auth:LoginPerMinutePerIp（ログインレート制限、デフォルト 10）
+#   - Cifs:SessionIdleSeconds, MaxSessionsPerKey（SMB セッションプール）
 
-# Windows サービス化（任意）
-sc.exe create WatashiServer binPath= "C:\Apps\WatashiServer\Watashi.Server.exe" start= auto
-sc.exe start WatashiServer
+# Windows Service として登録（管理者 PowerShell で）
+.\deploy\install-server-service.ps1 -PublishDir D:\publish\WatashiServer
+
+# 既定動作:
+#   - C:\Program Files\Watashi\Server に配置
+#   - サービス名: Watashi.Server
+#   - 自動起動 / LocalSystem
+#   - 異常終了時の自動再起動 (5s → 30s → 60s)
+```
+
+オプション:
+```powershell
+.\deploy\install-server-service.ps1 `
+    -PublishDir D:\publish\WatashiServer `
+    -InstallDir "D:\Apps\Watashi\Server" `
+    -ServiceAccount "DOMAIN\svc-watashi"
 ```
 
 初回起動で `C:\ProgramData\Watashi\watashi.db` が自動生成され、`admin` / `Admin123!@#` でログイン可能 (初回ログインでパスワード変更が必要)。
@@ -58,42 +85,52 @@ dotnet publish src\Watashi.Client\Watashi.Client.csproj -c Release `
     -p:PublishProfile=ClickOnceProfile
 ```
 
-配布サーバーは IIS-MIME.md の MIME 設定を完了させること。
+配布サーバーは [IIS-MIME.md](IIS-MIME.md) の MIME 設定を完了させること。
 
 ## 3. エージェント (踏み台)
 
 ```powershell
 # ビルド (Server と同じマシン or CI で実行)
-dotnet publish src\Watashi.Agent\Watashi.Agent.csproj -c Release -r win-x64 --self-contained -o C:\Temp\WatashiAgent
+dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
+    -c Release -r win-x64 --self-contained `
+    -o D:\publish\WatashiAgent
 
-# 踏み台サーバーへ配置
-robocopy C:\Temp\WatashiAgent \\bastion-a\c$\Temp\WatashiAgent /E
+# 踏み台サーバーへ配布
+robocopy D:\publish\WatashiAgent \\bastion-a\d$\publish\WatashiAgent /E
 
-# 踏み台で
-.\install-agent.ps1 `
-    -SourceDir C:\Temp\WatashiAgent `
-    -AgentId bastion-a `
-    -CentralUrl https://central.internal:8443 `
-    -CertificatePath C:\certs\bastion-a.pfx `
-    -CertificatePassword "xxx"
+# 踏み台サーバーで appsettings.json を編集
+notepad D:\publish\WatashiAgent\appsettings.json
+#   Agent:AgentId        中央 DB の ExecutionNode.Name と一致させる
+#   Agent:CentralUrl     https://central.internal:8443
+#   Certificate:Path     mTLS モードでの自証明書
+#   Auth:CentralCertificateThumbprint   中央サーバ証明書サムプリント (mTLS 時)
+#   Auth:SharedSecret    HTTP モードでの共有秘密 (中央と同値)
+#   Routing:UseMtls      true で mTLS 必須
+
+# Windows Service として登録（管理者 PowerShell で）
+.\deploy\install-agent-service.ps1 -PublishDir D:\publish\WatashiAgent
 ```
 
 中央サーバーの `/api/admin/nodes` で:
-- Name = `bastion-a` (install-agent.ps1 と一致させる)
+- Name = `bastion-a` (Agent:AgentId と一致させる)
 - NodeType = `Agent`
-- Endpoint = `https://bastion-a:8443`
-- ClientCertificateThumbprint = 踏み台が中央へ提示する証明書のサムプリント
+- Endpoint = `https://bastion-a:8443` (mTLS) または `http://bastion-a:8081`
+- ClientCertificateThumbprint = 踏み台が中央へ提示する証明書のサムプリント (mTLS のみ)
+- MaxConcurrency = 20
 
-の Agent ノードを登録。
+を Agent ノードとして登録。
+
+> 旧 `install-agent.ps1` は appsettings.json をテンプレートから生成し sc.exe で登録する方式。
+> 互換性のため残置していますが、新規セットアップは **`install-agent-service.ps1`** を推奨。
 
 ## 4. 自動バックアップ (タスクスケジューラ)
 
 ```powershell
 schtasks.exe /Create /SC DAILY /TN "Watashi DB Backup" `
-    /TR "powershell.exe -File C:\Apps\WatashiServer\backup.ps1" /ST 02:00 /RL HIGHEST
+    /TR "powershell.exe -File C:\Apps\Watashi\backup.ps1" /ST 02:00 /RL HIGHEST
 ```
 
-`backup.ps1` で `cifs_tool.db` を `BackupDatabase()` ベースで日次バックアップ + 月次世代管理。
+`backup.ps1` で `watashi.db` を `BackupDatabase()` ベースで日次バックアップ + 月次世代管理。
 
 ## 5. ログ削除バッチ
 
@@ -101,3 +138,27 @@ schtasks.exe /Create /SC DAILY /TN "Watashi DB Backup" `
 schtasks.exe /Create /SC DAILY /TN "Watashi Log Cleanup" `
     /TR "sqlite3 C:\ProgramData\Watashi\watashi.db \"DELETE FROM AuditLogs WHERE Timestamp < datetime('now', '-1 year');\"" /ST 03:00
 ```
+
+## 6. サービスの操作
+
+```powershell
+# 状態確認
+Get-Service Watashi.Server, Watashi.Agent | Format-Table
+
+# 再起動
+Restart-Service Watashi.Server
+Restart-Service Watashi.Agent
+
+# 停止・削除（アンインストール）
+.\deploy\uninstall-service.ps1 -ServiceName Watashi.Server
+.\deploy\uninstall-service.ps1 -ServiceName Watashi.Agent
+```
+
+## 7. アップデート手順
+
+1. 新しいビルドを別ディレクトリに publish
+2. 旧バイナリと差し替える前にサービス停止: `Stop-Service Watashi.Server`
+3. `install-server-service.ps1 -PublishDir <新パス>` を再実行
+   - スクリプトは既存サービスを `sc.exe delete` → 新規作成するので入れ替えが安全
+4. 設定ファイルは新バイナリに上書きされる可能性があるので、事前に `appsettings.json` をバックアップしておくこと
+5. `Get-Service Watashi.Server` で起動確認
