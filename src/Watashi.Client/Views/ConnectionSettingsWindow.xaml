@@ -1,0 +1,26 @@
+<Window x:Class="Watashi.Client.Views.ConnectionSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="接続設定" Width="500" Height="280" WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="サーバーURL:" Margin="0,0,0,4"/>
+        <TextBox Grid.Row="1" Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="プロトコル: " VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <RadioButton GroupName="proto" Content="HTTPS" IsChecked="{Binding Protocol, Converter={StaticResource ProtocolToBool}, ConverterParameter=HTTPS}" Margin="0,0,12,0"/>
+            <RadioButton GroupName="proto" Content="HTTP" IsChecked="{Binding Protocol, Converter={StaticResource ProtocolToBool}, ConverterParameter=HTTP}"/>
+            <TextBlock Text=" ⚠ HTTPは平文通信です" Margin="12,0,0,0" Foreground="DarkOrange" VerticalAlignment="Center"/>
+        </StackPanel>
+        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Foreground="DarkGreen" TextWrapping="Wrap"/>
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="接続テスト" Command="{Binding TestConnectionCommand}" Width="100" Margin="0,0,8,0"/>
+            <Button Content="保存して閉じる" Click="OnSaveAndCloseClick" Width="120"/>
+        </StackPanel>
+    </Grid>
+</Window>
