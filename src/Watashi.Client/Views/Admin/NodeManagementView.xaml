@@ -1,0 +1,33 @@
+<UserControl x:Class="Watashi.Client.Views.Admin.NodeManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Margin="10">
+        <ToolBar DockPanel.Dock="Top">
+            <Button Content="再読み込み" Command="{Binding RefreshCommand}"/>
+            <Button Content="削除" Command="{Binding DeleteCommand}"/>
+        </ToolBar>
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <TextBox Width="160" Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" Margin="4,0" ToolTip="名称"/>
+            <ComboBox Width="100" SelectedItem="{Binding NewType}" Margin="4,0">
+                <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Direct</sys:String>
+                <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Agent</sys:String>
+            </ComboBox>
+            <TextBox Width="220" Text="{Binding NewEndpoint, UpdateSourceTrigger=PropertyChanged}" Margin="4,0" ToolTip="https://agent:8443"/>
+            <TextBox Width="60" Text="{Binding NewMaxConcurrency}" Margin="4,0" ToolTip="MaxConcurrency"/>
+            <Button Content="作成" Command="{Binding CreateCommand}" Margin="4,0"/>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="Red" Margin="10,0,0,0" VerticalAlignment="Center"/>
+        </DockPanel>
+        <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
+                    <GridViewColumn Header="名前" DisplayMemberBinding="{Binding Name}" Width="160"/>
+                    <GridViewColumn Header="種別" DisplayMemberBinding="{Binding NodeType}" Width="80"/>
+                    <GridViewColumn Header="Endpoint" DisplayMemberBinding="{Binding Endpoint}" Width="220"/>
+                    <GridViewColumn Header="Health" DisplayMemberBinding="{Binding HealthStatus}" Width="80"/>
+                    <GridViewColumn Header="LastBeat" DisplayMemberBinding="{Binding LastHeartbeatAt, Converter={StaticResource Utc}}" Width="160"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </DockPanel>
+</UserControl>

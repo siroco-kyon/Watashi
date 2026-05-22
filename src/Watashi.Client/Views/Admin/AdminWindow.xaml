@@ -1,0 +1,17 @@
+<Window x:Class="Watashi.Client.Views.Admin.AdminWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:Watashi.Client.Views.Admin"
+        Title="Watashi 管理" Width="1100" Height="700" WindowStartupLocation="CenterOwner">
+    <TabControl>
+        <TabItem Header="ユーザー">      <v:UserManagementView DataContext="{Binding Users}"/></TabItem>
+        <TabItem Header="ホスト">       <v:HostManagementView DataContext="{Binding Hosts}"/></TabItem>
+        <TabItem Header="共有">         <v:ShareManagementView DataContext="{Binding Shares}"/></TabItem>
+        <TabItem Header="テンプレート">  <v:PermissionTemplateView DataContext="{Binding Templates}"/></TabItem>
+        <TabItem Header="ユーザー権限">  <v:UserPermissionView DataContext="{Binding UserPermissions}"/></TabItem>
+        <TabItem Header="信頼デバイス">  <v:DeviceManagementView DataContext="{Binding Devices}"/></TabItem>
+        <TabItem Header="実行ノード">    <v:NodeManagementView DataContext="{Binding Nodes}"/></TabItem>
+        <TabItem Header="操作ログ">     <v:AuditLogView DataContext="{Binding Logs}"/></TabItem>
+        <TabItem Header="システム設定">  <v:SystemSettingsView DataContext="{Binding Settings}"/></TabItem>
+    </TabControl>
+</Window>

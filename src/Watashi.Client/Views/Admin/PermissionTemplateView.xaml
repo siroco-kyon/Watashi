@@ -1,0 +1,31 @@
+<UserControl x:Class="Watashi.Client.Views.Admin.PermissionTemplateView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Margin="10">
+        <ToolBar DockPanel.Dock="Top">
+            <Button Content="再読み込み" Command="{Binding RefreshCommand}"/>
+            <Button Content="削除" Command="{Binding DeleteCommand}"/>
+        </ToolBar>
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <TextBox Width="160" Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" Margin="4,0" ToolTip="テンプレート名"/>
+            <CheckBox Content="Read" IsChecked="{Binding NewCanRead}" Margin="6,0" VerticalAlignment="Center"/>
+            <CheckBox Content="Write" IsChecked="{Binding NewCanWrite}" Margin="6,0" VerticalAlignment="Center"/>
+            <CheckBox Content="Delete" IsChecked="{Binding NewCanDelete}" Margin="6,0" VerticalAlignment="Center"/>
+            <CheckBox Content="Rename" IsChecked="{Binding NewCanRename}" Margin="6,0" VerticalAlignment="Center"/>
+            <Button Content="作成" Command="{Binding CreateCommand}" Margin="4,0"/>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="Red" Margin="10,0,0,0" VerticalAlignment="Center"/>
+        </DockPanel>
+        <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
+                    <GridViewColumn Header="名前" DisplayMemberBinding="{Binding Name}" Width="160"/>
+                    <GridViewColumn Header="Read" DisplayMemberBinding="{Binding CanRead}" Width="60"/>
+                    <GridViewColumn Header="Write" DisplayMemberBinding="{Binding CanWrite}" Width="60"/>
+                    <GridViewColumn Header="Delete" DisplayMemberBinding="{Binding CanDelete}" Width="60"/>
+                    <GridViewColumn Header="Rename" DisplayMemberBinding="{Binding CanRename}" Width="60"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </DockPanel>
+</UserControl>

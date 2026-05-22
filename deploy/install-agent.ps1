@@ -1,0 +1,103 @@
+# =========================================================
+# Watashi Agent インストーラ
+# =========================================================
+# 使い方:
+#   1. ビルド済み Agent 一式 (publish 結果) を任意の場所に置く
+#   2. このスクリプトをエージェント実行サーバーで管理者権限で実行
+#      ./install-agent.ps1 -SourceDir C:\Temp\WatashiAgent -AgentId bastion-a -CentralUrl https://central.internal:8443
+# =========================================================
+
+param(
+    [Parameter(Mandatory = $true)] [string] $SourceDir,
+    [Parameter(Mandatory = $true)] [string] $AgentId,
+    [Parameter(Mandatory = $true)] [string] $CentralUrl,
+    [string] $InstallDir = "C:\Program Files\WatashiAgent",
+    [string] $DataDir    = "C:\ProgramData\WatashiAgent",
+    [string] $ServiceName = "WatashiAgent",
+    [string] $CertificatePath = "",
+    [string] $CertificatePassword = "",
+    [int]    $MaxConcurrency = 20,
+    [string] $ListenUrl = "https://0.0.0.0:8443"
+)
+
+$ErrorActionPreference = "Stop"
+
+function Require-Admin {
+    $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $p  = New-Object System.Security.Principal.WindowsPrincipal($id)
+    if (-not $p.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        throw "管理者権限で実行してください。"
+    }
+}
+
+Require-Admin
+
+Write-Host "[1/5] 既存サービス停止..."
+if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
+    Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+    sc.exe delete $ServiceName | Out-Null
+    Start-Sleep -Seconds 2
+}
+
+Write-Host "[2/5] ファイルを $InstallDir に配置..."
+if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir | Out-Null }
+if (-not (Test-Path $DataDir))    { New-Item -ItemType Directory -Path $DataDir    | Out-Null }
+Copy-Item -Path (Join-Path $SourceDir "*") -Destination $InstallDir -Recurse -Force
+
+Write-Host "[3/5] appsettings.json を生成..."
+$appsettings = @{
+    Agent = @{
+        AgentId        = $AgentId
+        ListenUrl      = $ListenUrl
+        CentralUrl     = $CentralUrl
+        MaxConcurrency = $MaxConcurrency
+    }
+    ConnectionStrings = @{
+        Buffer = "Data Source=$DataDir\agent_buffer.db;Cache=Shared;Foreign Keys=True;"
+    }
+    Certificate = @{
+        Path     = $CertificatePath
+        Password = $CertificatePassword
+    }
+    Kestrel = @{
+        Endpoints = @{
+            Https = @{
+                Url = $ListenUrl
+                Certificate = @{ Path = $CertificatePath; Password = $CertificatePassword }
+            }
+        }
+    }
+    Serilog = @{
+        MinimumLevel = @{ Default = "Information" }
+        WriteTo = @(
+            @{ Name = "Console" },
+            @{ Name = "File"; Args = @{ path = "$DataDir\logs\agent-.log"; rollingInterval = "Day" } }
+        )
+    }
+    AllowedHosts = "*"
+}
+$json = $appsettings | ConvertTo-Json -Depth 10
+[System.IO.File]::WriteAllText((Join-Path $InstallDir "appsettings.json"), $json, [System.Text.UTF8Encoding]::new($false))
+
+Write-Host "[4/5] Windows サービスとして登録..."
+$exe = Join-Path $InstallDir "Watashi.Agent.exe"
+if (-not (Test-Path $exe)) { throw "Watashi.Agent.exe が見つかりません: $exe" }
+sc.exe create $ServiceName binPath= "`"$exe`"" start= auto DisplayName= "Watashi Agent" | Out-Null
+sc.exe description $ServiceName "Watashi CIFS Agent (中央サーバーから踏み台網のSMB操作を中継)" | Out-Null
+sc.exe failure $ServiceName reset= 86400 actions= restart/5000/restart/10000/restart/30000 | Out-Null
+
+Write-Host "[5/5] サービス開始..."
+Start-Service -Name $ServiceName
+Start-Sleep -Seconds 2
+$svc = Get-Service -Name $ServiceName
+Write-Host "Status: $($svc.Status)"
+
+Write-Host ""
+Write-Host "===== インストール完了 ====="
+Write-Host "AgentId    : $AgentId"
+Write-Host "InstallDir : $InstallDir"
+Write-Host "DataDir    : $DataDir"
+Write-Host "ListenUrl  : $ListenUrl"
+Write-Host "CentralUrl : $CentralUrl"
+Write-Host ""
+Write-Host "中央サーバーの /api/admin/nodes で同名 ($AgentId) の Agent ノードを登録してください。"

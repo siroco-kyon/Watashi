@@ -1,0 +1,89 @@
+<Window x:Class="Watashi.Client.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Watashi - ファイル管理" Width="1100" Height="700" WindowStartupLocation="CenterScreen">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="ファイル(_F)">
+                <MenuItem Header="再読み込み" Click="OnRefresh"/>
+                <Separator/>
+                <MenuItem Header="ログアウト" Click="OnLogout"/>
+                <MenuItem Header="終了" Click="OnExit"/>
+            </MenuItem>
+            <MenuItem Header="管理(_A)" Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}" Click="OnOpenAdmin"/>
+            <MenuItem Header="ヘルプ(_H)">
+                <MenuItem Header="バージョン情報" Click="OnAbout"/>
+            </MenuItem>
+        </Menu>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem><TextBlock Text="{Binding StatusMessage}"/></StatusBarItem>
+            <Separator/>
+            <StatusBarItem><TextBlock Text="{Binding ProtocolLabel, StringFormat=接続: {0}}"/></StatusBarItem>
+            <Separator/>
+            <StatusBarItem><TextBlock Text="{Binding Username, StringFormat=ユーザー: {0}}"/></StatusBarItem>
+        </StatusBar>
+        <Grid DockPanel.Dock="Bottom" Margin="6" Visibility="{Binding Transfer.IsActive, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ProgressBar Grid.Column="0" Minimum="0" Maximum="{Binding Transfer.TotalBytes}" Value="{Binding Transfer.BytesTransferred}" Height="18"/>
+            <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                <Run Text="{Binding Transfer.FileName}"/> <Run Text="{Binding Transfer.Percent, StringFormat={}{0}%}"/>
+            </TextBlock>
+        </Grid>
+        <ToolBar DockPanel.Dock="Bottom">
+            <Button Content="⇨ UP" Command="{Binding UploadCommand}" Padding="8,2"/>
+            <Button Content="DL ⇦" Command="{Binding DownloadCommand}" Padding="8,2"/>
+            <Separator/>
+            <Button Content="リモート削除" Command="{Binding Remote.DeleteSelectedCommand}" Padding="8,2"/>
+            <Button Content="ローカル削除" Command="{Binding Local.DeleteSelectedCommand}" Padding="8,2"/>
+            <Separator/>
+            <Button Content="新規フォルダ (リモート)" Click="OnNewRemoteFolder" Padding="8,2"/>
+            <Button Content="新規フォルダ (ローカル)" Command="{Binding Local.NewFolderCommand}" Padding="8,2"/>
+        </ToolBar>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <DockPanel Grid.Column="0">
+                <DockPanel DockPanel.Dock="Top" Margin="4">
+                    <TextBlock Text="ローカル: " VerticalAlignment="Center"/>
+                    <TextBox Text="{Binding Local.CurrentPath, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnLocalPathKeyDown"/>
+                </DockPanel>
+                <ListView ItemsSource="{Binding Local.Entries}" SelectedItem="{Binding Local.Selected}" MouseDoubleClick="OnLocalDoubleClick">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="名前" DisplayMemberBinding="{Binding Name}" Width="240"/>
+                            <GridViewColumn Header="種別" DisplayMemberBinding="{Binding Type}" Width="80"/>
+                            <GridViewColumn Header="サイズ" DisplayMemberBinding="{Binding Size, Converter={StaticResource SizeFmt}}" Width="80"/>
+                            <GridViewColumn Header="更新" DisplayMemberBinding="{Binding ModifiedAt, Converter={StaticResource Utc}}" Width="160"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </DockPanel>
+            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch"/>
+            <DockPanel Grid.Column="2">
+                <DockPanel DockPanel.Dock="Top" Margin="4">
+                    <TextBlock Text="場所: " VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding Remote.Locations}" SelectedItem="{Binding Remote.SelectedLocation}"
+                              DisplayMemberPath="DisplayName" Width="220" Margin="0,0,8,0"/>
+                    <TextBlock Text="パス: " VerticalAlignment="Center"/>
+                    <TextBox Text="{Binding Remote.CurrentPath, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnRemotePathKeyDown"/>
+                </DockPanel>
+                <ListView ItemsSource="{Binding Remote.Entries}" SelectedItem="{Binding Remote.Selected}" MouseDoubleClick="OnRemoteDoubleClick">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="名前" DisplayMemberBinding="{Binding Name}" Width="240"/>
+                            <GridViewColumn Header="種別" DisplayMemberBinding="{Binding Type}" Width="80"/>
+                            <GridViewColumn Header="サイズ" DisplayMemberBinding="{Binding Size, Converter={StaticResource SizeFmt}}" Width="80"/>
+                            <GridViewColumn Header="更新" DisplayMemberBinding="{Binding ModifiedAt, Converter={StaticResource Utc}}" Width="160"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>
