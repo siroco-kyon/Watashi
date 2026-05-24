@@ -1,10 +1,13 @@
 using System.Windows;
+using System.Windows.Controls;
 using Watashi.Client.ViewModels.Admin;
 
 namespace Watashi.Client.Views.Admin;
 
 public partial class AdminWindow : Window
 {
+    private bool _initialLoadCompleted;
+
     public AdminWindow(AdminShellViewModel vm)
     {
         InitializeComponent();
@@ -23,8 +26,44 @@ public partial class AdminWindow : Window
                 vm.Nodes.RefreshAsync(),
                 vm.Logs.RefreshAsync(),
                 vm.Settings.RefreshAsync());
+            _initialLoadCompleted = true;
         }
     }
 
-    private void OnCloseClicked(object sender, RoutedEventArgs e) => Close();
+    private async void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_initialLoadCompleted || !ReferenceEquals(e.OriginalSource, sender)) return;
+        if (sender is not TabControl { SelectedItem: TabItem { Content: FrameworkElement { DataContext: { } vm } } }) return;
+
+        switch (vm)
+        {
+            case UserManagementViewModel users:
+                await users.RefreshAsync();
+                break;
+            case HostManagementViewModel hosts:
+                await hosts.RefreshAsync();
+                break;
+            case ShareManagementViewModel shares:
+                await shares.RefreshAsync();
+                break;
+            case PermissionTemplateViewModel templates:
+                await templates.RefreshAsync();
+                break;
+            case UserPermissionViewModel userPermissions:
+                await userPermissions.RefreshAsync();
+                break;
+            case DeviceManagementViewModel devices:
+                await devices.RefreshAsync();
+                break;
+            case NodeManagementViewModel nodes:
+                await nodes.RefreshAsync();
+                break;
+            case AuditLogViewModel logs:
+                await logs.RefreshAsync();
+                break;
+            case SystemSettingsViewModel settings:
+                await settings.RefreshAsync();
+                break;
+        }
+    }
 }

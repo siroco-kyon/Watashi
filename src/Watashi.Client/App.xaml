@@ -4,11 +4,20 @@
              xmlns:conv="clr-namespace:Watashi.Client.Converters"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
-        <conv:UtcToLocalConverter x:Key="Utc"/>
-        <conv:SizeFormatConverter x:Key="SizeFmt"/>
-        <conv:ProtocolToBoolConverter x:Key="ProtocolToBool"/>
-        <conv:NotBoolConverter x:Key="NotBool"/>
-        <conv:TypeToIconConverter x:Key="TypeIcon"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Colors.xaml"/>
+                <ResourceDictionary Source="Themes/Icons.xaml"/>
+                <ResourceDictionary Source="Themes/Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisInverted" Invert="True"/>
+            <conv:UtcToLocalConverter x:Key="Utc"/>
+            <conv:SizeFormatConverter x:Key="SizeFmt"/>
+            <conv:ProtocolToBoolConverter x:Key="ProtocolToBool"/>
+            <conv:NotBoolConverter x:Key="NotBool"/>
+            <conv:TypeToIconConverter x:Key="TypeIcon"/>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

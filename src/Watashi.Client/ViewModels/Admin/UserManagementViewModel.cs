@@ -23,26 +23,32 @@ public partial class UserManagementViewModel : AdminViewModelBase
     [RelayCommand]
     public Task CreateAsync() => SafeAsync(async () =>
     {
+        if (string.IsNullOrWhiteSpace(NewUsername)) { StatusMessage = "ユーザー名を入力してください。"; return; }
+        if (string.IsNullOrWhiteSpace(NewPassword)) { StatusMessage = "初期パスワードを入力してください。"; return; }
         await _api.CreateUserAsync(new CreateUserRequest { Username = NewUsername, Password = NewPassword, IsAdmin = NewIsAdmin });
         NewUsername = NewPassword = string.Empty; NewIsAdmin = false;
         await RefreshAsync();
-    });
+    }, successMessage: "ユーザーを作成しました。");
 
     [RelayCommand]
     public Task DeleteAsync() => SafeAsync(async () =>
     {
-        if (Selected is null) return;
+        if (Selected is null) { StatusMessage = "削除するユーザーを選択してください。"; return; }
+        var confirm = System.Windows.MessageBox.Show(
+            $"ユーザー \"{Selected.Username}\" を削除しますか？\nこのユーザーの権限・信頼デバイス・セッションも削除されます。",
+            "削除確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
+        if (confirm != System.Windows.MessageBoxResult.OK) return;
         await _api.DeleteUserAsync(Selected.Id);
         await RefreshAsync();
-    });
+    }, successMessage: "削除しました。");
 
     [RelayCommand]
     public Task UnlockAsync() => SafeAsync(async () =>
     {
-        if (Selected is null) return;
+        if (Selected is null) { StatusMessage = "ロック解除するユーザーを選択してください。"; return; }
         await _api.UnlockUserAsync(Selected.Id);
         await RefreshAsync();
-    });
+    }, successMessage: "ロック解除しました。");
 
     [RelayCommand]
     public Task ResetPasswordAsync(string newPw) => SafeAsync(async () =>

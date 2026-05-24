@@ -10,8 +10,16 @@ public partial class UserManagementView : UserControl
 
     private async void OnResetPw(object sender, RoutedEventArgs e)
     {
-        if (DataContext is not UserManagementViewModel vm || vm.Selected is null) return;
-        var input = Microsoft.VisualBasic.Interaction.InputBox("新しいパスワード (12+, 大小数記号)", "PW リセット", "");
-        if (!string.IsNullOrWhiteSpace(input)) await vm.ResetPasswordAsync(input);
+        if (DataContext is not UserManagementViewModel vm || vm.Selected is null)
+        {
+            MessageBox.Show("リセット対象のユーザーを選択してください。", "PW リセット",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var input = Watashi.Client.Views.PromptDialog.Show(
+            $"\"{vm.Selected.Username}\" の新しいパスワード (12文字以上 / 英大・英小・数字・記号 各1):",
+            "", Window.GetWindow(this));
+        if (string.IsNullOrWhiteSpace(input)) return;
+        await vm.ResetPasswordAsync(input);
     }
 }

@@ -74,6 +74,7 @@ dotnet run
 ```
 
 > 開発時のポート (18080) は `src\Watashi.Server\appsettings.Development.json` の `Kestrel:Endpoints:Http:Url` で設定されている。
+> 同ファイルには HTTPS endpoint (`https://localhost:18443`) も併設してあるので、dev-cert を信頼すれば HTTPS でも検証可能。手順は **[DEVELOPMENT.md#https-開発環境のセットアップ](DEVELOPMENT.md#https-開発環境のセットアップ)** 参照。
 > 本番は `appsettings.json` 側で `Https:Url=https://0.0.0.0:8443` を使用する想定。
 
 ホストが未登録ならリモートペインは空。
@@ -230,7 +231,7 @@ ClientCertificateThumbprint = (空でよい)
 検証・ラボでのみ使う。本番では使わないこと。
 Server `appsettings.json` から `Https` セクションを削除し `Http` のみ残す。Agent もすべて HTTP。Client は HTTP で接続。
 
-**注意:** HTTP モードでは自動ログイン（信頼デバイス）は使用不可。ログイン画面のチェックボックスがグレーアウトする。
+**注意:** HTTP モードでも **クライアントの「このPCを記憶する」(信頼デバイス) は利用可能** だが、デバイストークン交換が平文で流れる。Production の `appsettings.json` で `Auth:AllowHttpForAutoLogin` を `true` にしないと、サーバーが HTTP の auto-login を 401 で拒否する。Dev は既に `true`。
 
 ### 双方向は許可不要
 

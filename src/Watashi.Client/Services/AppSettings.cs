@@ -1,15 +1,25 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Watashi.Client.Services;
 
 public class AppSettings
 {
     public string ServerUrl { get; set; } = string.Empty;
+    /// <summary>
+    /// URL を持たない入力時に scheme を補う既定値。実際の通信プロトコルは ServerUrl のスキームが真。
+    /// </summary>
     public string Protocol { get; set; } = "HTTPS";
     public string LastLocalPath { get; set; } = string.Empty;
 
-    public bool IsHttps => string.Equals(Protocol, "HTTPS", StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// 実際に HTTPS で通信しているか。Protocol フィールドではなく ServerUrl のスキームで判定する。
+    /// </summary>
+    [JsonIgnore]
+    public bool IsHttps => ServerUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+
+    [JsonIgnore]
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ServerUrl);
 
     private static string SettingsPath =>

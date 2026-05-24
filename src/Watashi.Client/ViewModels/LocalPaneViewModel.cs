@@ -126,9 +126,11 @@ public partial class LocalPaneViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task NewFolderAsync()
+    public Task NewFolderAsync() => NewFolderWithNameAsync($"New Folder {DateTime.Now:HHmmss}");
+
+    public async Task NewFolderWithNameAsync(string name)
     {
-        var name = $"New Folder {DateTime.Now:HHmmss}";
+        if (string.IsNullOrWhiteSpace(name)) return;
         var path = Path.Combine(CurrentPath, name);
         try
         {

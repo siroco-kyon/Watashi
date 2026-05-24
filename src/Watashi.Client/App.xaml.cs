@@ -65,22 +65,20 @@ public partial class App : Application
         var api = Services.GetRequiredService<ApiClient>();
         var cred = Services.GetRequiredService<CredentialStore>();
 
-        if (_settings.IsHttps)
+        // HTTP/HTTPS どちらでも自動ログイン試行。サーバー側 Auth:AllowHttpForAutoLogin で最終判定される。
+        var saved = cred.LoadDeviceToken();
+        if (saved is not null)
         {
-            var saved = cred.LoadDeviceToken();
-            if (saved is not null)
+            try
             {
-                try
-                {
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-                    var res = await api.AutoLoginAsync(saved.Value.machineName, saved.Value.windowsUser, saved.Value.token, cts.Token);
-                    session.SetFromLogin(res);
-                    if (res.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
-                    ShowMain();
-                    return;
-                }
-                catch { cred.ClearDeviceToken(); }
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                var res = await api.AutoLoginAsync(saved.Value.machineName, saved.Value.windowsUser, saved.Value.token, cts.Token);
+                session.SetFromLogin(res);
+                if (res.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
+                ShowMain();
+                return;
             }
+            catch { cred.ClearDeviceToken(); }
         }
 
         if (!ShowLogin()) { Shutdown(); return; }

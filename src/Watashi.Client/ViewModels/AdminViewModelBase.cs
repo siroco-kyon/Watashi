@@ -11,13 +11,19 @@ public abstract partial class AdminViewModelBase : ObservableObject
 {
     [ObservableProperty] private string statusMessage = string.Empty;
 
-    /// <summary>try/catch とローディング状態をまとめる。成功時にメッセージを指定可能。</summary>
+    /// <summary>
+    /// try/catch ラッパー。成功時にメッセージを指定可能。
+    /// action 内で StatusMessage を書き換えた場合 (バリデーション失敗の早期 return など) は
+    /// successMessage で上書きしない。
+    /// </summary>
     protected async Task SafeAsync(Func<Task> action, string? successMessage = null)
     {
+        var before = StatusMessage;
         try
         {
             await action();
-            if (successMessage is not null) StatusMessage = successMessage;
+            if (successMessage is not null && string.Equals(StatusMessage, before, StringComparison.Ordinal))
+                StatusMessage = successMessage;
         }
         catch (ApiException ex)
         {

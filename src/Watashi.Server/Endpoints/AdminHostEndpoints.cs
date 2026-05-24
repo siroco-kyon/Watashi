@@ -83,16 +83,31 @@ public static class AdminHostEndpoints
             return Results.NoContent();
         });
 
-        group.MapPost("/{id:int}/test", async (int id, AppDbContext db, EncryptionService enc, CifsService cifs, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
+        group.MapPost("/{id:int}/test", async (int id, AppDbContext db, EncryptionService enc, NodeRouter router, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var h = await db.CifsHosts.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
             if (h is null) return Results.NotFound();
             var anyShare = await db.CifsShares.AsNoTracking().FirstOrDefaultAsync(s => s.HostId == id, ct);
             if (anyShare is null) return Results.BadRequest(new { error = "テスト用の共有が登録されていません。" });
+            var node = await db.ExecutionNodes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == h.ExecutionNodeId, ct);
+            if (node is null) return Results.BadRequest(new { error = "ホストに紐づく ExecutionNode が見つかりません。" });
             var info = new CifsConnectionInfo(h.HostAddress, h.Port, h.CredUsername, enc.Decrypt(h.CredPasswordEnc), anyShare.ShareName);
-            var ok = await Task.Run(() => cifs.TestConnection(info), ct);
+            var errorMessage = default(string);
+            var ok = false;
+            try
+            {
+                ok = await router.TestAsync(node, info, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+            }
             await audit.LogAdminAsync(principal, ctx, AdminOperations.HostTest, $"host:{id}",
-                ok ? AuditResults.Success : AuditResults.Failure, ct: ct);
+                ok ? AuditResults.Success : AuditResults.Failure, errorMessage, ct);
             return Results.Ok(new { ok });
         });
 

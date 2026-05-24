@@ -30,8 +30,12 @@ public partial class DeviceManagementViewModel : AdminViewModelBase
     [RelayCommand]
     public Task RevokeAllAsync() => SafeAsync(async () =>
     {
-        if (SelectedUser is null) return;
+        if (SelectedUser is null) { StatusMessage = "対象ユーザーを選択してください。"; return; }
+        var confirm = System.Windows.MessageBox.Show(
+            $"\"{SelectedUser.Username}\" の信頼デバイスを全て失効しますか？\n対象ユーザーは次回ログインで再度パスワード入力が必要になります。",
+            "失効確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
+        if (confirm != System.Windows.MessageBoxResult.OK) return;
         await _api.RevokeDevicesAsync(SelectedUser.Id);
         await LoadDevicesAsync();
-    });
+    }, successMessage: "失効しました。");
 }

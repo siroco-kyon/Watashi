@@ -15,21 +15,29 @@ public static class AdminBrowseEndpoints
             int shareId,
             string? path,
             AppDbContext db,
-            CifsService cifs,
+            NodeRouter router,
             EncryptionService enc,
             CancellationToken ct) =>
         {
             var row = await (from h in db.CifsHosts.AsNoTracking()
                 join s in db.CifsShares on h.Id equals s.HostId
+                join n in db.ExecutionNodes on h.ExecutionNodeId equals n.Id
                 where h.Id == hostId && s.Id == shareId
-                select new { h.HostAddress, h.Port, h.CredUsername, h.CredPasswordEnc, s.ShareName }
+                select new { Host = h, Share = s, Node = n }
             ).FirstOrDefaultAsync(ct);
             if (row is null) return Results.BadRequest(new { error = "ホスト/共有が見つかりません。" });
-            var pw = enc.Decrypt(row.CredPasswordEnc);
-            var info = new CifsConnectionInfo(row.HostAddress, row.Port, row.CredUsername, pw, row.ShareName);
+            var pw = enc.Decrypt(row.Host.CredPasswordEnc);
+            var info = new CifsConnectionInfo(row.Host.HostAddress, row.Host.Port, row.Host.CredUsername, pw, row.Share.ShareName);
             var normalized = PathHelper.NormalizePath(path);
-            var list = await Task.Run(() => cifs.List(info, normalized), ct);
-            return Results.Ok(new { currentPath = normalized, entries = list });
+            try
+            {
+                var list = await router.ListAsync(row.Node, info, normalized, ct);
+                return Results.Ok(new { currentPath = normalized, entries = list });
+            }
+            catch (NodeUnreachableException)
+            {
+                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            }
         }).RequireAuthorization("Admin");
 
         return app;

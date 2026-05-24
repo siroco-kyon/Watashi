@@ -1,8 +1,10 @@
 using System.IO;
+using System.Net;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Win32;
 using Watashi.Client.Services;
+using Watashi.Shared.Constants;
 
 namespace Watashi.Client.ViewModels;
 
@@ -26,12 +28,22 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task RefreshAllAsync()
+    {
+        Local.RefreshCommand.Execute(null);
+        await Remote.RefreshAsync();
+    }
+
+    [RelayCommand]
     public async Task UploadAsync()
     {
-        if (Local.Selected is null || Remote.SelectedLocation is null) return;
-        if (Local.Selected.Type != Watashi.Shared.Constants.FileEntryTypes.File) return;
+        if (Local.Selected is null) { StatusMessage = "アップロードするローカルファイルを選択してください。"; return; }
+        if (Remote.SelectedLocation is null) { StatusMessage = "アップロード先のリモート場所を選択してください。"; return; }
+        if (Local.Selected.Type != FileEntryTypes.File) { StatusMessage = "アップロードできるのはファイルだけです。"; return; }
+        if (!Remote.SelectedLocation.Permissions.Write) { StatusMessage = "アップロード失敗: この場所には書き込み権限がありません。"; return; }
         var local = Path.Combine(Local.CurrentPath, Local.Selected.Name);
         var fi = new FileInfo(local);
+        if (!fi.Exists) { StatusMessage = "アップロード失敗: ローカルファイルが見つかりません。"; return; }
         var remote = RemotePaneViewModel.JoinPath(Remote.CurrentPath, Local.Selected.Name);
         Transfer.FileName = Local.Selected.Name;
         Transfer.TotalBytes = fi.Length;
@@ -45,6 +57,10 @@ public partial class MainViewModel : ObservableObject
             await Remote.RefreshAsync();
             StatusMessage = $"アップロード完了: {Local.Selected.Name}";
         }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            StatusMessage = "アップロード失敗: 書き込み権限がありません。";
+        }
         catch (Exception ex) { StatusMessage = "アップロード失敗: " + ex.Message; }
         finally { Transfer.IsActive = false; }
     }
@@ -52,14 +68,22 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task DownloadAsync()
     {
-        if (Remote.Selected is null || Remote.SelectedLocation is null) return;
-        if (Remote.Selected.Type != Watashi.Shared.Constants.FileEntryTypes.File) return;
-        var dlg = new SaveFileDialog
+        if (Remote.Selected is null) { StatusMessage = "ダウンロードするリモートファイルを選択してください。"; return; }
+        if (Remote.SelectedLocation is null) { StatusMessage = "ダウンロード元のリモート場所を選択してください。"; return; }
+        if (Remote.Selected.Type != FileEntryTypes.File) { StatusMessage = "ダウンロードできるのはファイルだけです。"; return; }
+        if (!Directory.Exists(Local.CurrentPath)) { StatusMessage = "ダウンロード失敗: ローカルフォルダが見つかりません。"; return; }
+
+        var destination = Path.Combine(Local.CurrentPath, Remote.Selected.Name);
+        if (File.Exists(destination))
         {
-            FileName = Remote.Selected.Name,
-            InitialDirectory = Local.CurrentPath,
-        };
-        if (dlg.ShowDialog() != true) return;
+            var overwrite = MessageBox.Show(
+                $"{Remote.Selected.Name} はローカルフォルダに既に存在します。上書きしますか？",
+                "ダウンロード",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (overwrite != MessageBoxResult.Yes) return;
+        }
+
         var remotePath = RemotePaneViewModel.JoinPath(Remote.CurrentPath, Remote.Selected.Name);
         Transfer.FileName = Remote.Selected.Name;
         Transfer.TotalBytes = Remote.Selected.Size ?? 0;
@@ -67,11 +91,18 @@ public partial class MainViewModel : ObservableObject
         Transfer.IsActive = true;
         try
         {
-            await using var fs = File.Create(dlg.FileName);
             var progress = new Progress<long>(b => Transfer.BytesTransferred = b);
-            await _api.DownloadAsync(Remote.SelectedLocation.HostId, Remote.SelectedLocation.ShareId, remotePath, fs, progress);
+            await using (var fs = File.Create(destination))
+            {
+                await _api.DownloadAsync(Remote.SelectedLocation.HostId, Remote.SelectedLocation.ShareId, remotePath, fs, progress);
+                await fs.FlushAsync();
+            }
             await Local.RefreshAsync();
             StatusMessage = $"ダウンロード完了: {Remote.Selected.Name}";
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            StatusMessage = "ダウンロード失敗: 読み取り権限がありません。";
         }
         catch (Exception ex) { StatusMessage = "ダウンロード失敗: " + ex.Message; }
         finally { Transfer.IsActive = false; }

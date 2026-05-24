@@ -1,0 +1,159 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Colors.xaml"/>
+    </ResourceDictionary.MergedDictionaries>
+
+    <!--
+        ===== 鳥居アイコン (Torii) =====
+        ViewBox: 64x64
+        構成: 笠木 (kasagi) / 島木 (shimaki) / 柱 (hashira) x2 / 貫 (nuki)
+        小さくしても識別できるよう、要素を太めにブロック化。
+    -->
+    <DrawingImage x:Key="ToriiIcon">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <DrawingGroup.ClipGeometry>
+                    <RectangleGeometry Rect="0,0,64,64" />
+                </DrawingGroup.ClipGeometry>
+
+                <!-- 笠木 (top beam with upturned ends) -->
+                <GeometryDrawing Brush="{StaticResource AccentBrush}">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry FillRule="Nonzero">
+                            <PathFigure StartPoint="2,15" IsClosed="True">
+                                <LineSegment Point="2,12" />
+                                <BezierSegment Point1="2,4" Point2="6,2" Point3="14,5" />
+                                <LineSegment Point="50,5" />
+                                <BezierSegment Point1="58,2" Point2="62,4" Point3="62,12" />
+                                <LineSegment Point="62,15" />
+                                <LineSegment Point="2,15" />
+                            </PathFigure>
+                        </PathGeometry>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- 島木 (second beam) -->
+                <GeometryDrawing Brush="{StaticResource AccentDeepBrush}">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="6,17,52,5" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- 左柱 (left hashira, わずかに下に向かって広がる) -->
+                <GeometryDrawing Brush="{StaticResource AccentBrush}">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry>
+                            <PathFigure StartPoint="14,22" IsClosed="True">
+                                <LineSegment Point="22,22" />
+                                <LineSegment Point="23,60" />
+                                <LineSegment Point="13,60" />
+                            </PathFigure>
+                        </PathGeometry>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- 右柱 (right hashira) -->
+                <GeometryDrawing Brush="{StaticResource AccentBrush}">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry>
+                            <PathFigure StartPoint="42,22" IsClosed="True">
+                                <LineSegment Point="50,22" />
+                                <LineSegment Point="51,60" />
+                                <LineSegment Point="41,60" />
+                            </PathFigure>
+                        </PathGeometry>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- 貫 (nuki, 柱を貫く横木) -->
+                <GeometryDrawing Brush="{StaticResource AccentBrush}">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="10,29,44,5" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- 反転バージョン (ヘッダー濃色背景用) -->
+    <DrawingImage x:Key="ToriiIconLight">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <DrawingGroup.ClipGeometry>
+                    <RectangleGeometry Rect="0,0,64,64" />
+                </DrawingGroup.ClipGeometry>
+                <GeometryDrawing Brush="{StaticResource TextOnAccentBrush}">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry>
+                            <PathFigure StartPoint="2,15" IsClosed="True">
+                                <LineSegment Point="2,12" />
+                                <BezierSegment Point1="2,4" Point2="6,2" Point3="14,5" />
+                                <LineSegment Point="50,5" />
+                                <BezierSegment Point1="58,2" Point2="62,4" Point3="62,12" />
+                                <LineSegment Point="62,15" />
+                                <LineSegment Point="2,15" />
+                            </PathFigure>
+                        </PathGeometry>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{StaticResource TextOnAccentBrush}">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="6,17,52,5" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{StaticResource TextOnAccentBrush}">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry>
+                            <PathFigure StartPoint="14,22" IsClosed="True">
+                                <LineSegment Point="22,22" />
+                                <LineSegment Point="23,60" />
+                                <LineSegment Point="13,60" />
+                            </PathFigure>
+                        </PathGeometry>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{StaticResource TextOnAccentBrush}">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry>
+                            <PathFigure StartPoint="42,22" IsClosed="True">
+                                <LineSegment Point="50,22" />
+                                <LineSegment Point="51,60" />
+                                <LineSegment Point="41,60" />
+                            </PathFigure>
+                        </PathGeometry>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{StaticResource TextOnAccentBrush}">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="10,29,44,5" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!--
+        ===== ロゴテンプレート (Watashi 名前 + 鳥居) =====
+    -->
+    <ControlTemplate x:Key="ToriiLogo" TargetType="ContentControl">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <Image Source="{StaticResource ToriiIcon}" Width="22" Height="22" Margin="0,0,8,0"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
+            <TextBlock Text="Watashi" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+        </StackPanel>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="ToriiLogoLight" TargetType="ContentControl">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <Image Source="{StaticResource ToriiIconLight}" Width="22" Height="22" Margin="0,0,8,0"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
+            <TextBlock Text="Watashi" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{StaticResource TextOnAccentBrush}" VerticalAlignment="Center" />
+        </StackPanel>
+    </ControlTemplate>
+
+</ResourceDictionary>

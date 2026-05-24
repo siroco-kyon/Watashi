@@ -25,19 +25,24 @@ public partial class PermissionTemplateViewModel : AdminViewModelBase
     [RelayCommand]
     public Task CreateAsync() => SafeAsync(async () =>
     {
+        if (string.IsNullOrWhiteSpace(NewName)) { StatusMessage = "テンプレート名を入力してください。"; return; }
         await _api.CreateTemplateAsync(new PermissionTemplateDto
         {
             Name = NewName, CanRead = NewCanRead, CanWrite = NewCanWrite, CanDelete = NewCanDelete, CanRename = NewCanRename,
         });
         NewName = string.Empty;
         await RefreshAsync();
-    });
+    }, successMessage: "テンプレートを作成しました。");
 
     [RelayCommand]
     public Task DeleteAsync() => SafeAsync(async () =>
     {
-        if (Selected is null) return;
+        if (Selected is null) { StatusMessage = "削除するテンプレートを選択してください。"; return; }
+        var confirm = System.Windows.MessageBox.Show(
+            $"テンプレート \"{Selected.Name}\" を削除しますか？\n使用中の場合はエラーになる場合があります。",
+            "削除確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
+        if (confirm != System.Windows.MessageBoxResult.OK) return;
         await _api.DeleteTemplateAsync(Selected.Id);
         await RefreshAsync();
-    });
+    }, successMessage: "削除しました。");
 }
