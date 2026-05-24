@@ -9,6 +9,7 @@ public partial class AdminShellViewModel : ObservableObject
     public ShareManagementViewModel Shares { get; }
     public PermissionTemplateViewModel Templates { get; }
     public UserPermissionViewModel UserPermissions { get; }
+    public PermissionBundleViewModel Bundles { get; }
     public DeviceManagementViewModel Devices { get; }
     public NodeManagementViewModel Nodes { get; }
     public AuditLogViewModel Logs { get; }
@@ -16,10 +17,11 @@ public partial class AdminShellViewModel : ObservableObject
 
     public AdminShellViewModel(
         UserManagementViewModel users, HostManagementViewModel hosts, ShareManagementViewModel shares,
-        PermissionTemplateViewModel templates, UserPermissionViewModel perms, DeviceManagementViewModel devices,
+        PermissionTemplateViewModel templates, UserPermissionViewModel perms, PermissionBundleViewModel bundles,
+        DeviceManagementViewModel devices,
         NodeManagementViewModel nodes, AuditLogViewModel logs, SystemSettingsViewModel settings)
     {
         Users = users; Hosts = hosts; Shares = shares; Templates = templates;
-        UserPermissions = perms; Devices = devices; Nodes = nodes; Logs = logs; Settings = settings;
+        UserPermissions = perms; Bundles = bundles; Devices = devices; Nodes = nodes; Logs = logs; Settings = settings;
     }
 }

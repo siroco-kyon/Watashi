@@ -178,6 +178,7 @@ public partial class App : Application
         services.AddTransient<ViewModels.Admin.ShareManagementViewModel>();
         services.AddTransient<ViewModels.Admin.PermissionTemplateViewModel>();
         services.AddTransient<ViewModels.Admin.UserPermissionViewModel>();
+        services.AddTransient<ViewModels.Admin.PermissionBundleViewModel>();
         services.AddTransient<ViewModels.Admin.DeviceManagementViewModel>();
         services.AddTransient<ViewModels.Admin.NodeManagementViewModel>();
         services.AddTransient<ViewModels.Admin.AuditLogViewModel>();

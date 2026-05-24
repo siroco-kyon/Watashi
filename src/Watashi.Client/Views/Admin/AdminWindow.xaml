@@ -35,6 +35,7 @@
             <TabItem Header="共有">          <v:ShareManagementView DataContext="{Binding Shares}"/></TabItem>
             <TabItem Header="テンプレート">  <v:PermissionTemplateView DataContext="{Binding Templates}"/></TabItem>
             <TabItem Header="ユーザー権限">  <v:UserPermissionView DataContext="{Binding UserPermissions}"/></TabItem>
+            <TabItem Header="権限セット">    <v:PermissionBundleView DataContext="{Binding Bundles}"/></TabItem>
             <TabItem Header="信頼デバイス">  <v:DeviceManagementView DataContext="{Binding Devices}"/></TabItem>
             <TabItem Header="実行ノード">    <v:NodeManagementView DataContext="{Binding Nodes}"/></TabItem>
             <TabItem Header="操作ログ">      <v:AuditLogView DataContext="{Binding Logs}"/></TabItem>

@@ -22,6 +22,7 @@ public partial class AdminWindow : Window
                 vm.Shares.RefreshAsync(),
                 vm.Templates.RefreshAsync(),
                 vm.UserPermissions.RefreshAsync(),
+                vm.Bundles.RefreshAsync(),
                 vm.Devices.RefreshAsync(),
                 vm.Nodes.RefreshAsync(),
                 vm.Logs.RefreshAsync(),
@@ -51,6 +52,9 @@ public partial class AdminWindow : Window
                 break;
             case UserPermissionViewModel userPermissions:
                 await userPermissions.RefreshAsync();
+                break;
+            case PermissionBundleViewModel bundles:
+                await bundles.RefreshAsync();
                 break;
             case DeviceManagementViewModel devices:
                 await devices.RefreshAsync();

@@ -36,6 +36,8 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     public ObservableCollection<ShareDto> Shares { get; } = new();
     public ObservableCollection<PermissionTemplateDto> Templates { get; } = new();
     public ObservableCollection<FileEntry> BrowseEntries { get; } = new();
+    public ObservableCollection<PermissionBundleDto> Bundles { get; } = new();
+    public ObservableCollection<UserDto> CopyFromCandidates { get; } = new();
 
     [ObservableProperty] private UserDto? selectedUser;
     [ObservableProperty] private UserPermissionSummary? selectedSummary;
@@ -48,6 +50,8 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     [ObservableProperty] private string browsePath = "/";
     [ObservableProperty] private string userFilter = string.Empty;
     [ObservableProperty] private FileEntry? selectedBrowseEntry;
+    [ObservableProperty] private PermissionBundleDto? selectedBundle;
+    [ObservableProperty] private UserDto? copyFromUser;
 
     public bool HasSelectedUser => SelectedUser is not null;
     public bool HasNoUsers => UserSummaries.Count == 0;
@@ -76,7 +80,9 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         var sharesTask = _api.GetAdminSharesAsync();
         var templatesTask = _api.GetTemplatesAsync();
         var allPermsTask = _api.GetUserPermissionsAsync(null);
-        await Task.WhenAll(usersTask, hostsTask, sharesTask, templatesTask, allPermsTask);
+        var bundlesTask = _api.GetBundlesAsync();
+        await Task.WhenAll(usersTask, hostsTask, sharesTask, templatesTask, allPermsTask, bundlesTask);
+        ReplaceAll(Bundles, bundlesTask.Result);
 
         RebuildCounts(allPermsTask.Result);
         _allUsers.Clear();
@@ -204,6 +210,53 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         StatusMessage = "削除しました。";
     });
 
+    /// <summary>選択中のセットを SelectedUser に適用 (重複は上書き or スキップを確認)。</summary>
+    [RelayCommand]
+    public Task ApplyBundleAsync() => SafeAsync(async () =>
+    {
+        if (SelectedUser is null) { StatusMessage = "先にユーザーを選択してください。"; return; }
+        if (SelectedBundle is null) { StatusMessage = "適用するセットを選択してください。"; return; }
+        var owMsg = System.Windows.MessageBox.Show(
+            $"セット \"{SelectedBundle.Name}\" ({SelectedBundle.Entries.Count} 行) を {SelectedUser.Username} に適用します。\n\n" +
+            "[はい] 既存の重複行も上書き (テンプレ・表示名を更新)\n" +
+            "[いいえ] 重複行はスキップ (推奨)\n" +
+            "[キャンセル] 中止",
+            "セット適用", System.Windows.MessageBoxButton.YesNoCancel, System.Windows.MessageBoxImage.Question);
+        if (owMsg == System.Windows.MessageBoxResult.Cancel) return;
+        var overwrite = owMsg == System.Windows.MessageBoxResult.Yes;
+        var res = await _api.ApplyBundleAsync(SelectedBundle.Id, new ApplyPermissionBundleRequest
+        {
+            UserId = SelectedUser.Id, Overwrite = overwrite,
+        });
+        await RefreshCountsAsync();
+        await LoadItemsAsync();
+        StatusMessage = $"セット適用: 追加 {res.Created} / 更新 {res.Updated} / スキップ {res.Skipped}";
+    });
+
+    /// <summary>選択中のユーザーから現ユーザーへ権限をコピー (全件)。</summary>
+    [RelayCommand]
+    public Task CopyFromUserAsync() => SafeAsync(async () =>
+    {
+        if (SelectedUser is null) { StatusMessage = "コピー先のユーザーを選択してください。"; return; }
+        if (CopyFromUser is null) { StatusMessage = "コピー元のユーザーを選択してください。"; return; }
+        if (CopyFromUser.Id == SelectedUser.Id) { StatusMessage = "コピー元とコピー先が同じです。"; return; }
+        var owMsg = System.Windows.MessageBox.Show(
+            $"{CopyFromUser.Username} の全権限を {SelectedUser.Username} にコピーします。\n\n" +
+            "[はい] 既存の重複行も上書き\n" +
+            "[いいえ] 重複行はスキップ (推奨)\n" +
+            "[キャンセル] 中止",
+            "権限コピー", System.Windows.MessageBoxButton.YesNoCancel, System.Windows.MessageBoxImage.Question);
+        if (owMsg == System.Windows.MessageBoxResult.Cancel) return;
+        var overwrite = owMsg == System.Windows.MessageBoxResult.Yes;
+        var res = await _api.CopyUserPermissionsAsync(new CopyUserPermissionsRequest
+        {
+            FromUserId = CopyFromUser.Id, ToUserId = SelectedUser.Id, Overwrite = overwrite,
+        });
+        await RefreshCountsAsync();
+        await LoadItemsAsync();
+        StatusMessage = $"権限コピー: 追加 {res.Copied} / 更新 {res.Updated} / スキップ {res.Skipped}";
+    });
+
     private async Task RefreshCountsAsync()
     {
         var all = await _api.GetUserPermissionsAsync(null);
@@ -233,6 +286,9 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         UserSummaries.Clear();
         foreach (var u in list)
             UserSummaries.Add(new UserPermissionSummary(u, _countsByUser.TryGetValue(u.Id, out var c) ? c : 0));
+
+        // 「他ユーザーからコピー」の候補は フィルタ非依存の全ユーザー
+        ReplaceAll(CopyFromCandidates, _allUsers);
 
         var nextUser = preferredUserId.HasValue
             ? list.FirstOrDefault(u => u.Id == preferredUserId.Value) ?? list.FirstOrDefault()

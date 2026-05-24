@@ -185,6 +185,7 @@ app.MapHostEndpoints();
 app.MapFileEndpoints();
 app.MapAdminTemplateEndpoints();
 app.MapAdminUserPermissionEndpoints();
+app.MapAdminPermissionBundleEndpoints();
 app.MapAdminUserEndpoints();
 app.MapAdminHostEndpoints();
 app.MapAdminShareEndpoints();
