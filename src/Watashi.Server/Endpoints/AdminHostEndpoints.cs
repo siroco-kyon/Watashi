@@ -38,6 +38,8 @@ public static class AdminHostEndpoints
         {
             if (string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.HostAddress))
                 return Results.BadRequest(new { error = "Name/HostAddress は必須です。" });
+            if (!IsSupportedSmbPort(req.Port))
+                return Results.BadRequest(new { error = "Port は 445 (DirectTCP) または 139 (NetBIOS over TCP) のみ指定できます。" });
             if (!await db.ExecutionNodes.AsNoTracking().AnyAsync(n => n.Id == req.ExecutionNodeId, ct))
                 return Results.BadRequest(new { error = "指定された ExecutionNode が存在しません。" });
             var h = new CifsHost
@@ -61,6 +63,8 @@ public static class AdminHostEndpoints
         {
             var h = await db.CifsHosts.FindAsync(new object?[] { id }, ct);
             if (h is null) return Results.NotFound();
+            if (req.Port.HasValue && !IsSupportedSmbPort(req.Port.Value))
+                return Results.BadRequest(new { error = "Port は 445 (DirectTCP) または 139 (NetBIOS over TCP) のみ指定できます。" });
             if (req.Name is not null) h.Name = req.Name;
             if (req.HostAddress is not null) h.HostAddress = req.HostAddress;
             if (req.Port.HasValue) h.Port = req.Port.Value;
@@ -113,4 +117,10 @@ public static class AdminHostEndpoints
 
         return app;
     }
+
+    /// <summary>
+    /// SMBLibrary 1.5.x の制約: Connect(IPAddress, transport) は port を取らず、transport ごとに
+    /// 既定ポート (DirectTCP=445, NetBIOS=139) を内部で使う。それ以外は実接続できないので登録段階で弾く。
+    /// </summary>
+    private static bool IsSupportedSmbPort(int port) => port == 445 || port == 139;
 }

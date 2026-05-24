@@ -96,7 +96,7 @@ public static class AdminUserEndpoints
             return Results.NoContent();
         });
 
-        group.MapPost("/{id:int}/reset-password", async (int id, ResetPasswordRequest req, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
+        group.MapPost("/{id:int}/reset-password", async (int id, ResetPasswordRequest req, AppDbContext db, AuthService auth, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
@@ -110,6 +110,8 @@ public static class AdminUserEndpoints
             u.MustChangePassword = true;
             u.FailedLoginCount = 0;
             u.IsLocked = false;
+            // 管理者リセットも既存 refresh token を全て失効。盗まれた refresh が変更後に使われるのを防ぐ。
+            await auth.RevokeAllRefreshTokensAsync(u.Id, ct);
             await db.SaveChangesAsync(ct);
             await audit.LogAdminAsync(principal, ctx, AdminOperations.UserResetPassword, $"user:{id}", ct: ct);
             return Results.NoContent();
@@ -177,7 +179,7 @@ public static class AdminUserEndpoints
         // ===== CSV インポート =====
         // multipart/form-data: file=<CSV>, mode=add-only|upsert (default add-only)
         // CSV format: Username,Password,IsAdmin
-        group.MapPost("/import.csv", async (HttpContext ctx, AppDbContext db, AuditLogService audit, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
+        group.MapPost("/import.csv", async (HttpContext ctx, AppDbContext db, AuthService auth, AuditLogService audit, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             if (!ctx.Request.HasFormContentType)
                 return Results.BadRequest(new { error = "multipart/form-data 形式でアップロードしてください。" });
@@ -245,6 +247,8 @@ public static class AdminUserEndpoints
                     existing.PasswordExpiresAt = now.AddDays(days);
                     existing.IsLocked = false;
                     existing.FailedLoginCount = 0;
+                    // upsert もパスワード変更扱い: 既存 refresh token を全て失効。
+                    await auth.RevokeAllRefreshTokensAsync(existing.Id, ct);
                     try { await db.SaveChangesAsync(ct); result.Updated++; }
                     catch (DbUpdateException ex) {
                         db.ChangeTracker.Clear();

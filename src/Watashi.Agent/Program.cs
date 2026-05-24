@@ -36,6 +36,16 @@ builder.Services.AddSingleton<CifsService>();
 var useMtls = builder.Configuration.GetValue<bool>("Routing:UseMtls");
 if (useMtls)
 {
+    // 起動時設定チェック: mTLS 有効なのにサムプリントも SharedSecret も両方未設定だと
+    // Agent はどんな inbound も拒否することになり実質サービス停止と同じ。明示的に失敗させる。
+    var hasThumbprint = !string.IsNullOrWhiteSpace(builder.Configuration["Auth:CentralCertificateThumbprint"]);
+    var hasSharedSecret = !string.IsNullOrWhiteSpace(builder.Configuration["Auth:SharedSecret"]);
+    if (!hasThumbprint && !hasSharedSecret)
+    {
+        throw new InvalidOperationException(
+            "Routing:UseMtls=true ですが Auth:CentralCertificateThumbprint も Auth:SharedSecret も未設定です。" +
+            "いずれかを設定してください (本番では CentralCertificateThumbprint を強く推奨)。");
+    }
     builder.WebHost.ConfigureKestrel(o =>
     {
         o.ConfigureHttpsDefaults(https =>

@@ -130,6 +130,14 @@ public class AuthService
         if (user.IsLocked) return (null, "account_locked");
         if (token.Device is not null && token.Device.IsRevoked) return (null, "device_revoked");
 
+        // パスワード変更以前に発行された refresh token は無効化する。盗まれた refresh が
+        // パスワード変更後も使えてしまう問題への対策。
+        if (token.IssuedAt < user.PasswordChangedAt)
+        {
+            await RevokeFamilyAsync(user.Id, ct);
+            return (null, "password_changed");
+        }
+
         var now = DateTime.UtcNow;
 
         // ローテーション: 旧トークンを失効させ、新しい refresh token を発行する。
@@ -223,25 +231,31 @@ public class AuthService
         return new TrustDeviceResponse { DeviceToken = plain };
     }
 
-    public async Task<bool> LogoutAsync(string refreshTokenId, CancellationToken ct = default)
+    public async Task<bool> LogoutAsync(int userId, string refreshTokenId, string? refreshTokenPlain, CancellationToken ct = default)
     {
         var token = await _db.RefreshTokens.FirstOrDefaultAsync(t => t.Id == refreshTokenId, ct);
         if (token is null) return false;
+        // 認証済みであっても、refresh token は呼び出し元ユーザー所有のものでなければ受け付けない。
+        // refresh token 値が渡された場合はそれも照合する (盗まれた ID 単独での横取り失効を防ぐ)。
+        if (token.UserId != userId) return false;
+        if (!string.IsNullOrEmpty(refreshTokenPlain) &&
+            !BCrypt.Net.BCrypt.Verify(refreshTokenPlain, token.TokenHash))
+            return false;
         token.IsRevoked = true;
         await _db.SaveChangesAsync(ct);
         return true;
     }
 
-    public async Task<(bool ok, string? error)> ChangePasswordAsync(int userId, string currentPassword, string newPassword, CancellationToken ct = default)
+    public async Task<(LoginResponse? response, string? error)> ChangePasswordAsync(int userId, string currentPassword, string newPassword, string? clientIp = null, CancellationToken ct = default)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
-        if (user is null) return (false, "user_not_found");
+        if (user is null) return (null, "user_not_found");
 
         if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
-            return (false, "現在のパスワードが正しくありません。");
+            return (null, "現在のパスワードが正しくありません。");
 
         var (policyOk, policyError) = PasswordPolicy.Validate(newPassword);
-        if (!policyOk) return (false, policyError);
+        if (!policyOk) return (null, policyError);
 
         var expiryDays = await GetPasswordExpiryDaysAsync(ct);
         var now = DateTime.UtcNow;
@@ -249,9 +263,21 @@ public class AuthService
         user.PasswordChangedAt = now;
         user.PasswordExpiresAt = now.AddDays(expiryDays);
         user.MustChangePassword = false;
+        // 既存セッションは全て切る。盗まれた refresh が変更後も使われるのを防ぐ。
+        await RevokeAllRefreshTokensAsync(user.Id, ct);
         await _db.SaveChangesAsync(ct);
-        return (true, null);
+
+        // 古い access token は mcp claim を含み middleware に弾かれ、refresh token も失効済みなので、
+        // 呼び出し直後にクライアントが再ログイン無しで動けるよう、新しい access/refresh token を発行して返す。
+        var response = await IssueTokensAsync(user, deviceId: null, clientIp, ct);
+        return (response, null);
     }
+
+    /// <summary>指定ユーザーの未失効 refresh token を全て失効させる。パスワード変更/リセット時に使う。</summary>
+    public Task RevokeAllRefreshTokensAsync(int userId, CancellationToken ct = default)
+        => _db.RefreshTokens
+            .Where(t => t.UserId == userId && !t.IsRevoked)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.IsRevoked, true), ct);
 
     private string CreateAccessToken(User user, DateTime now)
     {
@@ -260,11 +286,15 @@ public class AuthService
         var expires = now.AddMinutes(_opts.AccessTokenMinutes);
         var claims = new List<Claim>
         {
-            new("uid", user.Id.ToString()),
+            new(Shared.Constants.AuthClaims.UserId, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Name, user.Username),
         };
         if (user.IsAdmin)
-            claims.Add(new Claim("role", "Admin"));
+            claims.Add(new Claim(Shared.Constants.AuthClaims.Role, Shared.Constants.AuthClaims.Admin));
+        // mcp claim はサーバ側ミドルウェアで強制される: 変更必須/期限切れの場合は
+        // change-password / logout / refresh 以外を 403 にする。
+        if (user.MustChangePassword || user.PasswordExpiresAt <= now)
+            claims.Add(new Claim(Shared.Constants.AuthClaims.MustChangePassword, "1"));
 
         var jwt = new JwtSecurityToken(
             issuer: _opts.Issuer,

@@ -13,6 +13,12 @@ public static class AuthClaims
     public const string Role = "role";
     public const string Admin = "Admin";
     public const string User = "User";
+    /// <summary>
+    /// access token に付与される「パスワード変更必須」フラグ。値は "1" 固定。
+    /// 付与されたトークンは <c>/api/auth/change-password</c> / <c>/api/auth/logout</c> /
+    /// <c>/api/auth/refresh</c> 以外のエンドポイントで 403 にブロックされる。
+    /// </summary>
+    public const string MustChangePassword = "mcp";
 }
 
 public static class SettingKeys

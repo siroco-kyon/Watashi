@@ -1,17 +1,23 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Watashi.Client.Services;
 using Watashi.Client.ViewModels;
 
 namespace Watashi.Client.Views;
 
 public partial class LoginWindow : Window
 {
-    private readonly LoginViewModel _vm;
+    private LoginViewModel _vm;
     public LoginWindow(LoginViewModel vm)
     {
         InitializeComponent();
         _vm = vm;
         DataContext = vm;
+        Bind(vm);
+    }
+
+    private void Bind(LoginViewModel vm)
+    {
         vm.LoggedIn += res => { DialogResult = true; Close(); };
     }
 
@@ -25,6 +31,17 @@ public partial class LoginWindow : Window
         var sp = ((App)Application.Current).Services;
         var w = sp.GetRequiredService<ConnectionSettingsWindow>();
         w.Owner = this;
-        w.ShowDialog();
+        var ok = w.ShowDialog() == true;
+        if (!ok) return;
+
+        // 接続先設定が変わった可能性があるので、ApiClient (HttpClient.BaseAddress を抱える) を更新する。
+        // ApiClient は Transient だが、既に LoginViewModel に DI 済みのインスタンスは古い BaseAddress のまま
+        // なので、(a) 既存インスタンスの BaseAddress を再設定し、(b) LoginViewModel も resolve し直して
+        // 新しい ApiClient を取得させる。
+        sp.GetRequiredService<ApiClient>().ConfigureBaseAddress();
+        _vm = sp.GetRequiredService<LoginViewModel>();
+        DataContext = _vm;
+        PasswordBox.Password = string.Empty;
+        Bind(_vm);
     }
 }

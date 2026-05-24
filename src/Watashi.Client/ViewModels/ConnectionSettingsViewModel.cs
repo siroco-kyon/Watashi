@@ -41,8 +41,10 @@ public partial class ConnectionSettingsViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(BootstrapUrl)) { StatusMessage = "Bootstrap URL を入力してください。"; return; }
         StatusMessage = "Bootstrap 取得中...";
+        // 「取得テスト」なので一時オブジェクトで叩き、save は抑制する。
+        // 抑制しないと実 settings.json が tmp (ServerUrl 以外の項目空) で上書きされる。
         var tmp = new AppSettings { BootstrapUrl = BootstrapUrl };
-        var result = await _boot.TryBootstrapAsync(tmp);
+        var result = await _boot.TryBootstrapAsync(tmp, persist: false);
         if (result.Ok && result.Config?.ServerUrl is string url)
         {
             ServerUrl = url;

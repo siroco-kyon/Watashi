@@ -32,7 +32,9 @@ public static class InternalEndpoints
             node.LastHeartbeatAt = req.Timestamp == default ? DateTime.UtcNow : req.Timestamp;
             node.HealthStatus = HealthStatuses.Healthy;
             await db.SaveChangesAsync(ct);
-            return Results.NoContent();
+            // 管理画面で更新された Node.MaxConcurrency を Agent に伝える。
+            // Agent 側 (HeartbeatService) はこの値で ConcurrencyLimiter.SetMax を呼び、実制限に反映する。
+            return Results.Ok(new HeartbeatAck { MaxConcurrency = node.MaxConcurrency });
         });
 
         group.MapPost("/audit-logs/batch", async (AuditBatchRequest body, ClaimsPrincipal principal, AppDbContext db, ILoggerFactory lf, CancellationToken ct) =>
@@ -72,4 +74,9 @@ public static class InternalEndpoints
 
     public record HeartbeatRequest(string AgentId, DateTime Timestamp);
     public record AuditBatchRequest(string[] Items);
+    public class HeartbeatAck
+    {
+        /// <summary>管理画面で設定された Node.MaxConcurrency。Agent はこの値で同時実行制限を更新する。</summary>
+        public int MaxConcurrency { get; set; }
+    }
 }

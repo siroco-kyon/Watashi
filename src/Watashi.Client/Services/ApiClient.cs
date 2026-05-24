@@ -51,8 +51,8 @@ public class ApiClient
     public Task<RefreshResponse> RefreshAsync(string refreshTokenId, string refreshToken, CancellationToken ct = default) =>
         PostJsonAsync<RefreshResponse>("api/auth/refresh", new RefreshRequest { RefreshTokenId = refreshTokenId, RefreshToken = refreshToken }, anonymous: true, ct);
 
-    public Task ChangePasswordAsync(string current, string newPassword, CancellationToken ct = default) =>
-        PostJsonNoContentAsync("api/auth/change-password", new ChangePasswordRequest { CurrentPassword = current, NewPassword = newPassword }, ct);
+    public Task<LoginResponse> ChangePasswordAsync(string current, string newPassword, CancellationToken ct = default) =>
+        PostJsonAsync<LoginResponse>("api/auth/change-password", new ChangePasswordRequest { CurrentPassword = current, NewPassword = newPassword }, ct: ct);
 
     public Task<TrustDeviceResponse> TrustDeviceAsync(string machineName, string windowsUser, CancellationToken ct = default) =>
         PostJsonAsync<TrustDeviceResponse>("api/auth/trust-device", new TrustDeviceRequest { MachineName = machineName, WindowsUsername = windowsUser }, anonymous: false, ct);
