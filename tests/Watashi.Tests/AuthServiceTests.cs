@@ -1,5 +1,8 @@
+using System.IdentityModel.Tokens.Jwt;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Services;
+using Watashi.Shared.Constants;
 using Watashi.Shared.Models;
 using Xunit;
 
@@ -94,15 +97,134 @@ public class AuthServiceTests
     public async Task Refresh_after_logout_fails()
     {
         using var db = new TestDb();
-        await SeedUserAsync(db);
+        var user = await SeedUserAsync(db);
         var svc = Build(db);
         var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
-        await svc.LogoutAsync(login.Response!.RefreshTokenId);
+        var ok = await svc.LogoutAsync(user.Id, login.Response!.RefreshTokenId, login.Response.RefreshToken);
+        ok.Should().BeTrue();
 
         var (res, err) = await svc.RefreshAsync(login.Response.RefreshTokenId, login.Response.RefreshToken);
         res.Should().BeNull();
         // 失効済みトークンの再提示は再利用検知として扱う（ファミリー失効）。
         err.Should().Be("token_reuse_detected");
+    }
+
+    [Fact]
+    public async Task Logout_rejects_token_belonging_to_other_user()
+    {
+        using var db = new TestDb();
+        var alice = await SeedUserAsync(db);
+        // Bob を追加
+        var bob = new User
+        {
+            Username = "bob",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!@#"),
+            PasswordChangedAt = DateTime.UtcNow,
+            PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.Db.Users.Add(bob);
+        await db.Db.SaveChangesAsync();
+
+        var svc = Build(db);
+        var aliceLogin = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+        // Bob のトークンとして alice の token を失効しようとしても拒否されるべき。
+        var ok = await svc.LogoutAsync(bob.Id, aliceLogin.Response!.RefreshTokenId, aliceLogin.Response.RefreshToken);
+        ok.Should().BeFalse();
+        // alice の refresh は依然有効。
+        var (refreshed, _) = await svc.RefreshAsync(aliceLogin.Response.RefreshTokenId, aliceLogin.Response.RefreshToken);
+        refreshed.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Logout_rejects_wrong_refresh_token_plain()
+    {
+        using var db = new TestDb();
+        var user = await SeedUserAsync(db);
+        var svc = Build(db);
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+        // userId は合っているが plain が違うと失敗。
+        var ok = await svc.LogoutAsync(user.Id, login.Response!.RefreshTokenId, "WRONG-PLAIN-VALUE");
+        ok.Should().BeFalse();
+        // 正しい plain なら成功。
+        ok = await svc.LogoutAsync(user.Id, login.Response.RefreshTokenId, login.Response.RefreshToken);
+        ok.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ChangePassword_revokes_existing_refresh_tokens()
+    {
+        using var db = new TestDb();
+        var user = await SeedUserAsync(db);
+        var svc = Build(db);
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+
+        var (res, _) = await svc.ChangePasswordAsync(user.Id, "Admin123!@#", "NewStrongPassword2026!");
+        res.Should().NotBeNull();
+
+        // DB 直接検証 (EF identity map の影響を避ける): 既存 refresh token が IsRevoked=true になっているはず。
+        db.Db.ChangeTracker.Clear();
+        var t = await db.Db.RefreshTokens.AsNoTracking().FirstAsync(x => x.Id == login.Response!.RefreshTokenId);
+        t.IsRevoked.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Refresh_with_token_issued_before_password_change_fails()
+    {
+        using var db = new TestDb();
+        var user = await SeedUserAsync(db);
+        var svc = Build(db);
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+        // 「失効はされていないが古い (=パスワード変更前に発行された)」refresh token を再現するため、
+        // PasswordChangedAt だけを未来に書き換え、IsRevoked は false のままにする。
+        var fresh = await db.Db.Users.FindAsync(user.Id);
+        fresh!.PasswordChangedAt = DateTime.UtcNow.AddMinutes(5);
+        await db.Db.SaveChangesAsync();
+        db.Db.ChangeTracker.Clear();
+
+        var (refreshed, err) = await svc.RefreshAsync(login.Response!.RefreshTokenId, login.Response.RefreshToken);
+        refreshed.Should().BeNull();
+        err.Should().Be("password_changed");
+    }
+
+    [Fact]
+    public async Task AccessToken_includes_mcp_claim_when_password_change_required()
+    {
+        using var db = new TestDb();
+        var user = await SeedUserAsync(db);
+        user.MustChangePassword = true;
+        await db.Db.SaveChangesAsync();
+        var svc = Build(db);
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+        login.Response.Should().NotBeNull();
+        login.Response!.MustChangePassword.Should().BeTrue();
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(login.Response.AccessToken);
+        jwt.Claims.Should().Contain(c => c.Type == AuthClaims.MustChangePassword && c.Value == "1");
+    }
+
+    [Fact]
+    public async Task AccessToken_omits_mcp_claim_when_password_ok()
+    {
+        using var db = new TestDb();
+        await SeedUserAsync(db);
+        var svc = Build(db);
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(login.Response!.AccessToken);
+        jwt.Claims.Should().NotContain(c => c.Type == AuthClaims.MustChangePassword);
+    }
+
+    [Fact]
+    public async Task AccessToken_includes_mcp_claim_when_password_expired()
+    {
+        using var db = new TestDb();
+        var user = await SeedUserAsync(db);
+        user.PasswordExpiresAt = DateTime.UtcNow.AddDays(-1);
+        await db.Db.SaveChangesAsync();
+        var svc = Build(db);
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(login.Response!.AccessToken);
+        jwt.Claims.Should().Contain(c => c.Type == AuthClaims.MustChangePassword);
     }
 
     [Fact]
@@ -126,8 +248,8 @@ public class AuthServiceTests
         using var db = new TestDb();
         var u = await SeedUserAsync(db);
         var svc = Build(db);
-        var (ok, _) = await svc.ChangePasswordAsync(u.Id, "Admin123!@#", "short");
-        ok.Should().BeFalse();
+        var (res, _) = await svc.ChangePasswordAsync(u.Id, "Admin123!@#", "short");
+        res.Should().BeNull();
     }
 
     [Fact]
@@ -139,11 +261,37 @@ public class AuthServiceTests
         u.PasswordExpiresAt = DateTime.UtcNow.AddDays(-1); // expired
         await db.Db.SaveChangesAsync();
         var svc = Build(db);
-        var (ok, _) = await svc.ChangePasswordAsync(u.Id, "Admin123!@#", "NewStrongPassword2026!");
-        ok.Should().BeTrue();
+        var (res, _) = await svc.ChangePasswordAsync(u.Id, "Admin123!@#", "NewStrongPassword2026!");
+        res.Should().NotBeNull();
+        db.Db.ChangeTracker.Clear();
         var fresh = await db.Db.Users.FindAsync(u.Id);
         fresh!.MustChangePassword.Should().BeFalse();
         fresh.PasswordExpiresAt.Should().BeAfter(DateTime.UtcNow.AddDays(30));
+        // 新しい access/refresh token が返ってきている
+        res!.AccessToken.Should().NotBeEmpty();
+        res.RefreshToken.Should().NotBeEmpty();
+        res.RefreshTokenId.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task ChangePassword_returned_refresh_token_works_for_subsequent_refresh()
+    {
+        using var db = new TestDb();
+        var u = await SeedUserAsync(db);
+        var svc = Build(db);
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+        var (changed, _) = await svc.ChangePasswordAsync(u.Id, "Admin123!@#", "NewStrongPassword2026!");
+        changed.Should().NotBeNull();
+
+        // 古い refresh は失効済みのはず
+        db.Db.ChangeTracker.Clear();
+        var oldToken = await db.Db.RefreshTokens.AsNoTracking().FirstAsync(t => t.Id == login.Response!.RefreshTokenId);
+        oldToken.IsRevoked.Should().BeTrue();
+
+        // 新 refresh で更新できる
+        var (refreshed, err) = await svc.RefreshAsync(changed!.RefreshTokenId, changed.RefreshToken);
+        err.Should().BeNull();
+        refreshed.Should().NotBeNull();
     }
 
     [Fact]
