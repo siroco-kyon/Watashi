@@ -27,11 +27,27 @@ public partial class RemotePaneViewModel : ObservableObject
     [ObservableProperty] private bool canGoForward;
     [ObservableProperty] private bool canGoUp;
 
-    public RemotePaneViewModel(ApiClient api) { _api = api; }
+    public bool HasLocation => SelectedLocation is not null;
+    public bool HasNoLocations => Locations.Count == 0;
+
+    public RemotePaneViewModel(ApiClient api)
+    {
+        _api = api;
+        Locations.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoLocations));
+    }
 
     partial void OnSelectedLocationChanged(LocationDto? value)
     {
-        if (value is null) return;
+        OnPropertyChanged(nameof(HasLocation));
+        if (value is null)
+        {
+            Entries.Clear();
+            CurrentPath = "/";
+            CanGoUp = false;
+            CanGoBack = false;
+            CanGoForward = false;
+            return;
+        }
         _back.Clear();
         _forward.Clear();
         UpdateHistoryFlags();

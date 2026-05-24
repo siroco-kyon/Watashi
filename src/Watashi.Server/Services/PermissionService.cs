@@ -62,7 +62,9 @@ public class PermissionService
                 HostId = h.Id,
                 ShareId = s.Id,
                 Path = p.AllowedPath,
-                DisplayName = p.DisplayName,
+                DisplayName = string.IsNullOrWhiteSpace(p.DisplayName)
+                    ? h.Name + " / " + s.DisplayName + " / " + p.AllowedPath
+                    : p.DisplayName,
                 HostName = h.Name,
                 ShareName = s.DisplayName,
                 Permissions = new LocationPermissions

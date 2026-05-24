@@ -1,49 +1,306 @@
 <UserControl x:Class="Watashi.Client.Views.Admin.UserPermissionView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <DockPanel Margin="10">
-        <ToolBar DockPanel.Dock="Top">
-            <Button Content="再読み込み" Command="{Binding RefreshCommand}"/>
-            <Button Content="削除" Command="{Binding DeleteCommand}"/>
-            <TextBlock Text="ユーザー:" VerticalAlignment="Center" Margin="20,0,4,0"/>
-            <ComboBox Width="160" ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}" DisplayMemberPath="Username"/>
-        </ToolBar>
-        <Grid DockPanel.Dock="Bottom" Margin="0,8,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="180"/>
-            </Grid.RowDefinitions>
-            <DockPanel Grid.Row="0">
-                <TextBlock Text="共有:" VerticalAlignment="Center"/>
-                <ComboBox Width="180" ItemsSource="{Binding Shares}" SelectedItem="{Binding NewShare}" DisplayMemberPath="DisplayName" Margin="4,0"/>
-                <TextBlock Text="テンプレ:" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                <ComboBox Width="160" ItemsSource="{Binding Templates}" SelectedItem="{Binding NewTemplate}" DisplayMemberPath="Name" Margin="4,0"/>
-                <TextBlock Text="パス:" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                <TextBox Width="180" Text="{Binding NewAllowedPath, UpdateSourceTrigger=PropertyChanged}" Margin="4,0"/>
-                <TextBlock Text="表示名:" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                <TextBox Width="160" Text="{Binding NewDisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="4,0"/>
-                <Button Content="追加" Command="{Binding CreateCommand}" Margin="4,0"/>
+    <Grid Margin="14">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="12"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ===== Left: User list ===== -->
+        <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <TextBlock Text="ユーザー" Style="{StaticResource H3}" DockPanel.Dock="Left"/>
+                        <Border Style="{StaticResource Badge}" HorizontalAlignment="Right">
+                            <TextBlock Text="{Binding UserSummaries.Count, Mode=OneWay}"
+                                       Foreground="{StaticResource AccentDeepBrush}" FontSize="11"/>
+                        </Border>
+                    </DockPanel>
+                </Border>
+
+                <Grid DockPanel.Dock="Top" Margin="12,10,12,8">
+                    <TextBox Text="{Binding UserFilter, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="30,5,8,5"
+                             ToolTip="ユーザー名で絞り込み"/>
+                    <TextBlock Text="🔍" FontSize="13" Margin="9,0,0,0"
+                               IsHitTestVisible="False"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource TextMutedBrush}"/>
+                </Grid>
+
+                <Button Content="🔄 再読み込み" Command="{Binding RefreshCommand}"
+                        DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" Margin="10"
+                        HorizontalAlignment="Stretch"/>
+
+                <Grid>
+                    <ListBox ItemsSource="{Binding UserSummaries}"
+                             SelectedItem="{Binding SelectedSummary, Mode=TwoWay}"
+                             BorderThickness="0,1,0,0"
+                             BorderBrush="{StaticResource BorderBrush}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="ToolTip" Value="{Binding Username}"/>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="14,10" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="{Binding Username}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="管理者"
+                                                       Style="{StaticResource Caption}"
+                                                       Foreground="{StaticResource AccentBrush}"
+                                                       Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}"/>
+                                        </StackPanel>
+                                        <Border Grid.Column="1" Style="{StaticResource Badge}"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Foreground="{StaticResource AccentDeepBrush}" FontSize="11">
+                                                <Run Text="{Binding PermissionCount, Mode=OneWay}"/>
+                                                <Run Text="件"/>
+                                            </TextBlock>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Visibility="{Binding HasNoUsers, Converter={StaticResource BoolToVis}}"
+                                Margin="20" IsHitTestVisible="False">
+                        <TextBlock Text="👥" FontSize="32" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                        <TextBlock Text="ユーザーがいません" HorizontalAlignment="Center"
+                                   Style="{StaticResource Muted}"/>
+                        <TextBlock Text="「ユーザー」タブで作成してください" HorizontalAlignment="Center"
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" TextAlignment="Center"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
             </DockPanel>
-            <DockPanel Grid.Row="1" Margin="0,4,0,4">
-                <TextBlock Text="ブラウズ: " VerticalAlignment="Center"/>
-                <TextBox Width="240" Text="{Binding BrowsePath, UpdateSourceTrigger=PropertyChanged}" Margin="4,0"/>
-                <Button Content="開く" Command="{Binding BrowseCommand}"/>
-                <TextBlock Text="{Binding StatusMessage}" Foreground="Red" Margin="10,0,0,0" VerticalAlignment="Center"/>
-            </DockPanel>
-            <ListBox Grid.Row="2" ItemsSource="{Binding BrowseEntries}" DisplayMemberPath="Name"/>
-        </Grid>
-        <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
-            <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
-                    <GridViewColumn Header="ユーザー" DisplayMemberBinding="{Binding Username}" Width="120"/>
-                    <GridViewColumn Header="ホスト" DisplayMemberBinding="{Binding HostName}" Width="120"/>
-                    <GridViewColumn Header="共有" DisplayMemberBinding="{Binding ShareName}" Width="120"/>
-                    <GridViewColumn Header="パス" DisplayMemberBinding="{Binding AllowedPath}" Width="180"/>
-                    <GridViewColumn Header="テンプレ" DisplayMemberBinding="{Binding TemplateName}" Width="120"/>
-                </GridView>
-            </ListView.View>
-        </ListView>
-    </DockPanel>
+        </Border>
+
+        <GridSplitter Grid.Column="1" Background="Transparent" Width="12"/>
+
+        <!-- ===== Right: Permissions for selected user ===== -->
+        <Border Grid.Column="2" Style="{StaticResource Card}" Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*" MinHeight="200"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- User header -->
+                <Border Grid.Row="0" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <TextBlock Text="{Binding SelectedUserHeader}" Style="{StaticResource H3}" DockPanel.Dock="Left"/>
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   HorizontalAlignment="Right"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding StatusMessage}"/>
+                    </DockPanel>
+                </Border>
+
+                <!-- Granted permissions list (takes flex space) -->
+                <DockPanel Grid.Row="1" Margin="14,12,14,4">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="付与済みのパス" Style="{StaticResource H3}" DockPanel.Dock="Left"/>
+                        <TextBlock DockPanel.Dock="Left" Margin="10,0,0,0"
+                                   Style="{StaticResource Caption}" VerticalAlignment="Center">
+                            <Run Text="{Binding Items.Count, Mode=OneWay}"/><Run Text=" 件"/>
+                        </TextBlock>
+                        <Button Style="{StaticResource DangerButton}"
+                                Content="🗑 選択を削除"
+                                Command="{Binding DeleteCommand}"
+                                HorizontalAlignment="Right" DockPanel.Dock="Right"/>
+                    </DockPanel>
+
+                    <Grid>
+                        <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
+                                    <Setter Property="ToolTip">
+                                        <Setter.Value>
+                                            <StackPanel>
+                                                <TextBlock>
+                                                    <Run Text="ホスト: " FontWeight="SemiBold"/>
+                                                    <Run Text="{Binding HostName, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock>
+                                                    <Run Text="共有: " FontWeight="SemiBold"/>
+                                                    <Run Text="{Binding ShareName, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock>
+                                                    <Run Text="パス: " FontWeight="SemiBold"/>
+                                                    <Run Text="{Binding AllowedPath, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock>
+                                                    <Run Text="テンプレ: " FontWeight="SemiBold"/>
+                                                    <Run Text="{Binding TemplateName, Mode=OneWay}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="ホスト" Width="120">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding HostName}" TextTrimming="CharacterEllipsis"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="共有" Width="140">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding ShareName}" TextTrimming="CharacterEllipsis"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="パス" Width="260">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding AllowedPath}" TextTrimming="CharacterEllipsis"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="テンプレ" Width="120">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding TemplateName}" TextTrimming="CharacterEllipsis"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="表示名" Width="160">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding HasNoItems, Converter={StaticResource BoolToVis}}"
+                                    Margin="20" IsHitTestVisible="False">
+                            <TextBlock Text="📋" FontSize="32" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                            <TextBlock Text="このユーザーには付与済みのパスがありません"
+                                       Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="下の「＋ パスを追加」から登録できます"
+                                       Style="{StaticResource Caption}" HorizontalAlignment="Center"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </DockPanel>
+
+                <!-- Add-permission expander (scroll if window too small) -->
+                <Expander Grid.Row="2" Margin="14,4,14,14"
+                          IsEnabled="{Binding HasSelectedUser}"
+                          IsExpanded="True">
+                    <Expander.Header>
+                        <TextBlock Text="＋ パスを追加" Style="{StaticResource H3}" Margin="4,0,0,0"/>
+                    </Expander.Header>
+                    <Border Style="{StaticResource CardSubtle}" Margin="0,8,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="340">
+                            <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="6"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="6"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="6"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="6"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- サーバー / 共有 -->
+                            <StackPanel Grid.Row="0" Grid.Column="0">
+                                <TextBlock Text="サーバー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding SelectedHost}"
+                                          DisplayMemberPath="Name"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="2">
+                                <TextBlock Text="共有" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding Shares}" SelectedItem="{Binding NewShare}"
+                                          DisplayMemberPath="DisplayName"/>
+                            </StackPanel>
+
+                            <!-- 権限テンプレート -->
+                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                                <TextBlock Text="権限テンプレート" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding NewTemplate}"
+                                          DisplayMemberPath="Name"/>
+                            </StackPanel>
+
+                            <!-- 許可パス + 表示名 -->
+                            <StackPanel Grid.Row="4" Grid.Column="0">
+                                <TextBlock Text="許可パス" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewAllowedPath, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="{Binding NewAllowedPath}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="4" Grid.Column="2">
+                                <TextBlock Text="表示名 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewDisplayName, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+
+                            <!-- ブラウズ -->
+                            <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
+                                <TextBlock Text="ブラウズ (選択した共有内の実在パスを参照)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                <DockPanel>
+                                    <Button Content="開く" Command="{Binding BrowseCommand}"
+                                            DockPanel.Dock="Right" MinWidth="68" Margin="6,0,0,0"/>
+                                    <TextBox Text="{Binding BrowsePath, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="{Binding BrowsePath}"/>
+                                </DockPanel>
+                            </StackPanel>
+
+                            <ListBox Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3"
+                                     ItemsSource="{Binding BrowseEntries}"
+                                     SelectedItem="{Binding SelectedBrowseEntry}"
+                                     DisplayMemberPath="Name"
+                                     Height="70"
+                                     ToolTip="サブフォルダをクリックすると「許可パス」に反映されます"/>
+
+                            <Button Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="3"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Content="＋ このパスを追加"
+                                    Command="{Binding CreateCommand}"
+                                    Height="36"/>
+                            </Grid>
+                        </ScrollViewer>
+                    </Border>
+                </Expander>
+            </Grid>
+        </Border>
+    </Grid>
 </UserControl>

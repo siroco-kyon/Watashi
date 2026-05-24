@@ -1,8 +1,10 @@
-# Watashi
+# Watashi  ⛩
 
 社内向け CIFS (SMB) ファイル管理ツール。
 FFFTP 風の 2 ペイン WPF クライアントから、中央サーバー経由で社内ファイルサーバー (CIFS 共有) を操作します。
 踏み台サーバー越しのアクセスにはエージェント方式で対応します。
+
+**鳥居 (Torii) アイコン** をブランドマークに、朱色アクセント + 明るく余白を活かしたモダンな UI。WPF ネイティブで Explorer 風の使い心地。
 
 ```
 ┌──────────────────┐   HTTP/HTTPS   ┌──────────────────┐
@@ -26,6 +28,8 @@ FFFTP 風の 2 ペイン WPF クライアントから、中央サーバー経由
 | **[docs/SETUP.md](docs/SETUP.md)** | 環境構築 — 0 から動かすまで (3 通りのネットワーク構成) |
 | **[docs/USER-GUIDE.md](docs/USER-GUIDE.md)** | 利用者ガイド — ログインからファイル操作まで |
 | **[docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md)** | 管理者ガイド — ユーザー / ホスト / 権限 / ノード管理 |
+| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | 開発者ガイド — ローカル開発、HTTPS dev cert、ビルド/テスト |
+| **[docs/CHANGELOG.md](docs/CHANGELOG.md)** | 変更履歴 (UI 刷新・バグ修正など) |
 | [deploy/README.md](deploy/README.md) | デプロイ手順 (Windows Service + ClickOnce) |
 | [CifsTool_FINAL_SPEC.md](CifsTool_FINAL_SPEC.md) | 最終仕様書 (実装ガイド) |
 
@@ -37,7 +41,7 @@ FFFTP 風の 2 ペイン WPF クライアントから、中央サーバー経由
 # 1. 中央サーバーをローカルで起動
 cd src\Watashi.Server
 dotnet run
-# → http://127.0.0.1:18080 で起動 (Development 環境は launchSettings/appsettings 由来で自動設定)
+# → http://127.0.0.1:18080 (HTTP) と https://localhost:18443 (HTTPS, dev-certs) の両方で起動
 # → watashi-dev.db が同フォルダに自動生成
 # → admin / Admin123!@# でログイン可能 (初回パスワード変更が必要)
 
@@ -71,10 +75,11 @@ dotnet run
 ## 主要機能 (ハイライト)
 
 ### エンドユーザー機能
-- FFFTP 風 2 ペイン UI、ドラッグ&ドロップでのアップロード/ダウンロード
-- ストリーミング転送 (4 MB チャンク、ファイルサイズ無制限)
-- パス入力 + Enter で直接移動
-- 自動ログイン (信頼デバイス, HTTPS のみ)、アイドルタイムアウト (デフォルト 30 分、設定変更可)
+- **モダンな 2 ペイン UI** — 朱色アクセントの鳥居アイコン、Card レイアウト、絞り込み検索、ツールチップ、空状態のヒント表示
+- FFFTP 風の操作感、アップロード/ダウンロードはストリーミング (4 MB チャンク、ファイルサイズ無制限)
+- パス入力 + Enter で直接移動、Delete キーで削除 (確認ダイアログ付き)
+- 自動ログイン (信頼デバイス, **HTTP/HTTPS 両対応**)、アイドルタイムアウト (デフォルト 30 分、設定変更可)
+- 非管理者には管理ボタン非表示、アクセス可能な共有が無いときは「管理者に依頼してください」ガイダンス表示
 
 ### 認可・監査
 - ユーザー単位の **(共有 × サブパス) 権限**、READ/WRITE/DELETE/RENAME 個別制御

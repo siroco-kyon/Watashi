@@ -17,8 +17,11 @@ public partial class LoginViewModel : ObservableObject
     [ObservableProperty] private bool rememberDevice;
     [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private bool isBusy;
-    public bool CanRemember => _settings.IsHttps;
-    public string RememberTooltip => _settings.IsHttps ? "デバイス記憶 (HTTPS のみ)" : "HTTP 接続では使用できません";
+    /// <summary>HTTP/HTTPS どちらでも記憶可能。HTTP では平文通信なので警告のみ。</summary>
+    public bool CanRemember => true;
+    public string RememberTooltip => _settings.IsHttps
+        ? "デバイス情報を暗号化保存して次回以降自動ログイン"
+        : "デバイス情報を保存。HTTP 接続中なので通信は暗号化されません";
 
     public event Action<LoginResponse>? LoggedIn;
 
@@ -38,7 +41,7 @@ public partial class LoginViewModel : ObservableObject
             var res = await _api.LoginAsync(Username, Password);
             _session.SetFromLogin(res);
 
-            if (RememberDevice && _settings.IsHttps && !res.MustChangePassword)
+            if (RememberDevice && !res.MustChangePassword)
             {
                 try
                 {

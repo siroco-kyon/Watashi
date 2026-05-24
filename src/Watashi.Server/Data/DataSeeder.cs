@@ -21,10 +21,11 @@ public static class DataSeeder
 
         if (!await db.PermissionTemplates.AnyAsync(ct))
         {
+            // 新規 DB ではフルアクセスを Id=1 に。新規ユーザー権限作成時のデフォルト選択。
             db.PermissionTemplates.AddRange(
-                new PermissionTemplate { Name = "読取のみ", CanRead = true },
+                new PermissionTemplate { Name = "フルアクセス", CanRead = true, CanWrite = true, CanDelete = true, CanRename = true },
                 new PermissionTemplate { Name = "読取+書込", CanRead = true, CanWrite = true },
-                new PermissionTemplate { Name = "フルアクセス", CanRead = true, CanWrite = true, CanDelete = true, CanRename = true });
+                new PermissionTemplate { Name = "読取のみ", CanRead = true });
         }
 
         if (!await db.ExecutionNodes.AnyAsync(ct))

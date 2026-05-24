@@ -55,6 +55,9 @@ public static class AdminUserEndpoints
             }
             catch (DbUpdateException)
             {
+                // 失敗したエンティティを ChangeTracker から外さないと、後続の SaveChanges (audit ログ)
+                // で同じ DbUpdateException が再発する。
+                db.ChangeTracker.Clear();
                 await audit.LogAdminAsync(principal, ctx, AdminOperations.UserCreate, $"user:{req.Username}", AuditResults.Failure, "username_conflict", ct);
                 return Results.BadRequest(new { error = "同名ユーザーが既に存在します。" });
             }

@@ -19,7 +19,13 @@ public partial class ConnectionSettingsViewModel : ObservableObject
         _settings = settings;
         _http = http;
         serverUrl = settings.ServerUrl;
-        protocol = string.IsNullOrEmpty(settings.Protocol) ? "HTTPS" : settings.Protocol;
+        // URL に scheme があれば URL を真とする (表示と通信を一致させる)
+        if (serverUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            protocol = "HTTPS";
+        else if (serverUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            protocol = "HTTP";
+        else
+            protocol = string.IsNullOrEmpty(settings.Protocol) ? "HTTPS" : settings.Protocol;
     }
 
     [RelayCommand]
