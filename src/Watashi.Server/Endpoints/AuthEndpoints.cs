@@ -98,12 +98,16 @@ public static class AuthEndpoints
         group.MapPost("/logout", async (
             RefreshRequest req,
             AuthService auth,
+            ClaimsPrincipal principal,
             CancellationToken ct) =>
         {
+            if (!principal.TryGetUserId(out var userId))
+                return Results.Unauthorized();
             if (string.IsNullOrWhiteSpace(req.RefreshTokenId))
                 return Results.BadRequest(new { error = "リフレッシュトークン ID が指定されていません。" });
-
-            await auth.LogoutAsync(req.RefreshTokenId, ct);
+            // 所有者一致を必須にする。漏えい時の横取り失効リスク対策。refresh token 値が渡されていれば
+            // それも照合する (UX 維持のため値の指定は任意)。
+            await auth.LogoutAsync(userId, req.RefreshTokenId, req.RefreshToken, ct);
             return Results.NoContent();
         }).RequireAuthorization();
 
@@ -111,16 +115,20 @@ public static class AuthEndpoints
             ChangePasswordRequest req,
             AuthService auth,
             ClaimsPrincipal principal,
+            HttpContext ctx,
             CancellationToken ct) =>
         {
             if (!principal.TryGetUserId(out var userId))
                 return Results.Unauthorized();
 
-            var (ok, error) = await auth.ChangePasswordAsync(userId, req.CurrentPassword, req.NewPassword, ct);
-            if (!ok)
+            var clientIp = ctx.Connection.RemoteIpAddress?.ToString();
+            var (response, error) = await auth.ChangePasswordAsync(userId, req.CurrentPassword, req.NewPassword, clientIp, ct);
+            if (response is null)
                 return Results.BadRequest(new { error });
 
-            return Results.NoContent();
+            // 新 access/refresh token を返す: 旧 access token は mcp claim 付きで middleware に弾かれ、
+            // 旧 refresh token も失効済みなのでクライアントが即時に置き換える必要がある。
+            return Results.Ok(response);
         }).RequireAuthorization();
 
         return app;

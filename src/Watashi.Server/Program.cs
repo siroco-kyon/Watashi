@@ -158,6 +158,9 @@ app.UseSerilogRequestLogging();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+// mcp claim 付き JWT を許可エンドポイント以外で 403 にする。
+// 必ず認証ミドルウェア後に呼ぶこと (User クレームを参照するため)。
+app.UseMiddleware<Watashi.Server.Auth.PasswordChangeRequiredMiddleware>();
 
 // ブラウザで / を開いたときに 404 ではなく簡単な案内を返す。動作確認用。
 app.MapGet("/", () => Results.Ok(new

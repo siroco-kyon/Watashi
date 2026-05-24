@@ -1,4 +1,3 @@
-using System.Security;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Watashi.Client.Services;
@@ -8,6 +7,7 @@ namespace Watashi.Client.ViewModels;
 public partial class ChangePasswordViewModel : ObservableObject
 {
     private readonly ApiClient _api;
+    private readonly SessionManager _session;
     [ObservableProperty] private string currentPassword = string.Empty;
     [ObservableProperty] private string newPassword = string.Empty;
     [ObservableProperty] private string confirmPassword = string.Empty;
@@ -16,7 +16,11 @@ public partial class ChangePasswordViewModel : ObservableObject
 
     public event Action? Completed;
 
-    public ChangePasswordViewModel(ApiClient api) { _api = api; }
+    public ChangePasswordViewModel(ApiClient api, SessionManager session)
+    {
+        _api = api;
+        _session = session;
+    }
 
     [RelayCommand]
     private async Task Change()
@@ -31,7 +35,10 @@ public partial class ChangePasswordViewModel : ObservableObject
         {
             IsBusy = true;
             StatusMessage = string.Empty;
-            await _api.ChangePasswordAsync(CurrentPassword, NewPassword);
+            // サーバは新しい access/refresh token を返してくる。古いトークンは mcp claim 付きで
+            // ミドルウェアに弾かれ、古い refresh token もサーバ側で失効済みなので必ず置き換える。
+            var res = await _api.ChangePasswordAsync(CurrentPassword, NewPassword);
+            _session.SetFromLogin(res);
             Completed?.Invoke();
         }
         catch (ApiException ex) { StatusMessage = ex.Message; }
