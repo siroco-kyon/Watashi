@@ -191,6 +191,24 @@ public partial class App : Application
             var api = sp.GetRequiredService<ApiClient>();
             return await api.RefreshAsync(rid, rt, ct);
         };
+        // アイドルタイムアウト発火時はメインウィンドウを閉じてログインに戻す。
+        // SessionManager 側はタイマーを管理するだけ。UI に戻すのは Dispatcher 経由で行う。
+        session.IdleTimedOut += () =>
+        {
+            if (Current is App app)
+            {
+                app.Dispatcher.BeginInvoke(() =>
+                {
+                    if (app.MainWindow is not null)
+                    {
+                        MessageBox.Show(app.MainWindow,
+                            "無操作のためログアウトしました。再ログインしてください。",
+                            "アイドルタイムアウト", MessageBoxButton.OK, MessageBoxImage.Information);
+                        app.RequestLogout();
+                    }
+                });
+            }
+        };
         return sp;
     }
 }

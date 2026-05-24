@@ -32,6 +32,25 @@ public sealed class CifsSession : IDisposable
 
     public static CifsSession Connect(CifsConnectionInfo info)
     {
+        // SMBLibrary 1.5.x の Connect(IPAddress, SMBTransportType) は port を直接受け取れず、
+        // 内部で transport ごとの既定ポート (DirectTCP=445, NetBiosOverTCP=139) を使う。
+        // したがって CifsConnectionInfo.Port は transport の選択にだけ用い、その他のポート値は
+        // 「ライブラリ未対応」として明示的に拒否する (黙って 445 接続する旧挙動の修正)。
+        SMBTransportType transport;
+        switch (info.Port)
+        {
+            case 0:        // 既定 (未指定) は DirectTCP
+            case 445:
+                transport = SMBTransportType.DirectTCPTransport;
+                break;
+            case 139:
+                transport = SMBTransportType.NetBiosOverTCP;
+                break;
+            default:
+                throw new IOException(
+                    $"SMB ポート {info.Port} は未対応です。利用可能なポートは 445 (DirectTCP) または 139 (NetBIOS over TCP) のみです。");
+        }
+
         var client = new SMB2Client();
         var addresses = ResolveAddress(info.HostAddress);
         Exception? lastError = null;
@@ -39,7 +58,7 @@ public sealed class CifsSession : IDisposable
         {
             try
             {
-                if (!client.Connect(addr, SMBTransportType.DirectTCPTransport))
+                if (!client.Connect(addr, transport))
                 {
                     lastError = new IOException($"SMB 接続に失敗しました。");
                     continue;

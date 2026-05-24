@@ -26,8 +26,14 @@ public class BootstrapService
     /// settings.BootstrapUrl が設定されていれば取得を試行し、成功すれば ServerUrl を更新して true を返す。
     /// 未設定または失敗時は false。settings はそのまま (前回値が残る)。
     /// 取得タイムアウトは 5 秒。
+    /// <para>
+    /// <paramref name="persist"/>=false の場合は settings の更新のみ行い、disk への保存は行わない。
+    /// ConnectionSettingsViewModel が一時オブジェクトで「取得テスト」を実行するときに使う:
+    /// 旧実装は一時オブジェクトの Save() が常に実 settings.json を上書きしていたため、
+    /// テスト操作だけで意図せず ServerUrl 等が書き換わる問題があった。
+    /// </para>
     /// </summary>
-    public async Task<BootstrapResult> TryBootstrapAsync(AppSettings settings, CancellationToken ct = default)
+    public async Task<BootstrapResult> TryBootstrapAsync(AppSettings settings, bool persist = true, CancellationToken ct = default)
     {
         if (!settings.HasBootstrap) return BootstrapResult.NotConfigured;
         try
@@ -40,7 +46,7 @@ public class BootstrapService
             if (!string.Equals(settings.ServerUrl, cfg.ServerUrl, StringComparison.Ordinal))
             {
                 settings.ServerUrl = cfg.ServerUrl;
-                settings.Save();
+                if (persist) settings.Save();
             }
             return BootstrapResult.Success(cfg);
         }

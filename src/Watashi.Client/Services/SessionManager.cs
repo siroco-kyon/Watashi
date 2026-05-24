@@ -54,6 +54,9 @@ public class SessionManager
     public async Task<string> GetValidAccessTokenAsync(CancellationToken ct = default)
     {
         if (_accessToken is null) throw new InvalidOperationException("未ログインです。");
+        // 任意の API 呼び出しはユーザー操作とみなしアイドルタイマーをリセット。
+        // (旧実装は SetFromLogin 時しか張らず、購読側もなかったため実質未接続だった)
+        ResetIdleTimer();
         if (DateTime.UtcNow < _accessExpiresUtc - TimeSpan.FromSeconds(30)) return _accessToken;
 
         await _gate.WaitAsync(ct);
