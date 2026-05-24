@@ -239,6 +239,50 @@ Server `appsettings.json` から `Https` セクションを削除し `Http` の�
 踏み台ファイアウォールに Agent ポート（例: 8081 / 8443）を中央サーバー IP からのみ許可すれば足りる。
 Agent → 中央 はハートビート / ログ送信に限定。
 
+### ポート番号の変更 (任意のポートに変更可)
+
+Server / Agent ともに **`Kestrel:Endpoints` の URL の `:port` を変えるだけ** でポート変更可能。
+
+**Server** (`appsettings.json` / `appsettings.Development.json`):
+```json
+"Kestrel": {
+  "Endpoints": {
+    "Http":  { "Url": "http://0.0.0.0:8080" },   // ← HTTP ポート
+    "Https": { "Url": "https://0.0.0.0:8443" }   // ← HTTPS ポート
+  }
+}
+```
+
+**Agent** (`appsettings.json`):
+```json
+"Kestrel": {
+  "Endpoints": {
+    "Http": { "Url": "http://0.0.0.0:8081" }     // ← Agent inbound ポート
+  }
+}
+```
+
+**よくあるケース**:
+- **80 / 443 が IIS や Skype 等で使われている** → 8080 / 8443 / 18080 / 18443 など空きポートに変更
+- **同一マシンで複数 Watashi インスタンス起動** → 各 appsettings.json で別ポートに割当
+- **社内ファイアウォールが特定範囲のみ許可** → その範囲内のポートに合わせる
+
+**確認方法** (起動前):
+```powershell
+netstat -ano | findstr :8080      # 該当ポートが使用中か
+Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue
+```
+
+**起動に失敗するパターン**:
+```
+crit: Microsoft.AspNetCore.Server.Kestrel[0]
+      Unable to start Kestrel.
+System.IO.IOException: Failed to bind to address http://0.0.0.0:80: address already in use.
+```
+→ 上記のとおり別ポートに変更してください。
+
+**ExecutionNode.Endpoint も合わせて更新**: 中央 DB の Agent ノードの Endpoint (`http://bastion-a:8081` 等) に Agent のポートを反映させること。
+
 ---
 
 ## ③ 本番デプロイ
@@ -348,9 +392,28 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
 
 3. IIS 側で MIME 設定 → [deploy/IIS-MIME.md](../deploy/IIS-MIME.md) 参照
 
-4. クライアント PC で `https://watashi.internal/install/Watashi.Client.application` を開く → インストール開始
+4. **クライアントの接続先を集中管理する `watashi-config.json` を ClickOnce 配布ディレクトリ直下に置く** (推奨):
+   ```jsonc
+   // \\fileserver\share\Watashi\watashi-config.json
+   {
+     "serverUrl": "https://watashi.internal:8443",
+     "notice": "保守時間: 火曜 23:00-04:00"  // 任意のお知らせ (取得テスト時に表示される)
+   }
+   ```
 
-5. 以降、起動時にバージョンチェック → 更新があれば自動でダウンロード
+5. クライアント PC で `https://watashi.internal/install/Watashi.Client.application` を開く → インストール開始
+
+6. 初回起動時、ユーザーは **Bootstrap URL** (`https://watashi.internal/install/watashi-config.json`) のみ入力するよう案内する。
+   - ServerUrl 欄は自動で埋まる (BootstrapUrl があれば readonly)
+   - 以降は起動毎に config を取得して ServerUrl を自動同期 (管理者が config.json を更新するだけで全クライアントが追従)
+   - オフライン時は前回の ServerUrl を使う (フォールバック)
+
+7. 以降、起動時にバージョンチェック → 更新があれば自動でダウンロード
+
+> **「クライアントから入力させたくない」場合の運用パターン**:
+> - 社内 GPO で `%LocalAppData%\Watashi\settings.json` に `{"BootstrapUrl": "..."}` のみ初期配布
+> - またはユーザーに 1 行だけ案内 (「Bootstrap URL に <URL> を貼り付けてください」)
+> - サーバ移転や URL 変更時は config.json を 1 ファイル更新するだけで全クライアントが追従
 
 ### ③-3 エージェント (踏み台)
 

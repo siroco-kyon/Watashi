@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
 using Watashi.Client.Services;
 using Watashi.Shared.DTOs.Admin;
 
@@ -16,6 +18,57 @@ public partial class UserManagementViewModel : AdminViewModelBase
     [ObservableProperty] private bool newIsAdmin;
 
     public UserManagementViewModel(ApiClient api) { _api = api; }
+
+    [RelayCommand]
+    public Task ExportCsvAsync() => SafeAsync(async () =>
+    {
+        var dlg = new SaveFileDialog
+        {
+            FileName = $"watashi-users-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
+            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+            DefaultExt = "csv",
+        };
+        if (dlg.ShowDialog() != true) return;
+        await using var fs = File.Create(dlg.FileName);
+        await _api.ExportUsersCsvAsync(fs);
+        StatusMessage = $"エクスポート完了: {dlg.FileName}";
+    });
+
+    [RelayCommand]
+    public Task ImportCsvAsync() => SafeAsync(async () =>
+    {
+        var open = new OpenFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+            DefaultExt = "csv",
+        };
+        if (open.ShowDialog() != true) return;
+        var mode = System.Windows.MessageBox.Show(
+            "新規ユーザーのみ追加しますか？\n\n" +
+            "[はい] 新規追加のみ (既存ユーザーはスキップ)\n" +
+            "[いいえ] 既存ユーザーも上書き (パスワード再設定 + IsAdmin 更新)\n" +
+            "[キャンセル] 中止",
+            "CSV インポートモード",
+            System.Windows.MessageBoxButton.YesNoCancel,
+            System.Windows.MessageBoxImage.Question);
+        if (mode == System.Windows.MessageBoxResult.Cancel) return;
+        var importMode = mode == System.Windows.MessageBoxResult.Yes
+            ? UserImportModes.AddOnly : UserImportModes.Upsert;
+
+        await using var fs = File.OpenRead(open.FileName);
+        var result = await _api.ImportUsersCsvAsync(fs, Path.GetFileName(open.FileName), importMode);
+        var msg = $"完了: 追加 {result.Created} / 更新 {result.Updated} / スキップ {result.Skipped} / 失敗 {result.Failed}";
+        if (result.Errors.Count > 0)
+        {
+            msg += "\n\nエラー詳細 (最初の 10 件):\n" +
+                string.Join("\n", result.Errors.Take(10).Select(e => $"  L{e.LineNumber} {e.Username}: {e.Error}"));
+        }
+        System.Windows.MessageBox.Show(msg, "CSV インポート結果",
+            System.Windows.MessageBoxButton.OK,
+            result.Failed > 0 ? System.Windows.MessageBoxImage.Warning : System.Windows.MessageBoxImage.Information);
+        await RefreshAsync();
+        StatusMessage = $"インポート: 追加{result.Created} 更新{result.Updated} スキップ{result.Skipped} 失敗{result.Failed}";
+    });
 
     [RelayCommand]
     public Task RefreshAsync() => SafeAsync(async () => ReplaceAll(Items, await _api.GetUsersAsync()));

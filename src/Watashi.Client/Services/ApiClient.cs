@@ -140,6 +140,32 @@ public class ApiClient
     public Task RevokeDevicesAsync(int userId, CancellationToken ct = default) =>
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/users/{userId}/devices", null, ct);
 
+    /// <summary>ユーザー一覧を CSV としてストリームに書き出す。</summary>
+    public async Task ExportUsersCsvAsync(Stream output, CancellationToken ct = default)
+    {
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Get, "api/admin/users/export.csv", ct);
+        using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        await ThrowIfErrorAsync(res, ct);
+        await using var src = await res.Content.ReadAsStreamAsync(ct);
+        await src.CopyToAsync(output, 64 * 1024, ct);
+    }
+
+    /// <summary>CSV ファイルからユーザーを一括登録/更新する。</summary>
+    public async Task<UserImportResultDto> ImportUsersCsvAsync(Stream csvStream, string fileName, string mode, CancellationToken ct = default)
+    {
+        using var content = new MultipartFormDataContent();
+        var fileContent = new StreamContent(csvStream);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
+        content.Add(fileContent, "file", fileName);
+        content.Add(new StringContent(mode), "mode");
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Post, "api/admin/users/import.csv", ct);
+        req.Content = content;
+        using var res = await _http.SendAsync(req, ct);
+        await ThrowIfErrorAsync(res, ct);
+        var dto = await res.Content.ReadFromJsonAsync<UserImportResultDto>(JsonOptions, ct);
+        return dto!;
+    }
+
     public Task<List<HostDto>> GetAdminHostsAsync(CancellationToken ct = default) => GetAsync<List<HostDto>>("api/admin/hosts", ct);
 
     public async Task<int> CreateHostAsync(CreateHostRequest req, CancellationToken ct = default)

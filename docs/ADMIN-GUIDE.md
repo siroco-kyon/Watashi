@@ -59,16 +59,51 @@
 
 ### ユーザー
 
-ユーザーアカウントの追加 / 削除 / 管理者フラグ変更 / ロック解除 / パスワードリセット。
+ユーザーアカウントの追加 / 削除 / 管理者フラグ変更 / ロック解除 / パスワードリセット / CSV 一括取込・出力。
 
 | 操作 | 説明 | 監査ログ |
 |---|---|---|
-| 新規ユーザー作成 | 下部入力欄に Username / Password / 管理者チェック → 「作成」 | `ADMIN_USER_CREATE` |
-| 削除 | 行選択 → 「削除」 | `ADMIN_USER_DELETE` |
-| ロック解除 | 5 連続失敗でロックされたユーザーを行選択 → 「ロック解除」 | `ADMIN_USER_UNLOCK` |
+| 新規ユーザー作成 | 右パネルに Username / Password / 管理者チェック → 「作成」 | `ADMIN_USER_CREATE` |
+| 削除 | 行選択 → 「🗑 削除」 (確認ダイアログ) | `ADMIN_USER_DELETE` |
+| ロック解除 | 5 連続失敗でロックされたユーザーを行選択 → 「🔓 ロック解除」 | `ADMIN_USER_UNLOCK` |
 | 管理者フラグ変更 | PATCH 経由 | `ADMIN_USER_UPDATE` |
-| PW リセット | 行選択 → 「PWリセット」 → ダイアログで新パスワード入力 | `ADMIN_USER_RESET_PW` |
-| 全デバイス失効 | デバイスタブから | `ADMIN_USER_REVOKE_DEVICES` |
+| PW リセット | 行選択 → 「🔑 PWリセット」 → ダイアログで新パスワード入力 | `ADMIN_USER_RESET_PW` |
+| 全デバイス失効 | 信頼デバイスタブから | `ADMIN_USER_REVOKE_DEVICES` |
+| **CSV エクスポート** | 「📤 CSV出力」→ SaveFileDialog で保存先指定 | `ADMIN_USER_EXPORT` |
+| **CSV インポート** | 「📥 CSV取込」→ ファイル選択 → モード選択 (新規追加のみ / 上書き) | `ADMIN_USER_IMPORT` |
+
+#### CSV フォーマット (インポート)
+
+UTF-8 (BOM 推奨)、1 行目はヘッダー必須。
+
+```csv
+Username,Password,IsAdmin
+alice,SecretP@ss1234!!,false
+bob,AdminP@ss5678!!,true
+carol,CarolP@ss9012!!,false
+```
+
+- 必須列: `Username`, `Password`
+- 任意列: `IsAdmin` (省略時は false)
+- 列順は問わない (ヘッダー名で判定)
+- 値にカンマ / 改行 / ダブルクォートを含む場合は `"..."` で囲む (RFC4180 風)
+- パスワードは 12 文字 + 大小数記号ポリシーを満たすこと (満たさない行は失敗として返るが他は処理される)
+- 全行を 1 件ずつ処理。途中で失敗しても他の行は完了する
+
+#### インポートのモード
+
+| モード | 動作 |
+|---|---|
+| 新規追加のみ (デフォルト) | 既存ユーザー名と衝突する行はスキップ。**「毎回全件更新したくない、追加する人だけ取り込みたい」用途**。 |
+| 上書き | 既存ユーザーのパスワードを再設定 + IsAdmin 更新。`MustChangePassword=true` にして、次回ログインで本人にパスワードを変えさせる。失敗ロック解除も同時に行う。**運用切替の一斉リセット用途**。 |
+
+完了ダイアログに `追加 N / 更新 N / スキップ N / 失敗 N` の結果と、失敗行の理由(行番号 + ユーザー名 + メッセージ)が表示される。
+
+#### CSV エクスポート
+
+`watashi-users-YYYYMMDD-HHmmss.csv` で保存。
+列: `Username, IsAdmin, IsLocked, MustChangePassword, PasswordExpiresAt, LastLoginAt, CreatedAt`
+パスワード列は含まれない (DB に平文無いため)。バックアップ・棚卸し用。
 
 **ユーザー作成時の挙動**:
 - パスワードは即座にポリシー検証 (12 字 + 大小数記号)
@@ -266,6 +301,7 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 | `PasswordWarningDays` | 期限警告を出す日数 (デフォルト 14) |
 | `AgentMaxConcurrency` | Agent 新規登録時のデフォルト (デフォルト 20) |
 | `SessionIdleMinutes` | クライアントアイドルタイムアウト (デフォルト 30) ※ログイン時にクライアントへ配信される |
+| `AuditLogRetentionDays` | **監査ログ保管日数 (デフォルト 365)**。`AuditLogPurgeService` が日次で古いログを自動削除する。`0` 以下を指定すると削除しない (永久保管) |
 
 行選択 → 編集欄で値を変更 → 「保存」。
 監査ログ: `ADMIN_SETTING_UPDATE`（Path に `setting:PasswordExpiryDays` 形式で対象キーを保持）
@@ -273,6 +309,7 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 > `PasswordExpiryDays` を変更しても **既存ユーザーの `PasswordExpiresAt` は再計算されない**。
 > 次回パスワード変更時から新しい期限が適用される。
 > `SessionIdleMinutes` を変更した場合、**ログイン中のクライアントには次回ログインまで反映されない**。
+> `AuditLogRetentionDays` は **次の日次パージ実行時に反映**される (`AuditLogPurgeService` は起動 30 秒後 + 以降 24 時間毎に実行)。即時反映したい場合はサーバ再起動 + 30 秒待ち。
 
 ---
 

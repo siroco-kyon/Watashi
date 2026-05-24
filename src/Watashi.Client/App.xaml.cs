@@ -40,6 +40,12 @@ public partial class App : Application
             _settings = AppSettings.Load();
             Services = BuildServices(_settings);
 
+            // BootstrapUrl が設定されていれば config.json から ServerUrl を取得 (管理者一元管理)
+            var boot = Services.GetRequiredService<BootstrapService>();
+            await boot.TryBootstrapAsync(_settings);
+            // ServerUrl が更新された可能性があるので ApiClient を再構成
+            Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
+
             if (!_settings.IsConfigured)
             {
                 var sw = Services.GetRequiredService<ConnectionSettingsWindow>();
@@ -150,6 +156,8 @@ public partial class App : Application
             c.Timeout = TimeSpan.FromMinutes(10);
         });
         services.AddHttpClient("settings-test", c => c.Timeout = TimeSpan.FromSeconds(5));
+        services.AddHttpClient("bootstrap", c => c.Timeout = TimeSpan.FromSeconds(5));
+        services.AddSingleton<BootstrapService>();
 
         services.AddTransient<ConnectionSettingsViewModel>();
         services.AddTransient<LoginViewModel>();

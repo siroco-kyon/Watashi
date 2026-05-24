@@ -67,6 +67,7 @@ builder.Services.AddSingleton<CifsService>();
 builder.Services.AddSingleton<AgentForwarder>();
 builder.Services.AddSingleton<NodeRouter>();
 builder.Services.AddHostedService<NodeHealthMonitor>();
+builder.Services.AddHostedService<AuditLogPurgeService>();
 builder.Services.AddHttpClient("agent").AddMtls(builder.Configuration);
 
 // === mTLS (任意): Routing:UseMtls=true で Agent からの inbound にクライアント証明書を要求 ===

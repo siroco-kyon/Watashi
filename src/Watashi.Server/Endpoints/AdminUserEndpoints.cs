@@ -146,7 +146,176 @@ public static class AdminUserEndpoints
             return Results.NoContent();
         });
 
+        // ===== CSV エクスポート =====
+        // Username, IsAdmin, IsLocked, MustChangePassword, PasswordExpiresAt, LastLoginAt, CreatedAt
+        // Password 列はあえて含めない (DB に平文無いので)
+        group.MapGet("/export.csv", async (AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
+        {
+            var users = await db.Users.AsNoTracking()
+                .OrderBy(u => u.Username)
+                .Select(u => new { u.Username, u.IsAdmin, u.IsLocked, u.MustChangePassword, u.PasswordExpiresAt, u.LastLoginAt, u.CreatedAt })
+                .ToListAsync(ct);
+            ctx.Response.Headers.ContentDisposition = "attachment; filename=watashi-users.csv";
+            ctx.Response.ContentType = "text/csv; charset=utf-8";
+            await using var w = new StreamWriter(ctx.Response.Body, new System.Text.UTF8Encoding(true));
+            await w.WriteLineAsync("Username,IsAdmin,IsLocked,MustChangePassword,PasswordExpiresAt,LastLoginAt,CreatedAt");
+            foreach (var u in users)
+            {
+                await w.WriteLineAsync(string.Join(",",
+                    CsvEscape(u.Username),
+                    u.IsAdmin ? "true" : "false",
+                    u.IsLocked ? "true" : "false",
+                    u.MustChangePassword ? "true" : "false",
+                    u.PasswordExpiresAt.ToString("o"),
+                    u.LastLoginAt?.ToString("o") ?? "",
+                    u.CreatedAt.ToString("o")));
+            }
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserExport, $"count:{users.Count}", ct: ct);
+            return Results.Empty;
+        }).DisableAntiforgery();
+
+        // ===== CSV インポート =====
+        // multipart/form-data: file=<CSV>, mode=add-only|upsert (default add-only)
+        // CSV format: Username,Password,IsAdmin
+        group.MapPost("/import.csv", async (HttpContext ctx, AppDbContext db, AuditLogService audit, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
+        {
+            if (!ctx.Request.HasFormContentType)
+                return Results.BadRequest(new { error = "multipart/form-data 形式でアップロードしてください。" });
+            var form = await ctx.Request.ReadFormAsync(ct);
+            var file = form.Files["file"];
+            if (file is null || file.Length == 0)
+                return Results.BadRequest(new { error = "file フィールドに CSV を指定してください。" });
+            var mode = form["mode"].ToString();
+            if (string.IsNullOrEmpty(mode)) mode = UserImportModes.AddOnly;
+            if (mode != UserImportModes.AddOnly && mode != UserImportModes.Upsert)
+                return Results.BadRequest(new { error = $"mode は {UserImportModes.AddOnly} か {UserImportModes.Upsert} を指定してください。" });
+
+            var days = await GetExpiryDaysAsync(db, ct);
+            var now = DateTime.UtcNow;
+            var result = new UserImportResultDto();
+            using var reader = new StreamReader(file.OpenReadStream(), new System.Text.UTF8Encoding(true));
+            string? line; var lineNo = 0;
+            // ヘッダー行を読む
+            line = await reader.ReadLineAsync(ct);
+            lineNo++;
+            if (line is null)
+                return Results.BadRequest(new { error = "CSV が空です。" });
+            var header = ParseCsvLine(line);
+            int idxUser = Array.FindIndex(header, h => string.Equals(h, "Username", StringComparison.OrdinalIgnoreCase));
+            int idxPw   = Array.FindIndex(header, h => string.Equals(h, "Password", StringComparison.OrdinalIgnoreCase));
+            int idxAdm  = Array.FindIndex(header, h => string.Equals(h, "IsAdmin",  StringComparison.OrdinalIgnoreCase));
+            if (idxUser < 0 || idxPw < 0)
+                return Results.BadRequest(new { error = "ヘッダーに Username,Password 列が必要です (IsAdmin は任意)。" });
+
+            while ((line = await reader.ReadLineAsync(ct)) is not null)
+            {
+                lineNo++;
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                var cols = ParseCsvLine(line);
+                if (cols.Length <= idxUser || cols.Length <= idxPw) {
+                    result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Error = "列数が足りません" });
+                    continue;
+                }
+                var username = cols[idxUser].Trim();
+                var password = cols[idxPw];
+                var isAdmin  = idxAdm >= 0 && idxAdm < cols.Length
+                    && bool.TryParse(cols[idxAdm].Trim(), out var b) && b;
+                if (string.IsNullOrWhiteSpace(username)) {
+                    result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Error = "Username が空" });
+                    continue;
+                }
+                if (string.IsNullOrEmpty(password)) {
+                    result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Username = username, Error = "Password が空" });
+                    continue;
+                }
+                var (ok, err) = PasswordPolicy.Validate(password);
+                if (!ok) {
+                    result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Username = username, Error = err ?? "パスワードポリシー違反" });
+                    continue;
+                }
+                var existing = await db.Users.FirstOrDefaultAsync(x => x.Username == username, ct);
+                if (existing is not null)
+                {
+                    if (mode == UserImportModes.AddOnly) { result.Skipped++; continue; }
+                    // upsert
+                    existing.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+                    existing.IsAdmin = isAdmin;
+                    existing.MustChangePassword = true;
+                    existing.PasswordChangedAt = now;
+                    existing.PasswordExpiresAt = now.AddDays(days);
+                    existing.IsLocked = false;
+                    existing.FailedLoginCount = 0;
+                    try { await db.SaveChangesAsync(ct); result.Updated++; }
+                    catch (DbUpdateException ex) {
+                        db.ChangeTracker.Clear();
+                        result.Failed++;
+                        result.Errors.Add(new() { LineNumber = lineNo, Username = username, Error = "更新失敗: " + ex.Message });
+                    }
+                }
+                else
+                {
+                    var u = new User
+                    {
+                        Username = username,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                        IsAdmin = isAdmin,
+                        MustChangePassword = true,
+                        PasswordChangedAt = now,
+                        PasswordExpiresAt = now.AddDays(days),
+                        CreatedAt = now,
+                    };
+                    db.Users.Add(u);
+                    try { await db.SaveChangesAsync(ct); result.Created++; }
+                    catch (DbUpdateException ex) {
+                        db.ChangeTracker.Clear();
+                        result.Failed++;
+                        result.Errors.Add(new() { LineNumber = lineNo, Username = username, Error = "登録失敗 (重複か制約違反): " + ex.Message });
+                    }
+                }
+            }
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserImport,
+                $"mode={mode},created={result.Created},updated={result.Updated},skipped={result.Skipped},failed={result.Failed}", ct: ct);
+            return Results.Ok(result);
+        }).DisableAntiforgery();
+
         return app;
+    }
+
+    private static string CsvEscape(string? v)
+    {
+        if (v is null) return "";
+        if (v.Contains(',') || v.Contains('"') || v.Contains('\n') || v.Contains('\r'))
+            return "\"" + v.Replace("\"", "\"\"") + "\"";
+        return v;
+    }
+
+    /// <summary>シンプルな RFC4180 風 CSV パーサ (1行)。クォート含むセルにも対応。</summary>
+    private static string[] ParseCsvLine(string line)
+    {
+        var result = new List<string>();
+        var sb = new System.Text.StringBuilder();
+        bool inQuote = false;
+        for (int i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+            if (inQuote)
+            {
+                if (c == '"')
+                {
+                    if (i + 1 < line.Length && line[i + 1] == '"') { sb.Append('"'); i++; }
+                    else inQuote = false;
+                }
+                else sb.Append(c);
+            }
+            else
+            {
+                if (c == ',') { result.Add(sb.ToString()); sb.Clear(); }
+                else if (c == '"' && sb.Length == 0) inQuote = true;
+                else sb.Append(c);
+            }
+        }
+        result.Add(sb.ToString());
+        return result.ToArray();
     }
 
     private static async Task<int> GetExpiryDaysAsync(AppDbContext db, CancellationToken ct)

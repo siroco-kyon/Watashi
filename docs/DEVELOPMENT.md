@@ -224,6 +224,50 @@ ASP.NET Core の dev 証明書は 1 年で期限切れ。
 クライアントの `%LocalAppData%\Watashi\settings.json` の `Protocol` フィールドはあくまで「URL に scheme が無い時の補完用」です。
 **実際の通信プロトコルは `ServerUrl` のスキームが真**。`AppSettings.IsHttps` は URL から判定します(セキュリティ上、保存フィールドではなく URL を信用)。
 
+### BootstrapService の動作確認
+
+ローカルで Bootstrap 機能を確認したい場合は、テスト用の config を任意の HTTP サーバに置く:
+
+```powershell
+# 1) 簡易 HTTP サーバを立てる (Python があれば最速)
+cd $env:TEMP
+New-Item -ItemType Directory -Name watashi-bootstrap-test -Force | Out-Null
+cd watashi-bootstrap-test
+'{"serverUrl":"http://127.0.0.1:18080","notice":"dev bootstrap"}' | Set-Content watashi-config.json -Encoding UTF8
+python -m http.server 18090
+# → http://localhost:18090/watashi-config.json で配信される
+```
+
+別ウィンドウでクライアントを起動 → 接続設定 → **Bootstrap URL** に `http://localhost:18090/watashi-config.json` を入力 → 「取得テスト」で `✓ Bootstrap 取得成功` が出れば OK。
+
+`%LocalAppData%\Watashi\settings.json` に `BootstrapUrl` が保存され、以降は起動毎に自動取得される。
+config.json の `serverUrl` を書き換えると、次回起動でクライアントが追従する (オフライン時は前回値にフォールバック)。
+
+### ユーザー CSV のインポート/エクスポートを API から試す
+
+```powershell
+$body = '{"username":"admin","password":"YourAdminP@ss!!"}'
+$r = Invoke-RestMethod -Uri "http://127.0.0.1:18080/api/auth/login" -Method Post -Body $body -ContentType "application/json"
+$token = $r.accessToken
+
+# Export
+Invoke-WebRequest -Uri "http://127.0.0.1:18080/api/admin/users/export.csv" `
+    -Headers @{ Authorization = "Bearer $token" } -OutFile users.csv
+
+# Import (PowerShell 5.1 は -Form 未対応なので System.Net.Http で multipart を組む)
+Add-Type -AssemblyName System.Net.Http
+$http = New-Object System.Net.Http.HttpClient
+$http.DefaultRequestHeaders.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", $token)
+$mpc = New-Object System.Net.Http.MultipartFormDataContent
+$bytes = [System.IO.File]::ReadAllBytes("$pwd\import.csv")
+$fc = New-Object System.Net.Http.ByteArrayContent(,$bytes)
+$fc.Headers.ContentType = New-Object System.Net.Http.Headers.MediaTypeHeaderValue("text/csv")
+$mpc.Add($fc, "file", "import.csv")
+$mpc.Add((New-Object System.Net.Http.StringContent "add-only"), "mode")  # or "upsert"
+$res = $http.PostAsync("http://127.0.0.1:18080/api/admin/users/import.csv", $mpc).Result
+$res.Content.ReadAsStringAsync().Result
+```
+
 ### サーバー DbContext と DbUpdateException
 
 `SaveChangesAsync` が unique 制約で失敗した後、同じ `DbContext` で別の SaveChanges を呼ぶと **失敗エンティティが ChangeTracker に残っていて同じ例外が再発** します。
