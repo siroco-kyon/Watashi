@@ -34,6 +34,12 @@ public static class AdminOperations
 
     public const string PermissionCreate = "ADMIN_PERMISSION_CREATE";
     public const string PermissionDelete = "ADMIN_PERMISSION_DELETE";
+    public const string PermissionCopy = "ADMIN_PERMISSION_COPY";
+
+    public const string BundleCreate = "ADMIN_BUNDLE_CREATE";
+    public const string BundleUpdate = "ADMIN_BUNDLE_UPDATE";
+    public const string BundleDelete = "ADMIN_BUNDLE_DELETE";
+    public const string BundleApply  = "ADMIN_BUNDLE_APPLY";
 
     public const string NodeCreate = "ADMIN_NODE_CREATE";
     public const string NodeUpdate = "ADMIN_NODE_UPDATE";

@@ -17,6 +17,8 @@ public class AppDbContext : DbContext
     public DbSet<CifsShare> CifsShares => Set<CifsShare>();
     public DbSet<PermissionTemplate> PermissionTemplates => Set<PermissionTemplate>();
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
+    public DbSet<PermissionBundle> PermissionBundles => Set<PermissionBundle>();
+    public DbSet<PermissionBundleEntry> PermissionBundleEntries => Set<PermissionBundleEntry>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
@@ -117,6 +119,21 @@ public class AppDbContext : DbContext
             b.HasOne(p => p.Share).WithMany().HasForeignKey(p => p.ShareId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(p => p.Template).WithMany().HasForeignKey(p => p.TemplateId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<User>().WithMany().HasForeignKey(p => p.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PermissionBundle>(b =>
+        {
+            b.HasIndex(x => x.Name).IsUnique();
+            b.Property(x => x.Name).IsRequired();
+            b.HasMany(x => x.Entries).WithOne(e => e.Bundle).HasForeignKey(e => e.BundleId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PermissionBundleEntry>(b =>
+        {
+            b.Property(x => x.AllowedPath).IsRequired();
+            b.HasOne(x => x.Share).WithMany().HasForeignKey(x => x.ShareId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Template).WithMany().HasForeignKey(x => x.TemplateId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<AuditLog>(b =>

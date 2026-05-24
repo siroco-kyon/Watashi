@@ -131,6 +131,47 @@
                                 HorizontalAlignment="Right" DockPanel.Dock="Right"/>
                     </DockPanel>
 
+                    <!-- Quick add: bundle apply + copy from user -->
+                    <Border DockPanel.Dock="Top" Style="{StaticResource CardSubtle}" Margin="0,0,0,8"
+                            IsEnabled="{Binding HasSelectedUser}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- Bundle apply -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,4">
+                                    <Run Text="📦 セットから一括適用"/>
+                                </TextBlock>
+                                <DockPanel>
+                                    <Button Content="適用" DockPanel.Dock="Right" MinWidth="64" Margin="6,0,0,0"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Command="{Binding ApplyBundleCommand}"/>
+                                    <ComboBox ItemsSource="{Binding Bundles}"
+                                              SelectedItem="{Binding SelectedBundle}"
+                                              DisplayMemberPath="Name"
+                                              ToolTip="権限セットタブで作成したセットを選択"/>
+                                </DockPanel>
+                            </StackPanel>
+                            <!-- Copy from another user -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,4">
+                                    <Run Text="📋 他ユーザーから全件コピー"/>
+                                </TextBlock>
+                                <DockPanel>
+                                    <Button Content="コピー" DockPanel.Dock="Right" MinWidth="64" Margin="6,0,0,0"
+                                            Command="{Binding CopyFromUserCommand}"/>
+                                    <ComboBox ItemsSource="{Binding CopyFromCandidates}"
+                                              SelectedItem="{Binding CopyFromUser}"
+                                              DisplayMemberPath="Username"
+                                              ToolTip="このユーザーの全権限を上の選択ユーザーへ複製"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
                     <Grid>
                         <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                             <ListView.ItemContainerStyle>

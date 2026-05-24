@@ -208,6 +208,25 @@ public class ApiClient
     public Task DeleteUserPermissionAsync(int id, CancellationToken ct = default) =>
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/user-permissions/{id}", null, ct);
 
+    public Task<CopyUserPermissionsResult> CopyUserPermissionsAsync(CopyUserPermissionsRequest req, CancellationToken ct = default) =>
+        PostJsonAsync<CopyUserPermissionsResult>("api/admin/user-permissions/copy", req, ct: ct);
+
+    // ===== Permission Bundles =====
+    public Task<List<PermissionBundleDto>> GetBundlesAsync(CancellationToken ct = default) =>
+        GetAsync<List<PermissionBundleDto>>("api/admin/permission-bundles", ct);
+
+    public async Task<int> CreateBundleAsync(CreatePermissionBundleRequest req, CancellationToken ct = default)
+        => (await PostJsonAsync<IdResponse>("api/admin/permission-bundles", req, ct: ct)).Id;
+
+    public Task UpdateBundleAsync(int id, UpdatePermissionBundleRequest req, CancellationToken ct = default) =>
+        PatchJsonNoContentAsync($"api/admin/permission-bundles/{id}", req, ct);
+
+    public Task DeleteBundleAsync(int id, CancellationToken ct = default) =>
+        SendNoContentAsync(HttpMethod.Delete, $"api/admin/permission-bundles/{id}", null, ct);
+
+    public Task<ApplyPermissionBundleResult> ApplyBundleAsync(int id, ApplyPermissionBundleRequest req, CancellationToken ct = default) =>
+        PostJsonAsync<ApplyPermissionBundleResult>($"api/admin/permission-bundles/{id}/apply", req, ct: ct);
+
     public Task<List<NodeDto>> GetNodesAsync(CancellationToken ct = default) => GetAsync<List<NodeDto>>("api/admin/nodes", ct);
 
     public async Task<int> CreateNodeAsync(CreateNodeRequest req, CancellationToken ct = default)

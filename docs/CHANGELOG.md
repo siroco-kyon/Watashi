@@ -4,6 +4,48 @@
 
 ---
 
+## 2026-05-25 — 権限セット (PermissionBundle) + 権限コピー
+
+### 機能追加
+
+- **権限セット (PermissionBundle)** — 複数の権限行 (共有・テンプレ・パス・表示名) を「セット」としてひとまとめに登録できる新エンティティ。
+  - 管理画面に **「権限セット」タブ** を追加。左に一覧、右にセット内容 + 行追加フォーム
+  - セット = 名前 (ユニーク制約) + 説明 + N 個のエントリ
+  - セットを削除しても、既に適用済みの UserPermission は残る (スナップショット展開方式)
+  - 監査ログ: `ADMIN_BUNDLE_CREATE` / `_UPDATE` / `_DELETE` / `_APPLY`
+- **セットから一括適用** — ユーザー権限タブのクイック追加カードに「📦 セットから一括適用」を追加。
+  - 重複時は確認ダイアログで「上書き / スキップ (推奨) / キャンセル」を選択
+  - 結果: 「セット適用: 追加 N / 更新 N / スキップ N」
+- **他ユーザーから全件コピー** — 「📋 他ユーザーから全件コピー」を追加。
+  - 既存ユーザーの全権限をワンクリックで別ユーザーへ複製 (重複処理同じ)
+  - 監査ログ: `ADMIN_PERMISSION_COPY`
+
+### サーバ API 追加
+
+```
+GET    /api/admin/permission-bundles
+GET    /api/admin/permission-bundles/{id}
+POST   /api/admin/permission-bundles
+PATCH  /api/admin/permission-bundles/{id}
+DELETE /api/admin/permission-bundles/{id}
+POST   /api/admin/permission-bundles/{id}/apply { userId, overwrite }
+POST   /api/admin/user-permissions/copy { fromUserId, toUserId, permissionIds?, overwrite }
+```
+
+### DB
+
+- 新テーブル: `PermissionBundles` (Id, Name unique, Description, CreatedAt, CreatedBy)
+- 新テーブル: `PermissionBundleEntries` (BundleId Cascade, ShareId Cascade, TemplateId Restrict, AllowedPath, DisplayName)
+- EF Migration: `20260524142839_AddPermissionBundles`
+
+### 検証
+
+- ビルド 0 エラー / 47 テスト合格
+- API E2E: `経理部標準セット` を作成 (2 行) → watanabe へ適用 (created=2) → 再適用 overwrite=false (skipped=2) → overwrite=true (updated=2) → watanabe→ito へコピー (copied=2)
+- UI E2E: 権限セットタブで sasaki に「経理部標準セット」を「いいえ (スキップ)」モードで適用 → 「追加 2 / 更新 0 / スキップ 0」表示、付与済み一覧に 2 行反映、左サイドバーの件数バッジが 0→2 に更新
+
+---
+
 ## 2026-05-24 — 集中管理 (BootstrapUrl) / CSV 取込出力 / ログ保管設定
 
 ### 機能追加
