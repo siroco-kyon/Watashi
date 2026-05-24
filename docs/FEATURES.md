@@ -57,6 +57,7 @@
 - 設定は `%LocalAppData%\Watashi\settings.json` に保存
 - 起動時の自動ログインは 8 秒タイムアウトで UI フリーズを防ぐ
 - **`IsHttps` は URL のスキームから判定** (Protocol フィールドではない)。表示と通信の整合性を保証
+- **BootstrapUrl による接続先の集中管理** — ClickOnce 配布サーバ等に置いた `watashi-config.json` から起動時に ServerUrl を自動取得。管理者は config ファイル 1 つ更新するだけで全クライアントが追従。オフライン時は前回値にフォールバック
 
 ---
 
@@ -70,6 +71,8 @@
 - ロック解除 (5 回連続失敗の解除)
 - パスワード強制リセット (12 字 + 大小数記号ポリシー検証)
 - すべての新規/リセットユーザーは初回 `MustChangePassword=true`
+- **CSV インポート (一括登録)**: `Username, Password, IsAdmin` 列の CSV を選んで一括登録。**新規追加のみ** (重複スキップ) と **上書き** (既存も PW 再設定) の 2 モード。行単位エラー詳細表示
+- **CSV エクスポート (棚卸し用)**: 現ユーザー一覧を `Username, IsAdmin, IsLocked, MustChangePassword, PasswordExpiresAt, LastLoginAt, CreatedAt` 形式の CSV (BOM 付き UTF-8) で保存
 
 ### 2. ホスト (CIFS ファイルサーバー)
 - 一覧 / 追加 / 削除
@@ -124,6 +127,7 @@
 - `PasswordWarningDays` (デフォルト 14)
 - `AgentMaxConcurrency` (デフォルト 20)
 - `SessionIdleMinutes` (デフォルト 30、ログイン応答経由でクライアントに反映)
+- `AuditLogRetentionDays` (デフォルト 365)。`AuditLogPurgeService` (BackgroundService) が起動 30 秒後 + 24 時間毎にこの設定値より古い AuditLog を `ExecuteDeleteAsync` で削除。`0` 以下で永久保管
 
 ---
 

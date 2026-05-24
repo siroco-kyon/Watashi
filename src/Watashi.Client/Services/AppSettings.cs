@@ -11,6 +11,14 @@ public class AppSettings
     /// URL を持たない入力時に scheme を補う既定値。実際の通信プロトコルは ServerUrl のスキームが真。
     /// </summary>
     public string Protocol { get; set; } = "HTTPS";
+
+    /// <summary>
+    /// ClickOnce 配布サーバ等に置いた watashi-config.json の URL。
+    /// 設定されていると起動時に取得して ServerUrl を自動更新する (管理者一元管理)。
+    /// 例: https://watashi.internal/install/watashi-config.json
+    /// </summary>
+    public string BootstrapUrl { get; set; } = string.Empty;
+
     public string LastLocalPath { get; set; } = string.Empty;
 
     /// <summary>
@@ -21,6 +29,9 @@ public class AppSettings
 
     [JsonIgnore]
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ServerUrl);
+
+    [JsonIgnore]
+    public bool HasBootstrap => !string.IsNullOrWhiteSpace(BootstrapUrl);
 
     private static string SettingsPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Watashi", "settings.json");

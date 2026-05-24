@@ -9,23 +9,49 @@ public partial class ConnectionSettingsViewModel : ObservableObject
 {
     private readonly AppSettings _settings;
     private readonly IHttpClientFactory _http;
+    private readonly BootstrapService _boot;
 
     [ObservableProperty] private string serverUrl = string.Empty;
     [ObservableProperty] private string protocol = "HTTPS";
+    [ObservableProperty] private string bootstrapUrl = string.Empty;
     [ObservableProperty] private string statusMessage = string.Empty;
 
-    public ConnectionSettingsViewModel(AppSettings settings, IHttpClientFactory http)
+    public ConnectionSettingsViewModel(AppSettings settings, IHttpClientFactory http, BootstrapService boot)
     {
         _settings = settings;
         _http = http;
+        _boot = boot;
         serverUrl = settings.ServerUrl;
-        // URL に scheme があれば URL を真とする (表示と通信を一致させる)
+        bootstrapUrl = settings.BootstrapUrl;
         if (serverUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             protocol = "HTTPS";
         else if (serverUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
             protocol = "HTTP";
         else
             protocol = string.IsNullOrEmpty(settings.Protocol) ? "HTTPS" : settings.Protocol;
+    }
+
+    /// <summary>BootstrapUrl が設定済みなら ServerUrl 入力は不要 (管理者管理)。</summary>
+    public bool ServerUrlInputEnabled => string.IsNullOrWhiteSpace(BootstrapUrl);
+
+    partial void OnBootstrapUrlChanged(string value) => OnPropertyChanged(nameof(ServerUrlInputEnabled));
+
+    [RelayCommand]
+    private async Task FetchBootstrap()
+    {
+        if (string.IsNullOrWhiteSpace(BootstrapUrl)) { StatusMessage = "Bootstrap URL を入力してください。"; return; }
+        StatusMessage = "Bootstrap 取得中...";
+        var tmp = new AppSettings { BootstrapUrl = BootstrapUrl };
+        var result = await _boot.TryBootstrapAsync(tmp);
+        if (result.Ok && result.Config?.ServerUrl is string url)
+        {
+            ServerUrl = url;
+            StatusMessage = "✓ Bootstrap 取得成功: " + url + (result.Config.Notice is null ? "" : "\n" + result.Config.Notice);
+        }
+        else
+        {
+            StatusMessage = "✗ Bootstrap 取得失敗: " + (result.Error ?? "未設定");
+        }
     }
 
     [RelayCommand]
@@ -46,6 +72,7 @@ public partial class ConnectionSettingsViewModel : ObservableObject
     {
         _settings.ServerUrl = NormalizedUrl();
         _settings.Protocol = Protocol;
+        _settings.BootstrapUrl = (BootstrapUrl ?? string.Empty).Trim();
         _settings.Save();
         StatusMessage = "保存しました。";
     }

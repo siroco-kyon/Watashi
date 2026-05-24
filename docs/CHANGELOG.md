@@ -4,6 +4,49 @@
 
 ---
 
+## 2026-05-24 — 集中管理 (BootstrapUrl) / CSV 取込出力 / ログ保管設定
+
+### 機能追加
+
+- **BootstrapUrl (サーバURL の管理者一元管理)** — ClickOnce 配布サーバ等に置いた `watashi-config.json` から起動時に ServerUrl を自動取得。
+  - クライアントから URL 入力させず、管理者は config ファイル 1 つ更新するだけで全クライアントが追従
+  - ネット圏外時は前回の ServerUrl を使う (オフラインフォールバック)
+  - `AppSettings.BootstrapUrl` フィールド追加、`Services/BootstrapService.cs` 追加
+  - 接続設定ダイアログに「Bootstrap URL」セクション + 「取得テスト」ボタン追加
+  - Config スキーマ: `{ "serverUrl": "...", "notice": "..." }`
+- **ユーザー CSV エクスポート/インポート** — 管理画面ユーザータブに 📥 CSV取込 / 📤 CSV出力 ボタンを追加。
+  - エクスポート: `Username, IsAdmin, IsLocked, MustChangePassword, PasswordExpiresAt, LastLoginAt, CreatedAt` (パスワードは含めない)
+  - インポート: `Username, Password, IsAdmin` (IsAdmin は任意)、UTF-8 (BOM 推奨)、RFC4180 風クォート対応
+  - 2 モード: **新規追加のみ** (既存はスキップ、毎回追加分だけ取り込み) / **上書き** (既存も PW 再設定 + IsAdmin 更新)
+  - パスワードポリシー違反は行単位で失敗扱い、他の行は処理継続
+  - 完了ダイアログに件数 + エラー詳細を表示
+  - 監査ログ: `ADMIN_USER_IMPORT` / `ADMIN_USER_EXPORT`
+- **監査ログ保管期間を設定可能に** — `SystemSettings.AuditLogRetentionDays` (デフォルト 365 日) 追加。
+  - `AuditLogPurgeService` (BackgroundService) を実装。起動 30 秒後 + 24 時間毎に古いログを `ExecuteDeleteAsync` で削除
+  - `0` 以下を指定するとパージ停止 (永久保管)
+  - 既存 DB にも `DataSeeder` で補完登録される
+- **ポート設定**: Server / Agent の `Kestrel:Endpoints` で自由にポート変更可能なことを SETUP.md に明記。80/443 が他プロセスに占有されている場合の対処手順も追記
+
+### 修正
+
+- (該当バグ無し、機能追加のみ)
+
+### UX 改善
+
+- 接続設定ダイアログの幅を 520 → 600 に、高さを 320 → 540 に拡大して Bootstrap セクションを追加
+- ConnectionSettingsViewModel に `FetchBootstrap` / `TestConnection` / `Save` の 3 つのコマンド
+- BootstrapUrl が設定済みなら ServerUrl 入力欄は disable (管理者管理であることを明示)
+
+### 文書
+
+- `docs/ADMIN-GUIDE.md`: CSV インポート/エクスポート手順、フォーマット仕様、AuditLogRetentionDays 設定を追記
+- `docs/SETUP.md`: BootstrapUrl 設定手順を ③-2 配布サーバセクションに追加。ポート変更手順を ② ネットワーク構成に追加
+- `docs/FEATURES.md`: 該当機能追記
+- `docs/DEVELOPMENT.md`: BootstrapService の使い方を追記
+- `docs/CHANGELOG.md`: 本リリース分を冒頭に追加
+
+---
+
 ## 2026-05-23 — UI 刷新と網羅バグ修正
 
 ### 機能追加

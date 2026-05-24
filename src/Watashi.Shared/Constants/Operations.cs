@@ -16,6 +16,8 @@ public static class AdminOperations
     public const string UserUnlock = "ADMIN_USER_UNLOCK";
     public const string UserResetPassword = "ADMIN_USER_RESET_PW";
     public const string UserRevokeDevices = "ADMIN_USER_REVOKE_DEVICES";
+    public const string UserImport = "ADMIN_USER_IMPORT";
+    public const string UserExport = "ADMIN_USER_EXPORT";
 
     public const string HostCreate = "ADMIN_HOST_CREATE";
     public const string HostUpdate = "ADMIN_HOST_UPDATE";

@@ -16,6 +16,8 @@
                         <TextBlock Text="ユーザー一覧" Style="{StaticResource H3}" DockPanel.Dock="Left"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="🔄 再読み込み" Command="{Binding RefreshCommand}" Style="{StaticResource GhostButton}" Margin="0,0,6,0"/>
+                            <Button Content="📥 CSV取込" Command="{Binding ImportCsvCommand}" ToolTip="CSV ファイルからユーザーを一括登録" Margin="0,0,6,0"/>
+                            <Button Content="📤 CSV出力" Command="{Binding ExportCsvCommand}" ToolTip="ユーザー一覧を CSV として保存" Style="{StaticResource GhostButton}" Margin="0,0,6,0"/>
                             <Button Content="🔓 ロック解除" Command="{Binding UnlockCommand}" Margin="0,0,6,0"/>
                             <Button Content="🔑 PWリセット" Click="OnResetPw" Margin="0,0,6,0"/>
                             <Button Content="🗑 削除" Command="{Binding DeleteCommand}" Style="{StaticResource DangerButton}"/>
