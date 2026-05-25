@@ -345,6 +345,8 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
 }
 ```
 
+> **HTTPS 証明書の指定方法は 2 通り**: 上記は PFX ファイル指定。社内 PKI から配布された証明書 (=IIS のバインドで選んでいる証明書) を **ファイル化せずそのまま使う** こともでき、Windows 上では一般にこちらの方が運用が楽です。具体的な手順 (証明書ストア参照モードへの appsettings.json 書き換え、秘密キーへのアクセス権付与、エクスポート可否の判定、証明書更新時の流れ) は **[deploy/CERTIFICATE.md](../deploy/CERTIFICATE.md)** を参照。
+
 > 起動時検証: `Jwt:Secret` が `CHANGE-ME` で始まり `ASPNETCORE_ENVIRONMENT=Production` の場合は例外で起動拒否。
 > 同様に `Encryption:MasterKey` も `REPLACE-WITH` プレフィックス検出。Dev/Stg では警告のみ。
 
@@ -465,7 +467,8 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 |---|---|
 | ☐ | `Jwt:Secret` を本番値 (32 バイト以上のランダム) に差し替え（プレースホルダのままだと Production で起動拒否） |
 | ☐ | `Encryption:MasterKey` を本番値 (32 バイト Base64) に差し替え + バックアップ確保 |
-| ☐ | Server HTTPS 証明書を社内 CA 発行のものに |
+| ☐ | Server HTTPS 証明書を社内 CA 発行のものに ([deploy/CERTIFICATE.md](../deploy/CERTIFICATE.md) でストア参照 / ファイル指定どちらかを選ぶ) |
+| ☐ | (ストア参照方式の場合) 秘密キーへのサービスアカウントの Read 権限を付与 |
 | ☐ | クライアント PC に社内 CA ルート証明書を配布 |
 | ☐ | admin の初期パスワード変更 |
 | ☐ | (モード A の場合) Agent クライアント証明書を発行して `ExecutionNode.ClientCertificateThumbprint` に登録 |
