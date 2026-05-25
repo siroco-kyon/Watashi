@@ -4,6 +4,33 @@
 
 ---
 
+## 2026-05-26 — 操作ログのホスト/共有コンテキスト表示
+
+### UX 改善
+
+- **操作ログのパスがどこのホスト/共有のものか一目で分かる表示に変更**
+  - 旧 UI は `HostId=1`, `ShareId=2`, `Path=/dept-A/file.txt` のように数値 ID のみ表示で、どこの何の話か常に裏照合が必要だった
+  - 新 UI は「**ホスト / 共有**」列を 2 行レイアウトで追加し、`AuditLogDto.HostName` / `ShareName` を表示。Path 列ホバー時には `DisplayLocation` (例: `経理部FS / share-keiri :: /dept-A/file.txt`) がツールチップで全文表示される
+  - ホスト/共有が後で削除されたログは「(削除済 host#42)」「(削除済 share#99)」のように識別子付きで明示
+
+### サーバ API 変更
+
+- `GET /api/admin/logs` — レスポンス `items[]` に `hostName` / `shareName` フィールドを追加 (left-join で解決、削除済みは null)
+- `GET /api/admin/logs/export.csv` — 列構成を変更:
+  - 新規追加: `Location` 列 (例: `経理部FS / share-keiri :: /dept-A/file.txt`)
+  - 新規追加: `HostName` 列 / `ShareName` 列
+  - 旧列はそのまま (`HostId`, `ShareId`, `Path`)。Excel/BI 連携の後方互換のため
+
+### テスト追加 (148 → 154 ケース、+6)
+
+- `AuditLogDtoTests` — DisplayLocation 整形 (完全解決 / 削除済 / 管理者操作 / 部分解決) のバリエーション
+
+### 文書
+
+- `CHANGELOG.md` 追記
+
+---
+
 ## 2026-05-25 (Update) — パスワード可視化トグル + セキュリティ強化 + テスト拡充
 
 ### UX 改善

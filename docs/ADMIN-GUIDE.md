@@ -321,7 +321,9 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 - 検索ボタンでクエリ実行
 
 **カラム**:
-- Timestamp / Username / Op / Result / Host/Share / Path / Bytes / Dur(ms) / Err
+- Timestamp / Username / Op / Result / **ホスト / 共有** / Path / Bytes / Dur(ms) / Err
+- **「ホスト / 共有」列** はホスト名 (1行目) と共有の表示名 (2行目) の 2 行レイアウト。**Path 列にホバーすると**「ホスト / 共有 :: パス」のフル表記がツールチップで表示される (例: `経理部FS / share-keiri :: /dept-A/file.txt`)
+- ログ取得後にホスト/共有が削除された場合は `(削除済 host#42)` / `(削除済 share#99)` と表示される (ログそのものは保全)
 
 **操作種別の凡例**:
 | 操作種別 | 説明 |
@@ -337,11 +339,15 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 
 **CSV エクスポート**:
 - 「CSV出力」で現在のフィルタ条件のまま全件 CSV ダウンロード
-- BOM 付き UTF-8、Excel でそのまま開ける
+- BOM 付き UTF-8、Excel でそのまま開ける (数式インジェクション対策済み)
+- 列: `Id, Timestamp, Username, Operation, **Location**, HostId, **HostName**, ShareId, **ShareName**, Path, TargetPath, Result, Error, ClientIp, Bytes, DurationMs, Protocol, NodeId, PermId`
+  - **Location** 列は「ホスト / 共有 :: パス」の文字列で、Excel での目視確認に最適
+  - HostId/ShareId/Path も従来通り残してあるので BI 連携の後方互換あり
 - サーバ側は `AsNoTracking + Select` で射影し、500 件ずつバッチフラッシュ（大規模監査テーブルでも OOM しない）
 
 **保管期間**:
-- 1 年 (日次バッチで自動削除、設定では変えられない)
+- デフォルト 365 日 (`SystemSettings.AuditLogRetentionDays` で変更可能。0 以下にすれば永久保管)
+- 日次バッチ (`AuditLogPurgeService`) で自動削除
 - 月次 VACUUM で DB サイズ圧縮
 
 ### システム設定

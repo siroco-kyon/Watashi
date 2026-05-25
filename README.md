@@ -87,6 +87,7 @@ dotnet run
 ### 認可・監査
 - ユーザー単位の **(共有 × サブパス) 権限**、READ/WRITE/DELETE/RENAME 個別制御
 - 操作ログ全件記録（**`AuditLogRetentionDays` で保管日数を設定可能、デフォルト 365 日**、自動パージ）+ CSV エクスポート
+- 操作ログは **「ホスト名 / 共有名 :: パス」** で読み取り可能。CSV 出力にも `Location` / `HostName` / `ShareName` 列を追加 (旧 UI の `HostId=1, ShareId=2` 数値表示を改善)
 - **管理者操作（ユーザー追加/削除/権限変更等）も全件監査ログに記録**
 - **ユーザー一括登録**: 管理画面から CSV インポート (新規追加のみ / 上書き モード選択)
 - **権限セット**: 「経理部標準」「営業部標準」のような **再利用可能な権限の塊** を定義し、1 クリックでユーザーへ一括付与
@@ -122,7 +123,7 @@ src/
 ├── Watashi.Server/    # 中央サーバー (ASP.NET Core 8, Windows Service)
 ├── Watashi.Agent/     # エージェント (踏み台に配置、Windows Service)
 └── Watashi.Client/    # WPF デスクトップアプリ
-tests/Watashi.Tests/   # xUnit (148 ケース: PathHelper / Permission / Auth / Crypto / CSV / AdminGuard / Session 等)
+tests/Watashi.Tests/   # xUnit (154 ケース: PathHelper / Permission / Auth / Crypto / CSV / AdminGuard / Session / AuditLog 等)
 deploy/                # Windows Service インストーラ、ClickOnce 設定、IIS MIME
 docs/                  # 本ドキュメント群
 ```
