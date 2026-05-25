@@ -89,14 +89,20 @@ public partial class MainViewModel : ObservableObject
         Transfer.TotalBytes = Remote.Selected.Size ?? 0;
         Transfer.BytesTransferred = 0;
         Transfer.IsActive = true;
+        // 失敗時に中途半端なファイルが残らないよう、まず .part に書き込み、完了時に rename する。
+        var tempPath = destination + ".part";
+        bool completed = false;
         try
         {
             var progress = new Progress<long>(b => Transfer.BytesTransferred = b);
-            await using (var fs = File.Create(destination))
+            await using (var fs = File.Create(tempPath))
             {
                 await _api.DownloadAsync(Remote.SelectedLocation.HostId, Remote.SelectedLocation.ShareId, remotePath, fs, progress);
                 await fs.FlushAsync();
             }
+            if (File.Exists(destination)) File.Delete(destination);
+            File.Move(tempPath, destination);
+            completed = true;
             await Local.RefreshAsync();
             StatusMessage = $"ダウンロード完了: {Remote.Selected.Name}";
         }
@@ -105,6 +111,13 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = "ダウンロード失敗: 読み取り権限がありません。";
         }
         catch (Exception ex) { StatusMessage = "ダウンロード失敗: " + ex.Message; }
-        finally { Transfer.IsActive = false; }
+        finally
+        {
+            Transfer.IsActive = false;
+            if (!completed)
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            }
+        }
     }
 }

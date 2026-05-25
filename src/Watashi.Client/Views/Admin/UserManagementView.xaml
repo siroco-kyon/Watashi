@@ -1,6 +1,7 @@
 <UserControl x:Class="Watashi.Client.Views.Admin.UserManagementView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Watashi.Client.Controls">
     <Grid Margin="14">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -52,7 +53,7 @@
                     <TextBox Text="{Binding NewUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
 
                     <TextBlock Text="初期パスワード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding NewPassword, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                    <ctl:PasswordRevealBox Password="{Binding NewPassword, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Margin="0,0,0,4"/>
                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
                                Text="12文字以上 / 英大・英小・数字・記号 を各1文字以上含む"/>
 

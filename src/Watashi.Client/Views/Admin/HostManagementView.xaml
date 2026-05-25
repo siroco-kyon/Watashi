@@ -1,6 +1,7 @@
 <UserControl x:Class="Watashi.Client.Views.Admin.HostManagementView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Watashi.Client.Controls">
     <Grid Margin="14">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -72,7 +73,7 @@
                     <TextBox Text="{Binding CredUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
 
                     <TextBlock Text="CIFSパスワード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding CredPassword, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                    <ctl:PasswordRevealBox Password="{Binding CredPassword, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Margin="0,0,0,4"/>
                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
                                Text="編集時に空欄のままにすると、保存されているパスワードを保持します。"/>
 

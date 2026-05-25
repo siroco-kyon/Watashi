@@ -23,6 +23,9 @@ public sealed class CifsSessionPool : IDisposable
 
     public CifsSession Acquire(CifsConnectionInfo info)
     {
+        // Dispose 後に Acquire されると、新しいセッションをプールに紐付けてしまい
+        // Return 時に DisposeReal されるだけのデッドフロー。明示的に拒否する。
+        if (_disposed) throw new ObjectDisposedException(nameof(CifsSessionPool));
         var key = Key(info);
         if (_idle.TryGetValue(key, out var bag))
         {

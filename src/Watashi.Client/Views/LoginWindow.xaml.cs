@@ -21,11 +21,6 @@ public partial class LoginWindow : Window
         vm.LoggedIn += res => { DialogResult = true; Close(); };
     }
 
-    private void OnPasswordChanged(object sender, RoutedEventArgs e)
-    {
-        _vm.Password = PasswordBox.Password;
-    }
-
     private void OnOpenSettings(object sender, RoutedEventArgs e)
     {
         var sp = ((App)Application.Current).Services;
@@ -41,7 +36,7 @@ public partial class LoginWindow : Window
         sp.GetRequiredService<ApiClient>().ConfigureBaseAddress();
         _vm = sp.GetRequiredService<LoginViewModel>();
         DataContext = _vm;
-        PasswordBox.Password = string.Empty;
+        PasswordBox.Clear();
         Bind(_vm);
     }
 }

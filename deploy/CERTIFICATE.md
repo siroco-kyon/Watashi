@@ -71,10 +71,10 @@ NotAfter     : 2027/03/15 23:59:59
 `HasPrivateKey : True` の証明書だけが TLS で使えます。IIS のバインドで選んでいるのと同じ Subject のものを採用します。
 
 **`Subject` フィールドの値の取り方**:
-- 出力の `CN=...` の部分を丸ごと取り出し、`appsettings.json` の `Subject` に貼り付け
-- 例: `Subject : CN=watashi.internal, OU=IT, O=Acme Corp, C=JP` → JSON 側は `"Subject": "CN=watashi.internal"`
-- Kestrel は **部分一致** (substring) で証明書を選ぶので、`CN=` 部分だけで充分
-- ホスト名だけ (`"Subject": "watashi.internal"`) でも動くが、`CN=` を含めた方が誤マッチが少ない
+- 出力の `CN=` の **右側 (ホスト名部分) だけ** を取り出し、`appsettings.json` の `Subject` に貼り付け
+- 例: `Subject : CN=watashi.internal, OU=IT, O=Acme Corp, C=JP` → JSON 側は `"Subject": "watashi.internal"`
+- ⚠ `CN=` を含めない: Kestrel は `X509FindType.FindBySubjectName` で CN 値 (Simple Name) の **部分一致** をするので、`"CN=watashi.internal"` と書くと Simple Name に `CN=...` という文字列があるかを探してしまい必ずマッチしない
+- 短く `"Subject": "watashi"` でも前方一致で OK だが、他証明書とぶつかる可能性があるのでフルネーム推奨
 
 > **`certlm.msc` (GUI) でも確認可**: 「個人」→「証明書」を開き、対象をダブルクリック → 「詳細」タブの「サブジェクト」「拇印 (Thumbprint)」を見る。
 
@@ -108,7 +108,7 @@ Watashi.Server / Watashi.Agent どちらでも同じ書き方です。
     "Https": {
       "Url": "https://0.0.0.0:8443",
       "Certificate": {
-        "Subject": "CN=watashi.internal",
+        "Subject": "watashi.internal",
         "Store": "My",
         "Location": "LocalMachine",
         "AllowInvalid": false
@@ -118,23 +118,21 @@ Watashi.Server / Watashi.Agent どちらでも同じ書き方です。
 }
 ```
 
-**サムプリントで指定する場合**: より厳密で誤マッチを防げる。証明書更新時は新サムプリントで更新が必要。
+> ⚠ **`Subject` には `CN=` プレフィックスを付けない**。Kestrel は内部で `X509FindType.FindBySubjectName` を使い、**CN 値 (Simple Name) に対する case-insensitive な部分一致** を行います。`CN=` を含む文字列を渡すと「Simple Name に `CN=...` という文字列が含まれるか」を探してしまい、必ず見つからずに `The requested certificate CN=... could not be found in ...` というエラーになります。
+>
+> 例: 証明書の Subject が `CN=watashi.internal, O=Acme Corp, C=JP` の場合、Kestrel が照合するのは **`watashi.internal`** だけ。
+> - ⭕ `"Subject": "watashi.internal"` (完全一致)
+> - ⭕ `"Subject": "watashi"` (前方一致でも OK だが、他ホストとの衝突に注意)
+> - ❌ `"Subject": "CN=watashi.internal"` (Simple Name に `CN=` は含まれないのでマッチしない)
+> - ❌ `"Subject": "CN = watashi.internal"` (PowerShell の出力をそのまま貼ると陥りやすい)
 
-```jsonc
-"Certificate": {
-  "Subject": "*",
-  "Store": "My",
-  "Location": "LocalMachine",
-  "AllowInvalid": false
-}
-```
-※ サムプリントを直接指定するキーは Kestrel 構成にないため、複数候補がある場合は Subject 部分一致で絞ります。1 ホスト 1 証明書なら Subject だけで充分です。
+**複数候補があるとき**: 同じ CN を含む証明書が複数あると、Kestrel は `validOnly` を通った中から `NotAfter` (有効期限) が一番遠いものを自動選択します。サムプリントを直接指定するキーは Kestrel 構成にないので、ユニークな CN で絞れない場合は Subject をより詳細に書く (例: より長い前方一致) しかありません。
 
 ### 各キーの意味
 
 | キー | 値 | 意味 |
 |---|---|---|
-| `Subject` | `CN=watashi.internal` | 証明書の Subject 部分一致 (CN= の値) |
+| `Subject` | `watashi.internal` | 証明書の **CN 値 (Simple Name)** に対する部分一致。`CN=` プレフィックスは不要 |
 | `Store` | `My` | "個人" ストア。手動インポートや AD CS 配布のデフォルト |
 | `Location` | `LocalMachine` | ユーザーストアではなくマシン全体のストア |
 | `AllowInvalid` | `false` | 期限切れ・未信頼を許可しない (本番は必ず false) |
@@ -253,8 +251,8 @@ Win-ACME (`wacs.exe`) は Windows 向けの ACME クライアントで、Let's E
     "Https": {
       "Url": "https://0.0.0.0:8443",
       "Certificate": {
-        "Subject": "CN=watashi.internal",
-        "Store": "WebHosting",          // ← My ではなく WebHosting
+        "Subject": "watashi.internal",   // ← CN= は付けない (CN 値だけ)
+        "Store": "WebHosting",           // ← My ではなく WebHosting
         "Location": "LocalMachine",
         "AllowInvalid": false
       }
@@ -475,11 +473,25 @@ $rsa.Key.ExportPolicy  # AllowExport / AllowPlaintextExport 等を含むか確�
 
 ## トラブルシューティング
 
+### `The requested certificate ... could not be found in LocalMachine/WebHosting`
+
+最頻出の落とし穴 2 つ:
+
+- **`Subject` に `CN=` を含めてしまっている** (今のあなたがハマってる可能性が高い): Kestrel の `FindBySubjectName` は CN 値の部分一致をするので、`"CN=watashi.internal"` や `"CN = watashi.internal"` と書くと必ず失敗する。**`CN=` を取り除いて値だけ**にする (`"watashi.internal"`)
+- **`Subject` にサムプリント (40 桁の hex) を入れてしまった**: Kestrel に Thumbprint 指定オプションは無い。Subject は CN 値で書く
+
+```powershell
+# 正しい値を切り出すための確認コマンド
+Get-ChildItem Cert:\LocalMachine\WebHosting |
+    Where-Object { $_.HasPrivateKey } |
+    Select-Object @{N='SimpleName';E={$_.GetNameInfo('SimpleName',$false)}}, Subject, Thumbprint
+```
+
+`SimpleName` 列の値 (例: `watashi.internal`) を `"Subject"` に貼ればまず確実にマッチします。
+
 ### 起動時 `Unable to configure HTTPS endpoint. No server certificate was specified...`
 
-- 方式 A: `Subject` の値が証明書の実際の Subject と一致していない
-  - `Get-ChildItem Cert:\LocalMachine\My | Select Subject` で完全一致を確認
-  - 文字列の中に `Subject` の一部 (`CN=watashi.internal`) が含まれていれば前方一致でマッチする
+- 方式 A: `Subject` の値が証明書の実際の CN 値と一致していない (上のセクション参照)
 - 方式 A: **`Store` の指定が違う**
   - IIS バインドでは選べるのに `LocalMachine\My` に見当たらない場合、Win-ACME や IIS の証明書要求機能で取得した証明書は `LocalMachine\WebHosting` に入っている。`Store` を `WebHosting` に変更
   - 全ストアを横断検索:

@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Data;
 using Watashi.Shared.DTOs.Admin;
+using Watashi.Shared.Helpers;
 using Watashi.Shared.Models;
 
 namespace Watashi.Server.Endpoints;
@@ -95,11 +96,7 @@ public static class AdminLogEndpoints
         return q;
     }
 
-    private static string Csv(string s)
-    {
-        if (s.IndexOfAny(new[] { ',', '"', '\n', '\r' }) < 0) return s;
-        return "\"" + s.Replace("\"", "\"\"") + "\"";
-    }
+    private static string Csv(string s) => CsvHelper.Escape(s);
 
     private record AuditCsvRow(
         long Id, DateTime Timestamp, string Username, string Operation,

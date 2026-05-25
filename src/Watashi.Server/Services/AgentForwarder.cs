@@ -163,7 +163,11 @@ public class AgentForwarder
         public override bool CanRead => true;
         public override bool CanSeek => false;
         public override bool CanWrite => false;
-        public override long Length => _res.Content.Headers.ContentLength ?? -1;
+        // CanSeek=false で Length 取得を試みる呼び出しは Stream の規約違反だが、
+        // CopyToAsync など内部で例外を握りつぶす実装に対しては Content-Length があれば返す方が便利。
+        // ContentLength が無い場合は規約通り NotSupported を投げる。
+        public override long Length => _res.Content.Headers.ContentLength
+            ?? throw new NotSupportedException("ContentLength 未設定 (チャンク転送) のため Length は取得できません。");
         public override long Position { get => _inner.Position; set => throw new NotSupportedException(); }
         public override void Flush() { }
         public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
