@@ -33,6 +33,7 @@
 | `uninstall-service.ps1`      | 上記サービスを停止・削除 |
 | `install-agent.ps1`          | 旧式: appsettings.json 生成 + sc.exe 登録（残置、互換用） |
 | `IIS-MIME.md`                | ClickOnce 配信のための IIS MIME 設定 |
+| `CERTIFICATE.md`             | HTTPS 証明書の設定 (ストア参照 vs ファイル指定、Windows 推奨は前者) |
 
 ## 1. 中央サーバー (Watashi.Server)
 
