@@ -9,6 +9,10 @@ public class AuditLogDto
     public string Operation { get; set; } = string.Empty;
     public int? HostId { get; set; }
     public int? ShareId { get; set; }
+    /// <summary>取得時点で解決された Host.Name (削除済みなら null)。表示用。</summary>
+    public string? HostName { get; set; }
+    /// <summary>取得時点で解決された Share.DisplayName (削除済みなら null)。表示用。</summary>
+    public string? ShareName { get; set; }
     public string? Path { get; set; }
     public string? TargetPath { get; set; }
     public string Result { get; set; } = string.Empty;
@@ -20,4 +24,22 @@ public class AuditLogDto
     public string? Protocol { get; set; }
     public int? ExecutionNodeId { get; set; }
     public int? UsedPermissionId { get; set; }
+
+    /// <summary>
+    /// 「ホスト / 共有 :: パス」の人間向けまとめ表示。
+    /// 例: "経理部FS / share-keiri :: /dept-A/file.txt"
+    /// ホスト/共有が削除済みの場合は数値 ID + 削除済みマーカーで代用。
+    /// HostId/ShareId のいずれも無いログ (管理者操作など) は Path のみを返す。
+    /// </summary>
+    public string DisplayLocation => FormatLocation(HostName, HostId, ShareName, ShareId, Path);
+
+    public static string FormatLocation(string? hostName, int? hostId, string? shareName, int? shareId, string? path)
+    {
+        if (!hostId.HasValue && !shareId.HasValue)
+            return string.IsNullOrEmpty(path) ? "-" : path;
+        string host = hostName ?? (hostId.HasValue ? $"(削除済 host#{hostId})" : "-");
+        string share = shareName ?? (shareId.HasValue ? $"(削除済 share#{shareId})" : "-");
+        string p = string.IsNullOrEmpty(path) ? "-" : path;
+        return $"{host} / {share} :: {p}";
+    }
 }

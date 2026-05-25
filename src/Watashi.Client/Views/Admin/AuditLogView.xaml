@@ -39,6 +39,12 @@
             <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource DangerBrush}"
                        Margin="16,6,16,0" DockPanel.Dock="Top" TextWrapping="Wrap"/>
 
+            <!--
+                旧 UI は HostId / ShareId の数値だけが出ていたため、"どこのどの共有のどのパスか" が
+                ログだけ眺めても分からなかった。サーバ側で left-join した HostName / ShareName を
+                受け取り、(ホスト名 / 共有名) を 2 行レイアウトで表示。ホバー時はパス + 完全な location を
+                ツールチップで全文確認できる。削除済みのホスト/共有は「(削除済)」とマークする。
+            -->
             <ListView ItemsSource="{Binding Items}" BorderThickness="0,1,0,0">
                 <ListView.View>
                     <GridView>
@@ -47,9 +53,28 @@
                         <GridViewColumn Header="User" DisplayMemberBinding="{Binding Username}" Width="120"/>
                         <GridViewColumn Header="Op" DisplayMemberBinding="{Binding Operation}" Width="80"/>
                         <GridViewColumn Header="Result" DisplayMemberBinding="{Binding Result}" Width="70"/>
-                        <GridViewColumn Header="Host" DisplayMemberBinding="{Binding HostId}" Width="50"/>
-                        <GridViewColumn Header="Share" DisplayMemberBinding="{Binding ShareId}" Width="50"/>
-                        <GridViewColumn Header="Path" DisplayMemberBinding="{Binding Path}" Width="280"/>
+                        <GridViewColumn Header="ホスト / 共有" Width="220">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel ToolTip="{Binding DisplayLocation}">
+                                        <TextBlock Text="{Binding HostName, TargetNullValue='(削除済)', FallbackValue='-'}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding ShareName, TargetNullValue='(削除済)', FallbackValue='-'}"
+                                                   Style="{StaticResource Caption}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Path" Width="280">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Path}"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding DisplayLocation}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
                         <GridViewColumn Header="Bytes" DisplayMemberBinding="{Binding BytesTransferred, Converter={StaticResource SizeFmt}}" Width="90"/>
                         <GridViewColumn Header="Dur(ms)" DisplayMemberBinding="{Binding DurationMs}" Width="70"/>
                         <GridViewColumn Header="Err" DisplayMemberBinding="{Binding ErrorMessage}" Width="240"/>
