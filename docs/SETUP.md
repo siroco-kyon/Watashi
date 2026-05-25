@@ -306,7 +306,7 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
   },
   "Jwt": {
     // 32 バイト以上のランダム値に必ず変更。Production で "CHANGE-ME" のままだと起動拒否
-    "Secret": "<openssl rand -base64 48 で生成>",
+    "Secret": "<生成方法は下記参照、48 バイトの Base64 推奨>",
     "Issuer": "Watashi",
     "Audience": "Watashi",
     "AccessTokenMinutes": 15,
@@ -315,7 +315,7 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
   "Encryption": {
     // 32 バイトの Base64 (= 44 文字)。CIFS パスワード暗号化に使用
     // 紛失すると全 CIFS 資格情報が復号不能になるので厳重管理
-    "MasterKey": "<openssl rand -base64 32 で生成>"
+    "MasterKey": "<生成方法は下記参照>"
   },
   "Auth": {
     "AllowHttpForAutoLogin": false,
@@ -349,6 +349,41 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
 
 > 起動時検証: `Jwt:Secret` が `CHANGE-ME` で始まり `ASPNETCORE_ENVIRONMENT=Production` の場合は例外で起動拒否。
 > 同様に `Encryption:MasterKey` も `REPLACE-WITH` プレフィックス検出。Dev/Stg では警告のみ。
+> なお `Encryption:MasterKey` は **Base64 でデコードして 32 バイトになる値** が必須。プレースホルダ以外でも、Base64 として無効な文字列や長さ不足だと、CIFS ホスト登録時 (EncryptionService の初回解決時) に `Encryption:MasterKey は Base64 でエンコードされた値である必要があります` で 500 エラーになる。
+
+**Jwt:Secret / Encryption:MasterKey の生成方法 (Windows ネイティブ)**:
+
+```powershell
+# Windows PowerShell 5.1 / 7 どちらでも動く
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+
+# Jwt:Secret 用 (48 バイト推奨)
+$bytes = New-Object byte[] 48
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+
+# Encryption:MasterKey 用 (32 バイト固定)
+$bytes = New-Object byte[] 32
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+```
+
+PowerShell 7+ (`pwsh.exe`) なら 1 行:
+```powershell
+[Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
+
+Git for Windows が入っていれば openssl も使える:
+```powershell
+& "C:\Program Files\Git\usr\bin\openssl.exe" rand -base64 32
+```
+
+> **★ MasterKey の保管**: 32 バイト Base64 (44 文字、末尾 `=` 1 個) を生成したら、**パスワードマネージャや金庫で別途バックアップ**。DB バックアップとは別場所に保管すること。鍵を紛失すると DB の CIFS 接続パスワードが全部復号不能になり、ホスト登録のやり直しになる。鍵を変更したい場合も既存暗号データは復号できなくなるので、運用開始後の変更は要計画。
+>
+> ファイル流出リスクを下げるなら、appsettings.json には書かず環境変数 `WATASHI_MASTER_KEY` で渡せる:
+> ```powershell
+> setx WATASHI_MASTER_KEY "<生成した値>" /M
+> ```
 
 **Windows サービス化（同梱スクリプト使用）**:
 ```powershell
@@ -565,6 +600,17 @@ sc.exe start Watashi.Server
 - **「Jwt:Secret が設定されていません」**: `appsettings.json` または環境変数 `WATASHI_MASTER_KEY` を確認
 - **「Encryption:MasterKey は 32 バイト...」**: Base64 文字列が正しく 32 バイトにデコードされるか確認
 - DB ファイルパスの親フォルダが作れない: 起動ユーザー（サービスアカウント）の権限を確認
+
+### ホスト登録 (CIFS 登録) で HTTP 500
+- 例外メッセージが `Encryption:MasterKey は Base64 でエンコードされた値である必要があります` の場合、`appsettings.json` の `Encryption:MasterKey` がプレースホルダのまま (`REPLACE-WITH-...`) か、Base64 ではない値が入っている
+- EncryptionService は Singleton + 初回利用時解決のため、Watashi.Server の起動自体は通り、CIFS パスワード暗号化が初めて走るホスト登録時に失敗する仕様
+- 上の「Jwt:Secret / Encryption:MasterKey の生成方法」で 32 バイト Base64 を生成して差し替え → サーバ再起動
+- Base64 として正しい値か確認:
+  ```powershell
+  $key = "<appsettings.json に入れている値>"
+  try { $b = [Convert]::FromBase64String($key); "OK: $($b.Length) bytes" } catch { "NG: $($_.Exception.Message)" }
+  ```
+  → `OK: 32 bytes` でないと受理されない
 
 ### Windows Service が起動しない
 ```powershell
