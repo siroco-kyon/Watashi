@@ -3,6 +3,7 @@ using Watashi.Server.Data;
 using Watashi.Server.Services;
 using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
+using Watashi.Shared.Helpers;
 using Watashi.Shared.Models;
 
 namespace Watashi.Server.Endpoints;
@@ -69,6 +70,16 @@ public static class AdminUserEndpoints
         {
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
+            // 管理権限を剥がす変更については、自己降格と最後の管理者降格を禁ずる。
+            // どちらも放置すると管理 UI へ誰もログインできなくなる致命的なロックアウトに繋がる。
+            if (req.IsAdmin.HasValue)
+            {
+                var decision = await AdminUserGuard.CanDemoteAsync(db, principal.GetUserId(), id, u.IsAdmin, req.IsAdmin.Value, ct);
+                if (decision == AdminUserGuard.Decision.SelfTarget)
+                    return Results.BadRequest(new { error = "自分自身を管理者から外すことはできません。" });
+                if (decision == AdminUserGuard.Decision.LastActiveAdmin)
+                    return Results.BadRequest(new { error = "他にアクティブな管理者がいないため、この管理者を降格できません。" });
+            }
             if (req.IsAdmin.HasValue) u.IsAdmin = req.IsAdmin.Value;
             await db.SaveChangesAsync(ct);
             await audit.LogAdminAsync(principal, ctx, AdminOperations.UserUpdate, $"user:{id}", ct: ct);
@@ -79,6 +90,12 @@ public static class AdminUserEndpoints
         {
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
+            // 自己削除と最後の有効管理者削除を禁ずる。両方とも管理画面へのアクセス手段を完全消失させる。
+            var decision = await AdminUserGuard.CanDeleteAsync(db, principal.GetUserId(), id, u.IsAdmin, ct);
+            if (decision == AdminUserGuard.Decision.SelfTarget)
+                return Results.BadRequest(new { error = "自分自身を削除することはできません。" });
+            if (decision == AdminUserGuard.Decision.LastActiveAdmin)
+                return Results.BadRequest(new { error = "他にアクティブな管理者がいないため、最後の管理者を削除できません。" });
             db.Users.Remove(u);
             await db.SaveChangesAsync(ct);
             await audit.LogAdminAsync(principal, ctx, AdminOperations.UserDelete, $"user:{id}", ct: ct);
@@ -285,13 +302,7 @@ public static class AdminUserEndpoints
         return app;
     }
 
-    private static string CsvEscape(string? v)
-    {
-        if (v is null) return "";
-        if (v.Contains(',') || v.Contains('"') || v.Contains('\n') || v.Contains('\r'))
-            return "\"" + v.Replace("\"", "\"\"") + "\"";
-        return v;
-    }
+    private static string CsvEscape(string? v) => CsvHelper.Escape(v);
 
     /// <summary>シンプルな RFC4180 風 CSV パーサ (1行)。クォート含むセルにも対応。</summary>
     private static string[] ParseCsvLine(string line)

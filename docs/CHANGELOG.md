@@ -4,6 +4,48 @@
 
 ---
 
+## 2026-05-25 (Update) — パスワード可視化トグル + セキュリティ強化 + テスト拡充
+
+### UX 改善
+
+- **パスワード可視化トグル** — `PasswordRevealBox` という再利用可能な WPF UserControl を導入し、ログイン画面・パスワード変更画面・新規ユーザー作成画面・CIFS ホストパスワード入力欄・管理者リセット入力に統一して適用。
+  - 入力欄右端の **目玉アイコン** をクリックすると表示/非表示を切り替え。
+  - 内部は `PasswordBox` (マスク) と `TextBox` (平文) を切替表示。両者が同じ `Password` プロパティに双方向同期。
+  - 非表示が既定。トグルは押下中のみ表示され、操作後はそのまま入力継続可。
+  - `EyeIcon` / `EyeOffIcon` の DrawingImage を `Themes/Icons.xaml` に追加 (鳥居アイコンと同じトーン)。
+  - `PromptDialog.ShowPassword()` も新設 — 管理画面の PW リセットダイアログも目玉アイコン経由で表示確認できる。
+
+### セキュリティ修正
+
+- **管理者ロックアウト防止** — 自己削除 / 自己降格 / 最後のアクティブ管理者の削除・降格 を `400 Bad Request` で拒否。誤操作・悪意のいずれでも管理 UI への完全締め出しが起きないようにした。
+  - ロジックは `Services/AdminUserGuard.cs` に切り出してテスト可能化 (`AdminUserGuardTests.cs` を新設)
+  - ロック中の管理者は「アクティブな管理者」にカウントしない (実質ログイン不可なため)
+- **CSV 数式インジェクション対策** — 監査ログ CSV / ユーザー CSV のエスケープを `Shared/Helpers/CsvHelper.cs` に集約。先頭が `=`, `+`, `-`, `@`, タブ, CR で始まるセルはシングルクォートを前置して、Excel/LibreOffice での自動数式実行を防止 (OWASP 推奨)。
+
+### 修正
+
+- **ダウンロード失敗時の中途半端ファイル残留** — `MainViewModel.DownloadAsync` で `.part` 一時ファイルにストリーミング → 完了時に rename する 2 段階ダウンロードに変更。途中失敗・キャンセル時は `.part` を自動削除。
+- **`CifsSessionPool.Acquire` の Dispose 後ガード** — Pool 破棄後に `Acquire` されると、新セッションが Pool に紐付けされ即破棄される dead flow を起こしていたため、`ObjectDisposedException` を明示送出。
+- **`ForwardingReadStream.Length`** — Content-Length が未設定 (チャンク転送) の場合に `-1` ではなく `NotSupportedException` を投げる (Stream 規約準拠)。
+
+### テスト追加 (47 → **148 ケース、+101 ケース**)
+
+- `PasswordPolicyTests` — 4 種文字クラス × 最小長 12 文字のバリエーション 12 件
+- `CsvHelperTests` — 数式注入文字 (=, +, -, @, タブ, CR) と通常エスケープ 19 件
+- `AdminUserGuardTests` — 自己削除・自己降格・最後の管理者保護 9 件
+- `CifsSessionPoolTests` — Dispose 後 Acquire / 二重 Dispose / ポート未対応 3 件
+- `EncryptionServiceTests` — Base64 検証・鍵長検証・ロケーション (env var/configuration) 6 件
+- `AuditLogServiceTests` — Principal / HTTP コンテキスト / 匿名 / プロトコル抽出 5 件
+- `AuditLogPurgeTests` — 保管期間境界・CHECK 制約 3 件
+- `PermissionServiceExtraTests` — 複数権限重なり・ユーザー混在防止・ホスト/共有フィルタ 4 件
+- `AuthServiceExtraTests` — アイドルタイムアウト伝播 / ローテーション / 期限切れ / 不正トークン / TrustDevice 10 件
+
+### 文書
+
+- `CHANGELOG.md` / `USER-GUIDE.md` / `README.md` / `FEATURES.md` を更新
+
+---
+
 ## 2026-05-25 — 権限セット (PermissionBundle) + 権限コピー
 
 ### 機能追加

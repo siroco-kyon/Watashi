@@ -16,9 +16,9 @@ public partial class UserManagementView : UserControl
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        var input = Watashi.Client.Views.PromptDialog.Show(
+        var input = Watashi.Client.Views.PromptDialog.ShowPassword(
             $"\"{vm.Selected.Username}\" の新しいパスワード (12文字以上 / 英大・英小・数字・記号 各1):",
-            "", Window.GetWindow(this));
+            Window.GetWindow(this));
         if (string.IsNullOrWhiteSpace(input)) return;
         await vm.ResetPasswordAsync(input);
     }

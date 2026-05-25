@@ -77,7 +77,9 @@ dotnet run
 ### エンドユーザー機能
 - **モダンな 2 ペイン UI** — 朱色アクセントの鳥居アイコン、Card レイアウト、絞り込み検索、ツールチップ、空状態のヒント表示
 - FFFTP 風の操作感、アップロード/ダウンロードはストリーミング (4 MB チャンク、ファイルサイズ無制限)
+- **ダウンロードは `.part` 一時ファイル経由 → 完了時に rename**。途中失敗時は不完全ファイルが残らない
 - パス入力 + Enter で直接移動、Delete キーで削除 (確認ダイアログ付き)
+- **パスワード入力に目玉アイコン** — ログイン・パスワード変更・管理画面のパスワード欄で、目玉ボタンを押すと入力中のパスワードを一時的に平文表示。タイプミス確認に便利
 - 自動ログイン (信頼デバイス, **HTTP/HTTPS 両対応**)、アイドルタイムアウト (デフォルト 30 分、設定変更可)
 - 非管理者には管理ボタン非表示、アクセス可能な共有が無いときは「管理者に依頼してください」ガイダンス表示
 - **BootstrapUrl 集中管理**: 管理者が ClickOnce 配布サーバに置いた `watashi-config.json` から自動で接続先取得。ユーザーは URL を入力不要
@@ -96,6 +98,8 @@ dotnet run
 - CIFS 資格情報は AES-256-GCM で暗号化、JWT は HS256
 - **mTLS** 対応（Server↔Agent 双方向、`ExecutionNode.ClientCertificateThumbprint` で照合）
 - 機微フィールド（パスワードハッシュ、トークンハッシュ、暗号化資格情報）は API レスポンスから自動除外
+- **管理者ロックアウト防止** — 自己削除 / 自己降格 / 最後のアクティブ管理者の削除・降格をサーバ側で拒否
+- **CSV 数式インジェクション対策** — 監査ログ・ユーザー CSV 出力時に `=`, `+`, `-`, `@`, タブ, CR で始まるセルはシングルクォート前置で無害化 (OWASP 推奨)
 
 ### パフォーマンス
 - **SMB セッションプール**（操作毎の TCP/SMB ハンドシェイク削減、TTL 60 秒・キー単位 LRU）
@@ -118,7 +122,7 @@ src/
 ├── Watashi.Server/    # 中央サーバー (ASP.NET Core 8, Windows Service)
 ├── Watashi.Agent/     # エージェント (踏み台に配置、Windows Service)
 └── Watashi.Client/    # WPF デスクトップアプリ
-tests/Watashi.Tests/   # xUnit (47 ケース、PathHelper/Permission/Auth/Crypto)
+tests/Watashi.Tests/   # xUnit (148 ケース: PathHelper / Permission / Auth / Crypto / CSV / AdminGuard / Session 等)
 deploy/                # Windows Service インストーラ、ClickOnce 設定、IIS MIME
 docs/                  # 本ドキュメント群
 ```
