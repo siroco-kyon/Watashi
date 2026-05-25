@@ -6,6 +6,7 @@ Windows Server の IIS と違い、Watashi.Server / Watashi.Agent は **Kestrel*
 
 - [どちらの方式を選ぶか](#どちらの方式を選ぶか)
 - [方式 A: 証明書ストアから直読み (推奨)](#方式-a-証明書ストアから直読み-推奨)
+- [Win-ACME (Let's Encrypt) で取得した証明書を使う場合](#win-acme-lets-encrypt-で取得した証明書を使う場合)
 - [方式 B: PFX ファイルを配置する](#方式-b-pfx-ファイルを配置する)
 - [証明書がエクスポート可能か判定する](#証明書がエクスポート可能か判定する)
 - [証明書更新時の手順](#証明書更新時の手順)
@@ -38,6 +39,8 @@ Windows Server の IIS と違い、Watashi.Server / Watashi.Agent は **Kestrel*
 | アクセス権設定の手間 | 秘密キーへの ACL 設定が 1 回必要 | ファイルとパスワードを安全に保管する手間 |
 
 **社内 PKI から配布される証明書はエクスポート不可で配られることが多い**ため、現場では方式 A が現実的かつ唯一の選択肢になることが多いです。
+
+**Win-ACME (`wacs.exe`) / Let's Encrypt で取得した証明書も方式 A**。証明書は `LocalMachine\My` ではなく `LocalMachine\WebHosting` ストアに入るため、`Store` の指定が違う + 自動更新時に Watashi.Server を再起動するフックを 1 個仕込むのが必要です → [Win-ACME 専用節](#win-acme-lets-encrypt-で取得した証明書を使う場合)。
 
 ---
 
@@ -122,11 +125,20 @@ Watashi.Server / Watashi.Agent どちらでも同じ書き方です。
 | キー | 値 | 意味 |
 |---|---|---|
 | `Subject` | `CN=watashi.internal` | 証明書の Subject 部分一致 (CN= の値) |
-| `Store` | `My` | "個人" ストア。IIS が普段見てる場所 |
+| `Store` | `My` | "個人" ストア。手動インポートや AD CS 配布のデフォルト |
 | `Location` | `LocalMachine` | ユーザーストアではなくマシン全体のストア |
 | `AllowInvalid` | `false` | 期限切れ・未信頼を許可しない (本番は必ず false) |
 
-`Store` には他に `Root` (信頼されたルート CA)、`TrustedPeople` などもありますが、Web サーバ用証明書は `My` (= "個人") に入れるのが標準です。
+`Store` には他に以下のような選択肢があります。Win-ACME 等で取得した証明書は `My` ではなく `WebHosting` に入る点に注意:
+
+| ストア名 | 用途 | 典型的なインポート元 |
+|---|---|---|
+| `My` (= "個人") | サーバ証明書 / クライアント証明書 | 手動 PFX インポート、AD CS グループポリシー |
+| `WebHosting` (= "Web ホスティング") | IIS 用に最適化された証明書ストア (IIS 8+) | **Win-ACME (wacs.exe) 既定**、IIS Manager の証明書要求機能 |
+| `Root` | 信頼されたルート CA | OS 標準 + 社内 CA ルート |
+| `TrustedPeople` | 信頼された発行者 | コード署名検証など |
+
+「IIS のバインドで証明書が選べるのに、`Cert:\LocalMachine\My` を見ると見つからない」場合は、ほぼ間違いなく `WebHosting` ストアに入っています。次節を参照。
 
 ### Step 3: サービス起動アカウントに秘密キーへのアクセス権を付与
 
@@ -169,6 +181,121 @@ curl.exe -k https://watashi.internal:8443/health
 `-k` は自己署名証明書テスト用。社内 CA 発行で正しく信頼チェーンが通っていれば `-k` 無しで成功するはずです。
 
 エラーが出る場合は [トラブルシューティング](#トラブルシューティング) を参照。
+
+---
+
+## Win-ACME (Let's Encrypt) で取得した証明書を使う場合
+
+Win-ACME (`wacs.exe`) は Windows 向けの ACME クライアントで、Let's Encrypt や内部 ACME サーバ (Step CA など) から証明書を取得・自動更新するツール。**証明書は既定で `LocalMachine\WebHosting` ストアに入る**ため、方式 A の手順をそのまま使えます。ただし以下 2 つの追加対応が必要です。
+
+### ① `Store` を `WebHosting` にする
+
+```jsonc
+"Kestrel": {
+  "Endpoints": {
+    "Https": {
+      "Url": "https://0.0.0.0:8443",
+      "Certificate": {
+        "Subject": "CN=watashi.internal",
+        "Store": "WebHosting",          // ← My ではなく WebHosting
+        "Location": "LocalMachine",
+        "AllowInvalid": false
+      }
+    }
+  }
+}
+```
+
+サムプリント / サブジェクトの確認:
+```powershell
+Get-ChildItem Cert:\LocalMachine\WebHosting |
+    Where-Object { $_.HasPrivateKey } |
+    Select-Object Subject, Thumbprint, NotAfter | Format-List
+```
+
+秘密キーへの ACL 付与 (`certlm.msc` → 「Web ホスティング」→ 証明書を右クリック → 「すべてのタスク」→「秘密キーの管理」) は方式 A と同じ。サービス起動アカウント (`SYSTEM` または専用) に `読み取り` を追加。
+
+### ② 更新時に Watashi.Server を再起動するフックを仕込む (★最重要)
+
+Win-ACME は 60 日サイクルで証明書を自動更新します。更新が走ると:
+
+- `WebHosting` ストアに**新しいサムプリントの証明書が追加**される
+- IIS のバインドは自動で新サムプリントに張り替えられる
+- **しかし Watashi.Server (Kestrel) はプロセス起動中、古い証明書を保持し続ける**
+
+→ 更新後にサービスを再起動しないと、有効期限切れ証明書のまま運用されてしまう。以下のいずれかで対処します。
+
+#### 方法 1: Win-ACME のインストールスクリプトフック (推奨)
+
+再起動用スクリプトを 1 個用意:
+
+```powershell
+# C:\Apps\Watashi\post-renewal.ps1
+$ErrorActionPreference = "Stop"
+Write-Host "[wacs hook] Restarting Watashi.Server..."
+Restart-Service Watashi.Server -Force
+# Agent が同居していれば
+# Restart-Service Watashi.Agent -Force -ErrorAction SilentlyContinue
+Write-Host "[wacs hook] Done."
+```
+
+**新規 renewal の場合** — 取得時から script フックを組み込む:
+```powershell
+& "C:\Program Files\win-acme\wacs.exe" `
+    --target iis `
+    --host watashi.internal `
+    --installation iis,script `
+    --script "powershell.exe" `
+    --scriptparameters "-NoProfile -ExecutionPolicy Bypass -File C:\Apps\Watashi\post-renewal.ps1"
+```
+
+**既存の renewal に後付けする場合** — 対話モードで編集:
+```powershell
+& "C:\Program Files\win-acme\wacs.exe"
+#  M (Manage renewals) → 対象を選択 → I (Update installation steps)
+#  → "iis" に加えて "script" も選択 → スクリプトパスを入力
+```
+
+もしくは直接 `%ProgramData%\win-acme\Acme-v02.api.letsencrypt.org\Renewals\<id>.renewal.json` の `InstallationPluginOptions` 配列を編集。
+
+更新は Win-ACME が登録しているタスクスケジューラ「win-acme renew (acme-v02.api.letsencrypt.org)」が自動実行するので、以降はノータッチで OK。
+
+#### 方法 2: 独立スケジュールタスクでサムプリント監視 (Win-ACME に触りたくない場合)
+
+```powershell
+# C:\Apps\Watashi\check-cert-renewal.ps1
+$ErrorActionPreference = "Stop"
+$stateFile = "C:\Apps\Watashi\last-cert-thumbprint.txt"
+$cert = Get-ChildItem Cert:\LocalMachine\WebHosting |
+    Where-Object { $_.Subject -like "*watashi.internal*" -and $_.HasPrivateKey } |
+    Sort-Object NotAfter -Descending | Select-Object -First 1
+if (-not $cert) { Write-Error "Certificate not found in WebHosting store"; exit 1 }
+
+$lastThumb = if (Test-Path $stateFile) { Get-Content $stateFile } else { "" }
+if ($cert.Thumbprint -ne $lastThumb) {
+    Write-Host "Certificate rotated: $lastThumb → $($cert.Thumbprint)"
+    Restart-Service Watashi.Server -Force
+    Set-Content $stateFile -Value $cert.Thumbprint
+} else {
+    Write-Host "No certificate change (current: $($cert.Thumbprint))"
+}
+```
+
+毎日 1 回タスクスケジューラから実行 (Win-ACME 既定実行時刻 09:00 より後にする):
+```powershell
+schtasks.exe /Create /SC DAILY /TN "Watashi Cert Renewal Watcher" `
+    /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Apps\Watashi\check-cert-renewal.ps1" `
+    /ST 04:00 /RL HIGHEST
+```
+
+### ③ Win-ACME の証明書取得対象に Watashi.Server のホスト名が含まれているか確認
+
+Win-ACME を IIS と組み合わせて使う場合、対象ホスト名 (`--host` または対話メニューで指定) は **IIS バインドに登録されているもの**から選ぶのが普通。Watashi.Server を `watashi.internal:8443` で運用する場合は:
+
+- IIS のバインドにも `watashi.internal` (任意のポート) を 1 つ登録しておく → Win-ACME が DNS 検証 / HTTP-01 検証を IIS 経由で完結できる
+- もしくは Win-ACME の DNS-01 検証 (DNS プロバイダのプラグイン経由) を使えば IIS バインド不要
+
+詳細は Win-ACME 公式 (https://www.win-acme.com/) を参照。
 
 ---
 
@@ -296,8 +423,18 @@ $rsa.Key.ExportPolicy  # AllowExport / AllowPlaintextExport 等を含むか確�
 - 方式 A: `Subject` の値が証明書の実際の Subject と一致していない
   - `Get-ChildItem Cert:\LocalMachine\My | Select Subject` で完全一致を確認
   - 文字列の中に `Subject` の一部 (`CN=watashi.internal`) が含まれていれば前方一致でマッチする
-- 方式 A: `Store` `Location` の組み合わせ間違い
-  - `My` + `LocalMachine` が標準。`CurrentUser` ストアにある場合はサービスアカウントから見えない
+- 方式 A: **`Store` の指定が違う**
+  - IIS バインドでは選べるのに `LocalMachine\My` に見当たらない場合、Win-ACME や IIS の証明書要求機能で取得した証明書は `LocalMachine\WebHosting` に入っている。`Store` を `WebHosting` に変更
+  - 全ストアを横断検索:
+    ```powershell
+    @("My","WebHosting","Root","TrustedPeople") | ForEach-Object {
+        Write-Host "=== $_ ==="
+        Get-ChildItem "Cert:\LocalMachine\$_" -ErrorAction SilentlyContinue |
+            Where-Object { $_.HasPrivateKey } | Select Subject, Thumbprint
+    }
+    ```
+- 方式 A: `Location` の組み合わせ間違い
+  - `LocalMachine` が標準。`CurrentUser` ストアにある場合はサービスアカウントから見えない
 - 方式 B: `Path` のファイルが存在しない / バックスラッシュのエスケープ忘れ (`\\` で書く)
 
 ### 起動時 `Access denied` / `The system cannot find the file specified`
