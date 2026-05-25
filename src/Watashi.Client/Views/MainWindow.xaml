@@ -209,6 +209,10 @@
                             <TextBlock Text="⟳" FontSize="13"/>
                         </Button>
                         <Button DockPanel.Dock="Right" Click="OnLocalGo" Content="移動" Margin="6,0,0,0" MinWidth="60"/>
+                        <Button DockPanel.Dock="Right" Click="OnLocalBrowse" Margin="6,0,0,0" MinWidth="40"
+                                ToolTip="フォルダを参照 (エクスプローラ風のフォルダ選択ダイアログを開く)">
+                            <TextBlock Text="📂"/>
+                        </Button>
                         <TextBox Name="LocalPathBox"
                                  Text="{Binding Local.CurrentPath, UpdateSourceTrigger=PropertyChanged}"
                                  KeyDown="OnLocalPathKeyDown"/>
