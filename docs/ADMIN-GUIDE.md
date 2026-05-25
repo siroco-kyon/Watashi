@@ -421,13 +421,82 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 - (mTLS) 証明書チェーン・ストアにルートが入っていない
 - (HTTP) `Auth:SharedSecret` が両側で違う
 
-### admin がロックアウトされた (最悪のケース)
-DB 直接更新で解除:
+### admin がロックアウトされた / パスワード忘れた (最悪のケース)
+
+別の管理者ユーザーがいれば、その人が管理画面 → ユーザータブから対象を選んで「🔓 ロック解除」「🔑 PWリセット」で復旧可能。**他に管理者がいない** 場合は DB 直接更新。
+
+#### ロック解除だけしたい (パスワードは覚えている)
+
+`sqlite3.exe` が入っていれば:
 ```powershell
 sqlite3.exe C:\ProgramData\Watashi\watashi.db
 sqlite> UPDATE Users SET IsLocked=0, FailedLoginCount=0 WHERE Username='admin';
 sqlite> .quit
 ```
+
+sqlite3.exe が無くても publish フォルダの `Microsoft.Data.Sqlite.dll` 経由で PowerShell から叩ける (下の復旧スクリプトを `UPDATE` 文だけに簡略化して流用)。
+
+#### ロック + パスワード忘れの両方 (=完全復旧)
+
+サーバ publish フォルダの `BCrypt.Net-Next.dll` で新ハッシュを生成し、`Microsoft.Data.Sqlite.dll` で DB に直接 UPDATE する。`sqlite3.exe` の追加インストール不要。
+
+```powershell
+# === 環境に合わせて書き換え ===
+$publishDir  = "C:\Program Files\Watashi\Server"   # Watashi.Server.exe があるフォルダ
+$dbPath      = "C:\ProgramData\Watashi\watashi.db"
+$newPassword = "RecoverMe2026!@#"                  # 12 字 + 大小数記号
+
+# 0. サーバ停止 (SQLite 排他ロック解放)
+Stop-Service Watashi.Server -ErrorAction SilentlyContinue
+
+Push-Location $publishDir
+try {
+    # 1. BCrypt ハッシュ生成
+    Add-Type -Path ".\BCrypt.Net-Next.dll"
+    $hash = [BCrypt.Net.BCrypt]::HashPassword($newPassword)
+    Write-Host "★ 仮パスワード: $newPassword`n  ハッシュ: $hash"
+
+    # 2. SQLite に UPDATE
+    Add-Type -Path ".\SQLitePCLRaw.batteries_v2.dll"
+    [SQLitePCL.Batteries_V2]::Init()
+    Add-Type -Path ".\Microsoft.Data.Sqlite.dll"
+    $conn = New-Object Microsoft.Data.Sqlite.SqliteConnection("Data Source=$dbPath")
+    $conn.Open()
+    $cmd = $conn.CreateCommand()
+    $cmd.CommandText = @"
+UPDATE Users
+SET PasswordHash = @h,
+    IsLocked = 0,
+    FailedLoginCount = 0,
+    MustChangePassword = 1,
+    PasswordChangedAt = @now,
+    PasswordExpiresAt = @exp
+WHERE Username = 'admin'
+"@
+    $p1=$cmd.CreateParameter(); $p1.ParameterName="@h"  ; $p1.Value=$hash
+    $p2=$cmd.CreateParameter(); $p2.ParameterName="@now"; $p2.Value=[DateTime]::UtcNow.ToString("o")
+    $p3=$cmd.CreateParameter(); $p3.ParameterName="@exp"; $p3.Value=[DateTime]::UtcNow.AddDays(90).ToString("o")
+    $cmd.Parameters.Add($p1)|Out-Null; $cmd.Parameters.Add($p2)|Out-Null; $cmd.Parameters.Add($p3)|Out-Null
+    $rows = $cmd.ExecuteNonQuery()
+    $conn.Close()
+
+    if ($rows -eq 0) { Write-Warning "admin が見つからない。$dbPath を確認" }
+    else { Write-Host "`n✓ リセット完了 ($rows 行)。サーバ起動して '$newPassword' でログイン → 即パスワード変更" -ForegroundColor Green }
+}
+finally { Pop-Location }
+
+# 3. サーバ再起動
+Start-Service Watashi.Server
+```
+
+このスクリプトの効果:
+- `PasswordHash` 上書き → 仮パスでログイン可
+- `IsLocked=0` / `FailedLoginCount=0` → ロック解除
+- `MustChangePassword=1` → 次ログインで強制変更画面が出る
+- `PasswordChangedAt` 更新 → 既存 refresh token を自動失効 (横取り防止)
+- `PasswordExpiresAt` 再設定
+
+実行後は `admin` + 仮パスでログイン → 強制変更画面で本番用パスワードに置き換え → **パスマネ等に保管**して二度と忘れないこと。
 
 ### Encryption MasterKey を変えたくなった
 - 既存の暗号化済み CIFS パスワードはすべて復号不能になる
