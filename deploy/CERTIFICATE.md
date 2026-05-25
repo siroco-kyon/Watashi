@@ -53,18 +53,28 @@ Windows Server の IIS と違い、Watashi.Server / Watashi.Agent は **Kestrel*
 ```powershell
 Get-ChildItem Cert:\LocalMachine\My |
     Where-Object { $_.HasPrivateKey } |
-    Select-Object Subject, Thumbprint, NotAfter |
+    Select-Object Subject, DnsNameList, Thumbprint, NotAfter |
     Format-List
 ```
 
+> Win-ACME を使っている場合は `My` ではなく `WebHosting` ストアを指定:
+> `Get-ChildItem Cert:\LocalMachine\WebHosting | ... `
+
 出力例:
 ```
-Subject    : CN=watashi.internal, OU=IT, O=Acme Corp, C=JP
-Thumbprint : 1A2B3C4D5E6F7890ABCDEF1234567890ABCDEF12
-NotAfter   : 2027/03/15 23:59:59
+Subject      : CN=watashi.internal, OU=IT, O=Acme Corp, C=JP
+DnsNameList  : {watashi.internal}
+Thumbprint   : 1A2B3C4D5E6F7890ABCDEF1234567890ABCDEF12
+NotAfter     : 2027/03/15 23:59:59
 ```
 
 `HasPrivateKey : True` の証明書だけが TLS で使えます。IIS のバインドで選んでいるのと同じ Subject のものを採用します。
+
+**`Subject` フィールドの値の取り方**:
+- 出力の `CN=...` の部分を丸ごと取り出し、`appsettings.json` の `Subject` に貼り付け
+- 例: `Subject : CN=watashi.internal, OU=IT, O=Acme Corp, C=JP` → JSON 側は `"Subject": "CN=watashi.internal"`
+- Kestrel は **部分一致** (substring) で証明書を選ぶので、`CN=` 部分だけで充分
+- ホスト名だけ (`"Subject": "watashi.internal"`) でも動くが、`CN=` を含めた方が誤マッチが少ない
 
 > **`certlm.msc` (GUI) でも確認可**: 「個人」→「証明書」を開き、対象をダブルクリック → 「詳細」タブの「サブジェクト」「拇印 (Thumbprint)」を見る。
 
@@ -142,32 +152,79 @@ Watashi.Server / Watashi.Agent どちらでも同じ書き方です。
 
 ### Step 3: サービス起動アカウントに秘密キーへのアクセス権を付与
 
-Watashi のサービスはデフォルト **LocalSystem** で動きます ([install-server-service.ps1](install-server-service.ps1) より)。LocalSystem は `LocalMachine\My` 内の秘密キーを大抵そのまま読めますが、社内 PKI 配布の証明書では明示的な権限付与が必要な場合があります。
+Watashi のサービスはデフォルト **LocalSystem** で動きます ([install-server-service.ps1](install-server-service.ps1) より)。LocalSystem は秘密キーを大抵そのまま読めますが、Win-ACME 取得証明書 / 社内 PKI 配布の証明書では明示的な権限付与が必要な場合があります。
 
-**GUI 手順 (推奨、間違えにくい)**:
+#### ⚠ GUI (`certlm.msc` の「秘密キーの管理」) が使えないケース
+
+以下のいずれかに当てはまる場合、GUI の「秘密キーの管理」メニューがグレーアウト / 表示されず操作不能になります:
+
+- **Win-ACME (`wacs.exe`) で取得した証明書** (= `WebHosting` ストア + CNG キー)
+- 一部の社内 PKI 配布証明書
+- CNG ストレージプロバイダで生成された証明書全般
+
+→ **必ず PowerShell 手順で行ってください**。GUI のせいで詰まる人が多いポイントです。
+
+#### GUI 手順 (使える場合のみ)
+
 1. `certlm.msc` (ローカルコンピューターの証明書) を開く
-2. 「個人」→「証明書」→ 対象を**右クリック** →「**すべてのタスク**」→「**秘密キーの管理**」
-3. 「**追加**」→ 「**詳細設定**」→「**今すぐ検索**」
-4. 一覧から付与対象を選択:
+2. 該当ストア (「個人」または「Web ホスティング」) →「証明書」→ 対象を**右クリック** →「**すべてのタスク**」→「**秘密キーの管理**」
+3. メニューが出ない / グレーアウトなら下の PowerShell 手順へ
+4. 「**追加**」→ 「**詳細設定**」→「**今すぐ検索**」
+5. 一覧から付与対象を選択:
    - LocalSystem 起動なら `SYSTEM`
    - 専用サービスアカウント運用なら `NT SERVICE\Watashi.Server` や `DOMAIN\svc-watashi`
-5. 「**読み取り**」のみチェック → OK
+6. 「**読み取り**」のみチェック → OK
 
-**PowerShell 手順 (バッチ向け)**:
+#### PowerShell 手順 (推奨、コピペで動く)
+
+CNG / CAPI を自動判定して鍵ファイルパスを取り、ACL を付与します。Win-ACME の WebHosting ストアでもこれで通ります。
+
 ```powershell
-# 例: SYSTEM に対して指定サムプリントの証明書の秘密鍵へ Read 権限を付与
+# ① サムプリントを書く (Step 1 で出た Thumbprint をコピー)
 $thumb = "1A2B3C4D5E6F7890ABCDEF1234567890ABCDEF12"
-$cert = Get-ChildItem Cert:\LocalMachine\My\$thumb
+
+# ② 付与するアカウント (LocalSystem 起動ならこのままでよい)
+$account = "NT AUTHORITY\SYSTEM"
+# 専用サービスアカウント運用なら例:
+# $account = "NT SERVICE\Watashi.Server"
+# $account = "DOMAIN\svc-watashi"
+
+# ③ ストア (My または WebHosting)
+$store = "WebHosting"   # 手動インポートなら "My"
+
+# --- ここから自動 ---
+$cert = Get-ChildItem "Cert:\LocalMachine\$store\$thumb"
+if (-not $cert) { throw "Thumbprint $thumb が $store ストアに見つかりません" }
+
+# CNG / CAPI を判定して鍵ファイルの実体パスを取得
 $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert)
-$keyName = $rsa.Key.UniqueName
-$keyPath = "$env:ProgramData\Microsoft\Crypto\Keys\$keyName"
+if ($rsa -is [System.Security.Cryptography.RSACng]) {
+    $keyName = $rsa.Key.UniqueName
+    $keyPath = "$env:ProgramData\Microsoft\Crypto\Keys\$keyName"
+    Write-Host "[CNG] $keyPath"
+} else {
+    $keyName = $cert.PrivateKey.CspKeyContainerInfo.UniqueKeyContainerName
+    $keyPath = "$env:ProgramData\Microsoft\Crypto\RSA\MachineKeys\$keyName"
+    Write-Host "[CAPI] $keyPath"
+}
+if (-not (Test-Path $keyPath)) { throw "鍵ファイル $keyPath が見つかりません" }
+
+# Read 権限を付与
 $acl = Get-Acl $keyPath
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("NT AUTHORITY\SYSTEM", "Read", "Allow")
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($account, "Read", "Allow")
 $acl.AddAccessRule($rule)
-Set-Acl $keyPath $acl
+Set-Acl -Path $keyPath -AclObject $acl
+
+Write-Host "✓ $account に Read 権限を付与: $keyPath"
+(Get-Acl $keyPath).Access | Where-Object { $_.IdentityReference -eq $account }
 ```
 
-> 古い CryptoAPI (CAPI) 形式のキーは `$env:ProgramData\Microsoft\Crypto\RSA\MachineKeys\` 配下にあります。CNG (Cryptography Next Generation) は `Crypto\Keys\` 配下。Windows Server 2016 以降は CNG が標準。
+最後の出力に `FileSystemRights : Read` の行が出れば成功。
+
+> **鍵ファイルの置き場所**:
+> - CNG (Cryptography Next Generation): `$env:ProgramData\Microsoft\Crypto\Keys\`
+> - CAPI (Cryptography API、旧式): `$env:ProgramData\Microsoft\Crypto\RSA\MachineKeys\`
+> - Windows Server 2016 以降は CNG が標準。Win-ACME も CNG。
 
 ### Step 4: 再起動して動作確認
 
@@ -447,6 +504,24 @@ $rsa.Key.ExportPolicy  # AllowExport / AllowPlaintextExport 等を含むか確�
 sc.exe qc Watashi.Server | findstr SERVICE_START_NAME
 # → SERVICE_START_NAME : LocalSystem  ← この値に対して秘密鍵 ACL を付与する
 ```
+
+### `certlm.msc` の「秘密キーの管理」がグレーアウト / 表示されない
+
+- Win-ACME 取得証明書や CNG キーを使う一部の証明書は GUI 経由で ACL 設定できない仕様
+- → Step 3 の PowerShell スクリプトを使う (CNG / CAPI 自動判定 + Read 付与)
+- スクリプト実行後、`Restart-Service Watashi.Server` で反映確認
+
+### `Subject` に何を書けばいいか分からない
+
+- 証明書の Subject の `CN=` 部分を **そのまま** コピペすればよい:
+  ```powershell
+  Get-ChildItem Cert:\LocalMachine\WebHosting |
+      Where-Object { $_.HasPrivateKey } |
+      Select-Object Subject, DnsNameList, NotAfter | Format-List
+  ```
+  出力の `Subject : CN=watashi.internal, OU=..., O=...` から `CN=watashi.internal` 部分を取る
+- Kestrel は部分一致なので `"Subject": "watashi.internal"` だけでも動くが、`"Subject": "CN=watashi.internal"` の方が他の証明書と誤マッチする可能性が低くて安全
+- 同じ Subject の証明書が複数存在する場合 (旧証明書を残してる等)、Kestrel は `HasPrivateKey: True` かつ有効期限が一番遠いものを自動選択
 
 ### ブラウザで「証明書エラー」が出る
 
