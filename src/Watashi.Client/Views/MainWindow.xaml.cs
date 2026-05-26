@@ -1,6 +1,8 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 using Watashi.Client.ViewModels;
 using Watashi.Shared.Constants;
 
@@ -73,6 +75,24 @@ public partial class MainWindow : Window
 
     private void OnLocalGo(object sender, RoutedEventArgs e) => _vm.Local.NavigateCommand.Execute(_vm.Local.CurrentPath);
     private void OnRemoteGo(object sender, RoutedEventArgs e) => _vm.Remote.NavigateCommand.Execute(_vm.Remote.CurrentPath);
+
+    /// <summary>
+    /// ローカルペイン用のフォルダ参照ダイアログを開く。
+    /// .NET 8 WPF ネイティブの OpenFolderDialog (Vista 形式) を使うため WinForms 参照は不要。
+    /// 現在のパスが存在すればそこを起点に開き、それ以外は OS デフォルト (= UserProfile 近辺)。
+    /// </summary>
+    private void OnLocalBrowse(object sender, RoutedEventArgs e)
+    {
+        var current = _vm.Local.CurrentPath;
+        var dlg = new OpenFolderDialog
+        {
+            Title = "ローカルフォルダを選択",
+            Multiselect = false,
+            InitialDirectory = !string.IsNullOrEmpty(current) && Directory.Exists(current) ? current : string.Empty,
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        _vm.Local.NavigateCommand.Execute(dlg.FolderName);
+    }
 
     private void OnLocalListKeyDown(object sender, KeyEventArgs e)
     {

@@ -4,6 +4,7 @@
 
 ---
 
+
 ## 2026-05-26 (Update) — 鳥居アイコンを exe / インストーラに適用
 
 ### UX 改善
@@ -19,7 +20,16 @@
 - `Properties/PublishProfiles/ClickOnceProfile.pubxml` の `<ApplicationIcon>` を `Watashi.ico` に指定
 - 新規スクリプト: `scripts/Generate-ToriiIcon.ps1` — `Themes/Icons.xaml` の DrawingImage と同じ意匠を System.Drawing で再描画し .ico に書き出す。デザイン更新時はこのスクリプトを再実行するだけで .ico が再生成される
 
----
+## 2026-05-26 (Update 2) — ローカルペインにフォルダ参照ボタン
+
+### UX 改善
+
+- **ローカルペインの📂参照ボタン** — メイン画面のローカル側パス入力欄の隣に、Windows のフォルダ選択ダイアログ (エクスプローラ風) を開くボタンを追加。
+  - パスを直打ちしなくても、ツリーから目的のフォルダを探して 1 クリックでナビゲートできる
+  - 現在表示中のパスを起点としてダイアログが開く (存在しない場合は OS デフォルト)
+  - 実装は .NET 8 WPF ネイティブの `Microsoft.Win32.OpenFolderDialog` (Vista 形式)。WinForms 参照不要
+
+
 
 ## 2026-05-26 — 操作ログのホスト/共有コンテキスト表示
 
