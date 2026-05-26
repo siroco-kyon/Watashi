@@ -88,6 +88,14 @@ dotnet publish src\Watashi.Client\Watashi.Client.csproj -c Release `
 
 配布サーバーは [IIS-MIME.md](IIS-MIME.md) の MIME 設定を完了させること。
 
+### アプリケーションアイコン (鳥居)
+
+- `src/Watashi.Client/Watashi.ico` がコミット済み。csproj / ClickOnce 両方で `<ApplicationIcon>` として参照されており、エクスプローラの exe アイコン・タスクバー・ClickOnce インストーラ画面・Add/Remove Programs (アプリと機能) に鳥居マークが表示される。
+- デザインを変更したい場合は `scripts/Generate-ToriiIcon.ps1` を編集して再実行すれば .ico が再生成される (16/24/32/48/64/128/256 のマルチサイズ PNG-in-ICO 形式):
+  ```powershell
+  powershell.exe -NoProfile -File scripts/Generate-ToriiIcon.ps1
+  ```
+
 ## 3. エージェント (踏み台)
 
 ```powershell

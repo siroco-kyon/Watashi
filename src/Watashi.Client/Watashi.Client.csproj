@@ -20,6 +20,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!--
+      鳥居アイコン。Win32 リソースとして埋め込まれ、エクスプローラの exe アイコン、
+      タスクバー、ClickOnce インストーラ画面、Add/Remove Programs などで使われる。
+      ファイル自体は scripts/Generate-ToriiIcon.ps1 で生成 (16/24/32/48/64/128/256 multi-size)。
+    -->
+    <ApplicationIcon>Watashi.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>

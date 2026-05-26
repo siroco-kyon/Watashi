@@ -4,6 +4,23 @@
 
 ---
 
+## 2026-05-26 (Update) — 鳥居アイコンを exe / インストーラに適用
+
+### UX 改善
+
+- **Watashi.Client.exe / ClickOnce インストーラのアイコンが鳥居になった** — Windows のデフォルト exe アイコンから、ブランドマークの朱色鳥居 (vermilion torii) に置き換え。
+  - 影響範囲: エクスプローラの exe アイコン、タスクバー、デスクトップ/スタートメニューのショートカット、ClickOnce のインストーラダイアログ、Add/Remove Programs (アプリと機能)
+  - Windows ウィンドウタイトルバーの鳥居アイコン (WPF 内 `ToriiIcon` リソース) は既に適用済みだったので、それ以外の Win32 表示面を全部統一した形
+
+### 仕組み
+
+- 新規ファイル: `src/Watashi.Client/Watashi.ico` (16/24/32/48/64/128/256 マルチサイズ、PNG-in-ICO 形式)
+- `Watashi.Client.csproj` に `<ApplicationIcon>Watashi.ico</ApplicationIcon>` を追加
+- `Properties/PublishProfiles/ClickOnceProfile.pubxml` の `<ApplicationIcon>` を `Watashi.ico` に指定
+- 新規スクリプト: `scripts/Generate-ToriiIcon.ps1` — `Themes/Icons.xaml` の DrawingImage と同じ意匠を System.Drawing で再描画し .ico に書き出す。デザイン更新時はこのスクリプトを再実行するだけで .ico が再生成される
+
+---
+
 ## 2026-05-26 — 操作ログのホスト/共有コンテキスト表示
 
 ### UX 改善
