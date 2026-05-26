@@ -180,6 +180,50 @@ public partial class RemotePaneViewModel : ObservableObject
         catch (Exception ex) { StatusMessage = ex.Message; }
     }
 
+    /// <summary>
+    /// 選択中アイテムを同フォルダ内でリネーム。サーバ側で「親ディレクトリの変更不可」「許可ルートそのものは
+    /// リネーム不可」のチェックが入っているので、それらは StatusMessage に伝播するだけ。
+    /// </summary>
+    public async Task RenameSelectedAsync(string? newName)
+    {
+        if (Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
+        if (string.IsNullOrWhiteSpace(newName) || newName == Selected.Name) return;
+        // 「/」「\」を含む名前は親ディレクトリ変更とみなされサーバが拒否する。クライアント側で先弾き。
+        if (newName.Contains('/') || newName.Contains('\\'))
+        {
+            StatusMessage = "リネーム名に / や \\ は含められません";
+            return;
+        }
+        var oldPath = JoinPath(CurrentPath, Selected.Name);
+        var newPath = JoinPath(CurrentPath, newName);
+        try
+        {
+            await _api.RenameAsync(SelectedLocation.HostId, SelectedLocation.ShareId, oldPath, newPath);
+            await RefreshAsync();
+            StatusMessage = $"リネーム: → {newName}";
+        }
+        catch (Exception ex) { StatusMessage = "リネーム失敗: " + ex.Message; }
+    }
+
+    /// <summary>
+    /// 選択中アイテム (なければ CurrentPath) のリモートパスをクリップボードへコピー。
+    /// 共有ルートを含む形 (例: 経理部FS / share-keiri :: /dept-A/file.txt) ではなく
+    /// パス部分のみ。FTPツール等への貼り付け用途。
+    /// </summary>
+    [RelayCommand]
+    public void CopyPath()
+    {
+        try
+        {
+            var path = Selected is not null && Selected.Type != FileEntryTypes.Parent
+                ? JoinPath(CurrentPath, Selected.Name)
+                : CurrentPath;
+            System.Windows.Clipboard.SetText(path);
+            StatusMessage = $"パスをコピー: {path}";
+        }
+        catch (Exception ex) { StatusMessage = "クリップボードへコピー失敗: " + ex.Message; }
+    }
+
     private void UpdateHistoryFlags()
     {
         CanGoBack = _back.Count > 0;
