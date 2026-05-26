@@ -223,6 +223,20 @@
                               MouseDoubleClick="OnLocalDoubleClick"
                               KeyDown="OnLocalListKeyDown"
                               BorderThickness="0,1,0,0">
+                        <ListView.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="開く / 展開" Click="OnLocalContextOpen"/>
+                                <Separator/>
+                                <MenuItem Header="アップロード" Click="OnLocalContextUpload"/>
+                                <Separator/>
+                                <MenuItem Header="リネーム..." InputGestureText="F2" Click="OnLocalContextRename"/>
+                                <MenuItem Header="削除" InputGestureText="Del" Click="OnLocalDelete"/>
+                                <Separator/>
+                                <MenuItem Header="新規フォルダ..." Click="OnNewLocalFolder"/>
+                                <MenuItem Header="エクスプローラで表示" Command="{Binding Local.OpenInExplorerCommand}"/>
+                                <MenuItem Header="パスをコピー" Command="{Binding Local.CopyPathCommand}"/>
+                            </ContextMenu>
+                        </ListView.ContextMenu>
                         <ListView.View>
                             <GridView>
                                 <GridViewColumn Header="" Width="40">
@@ -299,6 +313,19 @@
                                   MouseDoubleClick="OnRemoteDoubleClick"
                                   KeyDown="OnRemoteListKeyDown"
                                   BorderThickness="0,1,0,0">
+                            <ListView.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="開く / 展開" Click="OnRemoteContextOpen"/>
+                                    <Separator/>
+                                    <MenuItem Header="ダウンロード" Click="OnRemoteContextDownload"/>
+                                    <Separator/>
+                                    <MenuItem Header="リネーム..." InputGestureText="F2" Click="OnRemoteContextRename"/>
+                                    <MenuItem Header="削除" InputGestureText="Del" Click="OnRemoteDelete"/>
+                                    <Separator/>
+                                    <MenuItem Header="新規フォルダ..." Click="OnNewRemoteFolder"/>
+                                    <MenuItem Header="パスをコピー" Command="{Binding Remote.CopyPathCommand}"/>
+                                </ContextMenu>
+                            </ListView.ContextMenu>
                             <ListView.View>
                                 <GridView>
                                     <GridViewColumn Header="" Width="40">

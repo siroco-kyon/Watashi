@@ -158,6 +158,70 @@ public partial class LocalPaneViewModel : ObservableObject
         catch (Exception ex) { StatusMessage = ex.Message; }
     }
 
+    /// <summary>
+    /// 選択中アイテムをローカル上でリネーム。新しい名前は呼び出し側 (右クリックメニュー / F2)
+    /// が PromptDialog 経由で取得して渡す想定。同フォルダ内の改名のみ受け付け、`/` `\` を含む
+    /// 名前は OS の File.Move が例外を投げてそのまま StatusMessage に表示される。
+    /// </summary>
+    public async Task RenameSelectedAsync(string? newName)
+    {
+        if (Selected is null || Selected.Type == FileEntryTypes.Parent) return;
+        if (string.IsNullOrWhiteSpace(newName) || newName == Selected.Name) return;
+        var oldFull = Path.Combine(CurrentPath, Selected.Name);
+        var newFull = Path.Combine(CurrentPath, newName);
+        var isDir = Selected.Type == FileEntryTypes.Directory;
+        try
+        {
+            await Task.Run(() =>
+            {
+                if (isDir) Directory.Move(oldFull, newFull);
+                else File.Move(oldFull, newFull);
+            });
+            await RefreshAsync();
+            StatusMessage = $"リネーム: {Selected?.Name ?? newName}";
+        }
+        catch (Exception ex) { StatusMessage = "リネーム失敗: " + ex.Message; }
+    }
+
+    /// <summary>
+    /// 選択中アイテム (なければ CurrentPath) のフルパスをクリップボードへコピー。
+    /// </summary>
+    [RelayCommand]
+    public void CopyPath()
+    {
+        try
+        {
+            var path = Selected is not null && Selected.Type != FileEntryTypes.Parent
+                ? Path.Combine(CurrentPath, Selected.Name)
+                : CurrentPath;
+            System.Windows.Clipboard.SetText(path);
+            StatusMessage = $"パスをコピー: {path}";
+        }
+        catch (Exception ex) { StatusMessage = "クリップボードへコピー失敗: " + ex.Message; }
+    }
+
+    /// <summary>
+    /// 現在のフォルダ (または選択中アイテムのある場所) を Windows エクスプローラで開く。
+    /// 選択中ファイル/フォルダがあればそれを選択状態で開く (/select)。
+    /// </summary>
+    [RelayCommand]
+    public void OpenInExplorer()
+    {
+        try
+        {
+            if (Selected is not null && Selected.Type != FileEntryTypes.Parent)
+            {
+                var full = Path.Combine(CurrentPath, Selected.Name);
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{full}\"");
+            }
+            else
+            {
+                System.Diagnostics.Process.Start("explorer.exe", $"\"{CurrentPath}\"");
+            }
+        }
+        catch (Exception ex) { StatusMessage = "エクスプローラ起動失敗: " + ex.Message; }
+    }
+
     private void UpdateHistoryFlags()
     {
         CanGoBack = _back.Count > 0;

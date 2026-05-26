@@ -98,12 +98,14 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Back) { e.Handled = true; _vm.Local.GoUpCommand.Execute(null); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnLocalDelete(sender, e); }
+        else if (e.Key == Key.F2) { e.Handled = true; OnLocalContextRename(sender, e); }
     }
 
     private void OnRemoteListKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Back) { e.Handled = true; _vm.Remote.GoUpCommand.Execute(null); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnRemoteDelete(sender, e); }
+        else if (e.Key == Key.F2) { e.Handled = true; OnRemoteContextRename(sender, e); }
     }
 
     private async void OnNewRemoteFolder(object sender, RoutedEventArgs e)
@@ -155,5 +157,52 @@ public partial class MainWindow : Window
             "削除確認", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (ok != MessageBoxResult.OK) return;
         await _vm.Remote.DeleteSelectedAsync();
+    }
+
+    // ===== Context menu handlers =====
+    // ContextMenu の MenuItem からも、ListView の KeyDown (F2 など) からも同じ入口に集約する。
+
+    private void OnLocalContextOpen(object sender, RoutedEventArgs e)
+        => _vm.Local.OpenSelectedCommand.Execute(null);
+
+    private void OnLocalContextUpload(object sender, RoutedEventArgs e)
+        => _vm.UploadCommand.Execute(null);
+
+    private async void OnLocalContextRename(object sender, RoutedEventArgs e)
+    {
+        var target = _vm.Local.Selected;
+        if (target is null || target.Type == FileEntryTypes.Parent)
+        {
+            _vm.Local.StatusMessage = "リネーム対象を選択してください。";
+            return;
+        }
+        var newName = Views.PromptDialog.Show(
+            $"\"{target.Name}\" の新しい名前:",
+            target.Name,
+            this);
+        if (newName is null) return;
+        await _vm.Local.RenameSelectedAsync(newName);
+    }
+
+    private void OnRemoteContextOpen(object sender, RoutedEventArgs e)
+        => _ = _vm.Remote.OpenSelectedAsync();
+
+    private void OnRemoteContextDownload(object sender, RoutedEventArgs e)
+        => _vm.DownloadCommand.Execute(null);
+
+    private async void OnRemoteContextRename(object sender, RoutedEventArgs e)
+    {
+        var target = _vm.Remote.Selected;
+        if (target is null || target.Type == FileEntryTypes.Parent)
+        {
+            _vm.Remote.StatusMessage = "リネーム対象を選択してください。";
+            return;
+        }
+        var newName = Views.PromptDialog.Show(
+            $"\"{target.Name}\" の新しい名前:",
+            target.Name,
+            this);
+        if (newName is null) return;
+        await _vm.Remote.RenameSelectedAsync(newName);
     }
 }
