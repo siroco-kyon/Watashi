@@ -303,6 +303,8 @@ Set-ItemProperty "IIS:\Sites\Watashi.Server" -Name applicationDefaults.preloadEn
 Invoke-RestMethod http://watashi.internal/health
 ```
 
+この HTTP 確認は、IIS サイトが起動するかを見るための一時確認です。Watashi.Server は通常ログイン API も HTTP で受けられるため、この HTTP binding をそのまま LAN に公開したままにしないでください。HTTPS 設定後に HTTP binding を削除するか、HTTP から HTTPS へリダイレクトする設定にします。
+
 DNS がまだ無い場合は、一時的にサーバー自身の `hosts` に書いて確認します。
 
 ```powershell
@@ -347,6 +349,30 @@ curl.exe https://watashi.internal/health
 ```powershell
 curl.exe https://watashi.internal:8443/health
 ```
+
+HTTPS が動いたら、平文 HTTP を無効化します。もっとも単純なのは HTTP binding を削除する方法です。
+
+GUI 手順:
+
+1. IIS Manager で `Watashi.Server` サイトを選ぶ
+2. `Bindings...` を開く
+3. `http / 80 / watashi.internal` を選ぶ
+4. `Remove`
+5. OK
+
+PowerShell で行う場合:
+
+```powershell
+Remove-WebBinding `
+  -Name "Watashi.Server" `
+  -Protocol "http" `
+  -Port 80 `
+  -HostHeader "watashi.internal"
+```
+
+HTTP から HTTPS へリダイレクトしたい場合は、IIS の HTTP Redirect / URL Rewrite などで `http://watashi.internal/*` を `https://watashi.internal/*` へ転送します。どちらの場合も、`http://watashi.internal/api/auth/login` のような通常 API が平文で使える状態を残さないでください。
+
+注意: ACME HTTP-01 検証を使う場合、証明書の更新時に port 80 で `/.well-known/acme-challenge/` へ到達できる必要があります。HTTP binding を削除する運用にするなら DNS-01 検証を使う、更新時だけ一時的に HTTP を開ける、または ACME challenge だけ例外的に通すリダイレクト設定にしてください。
 
 ## 9. Win-ACME で証明書を取る
 
@@ -491,20 +517,22 @@ eventvwr.msc
 新しいバージョンを publish したら、次の流れで入れ替えます。
 
 ```powershell
+$settings = "C:\Sites\Watashi.Server\appsettings.json"
+$backup = "C:\Sites\Watashi.Server\appsettings.json.$(Get-Date -Format yyyyMMddHHmmss).bak"
+Copy-Item $settings $backup -ErrorAction Stop
+
 Stop-WebAppPool Watashi.Server
 
 dotnet publish .\src\Watashi.Server\Watashi.Server.csproj `
   -c Release `
   -o C:\Sites\Watashi.Server
 
+Copy-Item $backup $settings -Force
+
 Start-WebAppPool Watashi.Server
 ```
 
-重要: `appsettings.json` を publish で上書きしないように注意してください。事前にバックアップしておくと安全です。
-
-```powershell
-Copy-Item C:\Sites\Watashi.Server\appsettings.json C:\Sites\Watashi.Server\appsettings.json.bak
-```
+重要: `dotnet publish -o C:\Sites\Watashi.Server` は、プロジェクト側の `appsettings.json` で本番設定を上書きする可能性があります。必ず publish 前にバックアップし、publish 後に本番用 `appsettings.json` を戻してください。より安全にするなら、一度別フォルダへ publish してから必要なファイルだけを配備します。
 
 ## 14. よくあるトラブル
 
