@@ -33,6 +33,18 @@ function Require-Admin {
     }
 }
 
+function Test-AgentInputFile {
+    param(
+        [Parameter(Mandatory = $true)] [string] $Path,
+        [Parameter(Mandatory = $true)] [string] $SourceDir
+    )
+    if (Test-Path $Path) { return $true }
+    if (-not [System.IO.Path]::IsPathRooted($Path)) {
+        return Test-Path (Join-Path $SourceDir $Path)
+    }
+    return $false
+}
+
 Require-Admin
 
 $isHttps = $ListenUrl.StartsWith("https://", [System.StringComparison]::OrdinalIgnoreCase)
@@ -52,6 +64,16 @@ if ($UseMtls -and -not $isHttps) {
 }
 if ($isHttps -and [string]::IsNullOrWhiteSpace($CertificatePath)) {
     throw "ListenUrl が HTTPS の場合は -CertificatePath に HTTPS サーバ証明書 PFX を指定してください。HTTP 共有秘密モードでは -ListenUrl http://0.0.0.0:8081 を使います。"
+}
+if (-not (Test-Path $SourceDir)) {
+    throw "SourceDir が見つかりません: $SourceDir"
+}
+$sourceExe = Join-Path $SourceDir "Watashi.Agent.exe"
+if (-not (Test-Path $sourceExe)) {
+    throw "SourceDir に Watashi.Agent.exe が見つかりません: $sourceExe"
+}
+if ($isHttps -and -not (Test-AgentInputFile $CertificatePath $SourceDir)) {
+    throw "CertificatePath が見つかりません: $CertificatePath"
 }
 
 Write-Host "[1/5] 既存サービス停止..."

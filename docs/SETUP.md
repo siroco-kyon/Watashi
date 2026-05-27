@@ -518,7 +518,7 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 | `Cifs:SessionIdleSeconds` / `Cifs:MaxSessionsPerKey` | 任意 | SMB セッションプール設定 | Agent 経由の CIFS 接続に適用 |
 | `Serilog:WriteTo` | 推奨 | Console / File | 既定で `C:\ProgramData\WatashiAgent\logs\agent-.log` に日次ローテーション |
 
-HTTP + 共有秘密モードでは `Certificate:Path` / `Certificate:Password` は空でよいです。Agent の待受も `Kestrel:Endpoints:Http` を使うため、Agent 側に HTTPS サーバ証明書は不要です。証明書が必要になるのは Client↔Server を HTTPS にする中央 Server 側、または `Routing:UseMtls=true` で mTLS を使う場合だけです。
+HTTP + 共有秘密モードでは `Certificate:Path` / `Certificate:Password` は空でよいです。Agent の待受も `Kestrel:Endpoints:Http` を使うため、Agent 側に HTTPS サーバ証明書は不要です。証明書が必要になるのは Client↔Server を HTTPS にする中央 Server 側、または `Routing:UseMtls=true` で mTLS を使う場合だけです。`Routing:UseMtls=false` で `Auth:SharedSecret` が空の場合、Agent は起動時に設定エラーとして停止します。
 
 旧 `deploy/install-agent.ps1` を使って HTTP 共有秘密モードでインストールする場合は、必ず `-SharedSecret` を指定してください。未指定だと Agent は証明書も `X-Watashi-Secret` も送れず、heartbeat と Server→Agent の転送リクエストが認証に失敗します。
 
