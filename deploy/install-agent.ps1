@@ -16,8 +16,11 @@ param(
     [string] $ServiceName = "WatashiAgent",
     [string] $CertificatePath = "",
     [string] $CertificatePassword = "",
+    [string] $CentralCertificateThumbprint = "",
+    [string] $SharedSecret = "",
+    [bool]   $UseMtls = $false,
     [int]    $MaxConcurrency = 20,
-    [string] $ListenUrl = "https://0.0.0.0:8443"
+    [string] $ListenUrl = "http://0.0.0.0:8081"
 )
 
 $ErrorActionPreference = "Stop"
@@ -45,6 +48,16 @@ if (-not (Test-Path $DataDir))    { New-Item -ItemType Directory -Path $DataDir 
 Copy-Item -Path (Join-Path $SourceDir "*") -Destination $InstallDir -Recurse -Force
 
 Write-Host "[3/5] appsettings.json を生成..."
+$isHttps = $ListenUrl.StartsWith("https://", [System.StringComparison]::OrdinalIgnoreCase)
+$endpointName = if ($isHttps) { "Https" } else { "Http" }
+$endpoint = @{ Url = $ListenUrl }
+if ($isHttps) {
+    if ([string]::IsNullOrWhiteSpace($CertificatePath)) {
+        throw "ListenUrl が HTTPS の場合は -CertificatePath に HTTPS サーバ証明書 PFX を指定してください。HTTP 共有秘密モードでは -ListenUrl http://0.0.0.0:8081 を使います。"
+    }
+    $endpoint.Certificate = @{ Path = $CertificatePath; Password = $CertificatePassword }
+}
+
 $appsettings = @{
     Agent = @{
         AgentId        = $AgentId
@@ -59,12 +72,16 @@ $appsettings = @{
         Path     = $CertificatePath
         Password = $CertificatePassword
     }
+    Auth = @{
+        CentralCertificateThumbprint = $CentralCertificateThumbprint
+        SharedSecret = $SharedSecret
+    }
+    Routing = @{
+        UseMtls = $UseMtls
+    }
     Kestrel = @{
         Endpoints = @{
-            Https = @{
-                Url = $ListenUrl
-                Certificate = @{ Path = $CertificatePath; Password = $CertificatePassword }
-            }
+            $endpointName = $endpoint
         }
     }
     Serilog = @{
