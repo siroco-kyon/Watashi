@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Net;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Watashi.Client.Services;
@@ -160,24 +161,45 @@ public partial class RemotePaneViewModel : ObservableObject
     public async Task DeleteSelectedAsync()
     {
         if (Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
+        if (!SelectedLocation.Permissions.Delete)
+        {
+            StatusMessage = "削除失敗: 削除権限がありません。";
+            return;
+        }
+        var name = Selected.Name;
         try
         {
-            await _api.DeleteFileAsync(SelectedLocation.HostId, SelectedLocation.ShareId, JoinPath(CurrentPath, Selected.Name));
+            await _api.DeleteFileAsync(SelectedLocation.HostId, SelectedLocation.ShareId, JoinPath(CurrentPath, name));
             await RefreshAsync();
+            StatusMessage = $"削除しました: {name}";
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            StatusMessage = "削除失敗: " + ex.Message;
+        }
+        catch (Exception ex) { StatusMessage = "削除失敗: " + ex.Message; }
     }
 
     [RelayCommand]
     public async Task NewFolderAsync(string? name)
     {
         if (SelectedLocation is null || string.IsNullOrWhiteSpace(name)) return;
+        if (!SelectedLocation.Permissions.Write)
+        {
+            StatusMessage = "フォルダ作成失敗: 書き込み権限がありません。";
+            return;
+        }
         try
         {
             await _api.MkdirAsync(SelectedLocation.HostId, SelectedLocation.ShareId, JoinPath(CurrentPath, name));
             await RefreshAsync();
+            StatusMessage = $"フォルダを作成しました: {name}";
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            StatusMessage = "フォルダ作成失敗: " + ex.Message;
+        }
+        catch (Exception ex) { StatusMessage = "フォルダ作成失敗: " + ex.Message; }
     }
 
     /// <summary>
@@ -188,6 +210,11 @@ public partial class RemotePaneViewModel : ObservableObject
     {
         if (Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
         if (string.IsNullOrWhiteSpace(newName) || newName == Selected.Name) return;
+        if (!SelectedLocation.Permissions.Rename)
+        {
+            StatusMessage = "リネーム失敗: リネーム権限がありません。";
+            return;
+        }
         // 「/」「\」を含む名前は親ディレクトリ変更とみなされサーバが拒否する。クライアント側で先弾き。
         if (newName.Contains('/') || newName.Contains('\\'))
         {
@@ -201,6 +228,10 @@ public partial class RemotePaneViewModel : ObservableObject
             await _api.RenameAsync(SelectedLocation.HostId, SelectedLocation.ShareId, oldPath, newPath);
             await RefreshAsync();
             StatusMessage = $"リネーム: → {newName}";
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            StatusMessage = "リネーム失敗: " + ex.Message;
         }
         catch (Exception ex) { StatusMessage = "リネーム失敗: " + ex.Message; }
     }

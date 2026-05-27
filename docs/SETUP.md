@@ -106,7 +106,7 @@ DB ファイルは:
 
 > 機密データ（CIFS 資格情報、ファイル内容）がネットワークを流れるため、Client↔Server は HTTPS 必須。
 > Server↔Agent が社内 LAN 内で完結する場合は HTTP でも実用上問題ないが、PCI / 個人情報など規制対象は mTLS にすること。
-> モード B でも **`Routing:SharedSecret`** を設定すれば Agent は X-Watashi-Secret ヘッダで中央を識別できる。
+> モード B でも **`Routing:SharedSecret`** を設定すれば、Server と Agent は X-Watashi-Secret ヘッダで相互に相手を識別できる。
 
 ### モード A: 全 HTTPS + mTLS
 
@@ -146,7 +146,7 @@ DB ファイルは:
     "Password": "..."
   },
   "Auth": {
-    "CentralCertificateThumbprint": "<中央サーバが提示するクライアント証明書 Thumbprint>",
+    "CentralCertificateThumbprint": "<中央サーバが Agent へ提示するクライアント証明書 Thumbprint>",
     "SharedSecret": ""
   },
   "Routing": { "UseMtls": true },
@@ -218,6 +218,7 @@ ClientCertificateThumbprint = <Agent が提示するクライアント証明書 
 ```
 
 > `Auth:SharedSecret` を両側で設定すると、Agent は `X-Watashi-Secret` ヘッダで中央サーバを認証する。
+> 中央サーバも Agent からのハートビート / ログ同期を同じ共有秘密で認証する。
 > mTLS が使えない場合の最低限の保護。
 
 **中央 DB の ExecutionNodes**:
@@ -351,6 +352,27 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
 > 同様に `Encryption:MasterKey` も `REPLACE-WITH` プレフィックス検出。Dev/Stg では警告のみ。
 > なお `Encryption:MasterKey` は **Base64 でデコードして 32 バイトになる値** が必須。プレースホルダ以外でも、Base64 として無効な文字列や長さ不足だと、CIFS ホスト登録時 (EncryptionService の初回解決時) に `Encryption:MasterKey は Base64 でエンコードされた値である必要があります` で 500 エラーになる。
 
+#### Server appsettings.json キー一覧
+
+| キー | 必須 | 設定する値 | 補足 |
+|---|---|---|---|
+| `ConnectionStrings:Default` | 必須 | SQLite DB の保存先 | 例: `C:\ProgramData\Watashi\watashi.db`。サービスアカウントが親フォルダを作成/読み書きできること |
+| `Jwt:Secret` | 必須 | 32 バイト以上のランダム文字列 | Production で `CHANGE-ME` のままだと起動拒否 |
+| `Jwt:Issuer` / `Jwt:Audience` | 推奨 | 通常は `Watashi` | Client と Server の JWT 検証用。通常変更不要 |
+| `Jwt:AccessTokenMinutes` | 推奨 | アクセストークン分数 | 短いほど漏えい時の影響は小さい。既定 15 |
+| `Jwt:RefreshTokenDays` | 推奨 | 再ログイン不要期間 | 既定 30 |
+| `Encryption:MasterKey` | 必須 | 32 バイト Base64 | CIFS パスワード暗号化用。紛失すると既存ホスト資格情報を復号できない |
+| `Auth:AllowHttpForAutoLogin` | 任意 | `false` 推奨 | HTTP 接続で「このPCを記憶する」を許可するか。Production は false |
+| `Auth:LoginPerMinutePerIp` | 任意 | 1 分あたり試行数 | 同一 NAT で誤検知する場合だけ増やす |
+| `Routing:UseMtls` | 構成依存 | `true` / `false` | Server↔Agent を mTLS で相互認証するなら true |
+| `Routing:ClientCertificatePath` | mTLS 時必須 | 中央サーバが Agent へ提示する PFX | Server → Agent の呼び出しに使うクライアント証明書 |
+| `Routing:ClientCertificatePassword` | mTLS 時必須 | 上記 PFX のパスワード | 環境変数上書きも可 |
+| `Routing:SharedSecret` | 共有秘密時必須 | 32 バイト以上のランダム値 | Server と Agent の両方に同じ値を設定。mTLS 本番では空推奨 |
+| `Cifs:SessionIdleSeconds` | 任意 | SMB セッション再利用秒数 | 長くすると再接続は減るが、セッション保持時間が伸びる |
+| `Cifs:MaxSessionsPerKey` | 任意 | CIFS 接続キーごとの最大セッション数 | 同時転送が多い環境で増やす |
+| `Kestrel:Endpoints` | 必須 | Listen URL と証明書 | HTTP/HTTPS ポート、HTTPS 証明書を定義 |
+| `Serilog:WriteTo` | 推奨 | Console / File | 既定で `C:\ProgramData\Watashi\logs\server-.log` に日次ローテーション |
+
 **Jwt:Secret / Encryption:MasterKey の生成方法 (Windows ネイティブ)**:
 
 ```powershell
@@ -479,6 +501,231 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 
 ハートビートが届けば `HealthStatus` が `Healthy` に切り替わる（15 秒間隔チェック、90 秒未着で `Unhealthy`）。
 
+#### Agent appsettings.json キー一覧
+
+| キー | 必須 | 設定する値 | 補足 |
+|---|---|---|---|
+| `Agent:AgentId` | 必須 | Agent の一意名 | 中央の `ExecutionNodes.Name` と完全一致させる。例: `bastion-a` |
+| `Agent:CentralUrl` | 必須 | 中央 Server の URL | 例: `https://central.internal:8443` |
+| `Agent:MaxConcurrency` | 任意 | Agent 側の同時処理上限 | 起動時の初期値。以後は中央の ExecutionNode.MaxConcurrency が heartbeat 応答で反映される |
+| `ConnectionStrings:Buffer` | 必須 | Agent ローカル SQLite | 中央へログ同期できない時の一時バッファ。例: `C:\ProgramData\WatashiAgent\agent_buffer.db` |
+| `Certificate:Path` | mTLS 時必須 | Agent が中央へ提示する PFX | Agent → Server の heartbeat / ログ同期で使うクライアント証明書 |
+| `Certificate:Password` | mTLS 時必須 | 上記 PFX のパスワード | HTTPS の Kestrel 証明書と同じ PFX を使うことも可能だが、本番は用途別に分けるのが望ましい |
+| `Auth:CentralCertificateThumbprint` | mTLS 時必須 | 中央が Agent へ提示するクライアント証明書の Thumbprint | Server → Agent の `/agent/*` 呼び出しを Agent 側で検証する |
+| `Auth:SharedSecret` | 共有秘密時必須 | Server の `Routing:SharedSecret` と同じ値 | Server → Agent と Agent → Server の両方向で `X-Watashi-Secret` として使う |
+| `Routing:UseMtls` | 構成依存 | `true` / `false` | true の場合、Agent は中央からの mTLS クライアント証明書を受け付ける |
+| `Kestrel:Endpoints` | 必須 | Agent が待ち受ける URL | HTTP なら `http://0.0.0.0:8081`、HTTPS なら証明書設定も入れる |
+| `Cifs:SessionIdleSeconds` / `Cifs:MaxSessionsPerKey` | 任意 | SMB セッションプール設定 | Agent 経由の CIFS 接続に適用 |
+| `Serilog:WriteTo` | 推奨 | Console / File | 既定で `C:\ProgramData\WatashiAgent\logs\agent-.log` に日次ローテーション |
+
+#### 設定例 1: Agent 1台 (HTTP + 共有秘密)
+
+構成:
+
+```
+Client --HTTPS--> Server --HTTP--> Agent A --SMB--> CIFS
+```
+
+この例では Client↔Server は HTTPS、Server↔Agent は閉域網内 HTTP とし、Agent 認証は共有秘密で行います。Server と Agent の `SharedSecret` は同じ値にします。
+
+**Server `appsettings.json` 抜粋**:
+
+```jsonc
+{
+  "Kestrel": {
+    "Endpoints": {
+      "Https": {
+        "Url": "https://0.0.0.0:8443",
+        "Certificate": {
+          "Subject": "watashi.internal",
+          "Store": "My",
+          "Location": "LocalMachine",
+          "AllowInvalid": false
+        }
+      }
+    }
+  },
+  "Routing": {
+    "UseMtls": false,
+    "ClientCertificatePath": "",
+    "ClientCertificatePassword": "",
+    "SharedSecret": "BASE64-OR-LONG-RANDOM-SECRET-SAME-AS-AGENT"
+  }
+}
+```
+
+**Agent A `appsettings.json` 抜粋**:
+
+```jsonc
+{
+  "Agent": {
+    "AgentId": "agent-a",
+    "CentralUrl": "https://watashi.internal:8443",
+    "MaxConcurrency": 20
+  },
+  "ConnectionStrings": {
+    "Buffer": "Data Source=C:\\ProgramData\\WatashiAgent\\agent_buffer.db;Cache=Shared;Foreign Keys=True;"
+  },
+  "Auth": {
+    "CentralCertificateThumbprint": "",
+    "SharedSecret": "BASE64-OR-LONG-RANDOM-SECRET-SAME-AS-SERVER"
+  },
+  "Routing": {
+    "UseMtls": false
+  },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": { "Url": "http://0.0.0.0:8081" }
+    }
+  }
+}
+```
+
+**管理画面 → 実行ノード**:
+
+| 項目 | 値 |
+|---|---|
+| 名前 | `agent-a` |
+| 種別 | `Agent` |
+| Endpoint | `http://agent-a:8081` |
+| 経由 Agent | 未設定 |
+| MaxConcurrency | `20` |
+
+**管理画面 → ホスト**:
+
+| 項目 | 値 |
+|---|---|
+| 表示名 | `fileserver01` |
+| ホスト名/IP | CIFS サーバの FQDN/IP |
+| ポート | `445` |
+| CIFS ユーザー / パスワード | CIFS 接続用のサービスアカウント |
+| 実行ノード | `agent-a` |
+
+この設定では Server が `http://agent-a:8081/agent/files/*` に依頼し、Agent A が CIFS へ SMB 接続します。
+
+#### 設定例 2: 1段チェーン (HTTP + 共有秘密)
+
+構成:
+
+```
+Client --HTTPS--> Server --HTTP--> Agent A --HTTP--> Agent B --SMB--> CIFS
+```
+
+使う場面:
+- Server は Agent A にだけ到達できる
+- Agent A は Agent B に到達できる
+- Agent B は CIFS サーバに SMB 接続できる
+- Agent B は中央 Server に直接 heartbeat できなくてもよい
+
+制限:
+- 対応するチェーンは 1段のみ (`Server → Agent A → Agent B → CIFS`)
+- Agent A/B 間は HTTP + 共有秘密のみ対応
+- `Server → Agent A → Agent B → Agent C → CIFS` は非対応
+- Agent A と Agent B の `Auth:SharedSecret` は Server の `Routing:SharedSecret` と同じ値にする
+
+**Server `appsettings.json` 抜粋**:
+
+```jsonc
+{
+  "Routing": {
+    "UseMtls": false,
+    "ClientCertificatePath": "",
+    "ClientCertificatePassword": "",
+    "SharedSecret": "BASE64-OR-LONG-RANDOM-SECRET-SAME-FOR-A-AND-B"
+  }
+}
+```
+
+**Agent A `appsettings.json` 抜粋**:
+
+```jsonc
+{
+  "Agent": {
+    "AgentId": "agent-a",
+    "CentralUrl": "https://watashi.internal:8443",
+    "MaxConcurrency": 20
+  },
+  "Auth": {
+    "CentralCertificateThumbprint": "",
+    "SharedSecret": "BASE64-OR-LONG-RANDOM-SECRET-SAME-FOR-A-AND-B"
+  },
+  "Routing": { "UseMtls": false },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": { "Url": "http://0.0.0.0:8081" }
+    }
+  }
+}
+```
+
+**Agent B `appsettings.json` 抜粋**:
+
+```jsonc
+{
+  "Agent": {
+    "AgentId": "agent-b",
+    // Agent B が中央へ直接到達できない場合は空でもよい。Heartbeat / LogSync はスキップされる。
+    "CentralUrl": "",
+    "MaxConcurrency": 20
+  },
+  "Auth": {
+    "CentralCertificateThumbprint": "",
+    "SharedSecret": "BASE64-OR-LONG-RANDOM-SECRET-SAME-FOR-A-AND-B"
+  },
+  "Routing": { "UseMtls": false },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": { "Url": "http://0.0.0.0:8081" }
+    }
+  }
+}
+```
+
+**管理画面 → 実行ノード**:
+
+| 順 | 名前 | 種別 | Endpoint | 経由 Agent |
+|---|---|---|---|---|
+| 1 | `agent-a` | `Agent` | `http://agent-a:8081` | 未設定 |
+| 2 | `agent-b` | `Agent` | `http://agent-b:8081` | `agent-a` |
+
+**管理画面 → ホスト**:
+
+| 項目 | 値 |
+|---|---|
+| 実行ノード | `agent-b` |
+
+ホストには **最終的に CIFS へ SMB 接続する Agent B** を選びます。Server は `agent-b` に `経由 Agent=agent-a` が設定されていることを見て、実際の HTTP リクエストを Agent A に送り、Agent A が Agent B へ転送します。
+
+**ファイアウォール**:
+
+| 経路 | 必要 |
+|---|---|
+| Client → Server | HTTPS 8443 など |
+| Server → Agent A | HTTP 8081 |
+| Agent A → Agent B | HTTP 8081 |
+| Agent B → CIFS | SMB 445 |
+| Agent B → Server | 任意。許可できるなら heartbeat 用に HTTPS 8443 |
+
+Agent B が Server へ直接到達できない場合、管理画面の Health は `Unknown` のままになることがあります。この状態でも `agent-b` が有効で、`agent-a → agent-b` が HTTP 到達可能ならファイル操作は実行できます。到達不可の場合は操作時に 503 または Agent HTTP エラーになります。
+
+#### Agent の証明書とは
+
+Watashi で「Agent の証明書」と呼ぶものは、HTTPS 用とクライアント認証用があり、さらに中央側にも Agent へ提示するクライアント証明書があります。混同しやすいので、設定先で区別してください。
+
+| 用途 | 設定先 | 何を守るか |
+|---|---|---|
+| Agent の HTTPS サーバ証明書 | Agent `Kestrel:Endpoints:Https:Certificate` | Server が Agent の HTTPS endpoint に接続するときの TLS |
+| Agent クライアント証明書 | Agent `Certificate:Path` / Server `ExecutionNode.ClientCertificateThumbprint` | Agent が中央 Server の `/api/internal/*` に接続するとき、どの Agent かを証明する |
+| 中央クライアント証明書 | Server `Routing:ClientCertificatePath` / Agent `Auth:CentralCertificateThumbprint` | Server が Agent の `/agent/*` に接続するとき、中央 Server からの呼び出しかを Agent が検証する |
+
+検証環境では同じ PFX を複数用途に流用しても動きますが、本番では「HTTPS サーバ証明書」と「クライアント認証証明書」を分ける方が更新・失効・監査が楽です。mTLS を使わないモード B では、これらのクライアント証明書の代わりに `Routing:SharedSecret` / `Auth:SharedSecret` を使います。
+
+#### 複数 Agent / 複数踏み台
+
+複数の踏み台サーバーに Agent を配置できます。各 Agent で `Agent:AgentId` を一意にし、中央の管理画面で同じ名前の ExecutionNode を登録してください。CIFS ホスト登録時にどの ExecutionNode から接続するかを選ぶため、ネットワークセグメントごとに Agent を分けられます。
+
+`Server → Agent A → Agent B → CIFS` の 1段チェーンも使えます。Agent B の ExecutionNode に `経由 Agent=Agent A` を設定してください。2段以上のチェーンと mTLS チェーンは非対応です。
+
 ---
 
 ## ④ 初期データ登録
@@ -507,7 +754,7 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 | ☐ | クライアント PC に社内 CA ルート証明書を配布 |
 | ☐ | admin の初期パスワード変更 |
 | ☐ | (モード A の場合) Agent クライアント証明書を発行して `ExecutionNode.ClientCertificateThumbprint` に登録 |
-| ☐ | (モード A の場合) Agent 側 `Auth:CentralCertificateThumbprint` に中央サーバ証明書サムプリント設定 |
+| ☐ | (モード A の場合) Agent 側 `Auth:CentralCertificateThumbprint` に中央が Agent へ提示するクライアント証明書サムプリント設定 |
 | ☐ | (モード B の場合) `Routing:SharedSecret` を両側に同じ値で設定 |
 | ☐ | `Auth:LoginPerMinutePerIp` を環境に応じて調整 (デフォルト 10) |
 | ☐ | `Cifs:MaxSessionsPerKey` を環境に応じて調整 (デフォルト 4) |
@@ -646,7 +893,7 @@ Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
 - (mTLS モード) `ExecutionNode.ClientCertificateThumbprint` と Agent が提示する証明書サムプリントが一致しているか
 
 ### Agent から 401/403 が返る
-- (mTLS モード) Agent 側 `Auth:CentralCertificateThumbprint` が中央サーバの実際の証明書と一致しているか確認
+- (mTLS モード) Agent 側 `Auth:CentralCertificateThumbprint` が中央が Agent へ提示するクライアント証明書と一致しているか確認
 - (HTTP モード) `Auth:SharedSecret` を両側で同じ値に設定したか
 - いずれも未設定だと匿名アクセスは拒否される
 

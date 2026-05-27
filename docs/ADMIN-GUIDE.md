@@ -171,6 +171,26 @@ carol,CarolP@ss9012!!,false
 | 読取+書込 | ✓ | ✓ |  |  |
 | 読取のみ | ✓ |  |  |  |
 
+#### 各権限でできること
+
+権限テンプレートのチェックは、Watashi クライアントの操作に次のように対応します。
+
+| 権限 | できること | できないこと / 注意 |
+|---|---|---|
+| Read | リモート一覧表示、フォルダ移動、ダウンロード | Read が無いと一覧取得・ダウンロードは拒否される |
+| Write | アップロード、新規フォルダ作成、リネーム先パスへの書き込み確認 | Write だけでは削除やリネーム元の改名はできない |
+| Delete | ファイル/フォルダ削除 | 許可パスのルートそのものは Delete があっても削除不可 |
+| Rename | 同じ親フォルダ内でのリネーム | 実行には Rename に加えて新しい名前のパスに Write も必要。フォルダを跨ぐ移動は不可 |
+
+よく使うテンプレートの挙動:
+
+| テンプレート例 | 利用者ができること |
+|---|---|
+| 読取のみ | 一覧表示、フォルダ移動、ダウンロードのみ。アップロード、新規フォルダ、削除、リネームは権限エラー |
+| 読取+書込 | 一覧表示、ダウンロード、アップロード、新規フォルダ作成。削除とリネームは不可 |
+| 読取+書込+Rename | ファイル名変更まで許可。削除は不可 |
+| フルアクセス | 許可パス配下の読み取り、書き込み、削除、リネームすべて可。ただし許可パスのルート自体の削除/リネームは禁止 |
+
 > **表示順** は権限の強さスコア (Read+Write+Delete+Rename の合計) **降順** にクライアント側でソートされるため、既存 DB でもフルアクセスが先頭に来る。
 > ユーザー権限の「権限テンプレート」ドロップダウンのデフォルト選択もフルアクセス。
 
@@ -299,6 +319,7 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 | 名前 | Agent の場合は AgentId と一致させること (例: `bastion-a`) |
 | 種別 | Direct / Agent |
 | Endpoint | Agent の URL (例: `http://bastion-a:8081` または `https://bastion-a:8443`) |
+| 経由 Agent | 任意。1段チェーン時に入口 Agent を選ぶ (例: `bastion-a`) |
 | ClientCertificateThumbprint | mTLS モード時、Agent が提示するクライアント証明書サムプリント |
 | MaxConcurrency | Agent の同時接続上限 (デフォルト 20) |
 
@@ -307,7 +328,13 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 - `Unhealthy`: 90 秒以上ハートビートなし (Agent のみ)
 - `Unknown`: まだ一度もハートビート受信していない (新規登録 Agent)
 
-中央サーバーは Unhealthy ノードへのアクセスを即座に 503 で返す。
+**1段チェーン**:
+- `Server → Agent A → Agent B → CIFS` の 1段だけ対応
+- Agent A/B 間は HTTP + `Auth:SharedSecret` 前提。mTLS チェーンと 2段以上のチェーンは非対応
+- 中央から直接届かない Agent B は、ExecutionNode では Agent B の `Endpoint` を登録し、`経由 Agent` に Agent A を指定する
+- Agent B が中央へ heartbeat できない構成では `HealthStatus=Unknown` のままでも操作可能。実際の到達性は操作時に Agent A → Agent B の HTTP 結果で判定される
+
+中央サーバーは Direct Agent / 経由 Agent が Unhealthy の場合、アクセスを即座に 503 で返す。
 監査ログ: `ADMIN_NODE_CREATE` / `_UPDATE` / `_DELETE` / `_REGEN_KEY`
 
 ### 操作ログ
@@ -397,9 +424,9 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
   - `X-Watashi-Secret` ヘッダの値が Agent の `Auth:SharedSecret` と一致する
   - どちらでもなければ 401
 - **Agent → Server (`/api/internal/*`)**: Server 側で `Agent` 認可ポリシーが要求
-  - クライアント証明書サムプリントを `ExecutionNode.ClientCertificateThumbprint` と照合
-  - 一致した ExecutionNode 名（=AgentId）を Claim として持つ
-  - ハートビートのリクエストボディに含まれる AgentId と、証明書から取得した AgentId が一致しないと 403
+  - mTLS モードでは、Agent が提示するクライアント証明書サムプリントを `ExecutionNode.ClientCertificateThumbprint` と照合
+  - 共有秘密モードでは、Agent の `Auth:SharedSecret` と Server の `Routing:SharedSecret` を同じ値にし、`X-Watashi-Secret` で照合
+  - mTLS 時は、ハートビートのリクエストボディに含まれる AgentId と、証明書から取得した AgentId が一致しないと 403
 
 ---
 
@@ -431,7 +458,7 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 5. (mTLS モード) Agent クライアント証明書の有効期限・サムプリント不一致を確認
 
 ### Agent から 401/403 が頻発
-- (mTLS) `Auth:CentralCertificateThumbprint` と中央が実際に提示している証明書が違う
+- (mTLS) `Auth:CentralCertificateThumbprint` と中央が Agent へ提示しているクライアント証明書が違う
 - (mTLS) 証明書チェーン・ストアにルートが入っていない
 - (HTTP) `Auth:SharedSecret` が両側で違う
 

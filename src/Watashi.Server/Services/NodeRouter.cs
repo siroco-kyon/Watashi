@@ -32,9 +32,16 @@ public class NodeRouter
             throw new NodeUnreachableException(node);
     }
 
+    private static void EnsureRouteReachable(ExecutionNode node)
+    {
+        // Gateway 経由の最終 Agent は中央へ直接 heartbeat できない構成があるため、
+        // 到達性の事前判定は入口になる Gateway Agent に対して行う。
+        EnsureReachable(node.GatewayNode ?? node);
+    }
+
     public async Task<IReadOnlyList<FileEntry>> ListAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
-        EnsureReachable(node);
+        EnsureRouteReachable(node);
         if (node.NodeType == NodeTypes.Direct)
             return await Task.Run(() => _direct.List(info, path), ct);
         return await _forwarder.ListAsync(node, info, path, ct);
@@ -42,7 +49,7 @@ public class NodeRouter
 
     public async Task<Stream> OpenReadAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
-        EnsureReachable(node);
+        EnsureRouteReachable(node);
         if (node.NodeType == NodeTypes.Direct)
             return _direct.OpenRead(info, path);
         return await _forwarder.OpenDownloadAsync(node, info, path, ct);
@@ -50,7 +57,7 @@ public class NodeRouter
 
     public async Task UploadAsync(ExecutionNode node, CifsConnectionInfo info, string path, Stream input, CancellationToken ct)
     {
-        EnsureReachable(node);
+        EnsureRouteReachable(node);
         if (node.NodeType == NodeTypes.Direct)
         {
             await using var smb = _direct.OpenWrite(info, path);
@@ -64,7 +71,7 @@ public class NodeRouter
 
     public async Task DeleteAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
-        EnsureReachable(node);
+        EnsureRouteReachable(node);
         if (node.NodeType == NodeTypes.Direct)
             await Task.Run(() => _direct.Delete(info, path), ct);
         else
@@ -73,7 +80,7 @@ public class NodeRouter
 
     public async Task RenameAsync(ExecutionNode node, CifsConnectionInfo info, string oldPath, string newPath, CancellationToken ct)
     {
-        EnsureReachable(node);
+        EnsureRouteReachable(node);
         if (node.NodeType == NodeTypes.Direct)
             await Task.Run(() => _direct.Rename(info, oldPath, newPath), ct);
         else
@@ -82,7 +89,7 @@ public class NodeRouter
 
     public async Task MkdirAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
-        EnsureReachable(node);
+        EnsureRouteReachable(node);
         if (node.NodeType == NodeTypes.Direct)
             await Task.Run(() => _direct.Mkdir(info, path), ct);
         else
@@ -91,7 +98,7 @@ public class NodeRouter
 
     public async Task<bool> TestAsync(ExecutionNode node, CifsConnectionInfo info, CancellationToken ct)
     {
-        EnsureReachable(node);
+        EnsureRouteReachable(node);
         if (node.NodeType == NodeTypes.Direct)
             return await Task.Run(() => _direct.TestConnection(info), ct);
         return await _forwarder.TestAsync(node, info, ct);

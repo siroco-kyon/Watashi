@@ -15,9 +15,38 @@ public partial class NodeManagementViewModel : AdminViewModelBase
     [ObservableProperty] private string newName = string.Empty;
     [ObservableProperty] private string newType = NodeTypes.Direct;
     [ObservableProperty] private string? newEndpoint;
+    [ObservableProperty] private bool newUseGateway;
+    [ObservableProperty] private int? newGatewayNodeId;
     [ObservableProperty] private int newMaxConcurrency = 20;
+    [ObservableProperty] private string editName = string.Empty;
+    [ObservableProperty] private string? editEndpoint;
+    [ObservableProperty] private bool editIsActive = true;
+    [ObservableProperty] private bool editUseGateway;
+    [ObservableProperty] private int? editGatewayNodeId;
+    [ObservableProperty] private int editMaxConcurrency = 20;
 
     public NodeManagementViewModel(ApiClient api) { _api = api; }
+
+    partial void OnSelectedChanged(NodeDto? value)
+    {
+        if (value is null)
+        {
+            EditName = string.Empty;
+            EditEndpoint = null;
+            EditIsActive = true;
+            EditUseGateway = false;
+            EditGatewayNodeId = null;
+            EditMaxConcurrency = 20;
+            return;
+        }
+
+        EditName = value.Name;
+        EditEndpoint = value.Endpoint;
+        EditIsActive = value.IsActive;
+        EditUseGateway = value.GatewayNodeId.HasValue;
+        EditGatewayNodeId = value.GatewayNodeId;
+        EditMaxConcurrency = value.MaxConcurrency;
+    }
 
     [RelayCommand]
     public Task RefreshAsync() => SafeAsync(async () => ReplaceAll(Items, await _api.GetNodesAsync()));
@@ -28,14 +57,43 @@ public partial class NodeManagementViewModel : AdminViewModelBase
         if (string.IsNullOrWhiteSpace(NewName)) { StatusMessage = "ノード名を入力してください。"; return; }
         if (NewType == NodeTypes.Agent && string.IsNullOrWhiteSpace(NewEndpoint))
         { StatusMessage = "Agent タイプでは Endpoint を入力してください。"; return; }
+        if (NewUseGateway && NewGatewayNodeId is null)
+        { StatusMessage = "経由 Agent を選択してください。"; return; }
         if (NewMaxConcurrency < 1) { StatusMessage = "MaxConcurrency は 1 以上で指定してください。"; return; }
         await _api.CreateNodeAsync(new CreateNodeRequest
         {
-            Name = NewName, NodeType = NewType, Endpoint = NewEndpoint, MaxConcurrency = NewMaxConcurrency,
+            Name = NewName,
+            NodeType = NewType,
+            Endpoint = NewEndpoint,
+            GatewayNodeId = NewUseGateway ? NewGatewayNodeId : null,
+            MaxConcurrency = NewMaxConcurrency,
         });
-        NewName = string.Empty; NewEndpoint = null;
+        NewName = string.Empty; NewEndpoint = null; NewUseGateway = false; NewGatewayNodeId = null;
         await RefreshAsync();
     }, successMessage: "ノードを作成しました。");
+
+    [RelayCommand]
+    public Task UpdateAsync() => SafeAsync(async () =>
+    {
+        if (Selected is null) { StatusMessage = "更新するノードを選択してください。"; return; }
+        if (string.IsNullOrWhiteSpace(EditName)) { StatusMessage = "ノード名を入力してください。"; return; }
+        if (Selected.NodeType == NodeTypes.Agent && string.IsNullOrWhiteSpace(EditEndpoint))
+        { StatusMessage = "Agent タイプでは Endpoint を入力してください。"; return; }
+        if (EditUseGateway && EditGatewayNodeId is null)
+        { StatusMessage = "経由 Agent を選択してください。"; return; }
+        if (EditMaxConcurrency < 1) { StatusMessage = "MaxConcurrency は 1 以上で指定してください。"; return; }
+
+        await _api.UpdateNodeAsync(Selected.Id, new UpdateNodeRequest
+        {
+            Name = EditName,
+            Endpoint = EditEndpoint,
+            IsActive = EditIsActive,
+            GatewayNodeId = EditUseGateway ? EditGatewayNodeId : null,
+            ClearGatewayNode = !EditUseGateway,
+            MaxConcurrency = EditMaxConcurrency,
+        });
+        await RefreshAsync();
+    }, successMessage: "ノードを更新しました。");
 
     [RelayCommand]
     public Task DeleteAsync() => SafeAsync(async () =>

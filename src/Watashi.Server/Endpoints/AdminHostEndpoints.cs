@@ -93,7 +93,9 @@ public static class AdminHostEndpoints
             if (h is null) return Results.NotFound();
             var anyShare = await db.CifsShares.AsNoTracking().FirstOrDefaultAsync(s => s.HostId == id, ct);
             if (anyShare is null) return Results.BadRequest(new { error = "テスト用の共有が登録されていません。" });
-            var node = await db.ExecutionNodes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == h.ExecutionNodeId, ct);
+            var node = await db.ExecutionNodes.AsNoTracking()
+                .Include(n => n.GatewayNode)
+                .FirstOrDefaultAsync(n => n.Id == h.ExecutionNodeId, ct);
             if (node is null) return Results.BadRequest(new { error = "ホストに紐づく ExecutionNode が見つかりません。" });
             var info = new CifsConnectionInfo(h.HostAddress, h.Port, h.CredUsername, enc.Decrypt(h.CredPasswordEnc), anyShare.ShareName);
             var errorMessage = default(string);

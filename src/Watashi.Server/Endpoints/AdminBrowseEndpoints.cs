@@ -21,7 +21,7 @@ public static class AdminBrowseEndpoints
         {
             var row = await (from h in db.CifsHosts.AsNoTracking()
                 join s in db.CifsShares on h.Id equals s.HostId
-                join n in db.ExecutionNodes on h.ExecutionNodeId equals n.Id
+                join n in db.ExecutionNodes.Include(x => x.GatewayNode) on h.ExecutionNodeId equals n.Id
                 where h.Id == hostId && s.Id == shareId
                 select new { Host = h, Share = s, Node = n }
             ).FirstOrDefaultAsync(ct);

@@ -134,11 +134,13 @@
                 </StackPanel>
             </StatusBarItem>
             <Separator/>
-            <StatusBarItem><TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource AccentDeepBrush}"/></StatusBarItem>
-            <Separator/>
-            <StatusBarItem><TextBlock Text="{Binding Local.StatusMessage}"/></StatusBarItem>
-            <Separator/>
-            <StatusBarItem><TextBlock Text="{Binding Remote.StatusMessage}"/></StatusBarItem>
+            <StatusBarItem>
+                <TextBlock Text="{Binding LatestStatusMessage}"
+                           ToolTip="{Binding LatestStatusMessage}"
+                           Foreground="{StaticResource AccentDeepBrush}"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="720"/>
+            </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
                 <TextBlock Text="{Binding Username, StringFormat=ユーザー: {0}}"/>
             </StatusBarItem>

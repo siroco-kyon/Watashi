@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Data.Sqlite;
@@ -64,6 +65,7 @@ builder.Services.AddSingleton<CifsSessionPool>(_ => new CifsSessionPool(
     idleTtl: TimeSpan.FromSeconds(builder.Configuration.GetValue<int?>("Cifs:SessionIdleSeconds") ?? 60),
     maxPerKey: builder.Configuration.GetValue<int?>("Cifs:MaxSessionsPerKey") ?? 4));
 builder.Services.AddSingleton<CifsService>();
+builder.Services.AddSingleton<IAuthorizationHandler, AgentOrSharedSecretHandler>();
 builder.Services.AddSingleton<AgentForwarder>();
 builder.Services.AddSingleton<NodeRouter>();
 builder.Services.AddHostedService<NodeHealthMonitor>();
@@ -125,8 +127,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Agent", policy =>
     {
         policy.AuthenticationSchemes = new[] { CertificateAuthenticationDefaults.AuthenticationScheme };
-        policy.RequireAuthenticatedUser();
-        policy.RequireClaim(AgentCertificateValidator.AgentIdClaim);
+        policy.Requirements.Add(new AgentOrSharedSecretRequirement());
     });
 });
 
@@ -178,7 +179,7 @@ app.MapGet("/", () => Results.Ok(new
         "GET  /api/hosts/catalog (要 JWT)",
         "GET  /api/files (要 JWT)",
         "/api/admin/* (要 Admin)",
-        "/api/internal/* (要 mTLS Agent 証明書)",
+        "/api/internal/* (要 Agent mTLS 証明書または共有秘密)",
     },
 }));
 

@@ -111,10 +111,12 @@ robocopy D:\publish\WatashiAgent \\bastion-a\d$\publish\WatashiAgent /E
 notepad D:\publish\WatashiAgent\appsettings.json
 #   Agent:AgentId        中央 DB の ExecutionNode.Name と一致させる
 #   Agent:CentralUrl     https://central.internal:8443
-#   Certificate:Path     mTLS モードでの自証明書
-#   Auth:CentralCertificateThumbprint   中央サーバ証明書サムプリント (mTLS 時)
-#   Auth:SharedSecret    HTTP モードでの共有秘密 (中央と同値)
+#   Certificate:Path     Agent が中央へ提示するクライアント証明書 (mTLS 時)
+#   Auth:CentralCertificateThumbprint   中央が Agent へ提示するクライアント証明書サムプリント (mTLS 時)
+#   Auth:SharedSecret    共有秘密モードでの秘密値 (Server の Routing:SharedSecret と同値)
 #   Routing:UseMtls      true で mTLS 必須
+#   Kestrel:Endpoints    Agent の待受 URL。HTTP は 8081、HTTPS は証明書設定も必要
+#   Serilog:WriteTo      既定で C:\ProgramData\WatashiAgent\logs\agent-.log に日次出力
 
 # Windows Service として登録（管理者 PowerShell で）
 .\deploy\install-agent-service.ps1 -PublishDir D:\publish\WatashiAgent
@@ -124,10 +126,23 @@ notepad D:\publish\WatashiAgent\appsettings.json
 - Name = `bastion-a` (Agent:AgentId と一致させる)
 - NodeType = `Agent`
 - Endpoint = `https://bastion-a:8443` (mTLS) または `http://bastion-a:8081`
+- Gateway = 空 (Agent 1台構成の場合)
 - ClientCertificateThumbprint = 踏み台が中央へ提示する証明書のサムプリント (mTLS のみ)
 - MaxConcurrency = 20
 
 を Agent ノードとして登録。
+
+### 1段チェーン例
+
+`Server → Agent A → Agent B → CIFS` の場合:
+
+| ノード | AgentId / Name | Endpoint | Gateway |
+|---|---|---|---|
+| Agent A | `agent-a` | `http://agent-a:8081` | 空 |
+| Agent B | `agent-b` | `http://agent-b:8081` | `agent-a` |
+
+ホスト登録では、CIFS に直接 SMB 接続できる **Agent B** を実行ノードに選ぶ。
+Agent A/B と Server の共有秘密はすべて同じ値にする。1段チェーンは HTTP + 共有秘密のみ対応。
 
 > 旧 `install-agent.ps1` は appsettings.json をテンプレートから生成し sc.exe で登録する方式。
 > 互換性のため残置していますが、新規セットアップは **`install-agent-service.ps1`** を推奨。

@@ -7,6 +7,8 @@ public class ExecutionNode
     public string NodeType { get; set; } = string.Empty;
     public string? Endpoint { get; set; }
     public string? ClientCertificateThumbprint { get; set; }
+    public int? GatewayNodeId { get; set; }
+    public ExecutionNode? GatewayNode { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime? LastHeartbeatAt { get; set; }
     public string HealthStatus { get; set; } = "Unknown";
