@@ -518,6 +518,10 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 | `Cifs:SessionIdleSeconds` / `Cifs:MaxSessionsPerKey` | 任意 | SMB セッションプール設定 | Agent 経由の CIFS 接続に適用 |
 | `Serilog:WriteTo` | 推奨 | Console / File | 既定で `C:\ProgramData\WatashiAgent\logs\agent-.log` に日次ローテーション |
 
+HTTP + 共有秘密モードでは `Certificate:Path` / `Certificate:Password` は空でよいです。Agent の待受も `Kestrel:Endpoints:Http` を使うため、Agent 側に HTTPS サーバ証明書は不要です。証明書が必要になるのは Client↔Server を HTTPS にする中央 Server 側、または `Routing:UseMtls=true` で mTLS を使う場合だけです。`Routing:UseMtls=false` で `Auth:SharedSecret` が空の場合、Agent は起動時に設定エラーとして停止します。
+
+旧 `deploy/install-agent.ps1` を使って HTTP 共有秘密モードでインストールする場合は、必ず `-SharedSecret` を指定してください。未指定だと Agent は証明書も `X-Watashi-Secret` も送れず、heartbeat と Server→Agent の転送リクエストが認証に失敗します。
+
 #### 設定例 1: Agent 1台 (HTTP + 共有秘密)
 
 構成:
@@ -565,6 +569,10 @@ Client --HTTPS--> Server --HTTP--> Agent A --SMB--> CIFS
   },
   "ConnectionStrings": {
     "Buffer": "Data Source=C:\\ProgramData\\WatashiAgent\\agent_buffer.db;Cache=Shared;Foreign Keys=True;"
+  },
+  "Certificate": {
+    "Path": "",
+    "Password": ""
   },
   "Auth": {
     "CentralCertificateThumbprint": "",
@@ -645,6 +653,10 @@ Client --HTTPS--> Server --HTTP--> Agent A --HTTP--> Agent B --SMB--> CIFS
     "CentralUrl": "https://watashi.internal:8443",
     "MaxConcurrency": 20
   },
+  "Certificate": {
+    "Path": "",
+    "Password": ""
+  },
   "Auth": {
     "CentralCertificateThumbprint": "",
     "SharedSecret": "BASE64-OR-LONG-RANDOM-SECRET-SAME-FOR-A-AND-B"
@@ -667,6 +679,10 @@ Client --HTTPS--> Server --HTTP--> Agent A --HTTP--> Agent B --SMB--> CIFS
     // Agent B が中央へ直接到達できない場合は空でもよい。Heartbeat / LogSync はスキップされる。
     "CentralUrl": "",
     "MaxConcurrency": 20
+  },
+  "Certificate": {
+    "Path": "",
+    "Password": ""
   },
   "Auth": {
     "CentralCertificateThumbprint": "",
@@ -711,6 +727,8 @@ Agent B が Server へ直接到達できない場合、管理画面の Health �
 #### Agent の証明書とは
 
 Watashi で「Agent の証明書」と呼ぶものは、HTTPS 用とクライアント認証用があり、さらに中央側にも Agent へ提示するクライアント証明書があります。混同しやすいので、設定先で区別してください。
+
+HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いません。Agent A/B の待受 Endpoint は `http://...`、認証は `Auth:SharedSecret` / `Routing:SharedSecret` で行います。
 
 | 用途 | 設定先 | 何を守るか |
 |---|---|---|

@@ -34,12 +34,18 @@ builder.Services.AddSingleton<CifsService>();
 
 // === inbound mTLS: 中央サーバが Agent を呼び出すときの証明書検証 ===
 var useMtls = builder.Configuration.GetValue<bool>("Routing:UseMtls");
+var hasThumbprint = !string.IsNullOrWhiteSpace(builder.Configuration["Auth:CentralCertificateThumbprint"]);
+var hasSharedSecret = !string.IsNullOrWhiteSpace(builder.Configuration["Auth:SharedSecret"]);
+if (!useMtls && !hasSharedSecret)
+{
+    throw new InvalidOperationException(
+        "Routing:UseMtls=false の HTTP 共有秘密モードでは Auth:SharedSecret が必須です。" +
+        "Server の Routing:SharedSecret と同じ長いランダム値を設定してください。");
+}
 if (useMtls)
 {
     // 起動時設定チェック: mTLS 有効なのにサムプリントも SharedSecret も両方未設定だと
     // Agent はどんな inbound も拒否することになり実質サービス停止と同じ。明示的に失敗させる。
-    var hasThumbprint = !string.IsNullOrWhiteSpace(builder.Configuration["Auth:CentralCertificateThumbprint"]);
-    var hasSharedSecret = !string.IsNullOrWhiteSpace(builder.Configuration["Auth:SharedSecret"]);
     if (!hasThumbprint && !hasSharedSecret)
     {
         throw new InvalidOperationException(
