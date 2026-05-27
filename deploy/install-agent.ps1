@@ -4,7 +4,7 @@
 # 使い方:
 #   1. ビルド済み Agent 一式 (publish 結果) を任意の場所に置く
 #   2. このスクリプトをエージェント実行サーバーで管理者権限で実行
-#      ./install-agent.ps1 -SourceDir C:\Temp\WatashiAgent -AgentId bastion-a -CentralUrl https://central.internal:8443
+#      ./install-agent.ps1 -SourceDir C:\Temp\WatashiAgent -AgentId bastion-a -CentralUrl https://central.internal:8443 -SharedSecret "SERVER-SAME-LONG-RANDOM-SECRET"
 # =========================================================
 
 param(
@@ -35,6 +35,25 @@ function Require-Admin {
 
 Require-Admin
 
+$isHttps = $ListenUrl.StartsWith("https://", [System.StringComparison]::OrdinalIgnoreCase)
+if (-not $UseMtls -and [string]::IsNullOrWhiteSpace($SharedSecret)) {
+    throw "HTTP 共有秘密モード (既定) では -SharedSecret が必須です。Server の Routing:SharedSecret と同じ長いランダム値を指定してください。"
+}
+if ($UseMtls -and [string]::IsNullOrWhiteSpace($SharedSecret)) {
+    if ([string]::IsNullOrWhiteSpace($CertificatePath)) {
+        throw "mTLS モードで -SharedSecret を使わない場合は -CertificatePath に Agent クライアント証明書 PFX を指定してください。"
+    }
+    if ([string]::IsNullOrWhiteSpace($CentralCertificateThumbprint)) {
+        throw "mTLS モードで -SharedSecret を使わない場合は -CentralCertificateThumbprint に中央 Server のクライアント証明書 Thumbprint を指定してください。"
+    }
+}
+if ($UseMtls -and -not $isHttps) {
+    throw "mTLS モードでは Agent の待受に HTTPS が必要です。-ListenUrl https://0.0.0.0:8443 と HTTPS 証明書を指定してください。"
+}
+if ($isHttps -and [string]::IsNullOrWhiteSpace($CertificatePath)) {
+    throw "ListenUrl が HTTPS の場合は -CertificatePath に HTTPS サーバ証明書 PFX を指定してください。HTTP 共有秘密モードでは -ListenUrl http://0.0.0.0:8081 を使います。"
+}
+
 Write-Host "[1/5] 既存サービス停止..."
 if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
     Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
@@ -48,13 +67,9 @@ if (-not (Test-Path $DataDir))    { New-Item -ItemType Directory -Path $DataDir 
 Copy-Item -Path (Join-Path $SourceDir "*") -Destination $InstallDir -Recurse -Force
 
 Write-Host "[3/5] appsettings.json を生成..."
-$isHttps = $ListenUrl.StartsWith("https://", [System.StringComparison]::OrdinalIgnoreCase)
 $endpointName = if ($isHttps) { "Https" } else { "Http" }
 $endpoint = @{ Url = $ListenUrl }
 if ($isHttps) {
-    if ([string]::IsNullOrWhiteSpace($CertificatePath)) {
-        throw "ListenUrl が HTTPS の場合は -CertificatePath に HTTPS サーバ証明書 PFX を指定してください。HTTP 共有秘密モードでは -ListenUrl http://0.0.0.0:8081 を使います。"
-    }
     $endpoint.Certificate = @{ Path = $CertificatePath; Password = $CertificatePassword }
 }
 

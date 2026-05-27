@@ -520,6 +520,8 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 
 HTTP + 共有秘密モードでは `Certificate:Path` / `Certificate:Password` は空でよいです。Agent の待受も `Kestrel:Endpoints:Http` を使うため、Agent 側に HTTPS サーバ証明書は不要です。証明書が必要になるのは Client↔Server を HTTPS にする中央 Server 側、または `Routing:UseMtls=true` で mTLS を使う場合だけです。
 
+旧 `deploy/install-agent.ps1` を使って HTTP 共有秘密モードでインストールする場合は、必ず `-SharedSecret` を指定してください。未指定だと Agent は証明書も `X-Watashi-Secret` も送れず、heartbeat と Server→Agent の転送リクエストが認証に失敗します。
+
 #### 設定例 1: Agent 1台 (HTTP + 共有秘密)
 
 構成:

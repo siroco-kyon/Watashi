@@ -146,6 +146,7 @@ Agent A/B と Server の共有秘密はすべて同じ値にする。1段チェ�
 
 > 旧 `install-agent.ps1` は appsettings.json をテンプレートから生成し sc.exe で登録する方式。
 > 互換性のため残置していますが、新規セットアップは **`install-agent-service.ps1`** を推奨。
+> 旧スクリプトを HTTP 共有秘密モードで使う場合は `-SharedSecret` が必須です。
 
 ## 4. 自動バックアップ (タスクスケジューラ)
 
