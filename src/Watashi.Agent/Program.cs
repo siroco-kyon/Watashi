@@ -82,7 +82,12 @@ builder.Services.AddAuthorization(options =>
 });
 
 // === outbound (中央サーバへの heartbeat/log) ===
-builder.Services.AddHttpClient("central").ConfigurePrimaryHttpMessageHandler(sp =>
+builder.Services.AddHttpClient("central", (sp, client) =>
+{
+    var sharedSecret = sp.GetRequiredService<IConfiguration>()["Auth:SharedSecret"];
+    if (!string.IsNullOrEmpty(sharedSecret))
+        client.DefaultRequestHeaders.Add("X-Watashi-Secret", sharedSecret);
+}).ConfigurePrimaryHttpMessageHandler(sp =>
 {
     var cfg = sp.GetRequiredService<IConfiguration>();
     var handler = new HttpClientHandler();
@@ -91,6 +96,14 @@ builder.Services.AddHttpClient("central").ConfigurePrimaryHttpMessageHandler(sp 
     if (!string.IsNullOrWhiteSpace(certPath) && File.Exists(certPath))
         handler.ClientCertificates.Add(new X509Certificate2(certPath, certPass));
     return handler;
+});
+
+builder.Services.AddHttpClient("agent-forward", (sp, client) =>
+{
+    var sharedSecret = sp.GetRequiredService<IConfiguration>()["Auth:SharedSecret"];
+    if (!string.IsNullOrEmpty(sharedSecret))
+        client.DefaultRequestHeaders.Add("X-Watashi-Secret", sharedSecret);
+    client.Timeout = TimeSpan.FromMinutes(10);
 });
 
 builder.Services.AddHostedService<HeartbeatService>();

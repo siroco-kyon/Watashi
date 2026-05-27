@@ -336,6 +336,8 @@ public class ApiClient
             using var s = await res.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(s, cancellationToken: ct);
             if (doc.RootElement.TryGetProperty("error", out var e)) msg = e.GetString();
+            else if (doc.RootElement.TryGetProperty("detail", out var d)) msg = d.GetString();
+            else if (doc.RootElement.TryGetProperty("title", out var t)) msg = t.GetString();
         }
         catch
         {
@@ -347,6 +349,15 @@ public class ApiClient
             }
             catch { }
         }
+        msg ??= res.StatusCode switch
+        {
+            HttpStatusCode.BadRequest => "リクエストが正しくありません。",
+            HttpStatusCode.Unauthorized => "認証が必要です。再ログインしてください。",
+            HttpStatusCode.Forbidden => "権限がありません。",
+            HttpStatusCode.NotFound => "対象が見つかりません。",
+            HttpStatusCode.ServiceUnavailable => "サーバーまたは実行ノードに接続できません。",
+            _ => $"HTTP {(int)res.StatusCode}",
+        };
         throw new ApiException(res.StatusCode, msg);
     }
 

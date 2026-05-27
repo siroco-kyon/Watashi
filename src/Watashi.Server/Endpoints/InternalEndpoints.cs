@@ -22,7 +22,7 @@ public static class InternalEndpoints
             if (string.IsNullOrWhiteSpace(req.AgentId))
                 return Results.BadRequest(new { error = "AgentId が必要です。" });
             var certAgent = principal.FindFirst(AgentCertificateValidator.AgentIdClaim)?.Value;
-            if (!string.Equals(certAgent, req.AgentId, StringComparison.Ordinal))
+            if (!string.IsNullOrEmpty(certAgent) && !string.Equals(certAgent, req.AgentId, StringComparison.Ordinal))
             {
                 logger.LogWarning("Heartbeat AgentId 不一致 cert={Cert} body={Body}", certAgent, req.AgentId);
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
@@ -42,6 +42,7 @@ public static class InternalEndpoints
             var logger = lf.CreateLogger("Internal");
             if (body.Items is null || body.Items.Length == 0) return Results.NoContent();
             var certAgent = principal.FindFirst(AgentCertificateValidator.AgentIdClaim)?.Value;
+            var agentLabel = certAgent ?? "shared-secret";
             int added = 0, skipped = 0;
             foreach (var json in body.Items)
             {
@@ -58,12 +59,12 @@ public static class InternalEndpoints
                 catch (Exception ex)
                 {
                     skipped++;
-                    logger.LogWarning(ex, "audit-log バッチ内のレコード解析に失敗 agent={Agent} len={Len}", certAgent, json.Length);
+                    logger.LogWarning(ex, "audit-log バッチ内のレコード解析に失敗 agent={Agent} len={Len}", agentLabel, json.Length);
                 }
             }
             await db.SaveChangesAsync(ct);
             if (skipped > 0)
-                logger.LogWarning("audit-log バッチ: agent={Agent} added={Added} skipped={Skipped}", certAgent, added, skipped);
+                logger.LogWarning("audit-log バッチ: agent={Agent} added={Added} skipped={Skipped}", agentLabel, added, skipped);
             return Results.Ok(new { added, skipped });
         });
 

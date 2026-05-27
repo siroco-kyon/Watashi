@@ -100,7 +100,7 @@ public static class FileEndpoints
                 db, enc, perms, ct, async (auth, execCtx) =>
             {
                 if (await perms.IsPermissionRootAsync(auth.UserId, shareId, auth.NormalizedPath, ct))
-                    return new FailureResult(Results.StatusCode(StatusCodes.Status403Forbidden), "permission_root");
+                    return new FailureResult(PermissionDenied("許可ルート自体は削除できません。"), "permission_root");
                 await router.DeleteAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct);
                 return Results.NoContent();
             });
@@ -114,7 +114,7 @@ public static class FileEndpoints
                 db, enc, perms, ct, async (auth, execCtx) =>
             {
                 if (await perms.IsPermissionRootAsync(auth.UserId, req.ShareId, auth.NormalizedPath, ct))
-                    return new FailureResult(Results.StatusCode(StatusCodes.Status403Forbidden), "permission_root");
+                    return new FailureResult(PermissionDenied("許可ルート自体はリネームできません。"), "permission_root");
                 var newNorm = PathHelper.NormalizePath(req.NewPath);
                 var oldParent = PathHelper.GetParent(auth.NormalizedPath);
                 var newParent = PathHelper.GetParent(newNorm);
@@ -127,7 +127,7 @@ public static class FileEndpoints
                 if (!newAllowed)
                 {
                     ctx.Items["targetPath"] = newNorm;
-                    return new FailureResult(Results.StatusCode(StatusCodes.Status403Forbidden), "denied");
+                    return new FailureResult(PermissionDenied("リネーム先への書き込み権限がありません。"), "denied");
                 }
                 ctx.Items["targetPath"] = newNorm;
                 await router.RenameAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, newNorm, ct);
@@ -228,16 +228,28 @@ public static class FileEndpoints
         var normalized = PathHelper.NormalizePath(path);
         var (allowed, pid) = await perms.CanPerformAsync(userId, shareId, normalized, operation, ct);
         if (!allowed)
-            return new AuthCheck(userId, normalized, Results.StatusCode(StatusCodes.Status403Forbidden), null);
+            return new AuthCheck(userId, normalized, PermissionDenied(GetPermissionDeniedMessage(operation)), null);
         return new AuthCheck(userId, normalized, null, pid);
     }
+
+    private static IResult PermissionDenied(string message) =>
+        Results.Json(new { error = message }, statusCode: StatusCodes.Status403Forbidden);
+
+    private static string GetPermissionDeniedMessage(string operation) => operation switch
+    {
+        Operations.Read => "読み取り権限がありません。",
+        Operations.Write => "書き込み権限がありません。",
+        Operations.Delete => "削除権限がありません。",
+        Operations.Rename => "リネーム権限がありません。",
+        _ => "権限がありません。",
+    };
 
     internal static async Task<ExecutionContext?> BuildExecutionContextAsync(
         AppDbContext db, EncryptionService enc, int hostId, int shareId, CancellationToken ct)
     {
         var row = await (from h in db.CifsHosts.AsNoTracking()
             join s in db.CifsShares on h.Id equals s.HostId
-            join n in db.ExecutionNodes on h.ExecutionNodeId equals n.Id
+            join n in db.ExecutionNodes.Include(x => x.GatewayNode) on h.ExecutionNodeId equals n.Id
             where h.Id == hostId && s.Id == shareId
             select new { Host = h, Share = s, Node = n }).FirstOrDefaultAsync(ct);
         if (row is null) return null;

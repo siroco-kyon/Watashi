@@ -26,6 +26,7 @@
                             <GridViewColumn Header="名前" DisplayMemberBinding="{Binding Name}" Width="160"/>
                             <GridViewColumn Header="種別" DisplayMemberBinding="{Binding NodeType}" Width="80"/>
                             <GridViewColumn Header="Endpoint" DisplayMemberBinding="{Binding Endpoint}" Width="240"/>
+                            <GridViewColumn Header="経由" DisplayMemberBinding="{Binding GatewayNodeName}" Width="140"/>
                             <GridViewColumn Header="Health" DisplayMemberBinding="{Binding HealthStatus}" Width="90"/>
                             <GridViewColumn Header="LastBeat" DisplayMemberBinding="{Binding LastHeartbeatAt, Converter={StaticResource Utc}}" Width="160"/>
                         </GridView>
@@ -39,29 +40,65 @@
         <Border Grid.Column="2" Style="{StaticResource Card}" Padding="0">
             <DockPanel>
                 <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
-                    <TextBlock Text="ノードを追加" Style="{StaticResource H3}"/>
+                    <TextBlock Text="ノード設定" Style="{StaticResource H3}"/>
                 </Border>
-                <StackPanel Margin="16">
-                    <TextBlock Text="名称" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16">
+                        <TextBlock Text="新規ノード" Style="{StaticResource H3}" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="種別" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <ComboBox SelectedItem="{Binding NewType}" Margin="0,0,0,10">
-                        <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Direct</sys:String>
-                        <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Agent</sys:String>
-                    </ComboBox>
+                        <TextBlock Text="名称" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="Endpoint (例: https://agent:8443)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding NewEndpoint, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+                        <TextBlock Text="種別" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <ComboBox SelectedItem="{Binding NewType}" Margin="0,0,0,10">
+                            <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Direct</sys:String>
+                            <sys:String xmlns:sys="clr-namespace:System;assembly=mscorlib">Agent</sys:String>
+                        </ComboBox>
 
-                    <TextBlock Text="MaxConcurrency" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding NewMaxConcurrency}" Margin="0,0,0,14"/>
+                        <TextBlock Text="Endpoint (例: http://agent:8081)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding NewEndpoint, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
 
-                    <Button Content="＋ 作成" Style="{StaticResource PrimaryButton}" Command="{Binding CreateCommand}" Height="34"/>
+                        <CheckBox Content="別の Agent を経由する (1段チェーン)" IsChecked="{Binding NewUseGateway}" Margin="0,0,0,6"/>
+                        <ComboBox ItemsSource="{Binding Items}"
+                                  DisplayMemberPath="Name"
+                                  SelectedValuePath="Id"
+                                  SelectedValue="{Binding NewGatewayNodeId}"
+                                  IsEnabled="{Binding NewUseGateway}"
+                                  Margin="0,0,0,10"/>
 
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource AccentBrush}"
-                               TextWrapping="Wrap" Margin="0,12,0,0"/>
-                </StackPanel>
+                        <TextBlock Text="MaxConcurrency" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding NewMaxConcurrency}" Margin="0,0,0,14"/>
+
+                        <Button Content="＋ 作成" Style="{StaticResource PrimaryButton}" Command="{Binding CreateCommand}" Height="34"/>
+
+                        <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,18,0,16"/>
+
+                        <TextBlock Text="選択ノードを更新" Style="{StaticResource H3}" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="名称" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="Endpoint" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding EditEndpoint, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+
+                        <CheckBox Content="有効" IsChecked="{Binding EditIsActive}" Margin="0,0,0,8"/>
+                        <CheckBox Content="別の Agent を経由する (1段チェーン)" IsChecked="{Binding EditUseGateway}" Margin="0,0,0,6"/>
+                        <ComboBox ItemsSource="{Binding Items}"
+                                  DisplayMemberPath="Name"
+                                  SelectedValuePath="Id"
+                                  SelectedValue="{Binding EditGatewayNodeId}"
+                                  IsEnabled="{Binding EditUseGateway}"
+                                  Margin="0,0,0,10"/>
+
+                        <TextBlock Text="MaxConcurrency" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding EditMaxConcurrency}" Margin="0,0,0,14"/>
+
+                        <Button Content="保存" Style="{StaticResource PrimaryButton}" Command="{Binding UpdateCommand}" Height="34"/>
+
+                        <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource AccentBrush}"
+                                   TextWrapping="Wrap" Margin="0,12,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
     </Grid>

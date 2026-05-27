@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Primitives;
 using Watashi.Agent.Data;
 using Watashi.Agent.Services;
 using Watashi.Shared.Cifs;
@@ -18,22 +19,30 @@ public static class AgentEndpoints
             .RequireAuthorization("CentralOrSharedSecret");
 
         group.MapPost("/files/list", async (
-            AgentListRequest req, CifsService cifs, ConcurrencyLimiter limiter,
-            HttpContext ctx, CancellationToken ct) =>
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentListRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
             var list = await Task.Run(() => cifs.List(info, PathHelper.NormalizePath(req.Path)), ct);
             return Results.Ok(list);
         });
 
         group.MapPost("/files/download", async (
-            AgentPathRequest req, CifsService cifs, ConcurrencyLimiter limiter,
-            HttpContext ctx, CancellationToken ct) =>
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
             ctx.Response.ContentType = "application/octet-stream";
             await using var stream = cifs.OpenRead(info, PathHelper.NormalizePath(req.Path));
@@ -42,10 +51,12 @@ public static class AgentEndpoints
         });
 
         group.MapPost("/files/upload", async (
-            HttpContext ctx, CifsService cifs, ConcurrencyLimiter limiter, CancellationToken ct) =>
+            HttpContext ctx, CifsService cifs, ConcurrencyLimiter limiter, IHttpClientFactory http, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
             var meta = AgentUploadHeader.Extract(ctx);
             if (meta is null) return Results.BadRequest(new { error = "X-Watashi-Cifs ヘッダが必要です。" });
             var info = meta.ToInfo();
@@ -55,46 +66,58 @@ public static class AgentEndpoints
         });
 
         group.MapPost("/files/delete", async (
-            AgentPathRequest req, CifsService cifs, ConcurrencyLimiter limiter,
-            HttpContext ctx, CancellationToken ct) =>
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
             await Task.Run(() => cifs.Delete(info, PathHelper.NormalizePath(req.Path)), ct);
             return Results.NoContent();
         });
 
         group.MapPost("/files/rename", async (
-            AgentRenameRequest req, CifsService cifs, ConcurrencyLimiter limiter,
-            HttpContext ctx, CancellationToken ct) =>
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentRenameRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
             await Task.Run(() => cifs.Rename(info, PathHelper.NormalizePath(req.OldPath), PathHelper.NormalizePath(req.NewPath)), ct);
             return Results.NoContent();
         });
 
         group.MapPost("/files/mkdir", async (
-            AgentPathRequest req, CifsService cifs, ConcurrencyLimiter limiter,
-            HttpContext ctx, CancellationToken ct) =>
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
             await Task.Run(() => cifs.Mkdir(info, PathHelper.NormalizePath(req.Path)), ct);
             return Results.NoContent();
         });
 
-        group.MapPost("/test-connection", (
-            AgentTestRequest req, CifsService cifs, ConcurrencyLimiter limiter, HttpContext ctx) =>
+        group.MapPost("/test-connection", async (
+            CifsService cifs, ConcurrencyLimiter limiter, IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
         {
             using var lease = limiter.TryEnter();
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
-            var info = req.ToInfo();
-            var ok = cifs.TestConnection(info);
-            return Results.Ok(new { ok });
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            return await TestConnectionAsync(ctx, cifs, ct);
         });
 
         // 中央サーバ到達不能時に Agent ローカルに監査ログをバッファするためのエンドポイント。
@@ -111,6 +134,111 @@ public static class AgentEndpoints
         });
 
         return app;
+    }
+
+    private const string ForwardToHeader = "X-Watashi-Forward-To";
+
+    private static async Task<T?> ReadJsonAsync<T>(HttpContext ctx, CancellationToken ct)
+    {
+        try
+        {
+            return await ctx.Request.ReadFromJsonAsync<T>(cancellationToken: ct);
+        }
+        catch (JsonException)
+        {
+            return default;
+        }
+    }
+
+    private static async Task<IResult> TestConnectionAsync(HttpContext ctx, CifsService cifs, CancellationToken ct)
+    {
+        var req = await ReadJsonAsync<AgentTestRequest>(ctx, ct);
+        if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+        var info = req.ToInfo();
+        var ok = await Task.Run(() => cifs.TestConnection(info), ct);
+        return Results.Ok(new { ok });
+    }
+
+    private static bool TryGetForwardTarget(HttpContext ctx, out string target)
+    {
+        target = string.Empty;
+        if (!ctx.Request.Headers.TryGetValue(ForwardToHeader, out var raw)) return false;
+        target = raw.ToString();
+        return !string.IsNullOrWhiteSpace(target);
+    }
+
+    private static async Task<IResult> ForwardToNextAgentAsync(
+        HttpContext ctx, IHttpClientFactory http, string targetEndpoint, CancellationToken ct)
+    {
+        if (!Uri.TryCreate(targetEndpoint.TrimEnd('/') + "/", UriKind.Absolute, out var baseUri) ||
+            !string.Equals(baseUri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new { error = "1段チェーンの転送先 Agent Endpoint は http:// で指定してください。" });
+        }
+
+        var client = http.CreateClient("agent-forward");
+        client.BaseAddress = baseUri;
+
+        var relativePath = (ctx.Request.Path.Value ?? string.Empty).TrimStart('/');
+        var requestUri = relativePath + ctx.Request.QueryString;
+        using var req = new HttpRequestMessage(new HttpMethod(ctx.Request.Method), requestUri)
+        {
+            Content = new StreamContent(ctx.Request.Body, 4 * 1024 * 1024),
+        };
+
+        CopyRequestHeaders(ctx, req);
+        using var res = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        await CopyResponseAsync(ctx, res, ct);
+        return Results.Empty;
+    }
+
+    private static void CopyRequestHeaders(HttpContext ctx, HttpRequestMessage req)
+    {
+        foreach (var header in ctx.Request.Headers)
+        {
+            if (ShouldSkipForwardedHeader(header.Key)) continue;
+            var values = header.Value.ToArray();
+            if (!req.Headers.TryAddWithoutValidation(header.Key, values))
+                req.Content?.Headers.TryAddWithoutValidation(header.Key, values);
+        }
+    }
+
+    private static bool ShouldSkipForwardedHeader(string name) =>
+        string.Equals(name, "Host", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Connection", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Keep-Alive", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Proxy-Authenticate", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Proxy-Authorization", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "TE", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Trailer", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Transfer-Encoding", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Upgrade", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "X-Watashi-Secret", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, ForwardToHeader, StringComparison.OrdinalIgnoreCase);
+
+    private static async Task CopyResponseAsync(HttpContext ctx, HttpResponseMessage res, CancellationToken ct)
+    {
+        ctx.Response.StatusCode = (int)res.StatusCode;
+        foreach (var header in res.Headers)
+            if (!ShouldSkipResponseHeader(header.Key)) SetResponseHeader(ctx, header.Key, header.Value);
+        foreach (var header in res.Content.Headers)
+            if (!ShouldSkipResponseHeader(header.Key)) SetResponseHeader(ctx, header.Key, header.Value);
+        await res.Content.CopyToAsync(ctx.Response.Body, ct);
+    }
+
+    private static bool ShouldSkipResponseHeader(string name) =>
+        string.Equals(name, "Connection", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Keep-Alive", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Proxy-Authenticate", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Proxy-Authorization", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "TE", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Trailer", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Transfer-Encoding", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(name, "Upgrade", StringComparison.OrdinalIgnoreCase);
+
+    private static void SetResponseHeader(HttpContext ctx, string name, IEnumerable<string> values)
+    {
+        ctx.Response.Headers[name] = new StringValues(values.ToArray());
     }
 }
 

@@ -83,6 +83,10 @@ public class AppDbContext : DbContext
             b.Property(n => n.HealthStatus).HasDefaultValue("Unknown").IsRequired();
             b.Property(n => n.IsActive).HasDefaultValue(true);
             b.Property(n => n.MaxConcurrency).HasDefaultValue(20);
+            b.HasOne(n => n.GatewayNode)
+                .WithMany()
+                .HasForeignKey(n => n.GatewayNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
             b.ToTable(t => t.HasCheckConstraint("CK_ExecutionNode_NodeType", "NodeType IN ('Direct', 'Agent')"));
             b.ToTable(t => t.HasCheckConstraint("CK_ExecutionNode_HealthStatus", "HealthStatus IN ('Healthy', 'Unhealthy', 'Unknown')"));
         });

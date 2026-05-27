@@ -68,10 +68,11 @@ $appsettings = @{
         }
     }
     Serilog = @{
+        Using = @("Serilog.Sinks.Console", "Serilog.Sinks.File")
         MinimumLevel = @{ Default = "Information" }
         WriteTo = @(
             @{ Name = "Console" },
-            @{ Name = "File"; Args = @{ path = "$DataDir\logs\agent-.log"; rollingInterval = "Day" } }
+            @{ Name = "File"; Args = @{ path = "$DataDir\logs\agent-.log"; rollingInterval = "Day"; retainedFileCountLimit = 14; shared = $true } }
         )
     }
     AllowedHosts = "*"

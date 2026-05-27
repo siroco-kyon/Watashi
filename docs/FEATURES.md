@@ -200,13 +200,15 @@
 - ホストに紐づく ExecutionNode で振分
 - `Direct` ノード → 中央サーバーから直接 SMB
 - `Agent` ノード → エージェントへ HTTP(S) フォワード、エージェントが SMB
+- `GatewayNodeId` 付き Agent ノード → `Server → Gateway Agent → Target Agent → SMB` の 1段チェーン
 - 認証情報は **POST body または X-Watashi-Cifs ヘッダ (Base64 JSON)** で送信（URL クエリ漏洩を回避）
 - ストリーミング転送をリレーで実現 (全段でメモリ展開しない)
-- Unhealthy ノードは即座に 503 を返す (リトライなし)
+- Direct Agent / Gateway Agent が Unhealthy の場合は即座に 503 を返す (リトライなし)
 
 ### ヘルスモニタ
 - バックグラウンドで 15 秒毎に Agent ノードの LastHeartbeatAt をチェック（`PeriodicTimer`）
 - 90 秒以上音信不通 → `Unhealthy`、復活 → `Healthy`
+- Gateway 配下で中央へ直接 heartbeat できない Agent は `Unknown` のまま操作時の HTTP 到達性で判定
 - 状態変化があったノードだけを `ExecuteUpdate` で書き込み（no-op SaveChanges を排除）
 - Direct ノードは常に `Healthy`
 
@@ -316,6 +318,6 @@
 | 中央サーバなりすまし | mTLS or SharedSecret で Agent inbound を保護 |
 | ディレクトリトラバーサル | 正規化 + IsPathWithin 二段チェック |
 | 平文ログ漏洩 | URL に資格情報を載せない（POST body / ヘッダのみ） |
-| 監査ログ偽造 | `/api/internal/*` を mTLS で保護、AgentId と証明書を相互照合 |
+| 監査ログ偽造 | `/api/internal/*` を mTLS または共有秘密で保護。mTLS 時は AgentId と証明書を相互照合 |
 | エンティティ直接シリアライズ | 機微フィールドに `[JsonIgnore]` を付与 |
 | 内部スタックトレース漏洩 | 例外メッセージは `Results.Problem` でマスク |

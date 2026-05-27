@@ -16,6 +16,8 @@ namespace Watashi.Server.Services;
 /// </summary>
 public class AgentForwarder
 {
+    public const string ForwardToHeader = "X-Watashi-Forward-To";
+
     private readonly IHttpClientFactory _http;
     private readonly IConfiguration _cfg;
     private readonly ConcurrentDictionary<string, Uri> _baseUriCache = new();
@@ -28,15 +30,26 @@ public class AgentForwarder
 
     private HttpClient Client(ExecutionNode node)
     {
-        if (string.IsNullOrWhiteSpace(node.Endpoint))
-            throw new InvalidOperationException($"Node {node.Id} に Endpoint が設定されていません。");
+        var entryNode = node.GatewayNode ?? node;
+        if (string.IsNullOrWhiteSpace(entryNode.Endpoint))
+            throw new InvalidOperationException($"Node {entryNode.Id} に Endpoint が設定されていません。");
         var c = _http.CreateClient("agent");
-        c.BaseAddress = _baseUriCache.GetOrAdd(node.Endpoint, e => new Uri(e.TrimEnd('/') + "/"));
+        c.BaseAddress = _baseUriCache.GetOrAdd(entryNode.Endpoint, e => new Uri(e.TrimEnd('/') + "/"));
         c.Timeout = TimeSpan.FromMinutes(10);
         var sharedSecret = _cfg["Routing:SharedSecret"];
         if (!string.IsNullOrEmpty(sharedSecret) && !c.DefaultRequestHeaders.Contains("X-Watashi-Secret"))
             c.DefaultRequestHeaders.Add("X-Watashi-Secret", sharedSecret);
         return c;
+    }
+
+    private static void ApplyGatewayHeader(HttpRequestMessage req, ExecutionNode node)
+    {
+        if (node.GatewayNodeId is null) return;
+        if (node.GatewayNode is null)
+            throw new InvalidOperationException($"Node {node.Id} は GatewayNodeId={node.GatewayNodeId} ですが GatewayNode が読み込まれていません。");
+        if (string.IsNullOrWhiteSpace(node.Endpoint))
+            throw new InvalidOperationException($"Gateway 経由の対象 Node {node.Id} に Endpoint が設定されていません。");
+        req.Headers.Add(ForwardToHeader, node.Endpoint);
     }
 
     private static object BuildBody(CifsConnectionInfo info, object? extra = null)
@@ -65,7 +78,12 @@ public class AgentForwarder
     {
         var c = Client(node);
         var body = BuildBody(info, new { path });
-        using var res = await c.PostAsJsonAsync("agent/files/list", body, ct);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/files/list")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await c.SendAsync(req, ct);
         res.EnsureSuccessStatusCode();
         var list = await res.Content.ReadFromJsonAsync<List<FileEntry>>(cancellationToken: ct);
         return list ?? new List<FileEntry>();
@@ -79,6 +97,7 @@ public class AgentForwarder
         {
             Content = JsonContent.Create(body),
         };
+        ApplyGatewayHeader(req, node);
         var res = await c.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!res.IsSuccessStatusCode)
         {
@@ -101,6 +120,7 @@ public class AgentForwarder
             Content = content,
         };
         req.Headers.Add("X-Watashi-Cifs", header);
+        ApplyGatewayHeader(req, node);
         using var res = await c.SendAsync(req, ct);
         res.EnsureSuccessStatusCode();
     }
@@ -109,7 +129,12 @@ public class AgentForwarder
     {
         var c = Client(node);
         var body = BuildBody(info, new { path });
-        using var res = await c.PostAsJsonAsync("agent/files/delete", body, ct);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/files/delete")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await c.SendAsync(req, ct);
         res.EnsureSuccessStatusCode();
     }
 
@@ -117,7 +142,12 @@ public class AgentForwarder
     {
         var c = Client(node);
         var body = BuildBody(info, new { oldPath, newPath });
-        using var res = await c.PostAsJsonAsync("agent/files/rename", body, ct);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/files/rename")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await c.SendAsync(req, ct);
         res.EnsureSuccessStatusCode();
     }
 
@@ -125,7 +155,12 @@ public class AgentForwarder
     {
         var c = Client(node);
         var body = BuildBody(info, new { path });
-        using var res = await c.PostAsJsonAsync("agent/files/mkdir", body, ct);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/files/mkdir")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await c.SendAsync(req, ct);
         res.EnsureSuccessStatusCode();
     }
 
@@ -133,7 +168,12 @@ public class AgentForwarder
     {
         var c = Client(node);
         var body = BuildBody(info);
-        using var res = await c.PostAsJsonAsync("agent/test-connection", body, ct);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/test-connection")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await c.SendAsync(req, ct);
         if (!res.IsSuccessStatusCode) return false;
         using var stream = await res.Content.ReadAsStreamAsync(ct);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);

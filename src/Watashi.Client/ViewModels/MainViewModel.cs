@@ -17,6 +17,8 @@ public partial class MainViewModel : ObservableObject
     public TransferViewModel Transfer { get; } = new();
 
     [ObservableProperty] private string statusMessage = string.Empty;
+    [ObservableProperty] private string latestStatusMessage = string.Empty;
+    private string? latestStatusSource;
     public bool IsAdmin => _session.IsAdmin;
     public string? Username => _session.Username;
     public string ProtocolLabel { get; }
@@ -25,6 +27,34 @@ public partial class MainViewModel : ObservableObject
     {
         _api = api; _session = session; Local = local; Remote = remote;
         ProtocolLabel = settings.IsHttps ? "HTTPS" : "HTTP";
+        Local.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(LocalPaneViewModel.StatusMessage))
+                PromoteStatus("ローカル", Local.StatusMessage);
+        };
+        Remote.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(RemotePaneViewModel.StatusMessage))
+                PromoteStatus("リモート", Remote.StatusMessage);
+        };
+    }
+
+    partial void OnStatusMessageChanged(string value) => PromoteStatus("操作", value);
+
+    private void PromoteStatus(string source, string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            if (latestStatusSource == source)
+            {
+                latestStatusSource = null;
+                LatestStatusMessage = string.Empty;
+            }
+            return;
+        }
+
+        latestStatusSource = source;
+        LatestStatusMessage = $"{DateTime.Now:HH:mm:ss} {source}: {message}";
     }
 
     [RelayCommand]
