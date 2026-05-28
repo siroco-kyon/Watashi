@@ -20,12 +20,14 @@ public class AgentForwarder
 
     private readonly IHttpClientFactory _http;
     private readonly IConfiguration _cfg;
+    private readonly ILogger<AgentForwarder> _log;
     private readonly ConcurrentDictionary<string, Uri> _baseUriCache = new();
 
-    public AgentForwarder(IHttpClientFactory http, IConfiguration cfg)
+    public AgentForwarder(IHttpClientFactory http, IConfiguration cfg, ILogger<AgentForwarder> log)
     {
         _http = http;
         _cfg = cfg;
+        _log = log;
     }
 
     private HttpClient Client(ExecutionNode node)
@@ -166,6 +168,7 @@ public class AgentForwarder
 
     public async Task<bool> TestAsync(ExecutionNode node, CifsConnectionInfo info, CancellationToken ct)
     {
+        var entryNode = node.GatewayNode ?? node;
         var c = Client(node);
         var body = BuildBody(info);
         using var req = new HttpRequestMessage(HttpMethod.Post, "agent/test-connection")
@@ -173,11 +176,43 @@ public class AgentForwarder
             Content = JsonContent.Create(body),
         };
         ApplyGatewayHeader(req, node);
-        using var res = await c.SendAsync(req, ct);
-        if (!res.IsSuccessStatusCode) return false;
-        using var stream = await res.Content.ReadAsStreamAsync(ct);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-        return doc.RootElement.TryGetProperty("ok", out var v) && v.GetBoolean();
+        var target = new Uri(c.BaseAddress!, req.RequestUri!).ToString();
+        try
+        {
+            using var res = await c.SendAsync(req, ct);
+            var responseBody = await res.Content.ReadAsStringAsync(ct);
+            if (!res.IsSuccessStatusCode)
+            {
+                _log.LogWarning(
+                    "Agent test HTTP failure node={NodeName} nodeId={NodeId} entryEndpoint={EntryEndpoint} target={Target} status={StatusCode} reason={ReasonPhrase} body={Body}",
+                    node.Name, node.Id, entryNode.Endpoint, target, (int)res.StatusCode, res.ReasonPhrase, TrimBody(responseBody));
+                return false;
+            }
+
+            using var doc = JsonDocument.Parse(responseBody);
+            var ok = doc.RootElement.TryGetProperty("ok", out var v) && v.GetBoolean();
+            if (!ok)
+            {
+                _log.LogWarning(
+                    "Agent test returned ok=false node={NodeName} nodeId={NodeId} entryEndpoint={EntryEndpoint} target={Target} body={Body}",
+                    node.Name, node.Id, entryNode.Endpoint, target, TrimBody(responseBody));
+            }
+            return ok;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.LogWarning(
+                ex,
+                "Agent test request failed node={NodeName} nodeId={NodeId} entryEndpoint={EntryEndpoint} target={Target}",
+                node.Name, node.Id, entryNode.Endpoint, target);
+            throw;
+        }
+    }
+
+    private static string TrimBody(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return "";
+        return body.Length <= 1000 ? body : body[..1000];
     }
 
     private static string EncodeCifsHeader(CifsConnectionInfo info, string path)
