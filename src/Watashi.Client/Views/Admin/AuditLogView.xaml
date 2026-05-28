@@ -23,7 +23,7 @@
                     </StackPanel>
                     <StackPanel Margin="0,0,16,4">
                         <TextBlock Text="Operation" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
-                        <TextBox Width="100" Text="{Binding FilterOp, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBox Width="130" Text="{Binding FilterOp, UpdateSourceTrigger=PropertyChanged}"/>
                     </StackPanel>
                     <StackPanel Margin="0,0,16,4">
                         <TextBlock Text="From (UTC)" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
@@ -51,7 +51,7 @@
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="60"/>
                         <GridViewColumn Header="時刻" DisplayMemberBinding="{Binding Timestamp, Converter={StaticResource Utc}}" Width="160"/>
                         <GridViewColumn Header="User" DisplayMemberBinding="{Binding Username}" Width="120"/>
-                        <GridViewColumn Header="Op" DisplayMemberBinding="{Binding Operation}" Width="80"/>
+                        <GridViewColumn Header="Op" DisplayMemberBinding="{Binding OperationLabel}" Width="110"/>
                         <GridViewColumn Header="Result" DisplayMemberBinding="{Binding Result}" Width="70"/>
                         <GridViewColumn Header="ホスト / 共有" Width="220">
                             <GridViewColumn.CellTemplate>

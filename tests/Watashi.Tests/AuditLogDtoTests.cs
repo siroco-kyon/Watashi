@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
 using Xunit;
 
@@ -72,5 +73,18 @@ public class AuditLogDtoTests
             .Should().Be("-");
         AuditLogDto.FormatLocation(null, null, null, null, "admin-only")
             .Should().Be("admin-only");
+    }
+
+    [Theory]
+    [InlineData(Operations.List, "一覧表示")]
+    [InlineData(Operations.Download, "ダウンロード")]
+    [InlineData(Operations.Upload, "アップロード")]
+    [InlineData(Operations.Mkdir, "フォルダ作成")]
+    [InlineData(Operations.Read, "読み取り")]
+    [InlineData(Operations.Write, "書き込み")]
+    public void FormatOperation_returns_human_readable_label(string operation, string expected)
+    {
+        AuditLogDto.FormatOperation(operation).Should().Be(expected);
+        new AuditLogDto { Operation = operation }.OperationLabel.Should().Be(expected);
     }
 }

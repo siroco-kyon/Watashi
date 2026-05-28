@@ -6,6 +6,10 @@ public static class Operations
     public const string Write = "WRITE";
     public const string Delete = "DELETE";
     public const string Rename = "RENAME";
+    public const string List = "LIST";
+    public const string Download = "DOWNLOAD";
+    public const string Upload = "UPLOAD";
+    public const string Mkdir = "MKDIR";
 }
 
 public static class AdminOperations
