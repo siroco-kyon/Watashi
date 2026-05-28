@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Data;
+using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
 using Watashi.Shared.Helpers;
 using Watashi.Shared.Models;
@@ -71,7 +72,7 @@ public static class AdminLogEndpoints
             await using var writer = new StreamWriter(ctx.Response.Body, Encoding.UTF8, leaveOpen: true);
             // 「どこのどの共有のどのパスか」が一目で分かるよう Location 列を追加。
             // 既存運用のために HostId/ShareId/Path/HostName/ShareName 各列もそのまま残す。
-            await writer.WriteLineAsync("Id,Timestamp,Username,Operation,Location,HostId,HostName,ShareId,ShareName,Path,TargetPath,Result,Error,ClientIp,Bytes,DurationMs,Protocol,NodeId,PermId");
+            await writer.WriteLineAsync("Id,Timestamp,Username,Operation,OperationLabel,Location,HostId,HostName,ShareId,ShareName,Path,TargetPath,Result,Error,ClientIp,Bytes,DurationMs,Protocol,NodeId,PermId");
 
             int batched = 0;
             await foreach (var l in q.AsAsyncEnumerable().WithCancellation(ct))
@@ -82,6 +83,7 @@ public static class AdminLogEndpoints
                     l.Timestamp.ToString("o"),
                     l.Username,
                     l.Operation,
+                    AuditLogDto.FormatOperation(l.Operation),
                     AuditLogDto.FormatLocation(l.HostName, l.HostId, l.ShareName, l.ShareId, l.Path),
                     l.HostId?.ToString() ?? string.Empty,
                     l.HostName ?? string.Empty,
@@ -111,10 +113,29 @@ public static class AdminLogEndpoints
     private static IQueryable<AuditLog> ApplyFilter(IQueryable<AuditLog> q, string? user, string? op, DateTime? from, DateTime? to)
     {
         if (!string.IsNullOrWhiteSpace(user)) q = q.Where(l => l.Username == user);
-        if (!string.IsNullOrWhiteSpace(op)) q = q.Where(l => l.Operation == op);
+        var operation = NormalizeOperationFilter(op);
+        if (!string.IsNullOrWhiteSpace(operation)) q = q.Where(l => l.Operation == operation);
         if (from.HasValue) q = q.Where(l => l.Timestamp >= from.Value);
         if (to.HasValue) q = q.Where(l => l.Timestamp <= to.Value);
         return q;
+    }
+
+    private static string? NormalizeOperationFilter(string? op)
+    {
+        if (string.IsNullOrWhiteSpace(op)) return null;
+        var value = op.Trim();
+        return value switch
+        {
+            "一覧表示" => Operations.List,
+            "ダウンロード" => Operations.Download,
+            "アップロード" => Operations.Upload,
+            "フォルダ作成" => Operations.Mkdir,
+            "読み取り" => Operations.Read,
+            "書き込み" => Operations.Write,
+            "削除" => Operations.Delete,
+            "リネーム" => Operations.Rename,
+            _ => value.ToUpperInvariant(),
+        };
     }
 
     private static string Csv(string s) => CsvHelper.Escape(s);

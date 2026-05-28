@@ -51,7 +51,7 @@ public static class FileEndpoints
                     TotalCount = total,
                 };
                 return Results.Ok(response);
-            });
+            }, auditOperation: Operations.List);
         });
 
         group.MapGet("/download", async (
@@ -71,7 +71,7 @@ public static class FileEndpoints
                 await stream.CopyToAsync(counting, 4 * 1024 * 1024, ct);
                 ctx.Items["bytes"] = counting.BytesWritten;
                 return Results.Empty;
-            });
+            }, auditOperation: Operations.Download);
         });
 
         group.MapPost("/upload", async (
@@ -87,7 +87,7 @@ public static class FileEndpoints
                 await router.UploadAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, counting, ct);
                 ctx.Items["bytes"] = counting.BytesWritten;
                 return Results.NoContent();
-            });
+            }, auditOperation: Operations.Upload);
         });
 
         group.MapDelete("/", async (
@@ -144,7 +144,7 @@ public static class FileEndpoints
             {
                 await router.MkdirAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct);
                 return Results.NoContent();
-            });
+            }, auditOperation: Operations.Mkdir);
         });
 
         return app;
@@ -163,13 +163,15 @@ public static class FileEndpoints
         string operation, int hostId, int shareId, string path,
         AppDbContext db, EncryptionService enc, PermissionService perms,
         CancellationToken ct,
-        Func<AuthCheck, ExecutionContext, Task<object>> body)
+        Func<AuthCheck, ExecutionContext, Task<object>> body,
+        string? auditOperation = null)
     {
         var sw = Stopwatch.StartNew();
+        var logOperation = auditOperation ?? operation;
         var auth = await ResolveAuthAsync(principal, hostId, shareId, path, operation, perms);
         if (auth.Failure is not null)
         {
-            await audit.LogAsync(principal, ctx, operation, hostId, shareId, path,
+            await audit.LogAsync(principal, ctx, logOperation, hostId, shareId, path,
                 AuditResults.Failure, "denied", durationMs: sw.ElapsedMilliseconds, ct: ct);
             return auth.Failure;
         }
@@ -183,7 +185,7 @@ public static class FileEndpoints
             if (raw is FailureResult fr)
             {
                 var tgt = ctx.Items.TryGetValue("targetPath", out var t) ? t as string : null;
-                await audit.LogAsync(principal, ctx, operation, hostId, shareId, auth.NormalizedPath,
+                await audit.LogAsync(principal, ctx, logOperation, hostId, shareId, auth.NormalizedPath,
                     AuditResults.Failure, fr.Reason, targetPath: tgt,
                     durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
                     usedPermissionId: auth.PermissionId, ct: ct);
@@ -191,7 +193,7 @@ public static class FileEndpoints
             }
             var bytes = ctx.Items.TryGetValue("bytes", out var b) ? b as long? : null;
             var targetPath = ctx.Items.TryGetValue("targetPath", out var t2) ? t2 as string : null;
-            await audit.LogAsync(principal, ctx, operation, hostId, shareId, auth.NormalizedPath,
+            await audit.LogAsync(principal, ctx, logOperation, hostId, shareId, auth.NormalizedPath,
                 AuditResults.Success, targetPath: targetPath,
                 bytesTransferred: bytes,
                 durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
@@ -201,7 +203,7 @@ public static class FileEndpoints
         catch (NodeUnreachableException nue)
         {
             var bytes = ctx.Items.TryGetValue("bytes", out var b) ? b as long? : null;
-            await audit.LogAsync(principal, ctx, operation, hostId, shareId, auth.NormalizedPath,
+            await audit.LogAsync(principal, ctx, logOperation, hostId, shareId, auth.NormalizedPath,
                 AuditResults.Failure, nue.Message, bytesTransferred: bytes,
                 durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
                 usedPermissionId: auth.PermissionId, ct: ct);
@@ -210,7 +212,7 @@ public static class FileEndpoints
         catch (Exception ex)
         {
             var bytes = ctx.Items.TryGetValue("bytes", out var b) ? b as long? : null;
-            await audit.LogAsync(principal, ctx, operation, hostId, shareId, auth.NormalizedPath,
+            await audit.LogAsync(principal, ctx, logOperation, hostId, shareId, auth.NormalizedPath,
                 AuditResults.Failure, ex.Message, bytesTransferred: bytes,
                 durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
                 usedPermissionId: auth.PermissionId, ct: ct);

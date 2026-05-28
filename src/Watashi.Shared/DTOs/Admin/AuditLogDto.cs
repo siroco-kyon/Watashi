@@ -1,3 +1,5 @@
+using Watashi.Shared.Constants;
+
 namespace Watashi.Shared.DTOs.Admin;
 
 public class AuditLogDto
@@ -24,6 +26,7 @@ public class AuditLogDto
     public string? Protocol { get; set; }
     public int? ExecutionNodeId { get; set; }
     public int? UsedPermissionId { get; set; }
+    public string OperationLabel => FormatOperation(Operation);
 
     /// <summary>
     /// 「ホスト / 共有 :: パス」の人間向けまとめ表示。
@@ -42,4 +45,17 @@ public class AuditLogDto
         string p = string.IsNullOrEmpty(path) ? "-" : path;
         return $"{host} / {share} :: {p}";
     }
+
+    public static string FormatOperation(string? operation) => operation switch
+    {
+        Operations.List => "一覧表示",
+        Operations.Download => "ダウンロード",
+        Operations.Upload => "アップロード",
+        Operations.Mkdir => "フォルダ作成",
+        Operations.Read => "読み取り",
+        Operations.Write => "書き込み",
+        Operations.Delete => "削除",
+        Operations.Rename => "リネーム",
+        _ => string.IsNullOrWhiteSpace(operation) ? "-" : operation,
+    };
 }
