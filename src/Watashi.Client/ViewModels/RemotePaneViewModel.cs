@@ -29,20 +29,29 @@ public partial class RemotePaneViewModel : ObservableObject
     [ObservableProperty] private bool canGoUp;
 
     public bool HasLocation => SelectedLocation is not null;
+    public bool HasLocations => Locations.Count > 0;
     public bool HasNoLocations => Locations.Count == 0;
+    public bool NeedsLocationSelection => Locations.Count > 0 && SelectedLocation is null;
 
     public RemotePaneViewModel(ApiClient api)
     {
         _api = api;
-        Locations.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoLocations));
+        Locations.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasLocations));
+            OnPropertyChanged(nameof(HasNoLocations));
+            OnPropertyChanged(nameof(NeedsLocationSelection));
+        };
     }
 
     partial void OnSelectedLocationChanged(LocationDto? value)
     {
         OnPropertyChanged(nameof(HasLocation));
+        OnPropertyChanged(nameof(NeedsLocationSelection));
         if (value is null)
         {
             Entries.Clear();
+            Selected = null;
             CurrentPath = "/";
             CanGoUp = false;
             CanGoBack = false;
@@ -52,6 +61,7 @@ public partial class RemotePaneViewModel : ObservableObject
         _back.Clear();
         _forward.Clear();
         UpdateHistoryFlags();
+        Selected = null;
         CurrentPath = value.Path;
         _ = RefreshAsync();
     }
@@ -62,13 +72,25 @@ public partial class RemotePaneViewModel : ObservableObject
         try
         {
             IsBusy = true;
+            var previous = SelectedLocation;
             var catalog = await _api.GetUserCatalogAsync();
-            Locations.Clear();
+            var loaded = new List<LocationDto>();
             foreach (var h in catalog.Hosts)
                 foreach (var s in h.Shares)
                     foreach (var l in s.Locations)
-                        Locations.Add(l);
-            if (Locations.Count > 0) SelectedLocation = Locations[0];
+                        loaded.Add(l);
+
+            SelectedLocation = null;
+            Locations.Clear();
+            foreach (var l in loaded) Locations.Add(l);
+            if (previous is not null)
+            {
+                SelectedLocation = Locations.FirstOrDefault(l => l.PermissionId == previous.PermissionId)
+                    ?? Locations.FirstOrDefault(l =>
+                        l.HostId == previous.HostId &&
+                        l.ShareId == previous.ShareId &&
+                        string.Equals(l.Path, previous.Path, StringComparison.OrdinalIgnoreCase));
+            }
         }
         catch (Exception ex) { StatusMessage = "ロケーション取得失敗: " + ex.Message; }
         finally { IsBusy = false; }

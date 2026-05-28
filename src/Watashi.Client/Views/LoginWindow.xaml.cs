@@ -8,6 +8,8 @@ namespace Watashi.Client.Views;
 public partial class LoginWindow : Window
 {
     private LoginViewModel _vm;
+    public bool RememberDeviceRequested => _vm.RememberDevice;
+
     public LoginWindow(LoginViewModel vm)
     {
         InitializeComponent();

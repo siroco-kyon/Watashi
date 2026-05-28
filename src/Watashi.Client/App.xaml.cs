@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -84,11 +85,19 @@ public partial class App : Application
                 ShowMain();
                 return;
             }
-            catch { cred.ClearDeviceToken(); }
+            catch (ApiException ex) when (ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
+            {
+                cred.ClearDeviceToken();
+            }
+            catch
+            {
+                // Network errors, server-side HTTP policy, and locked accounts should not erase a valid remembered device.
+            }
         }
 
-        if (!ShowLogin()) { Shutdown(); return; }
+        if (!ShowLogin(out var rememberDevice)) { Shutdown(); return; }
         if (session.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
+        if (rememberDevice) await TrySaveTrustedDeviceAsync(api, cred);
         ShowMain();
     }
 
@@ -101,10 +110,30 @@ public partial class App : Application
         Console.Error.WriteLine($"[{title}] {ex}");
     }
 
-    private bool ShowLogin()
+    private bool ShowLogin(out bool rememberDevice)
     {
         var w = Services.GetRequiredService<LoginWindow>();
-        return w.ShowDialog() == true;
+        var ok = w.ShowDialog() == true;
+        rememberDevice = ok && w.RememberDeviceRequested;
+        return ok;
+    }
+
+    private static async Task TrySaveTrustedDeviceAsync(ApiClient api, CredentialStore cred)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            var trusted = await api.TrustDeviceAsync(Environment.MachineName, Environment.UserName, cts.Token);
+            cred.SaveDeviceToken(Environment.MachineName, Environment.UserName, trusted.DeviceToken);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                "この PC の記憶に失敗しました。次回起動時は通常ログインが必要です。\n\n" + ex.Message,
+                "Watashi - PC 記憶",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 
     private bool _logoutInProgress;

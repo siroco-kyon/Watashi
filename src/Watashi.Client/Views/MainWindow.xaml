@@ -344,6 +344,17 @@
                             </ListView.View>
                         </ListView>
 
+                        <!-- Empty state: locations granted but no remote connection selected -->
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Remote.NeedsLocationSelection, Converter={StaticResource BoolToVis}}"
+                                    Margin="20" IsHitTestVisible="False">
+                            <TextBlock Text="未接続" FontSize="28" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"
+                                       Margin="0,0,0,8"/>
+                            <TextBlock Text="リモート接続先が未選択です"
+                                       Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+
                         <!-- Empty state: no locations granted -->
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                                     Visibility="{Binding Remote.HasNoLocations, Converter={StaticResource BoolToVis}}"
