@@ -1,5 +1,5 @@
-Get-NetTCPConnection -LocalPort 8081 -State Listen |
-  Select-Object LocalAddress,LocalPort,OwningProcess
-
-$pid = (Get-NetTCPConnection -LocalPort 8081 -State Listen).OwningProcess
-Get-Process -Id $pid | Select-Object Id,ProcessName,Path
+curl.exe -v --noproxy "*" --max-time 30 ^
+  -H "X-Watashi-Secret: <共有秘密>" ^
+  -H "Content-Type: application/json" ^
+  --data "{\"host\":\"43.27.202.142\",\"port\":445,\"share\":\"Temp\",\"credUser\":\"CifsUser\",\"credPass\":\"<CIFSパスワード>\"}" ^
+  http://127.0.0.1:8081/agent/test-connection
