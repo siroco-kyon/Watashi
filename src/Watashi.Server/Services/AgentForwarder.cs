@@ -237,6 +237,7 @@ public static class AgentHttpClientConfig
         return builder.ConfigurePrimaryHttpMessageHandler(() =>
         {
             var handler = new HttpClientHandler();
+            handler.UseProxy = cfg.GetValue<bool>("Routing:UseProxy");
             var enable = cfg.GetValue<bool>("Routing:UseMtls");
             var path = cfg["Routing:ClientCertificatePath"];
             var password = cfg["Routing:ClientCertificatePassword"];
