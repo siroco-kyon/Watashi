@@ -1,0 +1,5 @@
+Get-NetTCPConnection -LocalPort 8081 -State Listen |
+  Select-Object LocalAddress,LocalPort,OwningProcess
+
+$pid = (Get-NetTCPConnection -LocalPort 8081 -State Listen).OwningProcess
+Get-Process -Id $pid | Select-Object Id,ProcessName,Path
