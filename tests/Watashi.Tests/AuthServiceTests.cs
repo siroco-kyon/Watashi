@@ -65,18 +65,54 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task Five_failed_logins_locks_account()
+    public async Task Failed_logins_lock_account_at_default_threshold()
     {
         using var db = new TestDb();
         var user = await SeedUserAsync(db);
         var svc = Build(db);
-        for (int i = 0; i < 5; i++)
+
+        // デフォルトしきい値は 15。14 回ではまだロックされない。
+        for (int i = 0; i < 14; i++)
             await svc.LoginAsync("alice", "wrong", clientIp: null);
+        var beforeLock = await db.Db.Users.FindAsync(user.Id);
+        beforeLock!.IsLocked.Should().BeFalse();
+
+        // 15 回目でロック。
+        await svc.LoginAsync("alice", "wrong", clientIp: null);
+        db.Db.ChangeTracker.Clear();
         var fresh = await db.Db.Users.FindAsync(user.Id);
         fresh!.IsLocked.Should().BeTrue();
 
         var locked = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
         locked.Failure.Should().Be(LoginFailureReason.AccountLocked);
+    }
+
+    [Fact]
+    public async Task Lockout_threshold_is_configurable_via_system_setting()
+    {
+        using var db = new TestDb();
+        var user = await SeedUserAsync(db);
+        // 管理者が MaxFailedLoginAttempts を 3 に設定。
+        db.Db.SystemSettings.Add(new SystemSetting
+        {
+            Key = SettingKeys.MaxFailedLoginAttempts,
+            Value = "3",
+            UpdatedAt = DateTime.UtcNow,
+        });
+        await db.Db.SaveChangesAsync();
+        var svc = Build(db);
+
+        // 2 回ではまだロックされない。
+        for (int i = 0; i < 2; i++)
+            await svc.LoginAsync("alice", "wrong", clientIp: null);
+        var beforeLock = await db.Db.Users.FindAsync(user.Id);
+        beforeLock!.IsLocked.Should().BeFalse();
+
+        // 3 回目でロック。
+        await svc.LoginAsync("alice", "wrong", clientIp: null);
+        db.Db.ChangeTracker.Clear();
+        var fresh = await db.Db.Users.FindAsync(user.Id);
+        fresh!.IsLocked.Should().BeTrue();
     }
 
     [Fact]

@@ -66,7 +66,7 @@
 |---|---|---|
 | 新規ユーザー作成 | 右パネルに Username / Password (目玉アイコンで表示確認可) / 管理者チェック → 「作成」 | `ADMIN_USER_CREATE` |
 | 削除 | 行選択 → 「🗑 削除」 (確認ダイアログ) | `ADMIN_USER_DELETE` |
-| ロック解除 | 5 連続失敗でロックされたユーザーを行選択 → 「🔓 ロック解除」 | `ADMIN_USER_UNLOCK` |
+| ロック解除 | 連続失敗 (既定 15 回) でロックされたユーザーを行選択 → 「🔓 ロック解除」 | `ADMIN_USER_UNLOCK` |
 | 管理者フラグ変更 | PATCH 経由 | `ADMIN_USER_UPDATE` |
 | PW リセット | 行選択 → 「🔑 PWリセット」 → ダイアログ (目玉アイコン付き) で新パスワード入力 | `ADMIN_USER_RESET_PW` |
 | 全デバイス失効 | 信頼デバイスタブから | `ADMIN_USER_REVOKE_DEVICES` |
@@ -388,6 +388,7 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 | `AgentMaxConcurrency` | Agent 新規登録時のデフォルト (デフォルト 20) |
 | `SessionIdleMinutes` | クライアントアイドルタイムアウト (デフォルト 30) ※ログイン時にクライアントへ配信される |
 | `AuditLogRetentionDays` | **監査ログ保管日数 (デフォルト 365)**。`AuditLogPurgeService` が日次で古いログを自動削除する。`0` 以下を指定すると削除しない (永久保管) |
+| `MaxFailedLoginAttempts` | **連続ログイン失敗で自動ロックするまでの回数 (デフォルト 15)**。値を小さくするほど総当たり耐性は上がるが、誤入力でのロックも起きやすくなる |
 
 行選択 → 編集欄で値を変更 → 「保存」。
 監査ログ: `ADMIN_SETTING_UPDATE`（Path に `setting:PasswordExpiryDays` 形式で対象キーを保持）

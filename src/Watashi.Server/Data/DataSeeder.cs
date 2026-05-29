@@ -17,13 +17,16 @@ public static class DataSeeder
                 new SystemSetting { Key = SettingKeys.PasswordWarningDays, Value = "14", UpdatedAt = now },
                 new SystemSetting { Key = SettingKeys.AgentMaxConcurrency, Value = "20", UpdatedAt = now },
                 new SystemSetting { Key = SettingKeys.SessionIdleMinutes, Value = "30", UpdatedAt = now },
-                new SystemSetting { Key = SettingKeys.AuditLogRetentionDays, Value = "365", UpdatedAt = now });
+                new SystemSetting { Key = SettingKeys.AuditLogRetentionDays, Value = "365", UpdatedAt = now },
+                new SystemSetting { Key = SettingKeys.MaxFailedLoginAttempts, Value = "15", UpdatedAt = now });
         }
         else
         {
-            // 既存 DB に AuditLogRetentionDays が無ければ補完
+            // 既存 DB に無い設定を補完
             if (!await db.SystemSettings.AnyAsync(s => s.Key == SettingKeys.AuditLogRetentionDays, ct))
                 db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.AuditLogRetentionDays, Value = "365", UpdatedAt = now });
+            if (!await db.SystemSettings.AnyAsync(s => s.Key == SettingKeys.MaxFailedLoginAttempts, ct))
+                db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.MaxFailedLoginAttempts, Value = "15", UpdatedAt = now });
         }
 
         if (!await db.PermissionTemplates.AnyAsync(ct))

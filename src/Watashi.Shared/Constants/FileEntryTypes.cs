@@ -28,4 +28,5 @@ public static class SettingKeys
     public const string AgentMaxConcurrency = "AgentMaxConcurrency";
     public const string SessionIdleMinutes = "SessionIdleMinutes";
     public const string AuditLogRetentionDays = "AuditLogRetentionDays";
+    public const string MaxFailedLoginAttempts = "MaxFailedLoginAttempts";
 }

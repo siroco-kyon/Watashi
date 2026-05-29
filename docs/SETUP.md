@@ -884,7 +884,7 @@ Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
 ```
 
 ### ログインできない
-- ロックされている (5 連続失敗): 管理画面でロック解除、または DB を直接更新
+- ロックされている (連続失敗、既定 15 回): 管理画面でロック解除、または DB を直接更新
   ```sql
   UPDATE Users SET IsLocked=0, FailedLoginCount=0 WHERE Username='alice';
   ```

@@ -205,7 +205,7 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 
 ### 4.6 アカウント保護
 
-- **5 回連続失敗で自動ロック** (`MaxFailedAttempts=5`)。解除は管理者のみ
+- **15 回連続失敗で自動ロック** (`MaxFailedLoginAttempts`、既定 15、管理画面で変更可)。解除は管理者のみ
 - ユーザー列挙対策: 存在しないユーザーでもロックせず、エラーメッセージは共通
 - **ログインレート制限**: `/api/auth/login` と `/api/auth/auto-login` に
   **IP 単位の固定ウィンドウ (デフォルト 10 回/分、`login-ip`)**。超過で 429
@@ -403,7 +403,7 @@ CSV エクスポート (BOM 付き UTF-8、`AsNoTracking` + `Select` 射影で�
 
 ### 8.10 システム設定
 `PasswordExpiryDays` (90) / `PasswordWarningDays` (14) / `AgentMaxConcurrency` (20) /
-`SessionIdleMinutes` (30) / `AuditLogRetentionDays` (365)。
+`SessionIdleMinutes` (30) / `AuditLogRetentionDays` (365) / `MaxFailedLoginAttempts` (15)。
 
 ---
 
@@ -624,7 +624,7 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 
 | 攻撃 | 対策 |
 |---|---|
-| クレデンシャル総当たり | bcrypt + 5 回ロック + IP レート制限 (10/分) |
+| クレデンシャル総当たり | bcrypt + 15 回ロック (既定、管理画面で変更可) + IP レート制限 (10/分) |
 | ユーザー列挙 | 存在しないユーザーでもロックしない、レート制限は IP 単位 |
 | リフレッシュトークン盗難 | ローテーション + 再利用検知でファミリー失効 |
 | Agent なりすまし | mTLS でサーバー証明書を Thumbprint レベルで確認 |
@@ -670,6 +670,7 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 | `AgentMaxConcurrency` | 20 | Agent 同時接続上限 |
 | `SessionIdleMinutes` | 30 | アイドルタイムアウト (分) |
 | `AuditLogRetentionDays` | 365 | 監査ログ保持日数 (0 以下で永久保管) |
+| `MaxFailedLoginAttempts` | 15 | 連続ログイン失敗で自動ロックするまでの回数 |
 
 ### 13.4 Agent (appsettings.json)
 
