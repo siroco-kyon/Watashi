@@ -58,8 +58,8 @@
                 </StackPanel>
             </Border>
 
-            <Button Content="接続設定" Style="{StaticResource GhostButton}"
-                    Click="OnOpenSettings"
+            <Button Content="接続テスト" Style="{StaticResource GhostButton}"
+                    Click="OnConnectionTest"
                     HorizontalAlignment="Center" Margin="0,12,0,0"/>
         </StackPanel>
     </Grid>

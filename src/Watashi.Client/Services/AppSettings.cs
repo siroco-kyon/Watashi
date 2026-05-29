@@ -6,32 +6,29 @@ namespace Watashi.Client.Services;
 
 public class AppSettings
 {
-    public string ServerUrl { get; set; } = string.Empty;
     /// <summary>
-    /// URL を持たない入力時に scheme を補う既定値。実際の通信プロトコルは ServerUrl のスキームが真。
+    /// 接続先サーバ URL。アプリ同梱の deployment.json で起動時に設定される (<see cref="DeploymentConfig"/>)。
+    /// クライアントからは変更できないため settings.json には保存しない。
     /// </summary>
-    public string Protocol { get; set; } = "HTTPS";
+    [JsonIgnore]
+    public string ServerUrl { get; set; } = string.Empty;
 
     /// <summary>
-    /// ClickOnce 配布サーバ等に置いた watashi-config.json の URL。
-    /// 設定されていると起動時に取得して ServerUrl を自動更新する (管理者一元管理)。
-    /// 例: https://watashi.internal/install/watashi-config.json
+    /// ペイン間およびエクスプローラからのドラッグ＆ドロップ転送の有効/無効。
+    /// deployment.json で配布時に固定する。クライアントからは変更できないため保存しない。
+    /// 機能ごと不要になったら MainWindow.DragDrop.cs を削除すればよい。
     /// </summary>
-    public string BootstrapUrl { get; set; } = string.Empty;
+    [JsonIgnore]
+    public bool EnableDragDrop { get; set; } = true;
 
     public string LastLocalPath { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 実際に HTTPS で通信しているか。Protocol フィールドではなく ServerUrl のスキームで判定する。
-    /// </summary>
+    /// <summary>実際に HTTPS で通信しているか。ServerUrl のスキームで判定する。</summary>
     [JsonIgnore]
     public bool IsHttps => ServerUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 
     [JsonIgnore]
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ServerUrl);
-
-    [JsonIgnore]
-    public bool HasBootstrap => !string.IsNullOrWhiteSpace(BootstrapUrl);
 
     private static string SettingsPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Watashi", "settings.json");

@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-05-29 — 接続先・D&D の配布時固定 (deployment.json) / 接続設定画面の廃止
+
+### 変更 (破壊的)
+
+- **接続先サーバと D&D 可否を、アプリ同梱の読み取り専用 `deployment.json` で配布時に固定**するようにした。管理者が発行前に編集し、利用者 (クライアント) からは変更できない。
+  - `src/Watashi.Client/deployment.json` (`serverUrl` / `enableDragDrop`) を新設。`<Content CopyToOutputDirectory="PreserveNewest">` で発行物に同梱
+  - `Services/DeploymentConfig.cs` を追加。起動時に exe と同じ場所の deployment.json を読み、`AppSettings` に上書き適用 (`settings.json` より優先)
+  - deployment.json 欠落 / `serverUrl` 未設定時は「配布設定エラー」を表示して終了 (利用者は接続先を変更できないため、設定画面は出さない)
+- **接続設定画面を廃止し「接続テスト」のみ残した** — ログイン画面のボタンを「接続設定」→「接続テスト」に変更。現在の接続先 (deployment.json 由来) を読み取り専用表示し、`/health` への疎通確認のみ可能。サーバ URL / プロトコル / D&D のクライアント編集 UI は撤去
+- **BootstrapUrl / `watashi-config.json` 方式を廃止** — `BootstrapService` と HTTP 取得による接続先一元管理を削除。.NET 8 ClickOnce は旧 `ApplicationDeployment` API が無く実行時の配布 URL 取得が困難なため、同梱方式へ変更。`AppSettings` から `BootstrapUrl` / `Protocol` を削除し、`ServerUrl` / `EnableDragDrop` は `settings.json` に保存しない (deployment.json が真実)
+- 未使用になった `ProtocolToBoolConverter` を削除 (`NotBoolConverter` は別ファイルへ移動)
+
+### 文書
+
+- `README.md` / `docs/FEATURES.md` / `docs/USER-GUIDE.md` / `docs/SETUP.md` / `docs/DEVELOPMENT.md` / `deploy/IIS-HOSTING.md` を deployment.json 方式に合わせて更新。Bootstrap / 接続設定画面の記述を削除
+- `ClickOnceProfile.pubxml` に「deployment.json を編集してから発行」手順を追記
+
+---
+
 ## 2026-05-26 (Update 2) — ファイル一覧の右クリックメニューとリネーム機能
 
 ### UX 改善

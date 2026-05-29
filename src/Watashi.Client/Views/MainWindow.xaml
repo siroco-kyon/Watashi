@@ -74,19 +74,21 @@
                 BorderThickness="0,0,0,1"
                 Padding="18,10">
             <StackPanel Orientation="Horizontal">
-                <Button Command="{Binding UploadCommand}"
+                <Button Click="OnUpload"
                         Style="{StaticResource PrimaryButton}"
                         Margin="0,0,8,0"
-                        ToolTip="ローカルで選択中のファイルをリモートへアップロード">
+                        IsEnabled="{Binding Transfer.IsActive, Converter={StaticResource NotBool}}"
+                        ToolTip="ローカルで選択中のファイル/フォルダ (複数可) をリモートへアップロード">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="⬆" FontSize="13" Margin="0,0,6,0"/>
                         <TextBlock Text="アップロード"/>
                     </StackPanel>
                 </Button>
-                <Button Command="{Binding DownloadCommand}"
+                <Button Click="OnDownload"
                         Style="{StaticResource PrimaryButton}"
                         Margin="0,0,16,0"
-                        ToolTip="リモートで選択中のファイルをローカルへダウンロード">
+                        IsEnabled="{Binding Transfer.IsActive, Converter={StaticResource NotBool}}"
+                        ToolTip="リモートで選択中のファイル/フォルダ (複数可) をローカルへダウンロード">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="⬇" FontSize="13" Margin="0,0,6,0"/>
                         <TextBlock Text="ダウンロード"/>
@@ -125,6 +127,33 @@
             </StackPanel>
         </Border>
 
+        <!-- ===== Error banner (失敗/エラーを赤帯で強調。✕ で閉じる) ===== -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource DangerSoftBrush}"
+                BorderBrush="{StaticResource DangerBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="18,10"
+                Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right"
+                        Command="{Binding DismissErrorCommand}"
+                        Content="✕"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="{StaticResource DangerBrush}"
+                        FontWeight="Bold"
+                        Cursor="Hand"
+                        Padding="10,0"
+                        ToolTip="このメッセージを閉じる"/>
+                <TextBlock Foreground="{StaticResource DangerBrush}"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center">
+                    <Run Text="⚠ "/><Run Text="{Binding ErrorMessage, Mode=OneWay}"/>
+                </TextBlock>
+            </DockPanel>
+        </Border>
+
         <!-- ===== Status Bar ===== -->
         <StatusBar DockPanel.Dock="Bottom">
             <StatusBarItem>
@@ -157,10 +186,13 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock FontSize="12" Foreground="{StaticResource TextSecondaryBrush}">
                         <Run Text="転送中:"/> <Run Text="{Binding Transfer.FileName, Mode=OneWay}" FontWeight="SemiBold"/>
+                        <Run Text="   "/><Run Text="{Binding Transfer.SpeedText, Mode=OneWay}"/>
+                        <Run Text="   残り "/><Run Text="{Binding Transfer.EtaText, Mode=OneWay}"/>
                     </TextBlock>
                     <ProgressBar Minimum="0"
                                  Maximum="{Binding Transfer.TotalBytes}"
@@ -171,6 +203,11 @@
                            FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}">
                     <Run Text="{Binding Transfer.Percent, Mode=OneWay}"/><Run Text="%"/>
                 </TextBlock>
+                <Button Grid.Column="2" Margin="14,0,0,0" VerticalAlignment="Center" MinWidth="92"
+                        Command="{Binding CancelTransferCommand}"
+                        Style="{StaticResource DangerButton}"
+                        ToolTip="進行中の転送を中止します"
+                        Content="キャンセル"/>
             </Grid>
         </Border>
 
@@ -220,10 +257,19 @@
                                  KeyDown="OnLocalPathKeyDown"/>
                     </DockPanel>
 
-                    <ListView ItemsSource="{Binding Local.Entries}"
+                    <DockPanel DockPanel.Dock="Top" Margin="10,0,10,8">
+                        <TextBlock Text="🔍" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="2,0,6,0"/>
+                        <TextBox Text="{Binding Local.FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="この一覧を名前で絞り込み (部分一致)"/>
+                    </DockPanel>
+
+                    <ListView x:Name="LocalList"
+                              ItemsSource="{Binding Local.Entries}"
                               SelectedItem="{Binding Local.Selected}"
+                              SelectionMode="Extended"
                               MouseDoubleClick="OnLocalDoubleClick"
                               KeyDown="OnLocalListKeyDown"
+                              GridViewColumnHeader.Click="OnLocalHeaderClick"
                               BorderThickness="0,1,0,0">
                         <ListView.ContextMenu>
                             <ContextMenu>
@@ -309,11 +355,21 @@
                                  IsEnabled="{Binding Remote.HasLocation}"/>
                     </DockPanel>
 
+                    <DockPanel DockPanel.Dock="Top" Margin="10,0,10,8">
+                        <TextBlock Text="🔍" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="2,0,6,0"/>
+                        <TextBox Text="{Binding Remote.FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding Remote.HasLocation}"
+                                 ToolTip="この一覧を名前で絞り込み (部分一致)"/>
+                    </DockPanel>
+
                     <Grid>
-                        <ListView ItemsSource="{Binding Remote.Entries}"
+                        <ListView x:Name="RemoteList"
+                                  ItemsSource="{Binding Remote.Entries}"
                                   SelectedItem="{Binding Remote.Selected}"
+                                  SelectionMode="Extended"
                                   MouseDoubleClick="OnRemoteDoubleClick"
                                   KeyDown="OnRemoteListKeyDown"
+                                  GridViewColumnHeader.Click="OnRemoteHeaderClick"
                                   BorderThickness="0,1,0,0">
                             <ListView.ContextMenu>
                                 <ContextMenu>

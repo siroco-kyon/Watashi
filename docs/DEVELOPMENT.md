@@ -76,10 +76,9 @@ Invoke-RestMethod http://127.0.0.1:18080/health
 
 # 3) クライアント起動
 cd ..\Watashi.Client
+# 接続先は同梱 deployment.json で固定。dev では serverUrl を http://127.0.0.1:18080 にしておく
 dotnet run
-# → 初回起動で接続設定ダイアログが出る
-# → http://127.0.0.1:18080 を入力 → 接続テスト → 保存
-# → admin でログイン → パスワード変更画面 → メイン画面
+# → ログイン画面 → admin でログイン → パスワード変更画面 → メイン画面
 ```
 
 ---
@@ -128,13 +127,11 @@ dotnet dev-certs https --check --trust
 
 ### ステップ 3 — クライアント側の接続先を切替
 
-クライアント起動後:
-1. ログイン画面下の **接続設定** リンクを押す
-2. サーバーURL: `https://localhost:18443`
-3. プロトコル: HTTPS が自動的に選択される
-4. **接続テスト** を押して `✓ 接続できました。` を確認
-5. 保存して閉じる
-6. ログイン → ヘッダー右上の表示が **HTTPS** になる
+接続先は `deployment.json` で固定されているため、HTTPS で検証したいときは
+`src\Watashi.Client\deployment.json` の `serverUrl` を `https://localhost:18443` に書き換えて再起動する
+(Content/PreserveNewest で bin にコピーされて反映)。
+起動後、ログイン画面下の **接続テスト** で `✓ 接続できました。` を確認でき、
+ログインするとヘッダー右上の表示が **HTTPS** になる。
 
 ### よくあるエラー
 
@@ -219,29 +216,19 @@ curl.exe -X POST http://127.0.0.1:18080/api/... `
 ASP.NET Core の dev 証明書は 1 年で期限切れ。
 切れた場合は `dotnet dev-certs https --clean` してから `--trust` で再作成。
 
-### `settings.json` の Protocol と URL の整合性
+### 接続先設定 (`deployment.json`) の確認
 
-クライアントの `%LocalAppData%\Watashi\settings.json` の `Protocol` フィールドはあくまで「URL に scheme が無い時の補完用」です。
-**実際の通信プロトコルは `ServerUrl` のスキームが真**。`AppSettings.IsHttps` は URL から判定します(セキュリティ上、保存フィールドではなく URL を信用)。
+接続先サーバと D&D 可否は exe と同じ場所の `deployment.json` で固定される。
+起動時に `DeploymentConfig.Apply` が読み込み、`AppSettings` に上書き適用する (`settings.json` より優先)。
+dev では `src\Watashi.Client\deployment.json` を編集すれば bin にコピーされて反映する:
 
-### BootstrapService の動作確認
-
-ローカルで Bootstrap 機能を確認したい場合は、テスト用の config を任意の HTTP サーバに置く:
-
-```powershell
-# 1) 簡易 HTTP サーバを立てる (Python があれば最速)
-cd $env:TEMP
-New-Item -ItemType Directory -Name watashi-bootstrap-test -Force | Out-Null
-cd watashi-bootstrap-test
-'{"serverUrl":"http://127.0.0.1:18080","notice":"dev bootstrap"}' | Set-Content watashi-config.json -Encoding UTF8
-python -m http.server 18090
-# → http://localhost:18090/watashi-config.json で配信される
+```jsonc
+{ "serverUrl": "http://127.0.0.1:18080", "enableDragDrop": true }
 ```
 
-別ウィンドウでクライアントを起動 → 接続設定 → **Bootstrap URL** に `http://localhost:18090/watashi-config.json` を入力 → 「取得テスト」で `✓ Bootstrap 取得成功` が出れば OK。
-
-`%LocalAppData%\Watashi\settings.json` に `BootstrapUrl` が保存され、以降は起動毎に自動取得される。
-config.json の `serverUrl` を書き換えると、次回起動でクライアントが追従する (オフライン時は前回値にフォールバック)。
+- `serverUrl` 未設定 / ファイル欠落時は「配布設定エラー」を表示して終了する (利用者は接続先を変更できない設計のため、設定画面は出さない)
+- `%LocalAppData%\Watashi\settings.json` には最終ローカルパス等のみ保存され、**接続先は保存されない**
+- `AppSettings.IsHttps` は `ServerUrl` のスキームから判定する (保存フィールドではなく URL を信用)
 
 ### ユーザー CSV のインポート/エクスポートを API から試す
 

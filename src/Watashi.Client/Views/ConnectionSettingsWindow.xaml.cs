@@ -11,9 +11,8 @@ public partial class ConnectionSettingsWindow : Window
         DataContext = vm;
     }
 
-    private void OnSaveAndCloseClick(object sender, RoutedEventArgs e)
+    private void OnCloseClick(object sender, RoutedEventArgs e)
     {
-        if (DataContext is ConnectionSettingsViewModel vm) vm.SaveCommand.Execute(null);
         DialogResult = true;
         Close();
     }

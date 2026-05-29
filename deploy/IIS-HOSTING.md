@@ -461,13 +461,14 @@ IIS の HTTPS binding が 8443 の場合:
 https://watashi.internal:8443
 ```
 
-Watashi.Client の接続設定、または ClickOnce 配布用の `watashi-config.json` にはこの URL を入れます。
+Watashi.Client の配布物に同梱する `deployment.json` の `serverUrl` にこの URL を入れます (発行前に編集、利用者は変更不可)。
 
 例:
 
 ```json
 {
-  "serverUrl": "https://watashi.internal"
+  "serverUrl": "https://watashi.internal",
+  "enableDragDrop": true
 }
 ```
 

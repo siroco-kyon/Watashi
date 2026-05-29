@@ -1,58 +1,34 @@
 <Window x:Class="Watashi.Client.Views.ConnectionSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="接続設定"
-        Width="600" Height="540"
+        Title="接続テスト"
+        Width="600" Height="380"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Icon="{StaticResource ToriiIcon}"
         Background="{StaticResource BgBrush}">
     <Border Margin="20" Style="{StaticResource Card}">
         <StackPanel>
-            <TextBlock Text="接続設定" Style="{StaticResource H2}" Margin="0,0,0,12"/>
+            <TextBlock Text="接続テスト" Style="{StaticResource H2}" Margin="0,0,0,8"/>
+            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
+                       Text="接続先サーバと機能設定は配布時に管理者が固定しています。ここでは現在の接続先への疎通確認のみ行えます。"/>
 
-            <!-- Bootstrap URL section (admin-managed) -->
+            <TextBlock Text="接続先サーバ" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
             <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="6" Padding="12" Margin="0,0,0,12">
-                <StackPanel>
-                    <TextBlock Text="Bootstrap URL (管理者設定 - 推奨)" Style="{StaticResource Muted}" FontWeight="SemiBold"/>
-                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,6"
-                               Text="ClickOnce 配布サーバ等に置いた watashi-config.json の URL。設定すると次回起動時に ServerUrl が自動更新されます。"/>
-                    <DockPanel>
-                        <Button Content="取得テスト" Command="{Binding FetchBootstrapCommand}"
-                                DockPanel.Dock="Right" MinWidth="100" Margin="6,0,0,0"/>
-                        <TextBox Text="{Binding BootstrapUrl, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="例: https://watashi.internal/install/watashi-config.json"/>
-                    </DockPanel>
-                </StackPanel>
+                <TextBlock Text="{Binding ServerUrl}" TextWrapping="Wrap" FontFamily="Consolas"/>
             </Border>
 
-            <!-- Server URL (manual override if no Bootstrap) -->
-            <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,4">
-                <Run Text="サーバーURL"/>
-                <Run Text=" (Bootstrap 未使用時のみ手動入力)" Foreground="{StaticResource TextMutedBrush}" FontSize="11"/>
+            <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,12">
+                <Run Text="ドラッグ＆ドロップ転送: "/><Run Text="{Binding DragDropStatus, Mode=OneWay}" FontWeight="SemiBold"/>
             </TextBlock>
-            <TextBox Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}"
-                     IsEnabled="{Binding ServerUrlInputEnabled}"
-                     Margin="0,0,0,14"/>
-
-            <TextBlock Text="プロトコル" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <RadioButton GroupName="proto" Content="HTTPS"
-                             IsChecked="{Binding Protocol, Converter={StaticResource ProtocolToBool}, ConverterParameter=HTTPS}"
-                             Margin="0,0,16,0"/>
-                <RadioButton GroupName="proto" Content="HTTP"
-                             IsChecked="{Binding Protocol, Converter={StaticResource ProtocolToBool}, ConverterParameter=HTTP}"/>
-                <TextBlock Text="⚠ HTTP は平文通信" Margin="14,0,0,0"
-                           Foreground="{StaticResource WarningBrush}"/>
-            </StackPanel>
 
             <TextBlock Text="{Binding StatusMessage}"
                        Foreground="{StaticResource SuccessBrush}" TextWrapping="Wrap" MinHeight="40"/>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                 <Button Content="接続テスト" Command="{Binding TestConnectionCommand}" MinWidth="110" Margin="0,0,8,0"/>
-                <Button Content="保存して閉じる" Style="{StaticResource PrimaryButton}"
-                        Click="OnSaveAndCloseClick" MinWidth="130"/>
+                <Button Content="閉じる" Style="{StaticResource PrimaryButton}"
+                        Click="OnCloseClick" MinWidth="100"/>
             </StackPanel>
         </StackPanel>
     </Border>

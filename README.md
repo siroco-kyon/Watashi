@@ -25,6 +25,7 @@ Agent は 1 台構成に加えて、HTTP + 共有秘密の `Server → Agent A �
 
 | 文書 | 内容 |
 |---|---|
+| **[docs/SPECIFICATION.md](docs/SPECIFICATION.md)** | 機能仕様書 — 全機能を 1 文書に統合した詳細仕様 (この 1 つで全体像が掴める) |
 | **[docs/FEATURES.md](docs/FEATURES.md)** | 機能カタログ — 何ができるか |
 | **[docs/SETUP.md](docs/SETUP.md)** | 環境構築 — 0 から動かすまで (3 通りのネットワーク構成) |
 | **[docs/USER-GUIDE.md](docs/USER-GUIDE.md)** | 利用者ガイド — ログインからファイル操作まで |
@@ -57,8 +58,10 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:18080/api/auth/login `
 
 # 3. WPF クライアントを起動
 cd ..\..\src\Watashi.Client
+# 接続先は同梱の deployment.json で固定 (既定 https://watashi.internal)。
+# dev では serverUrl を http://127.0.0.1:18080 に書き換えてから起動する。
 dotnet run
-# 初回起動 → 接続設定で http://127.0.0.1:18080 を指定 → admin でログイン
+# 起動 → ログイン画面 → admin でログイン
 ```
 
 詳細手順 (本番デプロイ含む) は [docs/SETUP.md](docs/SETUP.md) を参照。
@@ -83,7 +86,7 @@ dotnet run
 - **パスワード入力に目玉アイコン** — ログイン・パスワード変更・管理画面のパスワード欄で、目玉ボタンを押すと入力中のパスワードを一時的に平文表示。タイプミス確認に便利
 - 自動ログイン (信頼デバイス, **HTTP/HTTPS 両対応**)、アイドルタイムアウト (デフォルト 30 分、設定変更可)
 - 非管理者には管理ボタン非表示、アクセス可能な共有が無いときは「管理者に依頼してください」ガイダンス表示
-- **BootstrapUrl 集中管理**: 管理者が ClickOnce 配布サーバに置いた `watashi-config.json` から自動で接続先取得。ユーザーは URL を入力不要
+- **接続先・機能の配布時固定 (`deployment.json`)**: 管理者がアプリ同梱の読み取り専用 `deployment.json` で接続先サーバと D&D 可否を固定。利用者 (クライアント) からは変更不可。ログイン画面では「接続テスト」(疎通確認) のみ可能
 
 ### 認可・監査
 - ユーザー単位の **(共有 × サブパス) 権限**、READ/WRITE/DELETE/RENAME 個別制御

@@ -1,8 +1,10 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using Watashi.Client.Services;
 using Watashi.Client.ViewModels;
 using Watashi.Shared.Constants;
 
@@ -11,13 +13,19 @@ namespace Watashi.Client;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm;
-    public MainWindow(MainViewModel vm)
+    public MainWindow(MainViewModel vm, AppSettings settings)
     {
         InitializeComponent();
         _vm = vm;
         DataContext = vm;
+        InitializeDragDrop(settings);
         Loaded += OnLoaded;
     }
+
+    // ドラッグ＆ドロップの実装は MainWindow.DragDrop.cs に隔離している。
+    // 機能が不要になればそのファイルを削除するだけでよい。partial void のため、
+    // 実装が無くなればこのコンストラクタの呼び出しもコンパイル時に自動的に消える。
+    partial void InitializeDragDrop(AppSettings settings);
 
     private async void OnLoaded(object? sender, RoutedEventArgs e)
     {
@@ -62,6 +70,30 @@ public partial class MainWindow : Window
 
     private void OnLocalDoubleClick(object sender, MouseButtonEventArgs e) => _vm.Local.OpenSelectedCommand.Execute(null);
     private void OnRemoteDoubleClick(object sender, MouseButtonEventArgs e) => _ = _vm.Remote.OpenSelectedAsync();
+
+    // ===== 列ヘッダクリックでソート =====
+    private void OnLocalHeaderClick(object sender, RoutedEventArgs e)
+    {
+        if (HeaderToSortColumn(e) is string col) _vm.Local.SortBy(col);
+    }
+
+    private void OnRemoteHeaderClick(object sender, RoutedEventArgs e)
+    {
+        if (HeaderToSortColumn(e) is string col) _vm.Remote.SortBy(col);
+    }
+
+    /// <summary>クリックされた列ヘッダ文字列を FileEntrySort の列キーへ変換。アイコン列やリサイズ操作は null。</summary>
+    private static string? HeaderToSortColumn(RoutedEventArgs e)
+    {
+        if (e.OriginalSource is not GridViewColumnHeader header) return null;
+        return (header.Content as string) switch
+        {
+            "名前" => "name",
+            "サイズ" => "size",
+            "更新" => "date",
+            _ => null,
+        };
+    }
 
     private void OnLocalPathKeyDown(object sender, KeyEventArgs e)
     {
@@ -165,8 +197,20 @@ public partial class MainWindow : Window
     private void OnLocalContextOpen(object sender, RoutedEventArgs e)
         => _vm.Local.OpenSelectedCommand.Execute(null);
 
+    private void OnUpload(object sender, RoutedEventArgs e)
+        => _ = _vm.UploadManyAsync(SelectedEntries(LocalList));
+
+    private void OnDownload(object sender, RoutedEventArgs e)
+        => _ = _vm.DownloadManyAsync(SelectedEntries(RemoteList));
+
     private void OnLocalContextUpload(object sender, RoutedEventArgs e)
-        => _vm.UploadCommand.Execute(null);
+        => _ = _vm.UploadManyAsync(SelectedEntries(LocalList));
+
+    /// <summary>ListView の複数選択を FileEntry のリストとして取り出す (".." は除外)。</summary>
+    private static IReadOnlyList<Shared.DTOs.Files.FileEntry> SelectedEntries(ListView list)
+        => list.SelectedItems.Cast<Shared.DTOs.Files.FileEntry>()
+               .Where(x => x.Type != FileEntryTypes.Parent)
+               .ToList();
 
     private async void OnLocalContextRename(object sender, RoutedEventArgs e)
     {
@@ -188,7 +232,7 @@ public partial class MainWindow : Window
         => _ = _vm.Remote.OpenSelectedAsync();
 
     private void OnRemoteContextDownload(object sender, RoutedEventArgs e)
-        => _vm.DownloadCommand.Execute(null);
+        => _ = _vm.DownloadManyAsync(SelectedEntries(RemoteList));
 
     private async void OnRemoteContextRename(object sender, RoutedEventArgs e)
     {

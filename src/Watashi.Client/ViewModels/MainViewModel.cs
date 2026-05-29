@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net;
+using System.Threading;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -26,6 +27,8 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private string latestStatusMessage = string.Empty;
+    // 失敗/エラーを含むメッセージだけを目立つ赤バナーに昇格させる。空文字でバナー非表示。
+    [ObservableProperty] private string errorMessage = string.Empty;
     private string? latestStatusSource;
     public bool IsAdmin => _session.IsAdmin;
     public string? Username => _session.Username;
@@ -63,6 +66,45 @@ public partial class MainViewModel : ObservableObject
 
         latestStatusSource = source;
         LatestStatusMessage = $"{DateTime.Now:HH:mm:ss} {source}: {message}";
+
+        if (message.Contains("失敗") || message.Contains("エラー"))
+            ErrorMessage = $"{source}: {message}";
+    }
+
+    /// <summary>エラーバナーの ✕ ボタンから呼ばれ、バナーを閉じる。</summary>
+    [RelayCommand]
+    private void DismissError() => ErrorMessage = string.Empty;
+
+    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+    partial void OnErrorMessageChanged(string value) => OnPropertyChanged(nameof(HasError));
+
+    // ===== 転送制御 (キャンセル / 多重起動防止) =====
+    private CancellationTokenSource? _transferCts;
+    private CancellationToken TransferToken => _transferCts?.Token ?? CancellationToken.None;
+
+    /// <summary>進行中の転送をキャンセルする。</summary>
+    [RelayCommand]
+    private void CancelTransfer() => _transferCts?.Cancel();
+
+    /// <summary>転送開始。既に転送中なら false を返して多重起動を防ぐ。</summary>
+    private bool TryBeginTransfer()
+    {
+        if (Transfer.IsActive)
+        {
+            StatusMessage = "別の転送が進行中です。完了までお待ちください。";
+            return false;
+        }
+        _transferCts?.Dispose();
+        _transferCts = new CancellationTokenSource();
+        Transfer.IsActive = true;
+        return true;
+    }
+
+    private void EndTransfer()
+    {
+        Transfer.IsActive = false;
+        _transferCts?.Dispose();
+        _transferCts = null;
     }
 
     [RelayCommand]
@@ -79,6 +121,7 @@ public partial class MainViewModel : ObservableObject
         if (Remote.SelectedLocation is null) { StatusMessage = "アップロード先のリモート場所を選択してください。"; return; }
         if (!Remote.SelectedLocation.Permissions.Write) { StatusMessage = "アップロード失敗: この場所には書き込み権限がありません。"; return; }
         if (Local.Selected.Type == FileEntryTypes.Parent) return;
+        if (!TryBeginTransfer()) return;
 
         var location = Remote.SelectedLocation;
         var local = Path.Combine(Local.CurrentPath, Local.Selected.Name);
@@ -133,12 +176,13 @@ public partial class MainViewModel : ObservableObject
             await Remote.RefreshAsync();
             StatusMessage = $"アップロード完了: {Local.Selected.Name}";
         }
+        catch (OperationCanceledException) { StatusMessage = "アップロードをキャンセルしました。"; }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
             StatusMessage = "アップロード失敗: 書き込み権限がありません。";
         }
         catch (Exception ex) { StatusMessage = "アップロード失敗: " + ex.Message; }
-        finally { Transfer.IsActive = false; }
+        finally { EndTransfer(); }
     }
 
     [RelayCommand]
@@ -148,6 +192,7 @@ public partial class MainViewModel : ObservableObject
         if (Remote.SelectedLocation is null) { StatusMessage = "ダウンロード元のリモート場所を選択してください。"; return; }
         if (Remote.Selected.Type == FileEntryTypes.Parent) return;
         if (!Directory.Exists(Local.CurrentPath)) { StatusMessage = "ダウンロード失敗: ローカルフォルダが見つかりません。"; return; }
+        if (!TryBeginTransfer()) return;
 
         var location = Remote.SelectedLocation;
         var destination = Path.Combine(Local.CurrentPath, Remote.Selected.Name);
@@ -189,12 +234,145 @@ public partial class MainViewModel : ObservableObject
             await Local.RefreshAsync();
             StatusMessage = $"ダウンロード完了: {Remote.Selected.Name}";
         }
+        catch (OperationCanceledException) { StatusMessage = "ダウンロードをキャンセルしました。"; }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
             StatusMessage = "ダウンロード失敗: 読み取り権限がありません。";
         }
         catch (Exception ex) { StatusMessage = "ダウンロード失敗: " + ex.Message; }
-        finally { Transfer.IsActive = false; }
+        finally { EndTransfer(); }
+    }
+
+    /// <summary>
+    /// 複数選択された項目を一括アップロード。1 件以下なら従来の詳細プロンプト付き <see cref="UploadAsync"/> に委譲。
+    /// 2 件以上は冒頭で一度だけ確認し、同名は上書きで進める。
+    /// </summary>
+    public async Task UploadManyAsync(IReadOnlyList<FileEntry>? items)
+    {
+        var targets = (items ?? Array.Empty<FileEntry>())
+            .Where(i => i is not null && i.Type != FileEntryTypes.Parent).ToList();
+        if (targets.Count <= 1) { await UploadAsync(); return; }
+
+        var paths = targets.Select(t => Path.Combine(Local.CurrentPath, t.Name)).ToList();
+        await UploadLocalPathsAsync(
+            paths,
+            confirmMessage: $"{targets.Count} 件をアップロードします。\nリモートの同名項目は上書きされます。よろしいですか？",
+            completedMessage: $"アップロード完了: {targets.Count} 件");
+    }
+
+    /// <summary>
+    /// 任意のローカルパス群を現在のリモートフォルダ直下へアップロードする共通処理。
+    /// 一括選択アップロードとドラッグ＆ドロップ (外部エクスプローラからの投下を含む) の双方から使う。
+    /// </summary>
+    public async Task UploadLocalPathsAsync(IReadOnlyList<string> localPaths, string confirmMessage, string completedMessage)
+    {
+        if (Remote.SelectedLocation is null) { StatusMessage = "アップロード先のリモート場所を選択してください。"; return; }
+        if (!Remote.SelectedLocation.Permissions.Write) { StatusMessage = "アップロード失敗: この場所には書き込み権限がありません。"; return; }
+        var paths = (localPaths ?? Array.Empty<string>()).Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+        if (paths.Count == 0) { StatusMessage = "アップロード対象がありません。"; return; }
+        if (!string.IsNullOrEmpty(confirmMessage) &&
+            MessageBox.Show(confirmMessage, "アップロード", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (!TryBeginTransfer()) return;
+
+        var location = Remote.SelectedLocation;
+        try
+        {
+            var remoteDirs = new List<string>();
+            var files = new List<(FileInfo File, string RemotePath)>();
+            foreach (var p in paths)
+            {
+                var name = Path.GetFileName(p.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                if (string.IsNullOrEmpty(name)) continue;
+                var remotePath = RemotePaneViewModel.JoinPath(Remote.CurrentPath, name);
+                if (Directory.Exists(p))
+                {
+                    var di = new DirectoryInfo(p);
+                    remoteDirs.Add(remotePath);
+                    foreach (var d in di.EnumerateDirectories("*", RecursiveLocalOptions))
+                        remoteDirs.Add(JoinRemotePath(remotePath, ToRemoteRelativePath(di.FullName, d.FullName)));
+                    foreach (var f in di.EnumerateFiles("*", RecursiveLocalOptions))
+                        files.Add((f, JoinRemotePath(remotePath, ToRemoteRelativePath(di.FullName, f.FullName))));
+                }
+                else if (File.Exists(p))
+                {
+                    files.Add((new FileInfo(p), remotePath));
+                }
+            }
+            if (files.Count == 0 && remoteDirs.Count == 0) { StatusMessage = "アップロード対象が見つかりません。"; return; }
+
+            Transfer.FileName = Path.GetFileName(paths[0].TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            Transfer.TotalBytes = files.Sum(f => f.File.Length);
+            Transfer.BytesTransferred = 0;
+
+            foreach (var dir in remoteDirs.Distinct().OrderBy(x => x.Count(c => c == '/')))
+                await EnsureRemoteDirectoryAsync(dir, location.HostId, location.ShareId);
+
+            long completed = 0;
+            foreach (var item in files)
+            {
+                await UploadFileAsync(item.File, item.RemotePath, completed, Transfer.TotalBytes, location.HostId, location.ShareId);
+                completed += item.File.Length;
+                Transfer.BytesTransferred = completed;
+            }
+            await Remote.RefreshAsync();
+            StatusMessage = completedMessage;
+        }
+        catch (OperationCanceledException) { StatusMessage = "アップロードをキャンセルしました。"; }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden) { StatusMessage = "アップロード失敗: 書き込み権限がありません。"; }
+        catch (Exception ex) { StatusMessage = "アップロード失敗: " + ex.Message; }
+        finally { EndTransfer(); }
+    }
+
+    /// <summary>
+    /// 複数選択された項目を一括ダウンロード。1 件以下なら従来の <see cref="DownloadAsync"/> に委譲。
+    /// </summary>
+    public async Task DownloadManyAsync(IReadOnlyList<FileEntry>? items)
+    {
+        var targets = (items ?? Array.Empty<FileEntry>())
+            .Where(i => i is not null && i.Type != FileEntryTypes.Parent).ToList();
+        if (targets.Count <= 1) { await DownloadAsync(); return; }
+        if (Remote.SelectedLocation is null) { StatusMessage = "ダウンロード元のリモート場所を選択してください。"; return; }
+        if (!Directory.Exists(Local.CurrentPath)) { StatusMessage = "ダウンロード失敗: ローカルフォルダが見つかりません。"; return; }
+        if (MessageBox.Show(
+                $"{targets.Count} 件をダウンロードします。\nローカルの同名項目は上書きされます。よろしいですか？",
+                "ダウンロード", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (!TryBeginTransfer()) return;
+
+        var location = Remote.SelectedLocation;
+        try
+        {
+            var directories = new List<string>();
+            var files = new List<RemoteDownloadItem>();
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in targets)
+            {
+                var remotePath = RemotePaneViewModel.JoinPath(Remote.CurrentPath, entry.Name);
+                var destination = Path.Combine(Local.CurrentPath, entry.Name);
+                if (entry.Type == FileEntryTypes.Directory)
+                    await BuildDownloadPlanAsync(remotePath, destination, directories, files, visited, location.HostId, location.ShareId);
+                else if (entry.Type == FileEntryTypes.File)
+                    files.Add(new RemoteDownloadItem(remotePath, destination, entry.Size ?? 0));
+            }
+
+            Transfer.FileName = $"{targets.Count} 件";
+            Transfer.TotalBytes = files.Sum(f => f.Size);
+            Transfer.BytesTransferred = 0;
+
+            foreach (var dir in directories) EnsureLocalDirectory(dir);
+            long completed = 0;
+            foreach (var item in files)
+            {
+                await DownloadFileAsync(item.RemotePath, item.LocalPath, completed, Transfer.TotalBytes, location.HostId, location.ShareId);
+                completed += item.Size;
+                Transfer.BytesTransferred = completed;
+            }
+            await Local.RefreshAsync();
+            StatusMessage = $"ダウンロード完了: {targets.Count} 件";
+        }
+        catch (OperationCanceledException) { StatusMessage = "ダウンロードをキャンセルしました。"; }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden) { StatusMessage = "ダウンロード失敗: 読み取り権限がありません。"; }
+        catch (Exception ex) { StatusMessage = "ダウンロード失敗: " + ex.Message; }
+        finally { EndTransfer(); }
     }
 
     private async Task UploadDirectoryAsync(DirectoryInfo source, string remoteRoot, int hostId, int shareId)
@@ -235,7 +413,7 @@ public partial class MainViewModel : ObservableObject
 
         await using var fs = File.OpenRead(file.FullName);
         var progress = new Progress<long>(b => Transfer.BytesTransferred = baseTransferred + b);
-        await _api.UploadAsync(hostId, shareId, remotePath, fs, file.Length, progress);
+        await _api.UploadAsync(hostId, shareId, remotePath, fs, file.Length, progress, TransferToken);
     }
 
     private async Task DownloadDirectoryAsync(string remoteRoot, string localRoot, int hostId, int shareId)
@@ -278,7 +456,7 @@ public partial class MainViewModel : ObservableObject
             var progress = new Progress<long>(b => Transfer.BytesTransferred = baseTransferred + b);
             await using (var fs = File.Create(tempPath))
             {
-                await _api.DownloadAsync(hostId, shareId, remotePath, fs, progress);
+                await _api.DownloadAsync(hostId, shareId, remotePath, fs, progress, TransferToken);
                 await fs.FlushAsync();
             }
             if (File.Exists(destination)) File.Delete(destination);
