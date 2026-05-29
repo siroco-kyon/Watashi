@@ -53,12 +53,12 @@
 - **ログアウト**: ヘッダー右上の ⏻ ボタン (確認ダイアログ付き)。Credential Manager もクリア
 
 ### 接続
-- 接続設定画面でサーバー URL とプロトコル (HTTP/HTTPS) を選択
-- 接続テストボタンで `/health` を叩いて疎通確認（`IHttpClientFactory` 経由でソケット使い回し）
-- 設定は `%LocalAppData%\Watashi\settings.json` に保存
+- **接続先サーバと D&D 可否はアプリ同梱の `deployment.json` で配布時に固定** — 管理者が発行前に編集し、利用者 (クライアント) からは変更できない。exe と同じ場所に置く読み取り専用設定で、`settings.json` より優先される (`DeploymentConfig` が起動時に上書き適用)
+- ログイン画面の **接続テスト** で、固定された接続先に `/health` を叩いて疎通確認のみ可能（`IHttpClientFactory` 経由でソケット使い回し）。接続先の編集 UI は持たない
+- 利用者ごとの可変設定 `%LocalAppData%\Watashi\settings.json` には最終ローカルパス等のみ保存（接続先は保存しない）
+- deployment.json 欠落 / `serverUrl` 未設定時は「配布設定エラー」を表示して終了（接続先を末端で変更させない設計のため、設定画面は出さない）
 - 起動時の自動ログインは 8 秒タイムアウトで UI フリーズを防ぐ
-- **`IsHttps` は URL のスキームから判定** (Protocol フィールドではない)。表示と通信の整合性を保証
-- **BootstrapUrl による接続先の集中管理** — ClickOnce 配布サーバ等に置いた `watashi-config.json` から起動時に ServerUrl を自動取得。管理者は config ファイル 1 つ更新するだけで全クライアントが追従。オフライン時は前回値にフォールバック
+- **`IsHttps` は `ServerUrl` のスキームから判定**。表示と通信の整合性を保証
 
 ---
 

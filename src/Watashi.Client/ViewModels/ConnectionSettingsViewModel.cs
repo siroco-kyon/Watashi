@@ -5,89 +5,44 @@ using Watashi.Client.Services;
 
 namespace Watashi.Client.ViewModels;
 
+/// <summary>
+/// 接続テスト専用。接続先 (ServerUrl) と D&D の可否は配布時の deployment.json で固定され、
+/// クライアントからは変更できない。ここでは現在の接続先を表示し、疎通確認だけを行う。
+/// </summary>
 public partial class ConnectionSettingsViewModel : ObservableObject
 {
     private readonly AppSettings _settings;
     private readonly IHttpClientFactory _http;
-    private readonly BootstrapService _boot;
 
-    [ObservableProperty] private string serverUrl = string.Empty;
-    [ObservableProperty] private string protocol = "HTTPS";
-    [ObservableProperty] private string bootstrapUrl = string.Empty;
     [ObservableProperty] private string statusMessage = string.Empty;
 
-    public ConnectionSettingsViewModel(AppSettings settings, IHttpClientFactory http, BootstrapService boot)
+    public ConnectionSettingsViewModel(AppSettings settings, IHttpClientFactory http)
     {
         _settings = settings;
         _http = http;
-        _boot = boot;
-        serverUrl = settings.ServerUrl;
-        bootstrapUrl = settings.BootstrapUrl;
-        if (serverUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            protocol = "HTTPS";
-        else if (serverUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-            protocol = "HTTP";
-        else
-            protocol = string.IsNullOrEmpty(settings.Protocol) ? "HTTPS" : settings.Protocol;
     }
 
-    /// <summary>BootstrapUrl が設定済みなら ServerUrl 入力は不要 (管理者管理)。</summary>
-    public bool ServerUrlInputEnabled => string.IsNullOrWhiteSpace(BootstrapUrl);
+    /// <summary>配布設定で固定された接続先 (読み取り専用表示)。</summary>
+    public string ServerUrl => _settings.IsConfigured ? _settings.ServerUrl : "(未設定)";
 
-    partial void OnBootstrapUrlChanged(string value) => OnPropertyChanged(nameof(ServerUrlInputEnabled));
-
-    [RelayCommand]
-    private async Task FetchBootstrap()
-    {
-        if (string.IsNullOrWhiteSpace(BootstrapUrl)) { StatusMessage = "Bootstrap URL を入力してください。"; return; }
-        StatusMessage = "Bootstrap 取得中...";
-        // 「取得テスト」なので一時オブジェクトで叩き、save は抑制する。
-        // 抑制しないと実 settings.json が tmp (ServerUrl 以外の項目空) で上書きされる。
-        var tmp = new AppSettings { BootstrapUrl = BootstrapUrl };
-        var result = await _boot.TryBootstrapAsync(tmp, persist: false);
-        if (result.Ok && result.Config?.ServerUrl is string url)
-        {
-            ServerUrl = url;
-            StatusMessage = "✓ Bootstrap 取得成功: " + url + (result.Config.Notice is null ? "" : "\n" + result.Config.Notice);
-        }
-        else
-        {
-            StatusMessage = "✗ Bootstrap 取得失敗: " + (result.Error ?? "未設定");
-        }
-    }
+    /// <summary>配布設定の D&D 状態 (読み取り専用表示)。</summary>
+    public string DragDropStatus => _settings.EnableDragDrop ? "有効" : "無効";
 
     [RelayCommand]
     private async Task TestConnection()
     {
+        if (!_settings.IsConfigured)
+        {
+            StatusMessage = "✗ 接続先が配布設定にありません。管理者に連絡してください。";
+            return;
+        }
         StatusMessage = "接続中...";
         try
         {
             var http = _http.CreateClient("settings-test");
-            using var res = await http.GetAsync(NormalizedUrl().TrimEnd('/') + "/health");
+            using var res = await http.GetAsync(_settings.ServerUrl.TrimEnd('/') + "/health");
             StatusMessage = res.IsSuccessStatusCode ? "✓ 接続できました。" : $"✗ HTTP {(int)res.StatusCode}";
         }
         catch (Exception ex) { StatusMessage = $"✗ {ex.Message}"; }
-    }
-
-    [RelayCommand]
-    private void Save()
-    {
-        _settings.ServerUrl = NormalizedUrl();
-        _settings.Protocol = Protocol;
-        _settings.BootstrapUrl = (BootstrapUrl ?? string.Empty).Trim();
-        _settings.Save();
-        StatusMessage = "保存しました。";
-    }
-
-    private string NormalizedUrl()
-    {
-        var url = (ServerUrl ?? string.Empty).Trim();
-        if (string.IsNullOrEmpty(url)) return url;
-        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-            !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
-            url = (Protocol.Equals("HTTPS", StringComparison.OrdinalIgnoreCase) ? "https://" : "http://") + url;
-        }
-        return url;
     }
 }

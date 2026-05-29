@@ -39,20 +39,23 @@ public partial class App : Application
         try
         {
             _settings = AppSettings.Load();
-            Services = BuildServices(_settings);
 
-            // BootstrapUrl が設定されていれば config.json から ServerUrl を取得 (管理者一元管理)
-            var boot = Services.GetRequiredService<BootstrapService>();
-            await boot.TryBootstrapAsync(_settings);
-            // ServerUrl が更新された可能性があるので ApiClient を再構成
-            Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
-
-            if (!_settings.IsConfigured)
+            // 接続先サーバと機能設定はアプリ同梱の deployment.json で固定する (管理者が配布時に設定)。
+            // クライアントからは変更できない。settings.json の ServerUrl より優先される。
+            if (!DeploymentConfig.Apply(_settings))
             {
-                var sw = Services.GetRequiredService<ConnectionSettingsWindow>();
-                if (sw.ShowDialog() != true) { Shutdown(); return; }
-                Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
+                // deployment.json が無い / serverUrl 未設定 = 配布パッケージの不備。
+                // 利用者は接続先を変更できないため、設定画面ではなく明確なエラーを出して終了する。
+                MessageBox.Show(
+                    "接続先サーバが配布設定 (deployment.json) に指定されていません。\n" +
+                    "配布パッケージが正しくないため起動できません。管理者に連絡してください。",
+                    "Watashi - 配布設定エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown();
+                return;
             }
+
+            Services = BuildServices(_settings);
+            Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
 
             await StartLoginFlowAsync();
         }
@@ -185,8 +188,6 @@ public partial class App : Application
             c.Timeout = TimeSpan.FromMinutes(10);
         });
         services.AddHttpClient("settings-test", c => c.Timeout = TimeSpan.FromSeconds(5));
-        services.AddHttpClient("bootstrap", c => c.Timeout = TimeSpan.FromSeconds(5));
-        services.AddSingleton<BootstrapService>();
 
         services.AddTransient<ConnectionSettingsViewModel>();
         services.AddTransient<LoginViewModel>();

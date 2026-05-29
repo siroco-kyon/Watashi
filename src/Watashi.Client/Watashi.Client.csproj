@@ -5,6 +5,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      配布時設定。exe と同じ場所に出力され、ClickOnce 発行物にも含まれる。
+      管理者が配布前に serverUrl / enableDragDrop を編集する (利用者は変更不可)。
+      内容を変えたら再発行が必要 (ClickOnce マニフェストがハッシュ検証するため)。
+    -->
+    <Content Include="deployment.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="CredentialManagement" Version="1.0.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />

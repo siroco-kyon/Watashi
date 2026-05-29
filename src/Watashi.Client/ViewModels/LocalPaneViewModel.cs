@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Watashi.Client.Services;
 using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Files;
+using Watashi.Shared.Helpers;
 
 namespace Watashi.Client.ViewModels;
 
@@ -15,6 +16,11 @@ public partial class LocalPaneViewModel : ObservableObject
     private readonly Stack<string> _back = new();
     private readonly Stack<string> _forward = new();
     private DateTime _lastSettingsSave = DateTime.MinValue;
+
+    // 取得した全件 (Parent を除く)。表示用 Entries はここからソート+絞り込みして作る。
+    private readonly List<FileEntry> _all = new();
+    private bool _hasParent;
+
     public ObservableCollection<FileEntry> Entries { get; } = new();
 
     [ObservableProperty] private string currentPath = string.Empty;
@@ -23,6 +29,8 @@ public partial class LocalPaneViewModel : ObservableObject
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private bool canGoBack;
     [ObservableProperty] private bool canGoForward;
+    [ObservableProperty] private string? sortKey;
+    [ObservableProperty] private string filterText = string.Empty;
 
     public LocalPaneViewModel(LocalFileService files, AppSettings settings)
     {
@@ -99,16 +107,32 @@ public partial class LocalPaneViewModel : ObservableObject
                 catch { return false; }
             });
             var items = await _files.ListAsync(path);
-            Entries.Clear();
-            if (hasParent)
-                Entries.Add(new FileEntry { Name = "..", Type = FileEntryTypes.Parent, CanGoUp = true });
-            foreach (var e in items) Entries.Add(e);
+            _all.Clear();
+            _all.AddRange(items);
+            _hasParent = hasParent;
+            ApplyView();
             SaveLastPathThrottled(path);
             StatusMessage = string.Empty;
         }
         catch (Exception ex) { StatusMessage = ex.Message; }
         finally { IsBusy = false; }
     }
+
+    /// <summary>_all をクライアント側でソート (SortKey) + 絞り込み (FilterText) して Entries を作り直す。</summary>
+    private void ApplyView()
+    {
+        Entries.Clear();
+        if (_hasParent)
+            Entries.Add(new FileEntry { Name = "..", Type = FileEntryTypes.Parent, CanGoUp = true });
+        foreach (var e in FileEntrySort.Sort(_all, SortKey).Where(e => FileEntryFilter.Matches(e, FilterText)))
+            Entries.Add(e);
+    }
+
+    /// <summary>列ヘッダクリックで昇順 ⇄ 降順を切り替える (ローカルはクライアント側ソート)。</summary>
+    public void SortBy(string column) => SortKey = FileEntrySort.Toggle(SortKey, column);
+
+    partial void OnSortKeyChanged(string? value) => ApplyView();
+    partial void OnFilterTextChanged(string value) => ApplyView();
 
     [RelayCommand]
     public async Task OpenSelectedAsync()

@@ -29,15 +29,7 @@ public static class FileEndpoints
                 db, enc, perms, ct, async (auth, execCtx) =>
             {
                 var entries = (await router.ListAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct)).ToList();
-                entries = (sort ?? "name") switch
-                {
-                    "name_desc" => entries.OrderByDescending(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList(),
-                    "date" => entries.OrderBy(e => e.ModifiedAt).ToList(),
-                    "date_desc" => entries.OrderByDescending(e => e.ModifiedAt).ToList(),
-                    "size" => entries.OrderBy(e => e.Size ?? -1).ToList(),
-                    "size_desc" => entries.OrderByDescending(e => e.Size ?? -1).ToList(),
-                    _ => entries.OrderBy(e => e.Type == FileEntryTypes.Directory ? 0 : 1).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ToList(),
-                };
+                entries = FileEntrySort.Sort(entries, sort);
                 int p = Math.Max(1, page ?? 1);
                 int total = entries.Count;
                 var paged = entries.Skip((p - 1) * PageSize).Take(PageSize).ToList();

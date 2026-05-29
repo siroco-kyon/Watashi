@@ -15,7 +15,6 @@
             <conv:BoolToVisibilityConverter x:Key="BoolToVisInverted" Invert="True"/>
             <conv:UtcToLocalConverter x:Key="Utc"/>
             <conv:SizeFormatConverter x:Key="SizeFmt"/>
-            <conv:ProtocolToBoolConverter x:Key="ProtocolToBool"/>
             <conv:NotBoolConverter x:Key="NotBool"/>
             <conv:TypeToIconConverter x:Key="TypeIcon"/>
         </ResourceDictionary>

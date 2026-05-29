@@ -16,6 +16,10 @@ public partial class RemotePaneViewModel : ObservableObject
     private readonly Stack<string> _back = new();
     private readonly Stack<string> _forward = new();
 
+    // サーバから取得した全件 (Parent を除く)。表示用 Entries はここから絞り込んで作る。
+    private readonly List<FileEntry> _all = new();
+    private FileEntry? _parentEntry;
+
     public ObservableCollection<FileEntry> Entries { get; } = new();
     public ObservableCollection<LocationDto> Locations { get; } = new();
 
@@ -27,6 +31,8 @@ public partial class RemotePaneViewModel : ObservableObject
     [ObservableProperty] private bool canGoBack;
     [ObservableProperty] private bool canGoForward;
     [ObservableProperty] private bool canGoUp;
+    [ObservableProperty] private string? sortKey;
+    [ObservableProperty] private string filterText = string.Empty;
 
     public bool HasLocation => SelectedLocation is not null;
     public bool HasLocations => Locations.Count > 0;
@@ -50,6 +56,8 @@ public partial class RemotePaneViewModel : ObservableObject
         OnPropertyChanged(nameof(NeedsLocationSelection));
         if (value is null)
         {
+            _all.Clear();
+            _parentEntry = null;
             Entries.Clear();
             Selected = null;
             CurrentPath = "/";
@@ -152,16 +160,42 @@ public partial class RemotePaneViewModel : ObservableObject
         try
         {
             IsBusy = true;
-            var res = await _api.ListFilesAsync(SelectedLocation.HostId, SelectedLocation.ShareId, CurrentPath);
-            Entries.Clear();
-            foreach (var e in res.Entries) Entries.Add(e);
+            // サーバの 1 ページ上限 (200 件) を超えるフォルダでも全件取得する。
+            // ソートはサーバ側で行うため、全ページで同じ sort を渡せば全体が正しく並ぶ。
+            _all.Clear();
+            _parentEntry = null;
+            for (var page = 1; ; page++)
+            {
+                var res = await _api.ListFilesAsync(SelectedLocation.HostId, SelectedLocation.ShareId, CurrentPath, page, SortKey);
+                if (page == 1)
+                    _parentEntry = res.Entries.FirstOrDefault(x => x.Type == FileEntryTypes.Parent);
+                var entries = res.Entries.Where(e => e.Type != FileEntryTypes.Parent).ToList();
+                _all.AddRange(entries);
+                if (_all.Count >= res.TotalCount || entries.Count == 0) break;
+            }
             // 親へ戻れるかはサーバが parent entry の CanGoUp で示すので、それを採用。
-            CanGoUp = res.Entries.FirstOrDefault(x => x.Type == FileEntryTypes.Parent)?.CanGoUp == true;
+            CanGoUp = _parentEntry?.CanGoUp == true;
+            ApplyView();
             StatusMessage = string.Empty;
         }
         catch (Exception ex) { StatusMessage = ex.Message; }
         finally { IsBusy = false; }
     }
+
+    /// <summary>_all から絞り込み (FilterText) を適用して表示用 Entries を作り直す。並びはサーバ側で確定済み。</summary>
+    private void ApplyView()
+    {
+        Entries.Clear();
+        if (_parentEntry is not null) Entries.Add(_parentEntry);
+        foreach (var e in _all.Where(e => FileEntryFilter.Matches(e, FilterText)))
+            Entries.Add(e);
+    }
+
+    /// <summary>列ヘッダクリックで昇順 ⇄ 降順を切り替え、サーバから並べ直して取得する。</summary>
+    public void SortBy(string column) => SortKey = FileEntrySort.Toggle(SortKey, column);
+
+    partial void OnSortKeyChanged(string? value) => _ = RefreshAsync();
+    partial void OnFilterTextChanged(string value) => ApplyView();
 
     [RelayCommand]
     public async Task OpenSelectedAsync()
