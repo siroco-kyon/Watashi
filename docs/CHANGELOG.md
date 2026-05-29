@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-05-29 — アカウント自動ロックのしきい値を 15 回に / 管理画面で変更可能に
+
+### セキュリティ / 変更
+
+- **連続ログイン失敗による自動アカウントロックのしきい値を 5 回から 15 回に緩和**。誤入力でのロックが多すぎるという運用フィードバックに対応。
+- **しきい値を `MaxFailedLoginAttempts` システム設定として外出し**し、管理画面 (システム設定タブ) から変更できるようにした。コード定数 `DefaultMaxFailedAttempts = 15` は設定行が無い場合のフォールバック。
+  - `Watashi.Shared/Constants` の `SettingKeys` に `MaxFailedLoginAttempts` を追加
+  - `DataSeeder` — 新規 DB は `15` をシード。既存 DB にもキーが無ければ `15` を補完 (バックフィル)
+  - `AuthService.LoginAsync` — ロック判定を `GetSettingIntAsync(MaxFailedLoginAttempts, 15)` 経由の動的読み取りに変更
+  - 管理画面のシステム設定は汎用キー/値エディタのため、UI 側の追加実装は不要 (シードしたキーが自動的に一覧へ出る)
+
+### テスト
+
+- `Failed_logins_lock_account_at_default_threshold` — 14 回では未ロック / 15 回でロックを検証 (旧 `Five_failed_logins_locks_account` を改訂)
+- `Lockout_threshold_is_configurable_via_system_setting` — `MaxFailedLoginAttempts=3` をシードし 3 回でロックされることを検証 (設定可能性の担保)
+
+### 文書
+
+- `docs/SPECIFICATION.md` / `docs/FEATURES.md` / `docs/ADMIN-GUIDE.md` / `docs/USER-GUIDE.md` / `docs/SETUP.md` のロック回数・システム設定一覧・脅威モデル表を 15 回 (既定・変更可) に更新
+
+---
+
 ## 2026-05-29 — 接続先・D&D の配布時固定 (deployment.json) / 接続設定画面の廃止
 
 ### 変更 (破壊的)

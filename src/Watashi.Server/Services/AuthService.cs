@@ -30,7 +30,7 @@ public record LoginResult(LoginResponse? Response, LoginFailureReason? Failure);
 
 public class AuthService
 {
-    private const int MaxFailedAttempts = 5;
+    private const int DefaultMaxFailedAttempts = 15;
     private readonly AppDbContext _db;
     private readonly AuthServiceOptions _opts;
 
@@ -53,7 +53,8 @@ public class AuthService
         if (!passwordOk)
         {
             user.FailedLoginCount += 1;
-            if (user.FailedLoginCount >= MaxFailedAttempts)
+            var maxAttempts = await GetSettingIntAsync(Shared.Constants.SettingKeys.MaxFailedLoginAttempts, DefaultMaxFailedAttempts, ct);
+            if (user.FailedLoginCount >= maxAttempts)
                 user.IsLocked = true;
             await _db.SaveChangesAsync(ct);
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);

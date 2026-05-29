@@ -69,7 +69,7 @@
 
 ### 1. ユーザー
 - 一覧 / 追加 / 削除 / 管理者フラグ変更
-- ロック解除 (5 回連続失敗の解除)
+- ロック解除 (連続失敗ロックの解除)
 - パスワード強制リセット (12 字 + 大小数記号ポリシー検証)
 - すべての新規/リセットユーザーは初回 `MustChangePassword=true`
 - **CSV インポート (一括登録)**: `Username, Password, IsAdmin` 列の CSV を選んで一括登録。**新規追加のみ** (重複スキップ) と **上書き** (既存も PW 再設定) の 2 モード。行単位エラー詳細表示
@@ -138,6 +138,7 @@
 - `AgentMaxConcurrency` (デフォルト 20)
 - `SessionIdleMinutes` (デフォルト 30、ログイン応答経由でクライアントに反映)
 - `AuditLogRetentionDays` (デフォルト 365)。`AuditLogPurgeService` (BackgroundService) が起動 30 秒後 + 24 時間毎にこの設定値より古い AuditLog を `ExecuteDeleteAsync` で削除。`0` 以下で永久保管
+- `MaxFailedLoginAttempts` (デフォルト 15)。連続ログイン失敗がこの回数に達すると自動でアカウントロック。管理画面から変更可
 
 ---
 
@@ -154,7 +155,7 @@
   - User.IsLocked → 401
   - 紐づく TrustedDevice.IsRevoked → 401
   - User.MustChangePassword → レスポンスにフラグ付与
-- 5 回連続失敗で自動アカウントロック
+- 連続失敗で自動アカウントロック (既定 15 回、`MaxFailedLoginAttempts` で変更可)
 - **ログインレート制限**: `/api/auth/login` `/api/auth/auto-login` に IP 単位固定ウィンドウ (デフォルト 10/分)
 
 ### 機微フィールドの API 漏洩防止
@@ -311,7 +312,7 @@
 
 | 攻撃 | 対策 |
 |---|---|
-| クレデンシャル総当たり | bcrypt + 5 回ロック + IP レート制限 (10/分) |
+| クレデンシャル総当たり | bcrypt + 15 回ロック (既定、管理画面で変更可) + IP レート制限 (10/分) |
 | ユーザー列挙 | 存在しないユーザーでもロックしない、login レート制限が IP 単位 |
 | リフレッシュトークン盗難 | ローテーション + 再利用検知でファミリー失効 |
 | Agent なりすまし | mTLS でサーバー証明書を Thumbprint レベルで確認 |
