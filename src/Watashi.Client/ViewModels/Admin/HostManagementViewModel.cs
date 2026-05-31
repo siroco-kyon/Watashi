@@ -99,19 +99,31 @@ public partial class HostManagementViewModel : AdminViewModelBase
     {
         if (Selected is null) { StatusMessage = "削除するホストを選択してください。"; return; }
         var confirm = System.Windows.MessageBox.Show(
-            $"ホスト \"{Selected.Name}\" を削除しますか？\nこのホストに紐づく共有・権限・履歴も削除されます。",
+            $"ホスト \"{Selected.Name}\" を削除しますか？\nこのホストに紐づく共有と権限設定も削除されます。\n操作履歴（監査ログ）は記録として保持されます。",
             "削除確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
         if (confirm != System.Windows.MessageBoxResult.OK) return;
         await _api.DeleteHostAsync(Selected.Id);
+        ClearForm();
         await RefreshAsync();
     }, successMessage: "削除しました。");
 
     [RelayCommand]
     public Task TestAsync() => SafeAsync(async () =>
     {
-        if (Selected is null) { StatusMessage = "テスト対象のホストを選択してください。"; return; }
-        var ok = await _api.TestHostAsync(Selected.Id);
-        StatusMessage = ok ? "✓ 接続OK" : "✗ 接続失敗";
+        if (string.IsNullOrWhiteSpace(HostAddress)) { StatusMessage = "ホスト名/IP を入力してください。"; return; }
+        if (string.IsNullOrWhiteSpace(CredUser)) { StatusMessage = "CIFS ユーザーを入力してください。"; return; }
+        if (SelectedNodeId is null) { StatusMessage = "実行ノードを選択してください。"; return; }
+        StatusMessage = "接続テスト中...";
+        var ok = await _api.TestHostConnectionAsync(new TestHostConnectionRequest
+        {
+            HostId = Selected?.Id,
+            HostAddress = HostAddress,
+            Port = Port,
+            CredUsername = CredUser,
+            CredPassword = string.IsNullOrEmpty(CredPassword) ? null : CredPassword,
+            ExecutionNodeId = SelectedNodeId.Value,
+        });
+        StatusMessage = ok ? "✓ 接続できました。" : "✗ 接続に失敗しました。";
     });
 
     [RelayCommand]

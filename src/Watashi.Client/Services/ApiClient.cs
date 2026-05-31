@@ -176,8 +176,8 @@ public class ApiClient
     public Task DeleteHostAsync(int id, CancellationToken ct = default) =>
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/hosts/{id}", null, ct);
 
-    public async Task<bool> TestHostAsync(int id, CancellationToken ct = default)
-        => (await PostJsonAsync<OkResponse>($"api/admin/hosts/{id}/test", new { }, ct: ct)).Ok;
+    public async Task<bool> TestHostConnectionAsync(TestHostConnectionRequest req, CancellationToken ct = default)
+        => (await PostJsonAsync<OkResponse>("api/admin/hosts/test-connection", req, ct: ct)).Ok;
 
     public Task<List<ShareDto>> GetAdminSharesAsync(int? hostId = null, CancellationToken ct = default) =>
         GetAsync<List<ShareDto>>(hostId is null ? "api/admin/shares" : $"api/admin/shares?hostId={hostId}", ct);

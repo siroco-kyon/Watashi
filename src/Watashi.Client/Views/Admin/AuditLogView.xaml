@@ -36,7 +36,7 @@
                 </WrapPanel>
             </Border>
 
-            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource DangerBrush}"
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                        Margin="16,6,16,0" DockPanel.Dock="Top" TextWrapping="Wrap"/>
 
             <!--
@@ -57,9 +57,9 @@
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel ToolTip="{Binding DisplayLocation}">
-                                        <TextBlock Text="{Binding HostName, TargetNullValue='(削除済)', FallbackValue='-'}"
+                                        <TextBlock Text="{Binding HostDisplay}"
                                                    TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding ShareName, TargetNullValue='(削除済)', FallbackValue='-'}"
+                                        <TextBlock Text="{Binding ShareDisplay}"
                                                    Style="{StaticResource Caption}"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>

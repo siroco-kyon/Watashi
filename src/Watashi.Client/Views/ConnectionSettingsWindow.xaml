@@ -23,7 +23,7 @@
             </TextBlock>
 
             <TextBlock Text="{Binding StatusMessage}"
-                       Foreground="{StaticResource SuccessBrush}" TextWrapping="Wrap" MinHeight="40"/>
+                       Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}" TextWrapping="Wrap" MinHeight="40"/>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                 <Button Content="接続テスト" Command="{Binding TestConnectionCommand}" MinWidth="110" Margin="0,0,8,0"/>

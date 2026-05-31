@@ -53,7 +53,7 @@
 
                     <Button Content="＋ 作成" Style="{StaticResource PrimaryButton}" Command="{Binding CreateCommand}" Height="34"/>
 
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource AccentBrush}"
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                                TextWrapping="Wrap" Margin="0,12,0,0"/>
                 </StackPanel>
             </DockPanel>

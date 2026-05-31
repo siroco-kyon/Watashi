@@ -34,9 +34,9 @@ public static class AdminBrowseEndpoints
                 var list = await router.ListAsync(row.Node, info, normalized, ct);
                 return Results.Ok(new { currentPath = normalized, entries = list });
             }
-            catch (NodeUnreachableException)
+            catch (Exception ex)
             {
-                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+                return FileEndpoints.MapExecutionError(ex);
             }
         }).RequireAuthorization("Admin");
 

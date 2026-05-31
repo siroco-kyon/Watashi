@@ -110,7 +110,7 @@
                     <DockPanel>
                         <TextBlock Text="{Binding SelectedUserHeader}" Style="{StaticResource H3}" DockPanel.Dock="Left"/>
                         <TextBlock Text="{Binding StatusMessage}"
-                                   Foreground="{StaticResource AccentBrush}"
+                                   Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                                    HorizontalAlignment="Right"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding StatusMessage}"/>

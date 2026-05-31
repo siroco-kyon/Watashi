@@ -17,6 +17,7 @@
             <conv:SizeFormatConverter x:Key="SizeFmt"/>
             <conv:NotBoolConverter x:Key="NotBool"/>
             <conv:TypeToIconConverter x:Key="TypeIcon"/>
+            <conv:StatusMessageToBrushConverter x:Key="StatusBrush"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
