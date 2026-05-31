@@ -39,7 +39,7 @@
                     <TextBlock Text="選択した Key の値" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
                     <TextBox Text="{Binding EditValue, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14"/>
                     <Button Content="💾 保存" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" Height="34"/>
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource SuccessBrush}"
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                                TextWrapping="Wrap" Margin="0,12,0,0"/>
                 </StackPanel>
             </DockPanel>

@@ -127,7 +127,7 @@ src/
 ├── Watashi.Server/    # 中央サーバー (ASP.NET Core 8, Windows Service)
 ├── Watashi.Agent/     # エージェント (踏み台に配置、Windows Service)
 └── Watashi.Client/    # WPF デスクトップアプリ
-tests/Watashi.Tests/   # xUnit (154 ケース: PathHelper / Permission / Auth / Crypto / CSV / AdminGuard / Session / AuditLog 等)
+tests/Watashi.Tests/   # xUnit (199 ケース: PathHelper / Permission / Auth / Crypto / CSV / AdminGuard / Session / AuditLog 等)
 deploy/                # Windows Service インストーラ、ClickOnce 設定、IIS MIME
 docs/                  # 本ドキュメント群
 ```

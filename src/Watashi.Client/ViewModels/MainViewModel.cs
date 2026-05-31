@@ -2,6 +2,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Watashi.Client.Services;
@@ -30,6 +31,8 @@ public partial class MainViewModel : ObservableObject
     // 失敗/エラーを含むメッセージだけを目立つ赤バナーに昇格させる。空文字でバナー非表示。
     [ObservableProperty] private string errorMessage = string.Empty;
     private string? latestStatusSource;
+    // 状態バーは一定時間で自動消去し、古いタイムスタンプが現在の操作のように残らないようにする。
+    private readonly DispatcherTimer _statusClearTimer;
     public bool IsAdmin => _session.IsAdmin;
     public string? Username => _session.Username;
     public string ProtocolLabel { get; }
@@ -38,6 +41,13 @@ public partial class MainViewModel : ObservableObject
     {
         _api = api; _session = session; Local = local; Remote = remote;
         ProtocolLabel = settings.IsHttps ? "HTTPS" : "HTTP";
+        _statusClearTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _statusClearTimer.Tick += (_, _) =>
+        {
+            _statusClearTimer.Stop();
+            latestStatusSource = null;
+            LatestStatusMessage = string.Empty;
+        };
         Local.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(LocalPaneViewModel.StatusMessage))
@@ -60,12 +70,15 @@ public partial class MainViewModel : ObservableObject
             {
                 latestStatusSource = null;
                 LatestStatusMessage = string.Empty;
+                _statusClearTimer.Stop();
             }
             return;
         }
 
         latestStatusSource = source;
         LatestStatusMessage = $"{DateTime.Now:HH:mm:ss} {source}: {message}";
+        _statusClearTimer.Stop();
+        _statusClearTimer.Start();
 
         if (message.Contains("失敗") || message.Contains("エラー"))
             ErrorMessage = $"{source}: {message}";

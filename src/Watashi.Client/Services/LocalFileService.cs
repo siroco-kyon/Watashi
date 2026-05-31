@@ -14,7 +14,7 @@ public class LocalFileService
     {
         var list = new List<FileEntry>();
         var di = new DirectoryInfo(path);
-        if (!di.Exists) return list;
+        if (!di.Exists) throw new DirectoryNotFoundException($"フォルダが見つかりません: {path}");
         foreach (var d in di.EnumerateDirectories())
         {
             list.Add(new FileEntry { Name = d.Name, Type = FileEntryTypes.Directory, ModifiedAt = d.LastWriteTimeUtc });
