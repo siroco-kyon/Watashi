@@ -116,7 +116,7 @@ builder.Services.AddHttpClient("agent-forward", (sp, client) =>
     var sharedSecret = sp.GetRequiredService<IConfiguration>()["Auth:SharedSecret"];
     if (!string.IsNullOrEmpty(sharedSecret))
         client.DefaultRequestHeaders.Add("X-Watashi-Secret", sharedSecret);
-    client.Timeout = TimeSpan.FromMinutes(10);
+    client.Timeout = TimeSpan.FromHours(2);
 });
 
 builder.Services.AddHostedService<HeartbeatService>();

@@ -37,7 +37,7 @@ public class AgentForwarder
             throw new InvalidOperationException($"Node {entryNode.Id} に Endpoint が設定されていません。");
         var c = _http.CreateClient("agent");
         c.BaseAddress = _baseUriCache.GetOrAdd(entryNode.Endpoint, e => new Uri(e.TrimEnd('/') + "/"));
-        c.Timeout = TimeSpan.FromMinutes(10);
+        c.Timeout = TimeSpan.FromHours(2);
         var sharedSecret = _cfg["Routing:SharedSecret"];
         if (!string.IsNullOrEmpty(sharedSecret) && !c.DefaultRequestHeaders.Contains("X-Watashi-Secret"))
             c.DefaultRequestHeaders.Add("X-Watashi-Secret", sharedSecret);
