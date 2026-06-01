@@ -14,5 +14,9 @@ public class User
     public DateTime PasswordExpiresAt { get; set; }
     public bool MustChangePassword { get; set; }
     public DateTime? LastLoginAt { get; set; }
+    /// <summary>最後にログインした際にクライアントが申告した Windows ユーザー名 (別人ログイン検知用)。</summary>
+    public string? LastWindowsUsername { get; set; }
+    /// <summary>最後にログインした際にクライアントが申告したマシン名 (端末変更検知用)。</summary>
+    public string? LastMachineName { get; set; }
     public DateTime CreatedAt { get; set; }
 }

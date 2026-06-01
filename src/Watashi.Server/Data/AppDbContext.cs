@@ -148,7 +148,7 @@ public class AppDbContext : DbContext
             b.Property(l => l.Username).IsRequired();
             b.Property(l => l.Operation).IsRequired();
             b.Property(l => l.Result).IsRequired();
-            b.ToTable(t => t.HasCheckConstraint("CK_AuditLog_Result", "Result IN ('success', 'failure')"));
+            b.ToTable(t => t.HasCheckConstraint("CK_AuditLog_Result", "Result IN ('success', 'failure', 'warning')"));
         });
     }
 }

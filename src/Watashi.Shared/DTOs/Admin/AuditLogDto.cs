@@ -56,6 +56,8 @@ public class AuditLogDto
         Operations.Write => "書き込み",
         Operations.Delete => "削除",
         Operations.Rename => "リネーム",
+        AuthOperations.LoginIdentityMismatch => "別Windowsユーザーでログイン",
+        AuthOperations.LoginDeviceChanged => "ログイン端末の変更",
         _ => string.IsNullOrWhiteSpace(operation) ? "-" : operation,
     };
 }

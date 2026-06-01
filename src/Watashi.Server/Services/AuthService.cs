@@ -40,7 +40,7 @@ public class AuthService
         _opts = opts;
     }
 
-    public async Task<LoginResult> LoginAsync(string username, string password, string? clientIp, CancellationToken ct = default)
+    public async Task<LoginResult> LoginAsync(string username, string password, string? clientIp, string? windowsUsername = null, string? machineName = null, CancellationToken ct = default)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username, ct);
         if (user is null)
@@ -62,6 +62,7 @@ public class AuthService
 
         user.FailedLoginCount = 0;
         user.LastLoginAt = DateTime.UtcNow;
+        RecordLoginContext(user, windowsUsername, machineName, clientIp);
         var response = await IssueTokensAsync(user, deviceId: null, clientIp, ct);
         return new LoginResult(response, null);
     }
@@ -200,8 +201,61 @@ public class AuthService
 
         device.LastUsedAt = DateTime.UtcNow;
         user.LastLoginAt = DateTime.UtcNow;
+        RecordLoginContext(user, windowsUsername, machineName, clientIp);
         var response = await IssueTokensAsync(user, device.Id, clientIp, ct);
         return new LoginResult(response, null);
+    }
+
+    /// <summary>
+    /// ログイン成功時、クライアントが申告した Windows ユーザー名 / マシン名を Watashi ユーザー・
+    /// 前回値と突き合わせ、運用上の注意イベントを監査ログに残す。ログイン自体は拒否しない。
+    /// ・Windows ユーザー名 ≠ Watashi ユーザー名 → 別人ログインとして記録
+    /// ・前回と異なるマシン名 → 端末変更として記録
+    /// 監査ログと User の更新は呼び出し側の SaveChangesAsync でまとめて永続化される。
+    /// </summary>
+    private void RecordLoginContext(User user, string? windowsUsername, string? machineName, string? clientIp)
+    {
+        var now = DateTime.UtcNow;
+        var win = windowsUsername?.Trim();
+        var machine = machineName?.Trim();
+
+        // 運用ルール: Windows ログオンユーザー名 = Watashi ユーザー名。異なる場合は「別の人が入った」記録を残す。
+        if (!string.IsNullOrEmpty(win) &&
+            !string.Equals(win, user.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            _db.AuditLogs.Add(new AuditLog
+            {
+                Timestamp = now,
+                UserId = user.Id,
+                Username = user.Username,
+                Operation = Shared.Constants.AuthOperations.LoginIdentityMismatch,
+                Result = Shared.Constants.AuditResults.Warning,
+                Path = $"Windows ユーザー '{win}' が Watashi ユーザー '{user.Username}' でログイン",
+                ClientIp = clientIp,
+                ClientHostname = machine,
+            });
+        }
+
+        // 端末 (マシン名) が前回ログイン時と変わった場合に記録。初回 (LastMachineName 未設定) は記録しない。
+        if (!string.IsNullOrEmpty(machine) &&
+            !string.IsNullOrEmpty(user.LastMachineName) &&
+            !string.Equals(machine, user.LastMachineName, StringComparison.OrdinalIgnoreCase))
+        {
+            _db.AuditLogs.Add(new AuditLog
+            {
+                Timestamp = now,
+                UserId = user.Id,
+                Username = user.Username,
+                Operation = Shared.Constants.AuthOperations.LoginDeviceChanged,
+                Result = Shared.Constants.AuditResults.Warning,
+                Path = $"マシン名 '{user.LastMachineName}' → '{machine}'",
+                ClientIp = clientIp,
+                ClientHostname = machine,
+            });
+        }
+
+        if (!string.IsNullOrEmpty(win)) user.LastWindowsUsername = win;
+        if (!string.IsNullOrEmpty(machine)) user.LastMachineName = machine;
     }
 
     public async Task<TrustDeviceResponse> TrustDeviceAsync(int userId, string machineName, string windowsUsername, CancellationToken ct = default)

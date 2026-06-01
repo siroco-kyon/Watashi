@@ -17,4 +17,6 @@ public static class AuditResults
 {
     public const string Success = "success";
     public const string Failure = "failure";
+    /// <summary>正常でも失敗でもない注意イベント (別人ログイン・端末変更など)。</summary>
+    public const string Warning = "warning";
 }

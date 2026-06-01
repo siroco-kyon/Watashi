@@ -292,25 +292,6 @@ public partial class RemotePaneViewModel : ObservableObject
         catch (Exception ex) { StatusMessage = "リネーム失敗: " + ex.Message; }
     }
 
-    /// <summary>
-    /// 選択中アイテム (なければ CurrentPath) のリモートパスをクリップボードへコピー。
-    /// 共有ルートを含む形 (例: 経理部FS / share-keiri :: /dept-A/file.txt) ではなく
-    /// パス部分のみ。FTPツール等への貼り付け用途。
-    /// </summary>
-    [RelayCommand]
-    public void CopyPath()
-    {
-        try
-        {
-            var path = Selected is not null && Selected.Type != FileEntryTypes.Parent
-                ? JoinPath(CurrentPath, Selected.Name)
-                : CurrentPath;
-            System.Windows.Clipboard.SetText(path);
-            StatusMessage = $"パスをコピー: {path}";
-        }
-        catch (Exception ex) { StatusMessage = "クリップボードへコピー失敗: " + ex.Message; }
-    }
-
     private void UpdateHistoryFlags()
     {
         CanGoBack = _back.Count > 0;

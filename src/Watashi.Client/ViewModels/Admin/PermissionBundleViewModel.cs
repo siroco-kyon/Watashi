@@ -2,7 +2,9 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Watashi.Client.Services;
+using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
+using Watashi.Shared.DTOs.Files;
 
 namespace Watashi.Client.ViewModels.Admin;
 
@@ -13,22 +15,28 @@ namespace Watashi.Client.ViewModels.Admin;
 public partial class PermissionBundleViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
+    private readonly List<ShareDto> _allShares = new();
 
     public ObservableCollection<PermissionBundleDto> Items { get; } = new();
+    public ObservableCollection<HostDto> Hosts { get; } = new();
     public ObservableCollection<ShareDto> Shares { get; } = new();
     public ObservableCollection<PermissionTemplateDto> Templates { get; } = new();
     public ObservableCollection<PermissionBundleEntryDto> EditingEntries { get; } = new();
+    public ObservableCollection<FileEntry> BrowseEntries { get; } = new();
 
     [ObservableProperty] private PermissionBundleDto? selected;
     [ObservableProperty] private string editName = string.Empty;
     [ObservableProperty] private string editDescription = string.Empty;
 
-    // 新規エントリ追加フォーム
+    // 新規エントリ追加フォーム (ユーザー権限タブと同じく サーバー → 共有 → ブラウズ で実在パスを参照)
+    [ObservableProperty] private HostDto? entryHost;
     [ObservableProperty] private ShareDto? entryShare;
     [ObservableProperty] private PermissionTemplateDto? entryTemplate;
     [ObservableProperty] private string entryAllowedPath = "/";
     [ObservableProperty] private string entryDisplayName = string.Empty;
     [ObservableProperty] private PermissionBundleEntryDto? selectedEntry;
+    [ObservableProperty] private string browsePath = "/";
+    [ObservableProperty] private FileEntry? selectedBrowseEntry;
 
     public bool HasSelection => Selected is not null;
     public bool HasNoItems => Items.Count == 0;
@@ -42,15 +50,28 @@ public partial class PermissionBundleViewModel : AdminViewModelBase
     [RelayCommand]
     public Task RefreshAsync() => SafeAsync(async () =>
     {
+        var entryHostId = EntryHost?.Id;
+        var entryShareId = EntryShare?.Id;
+
         var bundlesTask = _api.GetBundlesAsync();
+        var hostsTask = _api.GetAdminHostsAsync();
         var sharesTask = _api.GetAdminSharesAsync();
         var templatesTask = _api.GetTemplatesAsync();
-        await Task.WhenAll(bundlesTask, sharesTask, templatesTask);
+        await Task.WhenAll(bundlesTask, hostsTask, sharesTask, templatesTask);
         ReplaceAll(Items, bundlesTask.Result);
-        ReplaceAll(Shares, sharesTask.Result);
+        _allShares.Clear();
+        _allShares.AddRange(sharesTask.Result);
+        ReplaceAll(Hosts, hostsTask.Result);
         ReplaceAll(Templates, templatesTask.Result
             .OrderByDescending(t => Score(t)).ThenBy(t => t.Id));
-        EntryShare ??= Shares.FirstOrDefault();
+
+        // ホスト復元 (前回選択 → 先頭)。OnEntryHostChanged で Shares が host 単位に絞り込まれる。
+        EntryHost = entryHostId.HasValue
+            ? Hosts.FirstOrDefault(h => h.Id == entryHostId.Value) ?? Hosts.FirstOrDefault()
+            : Hosts.FirstOrDefault();
+        if (entryShareId.HasValue)
+            EntryShare = Shares.FirstOrDefault(s => s.Id == entryShareId.Value) ?? Shares.FirstOrDefault();
+
         EntryTemplate ??= Templates.FirstOrDefault();
         if (Selected is not null)
             Selected = Items.FirstOrDefault(i => i.Id == Selected.Id);
@@ -58,6 +79,44 @@ public partial class PermissionBundleViewModel : AdminViewModelBase
 
     private static int Score(PermissionTemplateDto t) =>
         (t.CanRead ? 1 : 0) + (t.CanWrite ? 1 : 0) + (t.CanDelete ? 1 : 0) + (t.CanRename ? 1 : 0);
+
+    // === サーバー → 共有 → ブラウズ (UserPermission タブと同じ実在パス参照) ===
+    partial void OnEntryHostChanged(HostDto? value)
+    {
+        if (value is null)
+        {
+            Shares.Clear();
+            EntryShare = null;
+            BrowseEntries.Clear();
+            BrowsePath = "/";
+            return;
+        }
+        ReplaceAll(Shares, _allShares.Where(s => s.HostId == value.Id));
+        EntryShare = Shares.FirstOrDefault();
+    }
+
+    partial void OnEntryShareChanged(ShareDto? value)
+    {
+        BrowseEntries.Clear();
+        BrowsePath = "/";
+    }
+
+    partial void OnSelectedBrowseEntryChanged(FileEntry? value)
+    {
+        if (value?.Type != FileEntryTypes.Directory) return;
+        EntryAllowedPath = RemotePaneViewModel.JoinPath(BrowsePath, value.Name);
+    }
+
+    /// <summary>選択中の共有内の実在パスを参照し、サブフォルダ一覧を表示する (許可パス入力の補助)。</summary>
+    [RelayCommand]
+    public Task BrowseAsync() => SafeAsync(async () =>
+    {
+        if (EntryShare is null) { StatusMessage = "ブラウズには共有を選択してください。"; return; }
+        var res = await _api.AdminBrowseAsync(EntryShare.HostId, EntryShare.Id, BrowsePath);
+        BrowsePath = res.CurrentPath;
+        ReplaceAll(BrowseEntries, res.Entries.Where(e => e.Type == FileEntryTypes.Directory));
+        SelectedBrowseEntry = null;
+    });
 
     partial void OnSelectedChanged(PermissionBundleDto? value)
     {
@@ -119,6 +178,7 @@ public partial class PermissionBundleViewModel : AdminViewModelBase
     public void AddEntry()
     {
         if (Selected is null) { StatusMessage = "先にセットを選択してください。"; return; }
+        if (EntryHost is null) { StatusMessage = "サーバーを選択してください。"; return; }
         if (EntryShare is null) { StatusMessage = "共有を選択してください。"; return; }
         if (EntryTemplate is null) { StatusMessage = "テンプレートを選択してください。"; return; }
         if (string.IsNullOrWhiteSpace(EntryAllowedPath)) { StatusMessage = "許可パスを入力してください。"; return; }
