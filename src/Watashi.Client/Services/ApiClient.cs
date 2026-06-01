@@ -24,12 +24,14 @@ public class ApiException : Exception
 public class ApiClient
 {
     private readonly HttpClient _http;
+    private readonly IHttpClientFactory _httpFactory;
     private readonly SessionManager _session;
     private readonly AppSettings _settings;
 
-    public ApiClient(HttpClient http, SessionManager session, AppSettings settings)
+    public ApiClient(HttpClient http, IHttpClientFactory httpFactory, SessionManager session, AppSettings settings)
     {
         _http = http;
+        _httpFactory = httpFactory;
         _session = session;
         _settings = settings;
         ConfigureBaseAddress();
@@ -90,7 +92,8 @@ public class ApiClient
     {
         var qs = $"hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path)}";
         using var req = await CreateAuthedRequestAsync(HttpMethod.Get, $"api/files/download?{qs}", ct);
-        using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        var http = _httpFactory.CreateClient("file-transfer");
+        using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         await ThrowIfErrorAsync(res, ct);
         await using var stream = await res.Content.ReadAsStreamAsync(ct);
         var buffer = new byte[4 * 1024 * 1024];
@@ -112,7 +115,8 @@ public class ApiClient
         content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         using var req = await CreateAuthedRequestAsync(HttpMethod.Post, $"api/files/upload?{qs}", ct);
         req.Content = content;
-        using var res = await _http.SendAsync(req, ct);
+        var http = _httpFactory.CreateClient("file-transfer");
+        using var res = await http.SendAsync(req, ct);
         await ThrowIfErrorAsync(res, ct);
     }
 
