@@ -13,6 +13,13 @@ using Watashi.Shared.Cifs;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseWindowsService(o => o.ServiceName = "Watashi.Agent");
+
+const long DefaultMaxRequestBodySize = 1L * 1024 * 1024 * 1024;
+var maxRequestBodySize = builder.Configuration.GetValue<long?>("Kestrel:Limits:MaxRequestBodySize")
+    ?? DefaultMaxRequestBodySize;
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = maxRequestBodySize);
+builder.Services.Configure<IISServerOptions>(o => o.MaxRequestBodySize = maxRequestBodySize);
+
 builder.Host.UseSerilog((ctx, lc) => lc.ReadFrom.Configuration(ctx.Configuration).Enrich.FromLogContext());
 
 var connStr = builder.Configuration.GetConnectionString("Buffer")
