@@ -137,6 +137,7 @@ public static class AgentEndpoints
     }
 
     private const string ForwardToHeader = "X-Watashi-Forward-To";
+    private static readonly TimeSpan DefaultHttpTimeout = TimeSpan.FromMinutes(10);
 
     private static async Task<T?> ReadJsonAsync<T>(HttpContext ctx, CancellationToken ct)
     {
@@ -167,6 +168,19 @@ public static class AgentEndpoints
         return !string.IsNullOrWhiteSpace(target);
     }
 
+    private static bool IsFileTransferRequest(HttpContext ctx)
+    {
+        var path = ctx.Request.Path.Value ?? string.Empty;
+        return path.EndsWith("/files/upload", StringComparison.OrdinalIgnoreCase) ||
+               path.EndsWith("/files/download", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static TimeSpan GetFileTransferTimeout(HttpContext ctx)
+    {
+        var cfg = ctx.RequestServices.GetRequiredService<IConfiguration>();
+        return TimeSpan.FromMinutes(Math.Max(1, cfg.GetValue<int?>("Http:FileTransferTimeoutMinutes") ?? 30));
+    }
+
     private static async Task<IResult> ForwardToNextAgentAsync(
         HttpContext ctx, IHttpClientFactory http, string targetEndpoint, CancellationToken ct)
     {
@@ -178,6 +192,7 @@ public static class AgentEndpoints
 
         var client = http.CreateClient("agent-forward");
         client.BaseAddress = baseUri;
+        client.Timeout = IsFileTransferRequest(ctx) ? GetFileTransferTimeout(ctx) : DefaultHttpTimeout;
 
         var relativePath = (ctx.Request.Path.Value ?? string.Empty).TrimStart('/');
         var requestUri = relativePath + ctx.Request.QueryString;

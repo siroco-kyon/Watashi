@@ -21,6 +21,13 @@ public class AppSettings
     [JsonIgnore]
     public bool EnableDragDrop { get; set; } = true;
 
+    /// <summary>
+    /// ファイル転送専用 HTTP タイムアウト (分)。deployment.json で配布時に固定する。
+    /// 通常 API のタイムアウトは短めのままにし、大容量転送だけ別枠にする。
+    /// </summary>
+    [JsonIgnore]
+    public int FileTransferTimeoutMinutes { get; set; } = 30;
+
     public string LastLocalPath { get; set; } = string.Empty;
 
     /// <summary>実際に HTTPS で通信しているか。ServerUrl のスキームで判定する。</summary>

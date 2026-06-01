@@ -17,6 +17,7 @@ namespace Watashi.Server.Services;
 public class AgentForwarder
 {
     public const string ForwardToHeader = "X-Watashi-Forward-To";
+    private static readonly TimeSpan DefaultHttpTimeout = TimeSpan.FromMinutes(10);
 
     private readonly IHttpClientFactory _http;
     private readonly IConfiguration _cfg;
@@ -30,14 +31,17 @@ public class AgentForwarder
         _log = log;
     }
 
-    private HttpClient Client(ExecutionNode node)
+    private TimeSpan FileTransferHttpTimeout =>
+        TimeSpan.FromMinutes(Math.Max(1, _cfg.GetValue<int?>("Http:FileTransferTimeoutMinutes") ?? 30));
+
+    private HttpClient Client(ExecutionNode node, TimeSpan? timeout = null)
     {
         var entryNode = node.GatewayNode ?? node;
         if (string.IsNullOrWhiteSpace(entryNode.Endpoint))
             throw new InvalidOperationException($"Node {entryNode.Id} に Endpoint が設定されていません。");
         var c = _http.CreateClient("agent");
         c.BaseAddress = _baseUriCache.GetOrAdd(entryNode.Endpoint, e => new Uri(e.TrimEnd('/') + "/"));
-        c.Timeout = TimeSpan.FromMinutes(10);
+        c.Timeout = timeout ?? DefaultHttpTimeout;
         var sharedSecret = _cfg["Routing:SharedSecret"];
         if (!string.IsNullOrEmpty(sharedSecret) && !c.DefaultRequestHeaders.Contains("X-Watashi-Secret"))
             c.DefaultRequestHeaders.Add("X-Watashi-Secret", sharedSecret);
@@ -93,7 +97,7 @@ public class AgentForwarder
 
     public async Task<Stream> OpenDownloadAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
-        var c = Client(node);
+        var c = Client(node, FileTransferHttpTimeout);
         var body = BuildBody(info, new { path });
         var req = new HttpRequestMessage(HttpMethod.Post, "agent/files/download")
         {
@@ -112,7 +116,7 @@ public class AgentForwarder
 
     public async Task UploadAsync(ExecutionNode node, CifsConnectionInfo info, string path, Stream input, CancellationToken ct)
     {
-        var c = Client(node);
+        var c = Client(node, FileTransferHttpTimeout);
         using var content = new StreamContent(input, 4 * 1024 * 1024);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         // Agent 側は body がファイル本体なので、認証情報は X-Watashi-Cifs ヘッダ (base64 JSON) で渡す。
