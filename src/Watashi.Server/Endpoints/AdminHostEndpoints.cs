@@ -87,17 +87,36 @@ public static class AdminHostEndpoints
             return Results.NoContent();
         });
 
-        group.MapPost("/{id:int}/test", async (int id, AppDbContext db, EncryptionService enc, NodeRouter router, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
+        group.MapPost("/test-connection", async (TestHostConnectionRequest req, AppDbContext db, EncryptionService enc, NodeRouter router, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
-            var h = await db.CifsHosts.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
-            if (h is null) return Results.NotFound();
-            var anyShare = await db.CifsShares.AsNoTracking().FirstOrDefaultAsync(s => s.HostId == id, ct);
-            if (anyShare is null) return Results.BadRequest(new { error = "テスト用の共有が登録されていません。" });
+            if (string.IsNullOrWhiteSpace(req.HostAddress))
+                return Results.BadRequest(new { error = "ホスト名/IP を入力してください。" });
+            if (!IsSupportedSmbPort(req.Port))
+                return Results.BadRequest(new { error = "Port は 445 (DirectTCP) または 139 (NetBIOS over TCP) のみ指定できます。" });
+            if (string.IsNullOrWhiteSpace(req.CredUsername))
+                return Results.BadRequest(new { error = "CIFS ユーザーを入力してください。" });
             var node = await db.ExecutionNodes.AsNoTracking()
                 .Include(n => n.GatewayNode)
-                .FirstOrDefaultAsync(n => n.Id == h.ExecutionNodeId, ct);
-            if (node is null) return Results.BadRequest(new { error = "ホストに紐づく ExecutionNode が見つかりません。" });
-            var info = new CifsConnectionInfo(h.HostAddress, h.Port, h.CredUsername, enc.Decrypt(h.CredPasswordEnc), anyShare.ShareName);
+                .FirstOrDefaultAsync(n => n.Id == req.ExecutionNodeId, ct);
+            if (node is null) return Results.BadRequest(new { error = "指定された ExecutionNode が存在しません。" });
+
+            // テストは共有への TreeConnect まで行うため共有名が要る。
+            // 既存ホストの編集時はそのホストの共有を借用する。未保存の新規ホストは共有がまだ無い。
+            var existing = req.HostId.HasValue
+                ? await db.CifsHosts.AsNoTracking().FirstOrDefaultAsync(h => h.Id == req.HostId.Value, ct)
+                : null;
+            var shareName = existing is null
+                ? null
+                : (await db.CifsShares.AsNoTracking().FirstOrDefaultAsync(s => s.HostId == existing.Id, ct))?.ShareName;
+            if (string.IsNullOrEmpty(shareName))
+                return Results.BadRequest(new { error = "接続テストには共有が必要です。先にホストを保存し、共有を 1 件登録してください。" });
+
+            // パスワード空欄は「変更しない」を意味するため、既存ホストの保存値を使う。
+            var password = string.IsNullOrEmpty(req.CredPassword)
+                ? (existing is not null ? enc.Decrypt(existing.CredPasswordEnc) : string.Empty)
+                : req.CredPassword;
+
+            var info = new CifsConnectionInfo(req.HostAddress, req.Port, req.CredUsername, password, shareName);
             var errorMessage = default(string);
             var ok = false;
             try
@@ -112,7 +131,8 @@ public static class AdminHostEndpoints
             {
                 errorMessage = ex.Message;
             }
-            await audit.LogAdminAsync(principal, ctx, AdminOperations.HostTest, $"host:{id}",
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.HostTest,
+                req.HostId.HasValue ? $"host:{req.HostId}" : "host:(form)",
                 ok ? AuditResults.Success : AuditResults.Failure, errorMessage, ct);
             return Results.Ok(new { ok });
         });

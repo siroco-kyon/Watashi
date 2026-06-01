@@ -36,6 +36,11 @@ public class AuditLogDto
     /// </summary>
     public string DisplayLocation => FormatLocation(HostName, HostId, ShareName, ShareId, Path);
 
+    /// <summary>ホスト列の表示。解決済みは名前、削除済みは "(削除済)"、そもそも対象外 (ログイン等) は "—"。</summary>
+    public string HostDisplay => HostName ?? (HostId.HasValue ? "(削除済)" : "—");
+    /// <summary>共有列の表示。規則は <see cref="HostDisplay"/> と同じ。</summary>
+    public string ShareDisplay => ShareName ?? (ShareId.HasValue ? "(削除済)" : "—");
+
     public static string FormatLocation(string? hostName, int? hostId, string? shareName, int? shareId, string? path)
     {
         if (!hostId.HasValue && !shareId.HasValue)

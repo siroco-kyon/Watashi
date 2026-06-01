@@ -14,7 +14,7 @@
                     </StackPanel>
                 </DockPanel>
             </Border>
-            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource AccentBrush}"
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                        Margin="16,8,16,0" DockPanel.Dock="Top" TextWrapping="Wrap"/>
             <ListView ItemsSource="{Binding Devices}" BorderThickness="0,1,0,0">
                 <ListView.View>

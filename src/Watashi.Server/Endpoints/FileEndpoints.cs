@@ -192,15 +192,6 @@ public static class FileEndpoints
                 usedPermissionId: auth.PermissionId, ct: ct);
             return (IResult)raw;
         }
-        catch (NodeUnreachableException nue)
-        {
-            var bytes = ctx.Items.TryGetValue("bytes", out var b) ? b as long? : null;
-            await audit.LogAsync(principal, ctx, logOperation, hostId, shareId, auth.NormalizedPath,
-                AuditResults.Failure, nue.Message, bytesTransferred: bytes,
-                durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
-                usedPermissionId: auth.PermissionId, ct: ct);
-            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
-        }
         catch (Exception ex)
         {
             var bytes = ctx.Items.TryGetValue("bytes", out var b) ? b as long? : null;
@@ -208,10 +199,22 @@ public static class FileEndpoints
                 AuditResults.Failure, ex.Message, bytesTransferred: bytes,
                 durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
                 usedPermissionId: auth.PermissionId, ct: ct);
-            // 内部メッセージはクライアントに直接返さず Problem としてマスクする。
-            return Results.Problem(detail: "内部エラーが発生しました。", statusCode: StatusCodes.Status500InternalServerError);
+            return MapExecutionError(ex);
         }
     }
+
+    /// <summary>
+    /// 実行系の例外を安全な IResult にマッピングする。
+    /// CIFS 由来の IOException / UnauthorizedAccessException はメッセージが安全なため
+    /// クライアントへ具体的に返し、想定外の例外のみ汎用メッセージでマスクする。
+    /// </summary>
+    internal static IResult MapExecutionError(Exception ex) => ex switch
+    {
+        NodeUnreachableException => Results.StatusCode(StatusCodes.Status503ServiceUnavailable),
+        UnauthorizedAccessException => Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
+        IOException => Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
+        _ => Results.Problem(detail: "内部エラーが発生しました。", statusCode: StatusCodes.Status500InternalServerError),
+    };
 
     internal static async Task<AuthCheck> ResolveAuthAsync(
         ClaimsPrincipal principal, int hostId, int shareId, string path, string operation,

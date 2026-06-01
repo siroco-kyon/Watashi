@@ -173,7 +173,7 @@
                                     Content="＋ 行を追加 (保存はセット側で確定)"
                                     Command="{Binding AddEntryCommand}" Height="34"/>
                             <TextBlock Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="3"
-                                       Text="{Binding StatusMessage}" Foreground="{StaticResource AccentBrush}"
+                                       Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                                        TextWrapping="Wrap"/>
                         </Grid>
                     </StackPanel>
