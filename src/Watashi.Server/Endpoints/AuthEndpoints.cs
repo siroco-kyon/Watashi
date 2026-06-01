@@ -23,7 +23,7 @@ public static class AuthEndpoints
                 return Results.BadRequest(new { error = "ユーザー名とパスワードを入力してください。" });
 
             var clientIp = ctx.Connection.RemoteIpAddress?.ToString();
-            var result = await auth.LoginAsync(req.Username, req.Password, clientIp, ct);
+            var result = await auth.LoginAsync(req.Username, req.Password, clientIp, req.WindowsUsername, req.MachineName, ct);
 
             if (result.Failure == LoginFailureReason.AccountLocked)
                 return Results.StatusCode(StatusCodes.Status403Forbidden);

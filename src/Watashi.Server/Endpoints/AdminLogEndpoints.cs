@@ -63,7 +63,7 @@ public static class AdminLogEndpoints
                     l.HostId, h != null ? h.Name : null,
                     l.ShareId, s != null ? s.DisplayName : null,
                     l.Path, l.TargetPath, l.Result, l.ErrorMessage,
-                    l.ClientIp, l.BytesTransferred, l.DurationMs, l.Protocol,
+                    l.ClientIp, l.ClientHostname, l.BytesTransferred, l.DurationMs, l.Protocol,
                     l.ExecutionNodeId, l.UsedPermissionId);
 
             ctx.Response.ContentType = "text/csv; charset=utf-8";
@@ -72,7 +72,7 @@ public static class AdminLogEndpoints
             await using var writer = new StreamWriter(ctx.Response.Body, Encoding.UTF8, leaveOpen: true);
             // 「どこのどの共有のどのパスか」が一目で分かるよう Location 列を追加。
             // 既存運用のために HostId/ShareId/Path/HostName/ShareName 各列もそのまま残す。
-            await writer.WriteLineAsync("Id,Timestamp,Username,Operation,OperationLabel,Location,HostId,HostName,ShareId,ShareName,Path,TargetPath,Result,Error,ClientIp,Bytes,DurationMs,Protocol,NodeId,PermId");
+            await writer.WriteLineAsync("Id,Timestamp,Username,Operation,OperationLabel,Location,HostId,HostName,ShareId,ShareName,Path,TargetPath,Result,Error,ClientIp,ClientHostname,Bytes,DurationMs,Protocol,NodeId,PermId");
 
             int batched = 0;
             await foreach (var l in q.AsAsyncEnumerable().WithCancellation(ct))
@@ -94,6 +94,7 @@ public static class AdminLogEndpoints
                     l.Result,
                     l.ErrorMessage ?? string.Empty,
                     l.ClientIp ?? string.Empty,
+                    l.ClientHostname ?? string.Empty,
                     l.BytesTransferred?.ToString() ?? string.Empty,
                     l.DurationMs?.ToString() ?? string.Empty,
                     l.Protocol ?? string.Empty,
@@ -134,6 +135,8 @@ public static class AdminLogEndpoints
             "書き込み" => Operations.Write,
             "削除" => Operations.Delete,
             "リネーム" => Operations.Rename,
+            "別Windowsユーザーでログイン" => AuthOperations.LoginIdentityMismatch,
+            "ログイン端末の変更" => AuthOperations.LoginDeviceChanged,
             _ => value.ToUpperInvariant(),
         };
     }
@@ -144,6 +147,6 @@ public static class AdminLogEndpoints
         long Id, DateTime Timestamp, string Username, string Operation,
         int? HostId, string? HostName, int? ShareId, string? ShareName,
         string? Path, string? TargetPath, string Result, string? ErrorMessage,
-        string? ClientIp, long? BytesTransferred, long? DurationMs, string? Protocol,
+        string? ClientIp, string? ClientHostname, long? BytesTransferred, long? DurationMs, string? Protocol,
         int? ExecutionNodeId, int? UsedPermissionId);
 }

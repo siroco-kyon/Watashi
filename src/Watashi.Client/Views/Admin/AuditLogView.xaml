@@ -51,6 +51,7 @@
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="60"/>
                         <GridViewColumn Header="時刻" DisplayMemberBinding="{Binding Timestamp, Converter={StaticResource Utc}}" Width="160"/>
                         <GridViewColumn Header="User" DisplayMemberBinding="{Binding Username}" Width="120"/>
+                        <GridViewColumn Header="端末" DisplayMemberBinding="{Binding ClientHostname}" Width="120"/>
                         <GridViewColumn Header="Op" DisplayMemberBinding="{Binding OperationLabel}" Width="110"/>
                         <GridViewColumn Header="Result" DisplayMemberBinding="{Binding Result}" Width="70"/>
                         <GridViewColumn Header="ホスト / 共有" Width="220">

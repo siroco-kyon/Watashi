@@ -186,6 +186,8 @@ public partial class App : Application
             if (settings.IsConfigured)
                 c.BaseAddress = new Uri(settings.ServerUrl.TrimEnd('/') + "/");
             c.Timeout = TimeSpan.FromMinutes(10);
+            // 監査ログにどの端末からの操作かを残すため、全リクエストにマシン名を付与する。
+            c.DefaultRequestHeaders.Add("X-Client-Hostname", Environment.MachineName);
         });
         services.AddHttpClient("settings-test", c => c.Timeout = TimeSpan.FromSeconds(5));
 

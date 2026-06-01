@@ -43,7 +43,14 @@ public class ApiClient
 
     // === Auth ===
     public Task<LoginResponse> LoginAsync(string username, string password, CancellationToken ct = default) =>
-        PostJsonAsync<LoginResponse>("api/auth/login", new LoginRequest { Username = username, Password = password }, anonymous: true, ct);
+        PostJsonAsync<LoginResponse>("api/auth/login", new LoginRequest
+        {
+            Username = username,
+            Password = password,
+            // 監査用: ログイン中の Windows ユーザー / マシン名を申告する (運用上 Windows = Watashi ユーザー名)。
+            WindowsUsername = Environment.UserName,
+            MachineName = Environment.MachineName,
+        }, anonymous: true, ct);
 
     public Task<LoginResponse> AutoLoginAsync(string machineName, string windowsUser, string deviceToken, CancellationToken ct = default) =>
         PostJsonAsync<LoginResponse>("api/auth/auto-login", new AutoLoginRequest { MachineName = machineName, WindowsUsername = windowsUser, DeviceToken = deviceToken }, anonymous: true, ct);

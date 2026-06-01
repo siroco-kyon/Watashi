@@ -196,4 +196,104 @@ public class AuthServiceExtraTests
         var tok = await db.Db.RefreshTokens.AsNoTracking().FirstAsync(t => t.Id == login.Response!.RefreshTokenId);
         tok.ClientIp.Should().Be("10.0.0.42");
     }
+
+    // ===== ログイン時の Windows ユーザー / 端末の監査 =====
+
+    [Fact]
+    public async Task Login_with_mismatched_windows_user_records_identity_mismatch_audit()
+    {
+        using var db = new TestDb();
+        await SeedUserAsync(db);
+        var svc = Build(db);
+
+        // Windows ユーザー "bob" が Watashi ユーザー "alice" でログイン。ログイン自体は成功する。
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: "10.0.0.1",
+            windowsUsername: "bob", machineName: "PC1");
+        login.Failure.Should().BeNull();
+
+        db.Db.ChangeTracker.Clear();
+        var audits = await db.Db.AuditLogs.AsNoTracking()
+            .Where(a => a.Operation == AuthOperations.LoginIdentityMismatch).ToListAsync();
+        audits.Should().HaveCount(1);
+        audits[0].Username.Should().Be("alice");
+        audits[0].Result.Should().Be(AuditResults.Warning);
+        audits[0].ClientHostname.Should().Be("PC1");
+
+        var user = await db.Db.Users.AsNoTracking().FirstAsync(u => u.Username == "alice");
+        user.LastWindowsUsername.Should().Be("bob");
+        user.LastMachineName.Should().Be("PC1");
+    }
+
+    [Fact]
+    public async Task Login_with_matching_windows_user_records_no_mismatch_audit()
+    {
+        using var db = new TestDb();
+        await SeedUserAsync(db);
+        var svc = Build(db);
+
+        await svc.LoginAsync("alice", "Admin123!@#", clientIp: null,
+            windowsUsername: "ALICE", machineName: "PC1"); // 大文字小文字は無視
+
+        db.Db.ChangeTracker.Clear();
+        var mismatches = await db.Db.AuditLogs.AsNoTracking()
+            .CountAsync(a => a.Operation == AuthOperations.LoginIdentityMismatch);
+        mismatches.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Login_from_new_machine_records_device_change_only_after_first()
+    {
+        using var db = new TestDb();
+        await SeedUserAsync(db);
+        var svc = Build(db);
+
+        // 初回は前回値が無いので端末変更は記録しない (LastMachineName をセットするだけ)。
+        await svc.LoginAsync("alice", "Admin123!@#", clientIp: null, windowsUsername: "alice", machineName: "PC1");
+        // 別マシンからの2回目で端末変更を記録する。
+        await svc.LoginAsync("alice", "Admin123!@#", clientIp: null, windowsUsername: "alice", machineName: "PC2");
+
+        db.Db.ChangeTracker.Clear();
+        var changes = await db.Db.AuditLogs.AsNoTracking()
+            .Where(a => a.Operation == AuthOperations.LoginDeviceChanged).ToListAsync();
+        changes.Should().HaveCount(1);
+        changes[0].Path.Should().Contain("PC1").And.Contain("PC2");
+
+        var user = await db.Db.Users.AsNoTracking().FirstAsync(u => u.Username == "alice");
+        user.LastMachineName.Should().Be("PC2");
+    }
+
+    [Fact]
+    public async Task Login_without_client_identity_records_no_audit()
+    {
+        using var db = new TestDb();
+        await SeedUserAsync(db);
+        var svc = Build(db);
+
+        // Windows 情報を申告しない場合は注意イベントを残さない。
+        await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+
+        db.Db.ChangeTracker.Clear();
+        var count = await db.Db.AuditLogs.AsNoTracking().CountAsync(a =>
+            a.Operation == AuthOperations.LoginIdentityMismatch ||
+            a.Operation == AuthOperations.LoginDeviceChanged);
+        count.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task AutoLogin_with_mismatched_windows_user_records_identity_mismatch_audit()
+    {
+        using var db = new TestDb();
+        var u = await SeedUserAsync(db);
+        var svc = Build(db);
+        // alice の信頼デバイスを Windows ユーザー "bob" で登録 (運用外の状態を再現)。
+        var trust = await svc.TrustDeviceAsync(u.Id, "PC9", "bob");
+
+        var result = await svc.AutoLoginAsync("PC9", "bob", trust.DeviceToken, clientIp: null);
+        result.Failure.Should().BeNull();
+
+        db.Db.ChangeTracker.Clear();
+        var audits = await db.Db.AuditLogs.AsNoTracking()
+            .CountAsync(a => a.Operation == AuthOperations.LoginIdentityMismatch);
+        audits.Should().Be(1);
+    }
 }

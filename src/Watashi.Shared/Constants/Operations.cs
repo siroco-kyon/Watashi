@@ -12,6 +12,14 @@ public static class Operations
     public const string Mkdir = "MKDIR";
 }
 
+public static class AuthOperations
+{
+    /// <summary>Windows ログオンユーザー名と Watashi ログインユーザー名が異なる状態でのログイン (ログイン自体は許可)。</summary>
+    public const string LoginIdentityMismatch = "LOGIN_IDENTITY_MISMATCH";
+    /// <summary>前回ログイン時と異なる端末 (マシン名) からのログイン。</summary>
+    public const string LoginDeviceChanged = "LOGIN_DEVICE_CHANGED";
+}
+
 public static class AdminOperations
 {
     public const string UserCreate = "ADMIN_USER_CREATE";

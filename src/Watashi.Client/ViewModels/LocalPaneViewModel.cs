@@ -208,23 +208,6 @@ public partial class LocalPaneViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 選択中アイテム (なければ CurrentPath) のフルパスをクリップボードへコピー。
-    /// </summary>
-    [RelayCommand]
-    public void CopyPath()
-    {
-        try
-        {
-            var path = Selected is not null && Selected.Type != FileEntryTypes.Parent
-                ? Path.Combine(CurrentPath, Selected.Name)
-                : CurrentPath;
-            System.Windows.Clipboard.SetText(path);
-            StatusMessage = $"パスをコピー: {path}";
-        }
-        catch (Exception ex) { StatusMessage = "クリップボードへコピー失敗: " + ex.Message; }
-    }
-
-    /// <summary>
     /// 現在のフォルダ (または選択中アイテムのある場所) を Windows エクスプローラで開く。
     /// 選択中ファイル/フォルダがあればそれを選択状態で開く (/select)。
     /// </summary>
