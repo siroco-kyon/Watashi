@@ -18,7 +18,6 @@ public class AgentForwarder
 {
     public const string ForwardToHeader = "X-Watashi-Forward-To";
     private static readonly TimeSpan DefaultHttpTimeout = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan FileTransferHttpTimeout = TimeSpan.FromMinutes(30);
 
     private readonly IHttpClientFactory _http;
     private readonly IConfiguration _cfg;
@@ -31,6 +30,9 @@ public class AgentForwarder
         _cfg = cfg;
         _log = log;
     }
+
+    private TimeSpan FileTransferHttpTimeout =>
+        TimeSpan.FromMinutes(Math.Max(1, _cfg.GetValue<int?>("Http:FileTransferTimeoutMinutes") ?? 30));
 
     private HttpClient Client(ExecutionNode node, TimeSpan? timeout = null)
     {

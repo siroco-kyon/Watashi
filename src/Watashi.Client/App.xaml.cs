@@ -193,7 +193,7 @@ public partial class App : Application
         {
             if (settings.IsConfigured)
                 c.BaseAddress = new Uri(settings.ServerUrl.TrimEnd('/') + "/");
-            c.Timeout = TimeSpan.FromMinutes(30);
+            c.Timeout = TimeSpan.FromMinutes(settings.FileTransferTimeoutMinutes);
             c.DefaultRequestHeaders.Add("X-Client-Hostname", Environment.MachineName);
         });
         services.AddHttpClient("settings-test", c => c.Timeout = TimeSpan.FromSeconds(5));

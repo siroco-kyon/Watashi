@@ -22,6 +22,9 @@ public class DeploymentConfig
     [JsonPropertyName("enableDragDrop")]
     public bool EnableDragDrop { get; set; } = true;
 
+    [JsonPropertyName("fileTransferTimeoutMinutes")]
+    public int FileTransferTimeoutMinutes { get; set; } = 30;
+
     /// <summary>exe と同じフォルダの deployment.json。ClickOnce インストール先・dev の bin どちらでも有効。</summary>
     public static string ConfigPath => Path.Combine(AppContext.BaseDirectory, "deployment.json");
 
@@ -49,6 +52,9 @@ public class DeploymentConfig
         if (cfg is null || string.IsNullOrWhiteSpace(cfg.ServerUrl)) return false;
         settings.ServerUrl = cfg.ServerUrl.Trim();
         settings.EnableDragDrop = cfg.EnableDragDrop;
+        settings.FileTransferTimeoutMinutes = NormalizeTimeoutMinutes(cfg.FileTransferTimeoutMinutes);
         return true;
     }
+
+    private static int NormalizeTimeoutMinutes(int value) => value > 0 ? value : 30;
 }
