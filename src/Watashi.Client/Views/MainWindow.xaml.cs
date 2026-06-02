@@ -108,6 +108,16 @@ public partial class MainWindow : Window
         if (e.Key == Key.Enter) { e.Handled = true; _vm.Remote.NavigateCommand.Execute(_vm.Remote.CurrentPath); }
     }
 
+    private void OnClearLocalFilter(object sender, RoutedEventArgs e) => ClearFilter(LocalFilterBox);
+    private void OnClearRemoteFilter(object sender, RoutedEventArgs e) => ClearFilter(RemoteFilterBox);
+
+    private static void ClearFilter(TextBox textBox)
+    {
+        textBox.Clear();
+        textBox.Focus();
+        textBox.CaretIndex = 0;
+    }
+
     private void OnLocalGo(object sender, RoutedEventArgs e) => _vm.Local.NavigateCommand.Execute(_vm.Local.CurrentPath);
     private void OnRemoteGo(object sender, RoutedEventArgs e) => _vm.Remote.NavigateCommand.Execute(_vm.Remote.CurrentPath);
 
