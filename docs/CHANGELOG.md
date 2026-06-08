@@ -4,6 +4,21 @@
 
 ---
 
+## 2026-06-08 — ドキュメント整備 (ブランディングガイド / 上長向け資料 / IIS・乖離修正)
+
+### 文書
+
+- **`docs/BRANDING.md` を新設** — 配布物の名前・アイコンを変える際の変更箇所 (XAML 表示名 / コード内ダイアログタイトル / `Watashi.ico` / `Themes/Icons.xaml` / `Themes/Colors.xaml` / `ClickOnceProfile.pubxml` / csproj) を一覧化。
+- **`docs/OVERVIEW-FOR-MANAGERS.md` を新設** — 非技術の管理職向けに、目的・利点・安全性・全体構成を平易にまとめた紹介資料。
+- **`deploy/IIS-MIME.md` の PowerShell バグ修正** — ClickOnce 用 MIME の既存削除ループで `$_` が二重に使われ削除条件が常に false だった問題を `foreach ($ext ...)` 方式へ修正。設定確認コマンドも追記。
+- **実装との乖離を修正** — `docs/USER-GUIDE.md` のログアウト導線 (メニュー → ヘッダー ⏻ ボタン)・パスワード変更導線、`docs/ADMIN-GUIDE.md` の「信頼デバイス」見出し欠落・日付タイポ (2025-05 → 2026-05) を修正。
+- **乱数生成スニペットの統一** — `docs/SETUP.md` モード B の `SharedSecret` 生成を `openssl` から PowerShell ネイティブ手順への参照に統一。`deploy/README.md` にも生成方法への参照を追記。
+- `README.md` のドキュメント表に上記 2 ファイルを追加。
+- `README.md` / `docs/DEVELOPMENT.md`: テストケース数の表記を実数 (204) に更新。
+- リポジトリ直下のデバッグ残骸ファイル `a` を削除。
+
+---
+
 ## 2026-05-29 — アカウント自動ロックのしきい値を 15 回に / 管理画面で変更可能に
 
 ### セキュリティ / 変更

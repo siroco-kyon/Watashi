@@ -47,6 +47,7 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
 notepad D:\publish\WatashiServer\appsettings.json
 #   - Jwt:Secret           32 バイト以上のランダム文字列（CHANGE-ME のままだと Production で起動拒否）
 #   - Encryption:MasterKey 32 バイトの Base64
+#     ※ 上記 2 値の生成は PowerShell ネイティブで可能。手順は docs/SETUP.md「Jwt:Secret / Encryption:MasterKey の生成方法」を参照
 #   - Kestrel:Endpoints:Https:Certificate に PFX のパスとパスワード
 #   - Routing:UseMtls=true なら ClientCertificatePath / Password
 #   - Auth:LoginPerMinutePerIp（ログインレート制限、デフォルト 10）

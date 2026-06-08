@@ -25,12 +25,14 @@ Agent は 1 台構成に加えて、HTTP + 共有秘密の `Server → Agent A �
 
 | 文書 | 内容 |
 |---|---|
+| **[docs/OVERVIEW-FOR-MANAGERS.md](docs/OVERVIEW-FOR-MANAGERS.md)** | ツール紹介 — 管理職・非技術者向けの概要 |
 | **[docs/SPECIFICATION.md](docs/SPECIFICATION.md)** | 機能仕様書 — 全機能を 1 文書に統合した詳細仕様 (この 1 つで全体像が掴める) |
 | **[docs/FEATURES.md](docs/FEATURES.md)** | 機能カタログ — 何ができるか |
 | **[docs/SETUP.md](docs/SETUP.md)** | 環境構築 — 0 から動かすまで (3 通りのネットワーク構成) |
 | **[docs/USER-GUIDE.md](docs/USER-GUIDE.md)** | 利用者ガイド — ログインからファイル操作まで |
 | **[docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md)** | 管理者ガイド — ユーザー / ホスト / 権限 / ノード管理 |
 | **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | 開発者ガイド — ローカル開発、HTTPS dev cert、ビルド/テスト |
+| **[docs/BRANDING.md](docs/BRANDING.md)** | ブランディング変更 — 配布物の名前・アイコンの差し替え箇所 |
 | **[docs/CHANGELOG.md](docs/CHANGELOG.md)** | 変更履歴 (UI 刷新・バグ修正など) |
 | [deploy/README.md](deploy/README.md) | デプロイ手順 (Windows Service + ClickOnce) |
 | [CifsTool_FINAL_SPEC.md](CifsTool_FINAL_SPEC.md) | 最終仕様書 (実装ガイド) |
@@ -127,7 +129,7 @@ src/
 ├── Watashi.Server/    # 中央サーバー (ASP.NET Core 8, Windows Service)
 ├── Watashi.Agent/     # エージェント (踏み台に配置、Windows Service)
 └── Watashi.Client/    # WPF デスクトップアプリ
-tests/Watashi.Tests/   # xUnit (199 ケース: PathHelper / Permission / Auth / Crypto / CSV / AdminGuard / Session / AuditLog 等)
+tests/Watashi.Tests/   # xUnit (204 ケース: PathHelper / Permission / Auth / Crypto / CSV / AdminGuard / Session / AuditLog 等)
 deploy/                # Windows Service インストーラ、ClickOnce 設定、IIS MIME
 docs/                  # 本ドキュメント群
 ```

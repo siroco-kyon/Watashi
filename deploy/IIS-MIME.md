@@ -16,17 +16,38 @@ Import-Module WebAdministration
 $site = "Default Web Site"
 $path = "IIS:\Sites\$site"
 
-# 既存削除（多重登録回避）
-@(".application", ".manifest", ".deploy") | ForEach-Object {
+# 既存削除（多重登録回避）。外側ループ変数は $ext に明示する。
+# （ForEach-Object の $_ で書くと Where-Object 内の $_ と衝突し、削除条件が常に false になる）
+foreach ($ext in @(".application", ".manifest", ".deploy")) {
     Get-WebConfigurationProperty -Filter "system.webServer/staticContent" -Name . -PSPath $path |
         Select-Object -ExpandProperty Collection |
-        Where-Object { $_.fileExtension -eq $_ } |
+        Where-Object { $_.fileExtension -eq $ext } |
         ForEach-Object { Remove-WebConfigurationProperty -Filter "system.webServer/staticContent" -Name . -AtElement @{ fileExtension = $_.fileExtension } -PSPath $path }
 }
 
 Add-WebConfigurationProperty -Filter "system.webServer/staticContent" -Name . -Value @{ fileExtension = ".application"; mimeType = "application/x-ms-application" } -PSPath $path
 Add-WebConfigurationProperty -Filter "system.webServer/staticContent" -Name . -Value @{ fileExtension = ".manifest";    mimeType = "application/x-ms-manifest" }    -PSPath $path
 Add-WebConfigurationProperty -Filter "system.webServer/staticContent" -Name . -Value @{ fileExtension = ".deploy";      mimeType = "application/octet-stream" }     -PSPath $path
+```
+
+## 設定確認
+
+登録された MIME が正しく入っているか確認:
+
+```powershell
+Get-WebConfigurationProperty -PSPath $path -Filter "system.webServer/staticContent" -Name Collection |
+    Where-Object { $_.fileExtension -in ".application", ".manifest", ".deploy" } |
+    Select-Object fileExtension, mimeType
+```
+
+期待される出力 (3 行):
+
+```
+fileExtension mimeType
+------------- --------
+.application  application/x-ms-application
+.manifest     application/x-ms-manifest
+.deploy       application/octet-stream
 ```
 
 ## 配布先構成例
