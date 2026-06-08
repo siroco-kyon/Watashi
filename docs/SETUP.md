@@ -194,7 +194,7 @@ ClientCertificateThumbprint = <Agent が提示するクライアント証明書 
   },
   "Routing": {
     "UseMtls": false,
-    "SharedSecret": "<openssl rand -base64 32 で生成、Agent と同じ値>"
+    "SharedSecret": "<32 バイト以上のランダム値、Agent と同じ値 (生成方法は本ページ「Jwt:Secret / Encryption:MasterKey の生成方法」参照)>"
   }
 }
 ```
