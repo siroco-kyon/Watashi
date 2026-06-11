@@ -34,6 +34,10 @@
 | `install-agent.ps1`          | 旧式: appsettings.json 生成 + sc.exe 登録（残置、互換用） |
 | `IIS-MIME.md`                | ClickOnce 配信のための IIS MIME 設定 |
 | `CERTIFICATE.md`             | HTTPS 証明書の設定 (ストア参照 vs ファイル指定、Windows 推奨は前者) |
+| `AGENT-HTTPS-ACME.md`        | Agent の HTTPS 化手順 (社内 ACME CA + Win-ACME、IIS 不要) |
+| `agent-https\register-agent-acme.ps1` | Win-ACME へ Agent 証明書の取得・自動更新を登録 (初回のみ) |
+| `agent-https\after-renew.ps1`         | 証明書更新後に Agent サービスを再起動するフック |
+| `agent-https\test-agent-https.ps1`    | 中央サーバから Agent への HTTPS 疎通・証明書検証 |
 
 ## 1. 中央サーバー (Watashi.Server)
 
