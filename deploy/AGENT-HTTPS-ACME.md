@@ -26,6 +26,7 @@
   - [Step 4: 中央サーバのノード Endpoint を https に変更](#step-4-中央サーバのノード-endpoint-を-https-に変更)
   - [Step 5: 疎通確認](#step-5-疎通確認)
 - [エージェント経由 (1段チェーン) 構成の場合](#エージェント経由-1段チェーン-構成の場合)
+- [Agent B が CA サーバに到達できない場合](#agent-b-が-ca-サーバに到達できない場合)
 - [証明書の自動更新の仕組み](#証明書の自動更新の仕組み)
 - [トラブルシューティング](#トラブルシューティング)
 
@@ -231,29 +232,127 @@ curl.exe https://agent-a.internal:8081/health
 
 ## エージェント経由 (1段チェーン) 構成の場合
 
-`Server → Agent A (ゲートウェイ) → Agent B → CIFS` の構成では、HTTPS 化できる区間に制限があります:
+`Server → Agent A (ゲートウェイ) → Agent B → CIFS` の構成でも、全区間を HTTPS 化できます:
 
 ```
-Server ──── HTTPS 可 ────► Agent A ──── HTTP のみ ────► Agent B
-  ▲                                                        │
-  └──────────── HTTPS 可 (heartbeat/LogSync) ──────────────┘
-                 ※ Agent B が中央に直接到達できる場合
+Server ──── HTTPS ────► Agent A ──── HTTPS ────► Agent B
+  ▲                                                 │
+  └────────── HTTPS (heartbeat/LogSync) ────────────┘
+               ※ Agent B が中央に直接到達できる場合
 ```
 
 | 区間 | HTTPS 化 | 方法 |
 |---|---|---|
-| Server → Agent A (ゲートウェイ) | **可** | 本手順をそのまま Agent A に適用 |
-| Agent A → Agent B (チェーン転送) | **不可 (HTTP 固定)** | プログラム側の制約。Agent B のノード Endpoint は `http://` のまま |
+| Server → Agent A (ゲートウェイ) | 可 | 本手順をそのまま Agent A に適用 |
+| Agent A → Agent B (チェーン転送) | 可 | 本手順をそのまま Agent B に適用 (下記の注意参照) |
 | Agent A/B → Server (heartbeat / ログ送信) | 可 (既存) | `Agent:CentralUrl` が `https://` なら暗号化済み |
 
-> Agent A → Agent B が HTTP 固定なのは実装上の制約です (転送先 Endpoint が `http://` 以外だと
-> Agent A が 400 を返します。`src/Watashi.Agent/Endpoints/AgentEndpoints.cs` の
-> `ForwardToNextAgentAsync` 参照)。この区間も暗号化が必要な場合はプログラム変更が必要になるため、
-> 開発側に相談してください。現状は Agent A/B 間がネットワーク的に隔離されたセグメントである
-> ことを前提とした設計です。
+http / https は区間ごとに独立して選べるため、段階的に移行できます (例: まず Server → A だけ
+HTTPS 化し、A → B は後日)。認証は全区間とも共有秘密 (`X-Watashi-Secret`) のままです。
 
-つまり「ゲートウェイになっている Agent A」に対しては本手順をそのまま実施して問題ありません。
-**Agent B のノード登録 (Endpoint) だけは `http://` のままにしてください。**
+**Agent B に適用するときの注意 (A のときとの違い)**:
+
+1. **B の証明書を検証するのは中央サーバではなく Agent A** です (A → B の接続のため)。
+   社内 CA のルート証明書は **Agent A のマシン**の「信頼されたルート証明機関 (LocalMachine)」に
+   入っている必要があります (A 自身が同じ CA で証明書を取得済みならたいてい信頼済み)
+2. **証明書のホスト名は「A から見た B の名前」**です。`--host` に指定する名前 = B のノード
+   Endpoint に書くホスト名で、**A から**名前解決できること (中央サーバから解決できる必要はない)
+3. ACME の検証 (HTTP-01) は「CA → B の 80 番」かつ「B → CA (ACME API)」の疎通が必要です。
+   B が隔離セグメントにいて CA と通信できない場合は
+   [Agent B が CA サーバに到達できない場合](#agent-b-が-ca-サーバに到達できない場合) を参照
+4. 疎通確認 (`test-agent-https.ps1 -AgentUrl https://agent-b.internal:8081`) は
+   **Agent A のサーバ上で**実行してください
+
+> この機能 (チェーン転送の https 対応) は 2026-06 の改修以降のビルドが必要です。それ以前の
+> Agent A は転送先が `http://` 以外だと 400 を返します。
+
+---
+
+## Agent B が CA サーバに到達できない場合
+
+チェーン構成の Agent B は隔離セグメントに置かれることが多く、ACME に必要な
+「B → CA (証明書要求)」「CA → B:80 (HTTP-01 検証)」のどちらか/両方が通らないことがあります。
+その場合は以下のいずれかを選びます。
+
+| 方式 | 自動更新 | 前提 | 推奨度 |
+|---|---|---|---|
+| 1: 代理取得 + PFX 配布 | ◎ (配布まで自動化可) | CA に到達できるマシン (Agent A など) がある。DNS-01 検証が使える | ◎ |
+| 2: CA から通常発行 (非 ACME) | × (手動更新) | 社内 CA に通常の発行手段 (CSR / GUI) がある | ○ |
+| 3: A → B は HTTP のまま | — | A/B 間セグメントの隔離度がポリシー上許容できる | △ |
+
+### 方式 1: CA に到達できるマシンで代理取得し、PFX を B に配布する
+
+ACME の検証を **DNS-01** (DNS の TXT レコードで所有確認) にすれば、証明書の取得は
+B 以外のマシンで実行できます (HTTP-01 と違い「検証対象ホスト = 実行マシン」である必要がないため)。
+Agent A など CA に到達できるマシンで B の証明書を取得し、PFX を B へコピーして
+B のサービスを再起動します。
+
+```
+社内 ACME CA ◄── DNS-01 で agent-b.internal の証明書を要求 ── Agent A (代理)
+                                                                │ 更新成功時フック
+                                                                ├─ PFX を \\agent-b\... へコピー
+                                                                └─ B の Watashi.Agent を再起動
+```
+
+手順 (Agent A 上で実行):
+
+1. `deploy\agent-https\deploy-pfx-to-remote-agent.ps1` を A に配置し、単体で動くことを確認:
+
+   ```powershell
+   .\deploy-pfx-to-remote-agent.ps1 `
+       -PfxPath "C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx" `
+       -ComputerName "agent-b"
+   ```
+
+   (B の管理共有 `\\agent-b\C$` への書き込み権限と、リモート再起動のため WinRM
+   または RPC (sc.exe) が必要です)
+
+2. Win-ACME に B 用の証明書を DNS-01 で登録し、更新フックに上記スクリプトを指定:
+
+   ```powershell
+   wacs.exe --source manual --host agent-b.internal `
+       --baseuri https://ca.internal/acme/directory `
+       --validation <CA の DNS-01 手順に従う> `
+       --store pfxfile `
+       --pfxfilepath C:\ProgramData\WatashiAgent\certs\ `
+       --pfxpassword "<B の appsettings.json に書くパスワード>" `
+       --installation script `
+       --script "C:\ProgramData\WatashiAgent\scripts\deploy-agent-b.ps1" `
+       --accepttos
+   ```
+
+   `deploy-agent-b.ps1` は配布スクリプトを B 向けの引数で呼ぶだけの 1〜2 行のラッパーです:
+
+   ```powershell
+   & C:\ProgramData\WatashiAgent\scripts\deploy-pfx-to-remote-agent.ps1 `
+       -PfxPath "C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx" `
+       -ComputerName "agent-b"
+   ```
+
+3. B 側は通常どおり `appsettings.json` の Kestrel を `Https` + 配布先 PFX パスに設定 (Step 3 と同じ)
+
+> DNS-01 の具体的なオプション (`--validation`) は社内 CA / DNS の構成に依存します。
+> TXT レコードを自動登録できない場合、win-acme の手動 DNS (`--validation manual`) は
+> 更新のたびに人手が要るため、実質的に方式 2 と同じ運用になります。
+
+### 方式 2: 社内 CA から通常発行した PFX を手動配置する
+
+ACME を使わず、社内 CA の通常の発行フロー (CSR 提出や管理 GUI) で
+`agent-b.internal` のサーバ証明書を **秘密鍵込みの PFX** でもらい、B に配置します。
+
+1. PFX を B の `C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx` に配置
+2. B の `appsettings.json` を Step 3 と同様に設定 (パスワードは発行時のもの)
+3. `Restart-Service Watashi.Agent`
+
+Watashi 側の設定は ACME 取得時と完全に同じです。違いは**更新が自動化されない**ことだけなので、
+有効期限を資産管理台帳などに記録し、期限前の再発行 → 再配置 → サービス再起動を運用に
+組み込んでください (配置と再起動は方式 1 の `deploy-pfx-to-remote-agent.ps1` が使えます)。
+
+### 方式 3: A → B 間は HTTP のままにする
+
+http / https は区間ごとに独立しているため、Server → A だけ HTTPS 化して A → B は
+`http://` のまま運用することもできます。A/B 間が物理的・論理的に隔離された専用セグメントで、
+セキュリティポリシー上許容できる場合の選択肢です。
 
 ---
 
