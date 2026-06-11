@@ -124,7 +124,7 @@ public static class AdminNodeEndpoints
         return app;
     }
 
-    private static async Task<string?> ValidateGatewayAsync(
+    internal static async Task<string?> ValidateGatewayAsync(
         AppDbContext db, string nodeType, string? endpoint, int? gatewayNodeId, int? currentNodeId, CancellationToken ct)
     {
         if (gatewayNodeId is null) return null;
@@ -134,8 +134,8 @@ public static class AdminNodeEndpoints
             return "自分自身を経由 Agent にはできません。";
         if (string.IsNullOrWhiteSpace(endpoint))
             return "経由 Agent を使うノードでは Endpoint を入力してください。";
-        if (!endpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-            return "1段チェーンは HTTP のみ対応です。対象 Agent の Endpoint は http:// で指定してください。";
+        if (!IsHttpOrHttpsUrl(endpoint))
+            return "対象 Agent の Endpoint は http:// または https:// の URL で指定してください。";
 
         var gateway = await db.ExecutionNodes.AsNoTracking()
             .FirstOrDefaultAsync(n => n.Id == gatewayNodeId.Value, ct);
@@ -149,9 +149,13 @@ public static class AdminNodeEndpoints
             return "1段チェーンのみ対応です。経由 Agent 自体に別の経由 Agent は設定できません。";
         if (string.IsNullOrWhiteSpace(gateway.Endpoint))
             return "経由 Agent の Endpoint が未設定です。";
-        if (!gateway.Endpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-            return "1段チェーンは HTTP のみ対応です。経由 Agent の Endpoint は http:// で指定してください。";
+        if (!IsHttpOrHttpsUrl(gateway.Endpoint))
+            return "経由 Agent の Endpoint は http:// または https:// の URL で指定してください。";
 
         return null;
     }
+
+    private static bool IsHttpOrHttpsUrl(string? endpoint) =>
+        Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) &&
+        (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 }

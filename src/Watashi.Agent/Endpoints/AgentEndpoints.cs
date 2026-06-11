@@ -184,10 +184,13 @@ public static class AgentEndpoints
     private static async Task<IResult> ForwardToNextAgentAsync(
         HttpContext ctx, IHttpClientFactory http, string targetEndpoint, CancellationToken ct)
     {
+        // https の場合のサーバ証明書検証は HttpClientHandler の標準検証に任せる
+        // (転送先 Agent の証明書をこの Agent マシンの信頼ストアで検証する)。
         if (!Uri.TryCreate(targetEndpoint.TrimEnd('/') + "/", UriKind.Absolute, out var baseUri) ||
-            !string.Equals(baseUri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+            (!string.Equals(baseUri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+             !string.Equals(baseUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
         {
-            return Results.BadRequest(new { error = "1段チェーンの転送先 Agent Endpoint は http:// で指定してください。" });
+            return Results.BadRequest(new { error = "1段チェーンの転送先 Agent Endpoint は http:// または https:// で指定してください。" });
         }
 
         var client = http.CreateClient("agent-forward");

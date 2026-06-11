@@ -625,7 +625,7 @@ Client --HTTPS--> Server --HTTP--> Agent A --HTTP--> Agent B --SMB--> CIFS
 
 制限:
 - 対応するチェーンは 1段のみ (`Server → Agent A → Agent B → CIFS`)
-- Agent A/B 間は HTTP + 共有秘密のみ対応
+- Agent A/B 間の認証は共有秘密のみ対応 (mTLS 非対応)。Endpoint は `http://` / `https://` のどちらも指定可。HTTPS 化の手順は `deploy/AGENT-HTTPS-ACME.md` を参照
 - `Server → Agent A → Agent B → Agent C → CIFS` は非対応
 - Agent A と Agent B の `Auth:SharedSecret` は Server の `Routing:SharedSecret` と同じ値にする
 
@@ -726,7 +726,7 @@ Agent B が Server へ直接到達できない場合、管理画面の Health �
 
 Watashi で「Agent の証明書」と呼ぶものは、HTTPS 用とクライアント認証用があり、さらに中央側にも Agent へ提示するクライアント証明書があります。混同しやすいので、設定先で区別してください。
 
-HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いません。Agent A/B の待受 Endpoint は `http://...`、認証は `Auth:SharedSecret` / `Routing:SharedSecret` で行います。
+HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いません。Agent A/B の待受 Endpoint は `http://...`、認証は `Auth:SharedSecret` / `Routing:SharedSecret` で行います。なお共有秘密のまま通信だけ TLS 化する (待受を `https://...` にする) こともでき、その場合は下表の「Agent の HTTPS サーバ証明書」のみ使います (手順: `deploy/AGENT-HTTPS-ACME.md`)。
 
 | 用途 | 設定先 | 何を守るか |
 |---|---|---|

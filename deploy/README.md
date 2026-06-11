@@ -38,6 +38,7 @@
 | `agent-https\register-agent-acme.ps1` | Win-ACME へ Agent 証明書の取得・自動更新を登録 (初回のみ) |
 | `agent-https\after-renew.ps1`         | 証明書更新後に Agent サービスを再起動するフック |
 | `agent-https\test-agent-https.ps1`    | 中央サーバから Agent への HTTPS 疎通・証明書検証 |
+| `agent-https\deploy-pfx-to-remote-agent.ps1` | CA に到達できない Agent へ PFX を配布しサービス再起動 (チェーン構成の Agent B 向け) |
 
 ## 1. 中央サーバー (Watashi.Server)
 
@@ -147,7 +148,7 @@ notepad D:\publish\WatashiAgent\appsettings.json
 | Agent B | `agent-b` | `http://agent-b:8081` | `agent-a` |
 
 ホスト登録では、CIFS に直接 SMB 接続できる **Agent B** を実行ノードに選ぶ。
-Agent A/B と Server の共有秘密はすべて同じ値にする。1段チェーンは HTTP + 共有秘密のみ対応。
+Agent A/B と Server の共有秘密はすべて同じ値にする。1段チェーンの認証は共有秘密のみ対応 (Endpoint は http / https どちらも可。HTTPS 化は `AGENT-HTTPS-ACME.md` 参照)。
 
 > 旧 `install-agent.ps1` は appsettings.json をテンプレートから生成し sc.exe で登録する方式。
 > 互換性のため残置していますが、新規セットアップは **`install-agent-service.ps1`** を推奨。
