@@ -54,3 +54,8 @@ appsettings.Local.json
 
 # Test export artifacts
 watashi-users-*.csv
+
+# Marp rendered slides (generate from docs/slides/*.md)
+docs/slides/*.html
+docs/slides/*.pdf
+docs/slides/*.pptx
