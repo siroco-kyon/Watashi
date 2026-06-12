@@ -85,14 +85,30 @@ notepad D:\publish\WatashiServer\appsettings.json
 - `<InstallUrl>` 〜 ユーザーが開く URL
 - `<ManifestCertificateThumbprint>` 〜 社内 Code Signing 証明書
 
-発行:
+発行 (ClickOnce のマニフェスト生成は .NET Framework 版 MSBuild が必要。`dotnet publish` は MSB4803 で失敗する):
 
 ```powershell
-dotnet publish src\Watashi.Client\Watashi.Client.csproj -c Release `
-    -p:PublishProfile=ClickOnceProfile
+$msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+    -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+& $msbuild src\Watashi.Client\Watashi.Client.csproj /t:Publish /p:Configuration=Release `
+    /p:PublishProfile=ClickOnceProfile
 ```
 
 配布サーバーは [IIS-MIME.md](IIS-MIME.md) の MIME 設定を完了させること。
+
+### 更新ポリシー (起動毎の必須バージョンチェック)
+
+発行プロファイルは **起動のたびに更新チェック → 新版があれば強制適用** に設定済み:
+
+| 設定 | 値 | 効果 |
+|---|---|---|
+| `UpdateMode` | `Foreground` | ショートカット起動のたびに、アプリ起動**前**にチェック |
+| `UpdateRequired` | `true` + `MinimumRequiredVersion` = 発行バージョン | 新版を「スキップ」できず、適用してから起動 |
+
+- バージョンは発行時刻ベース (`1.yy.MMdd.HHmm`) で自動採番されるため、**再発行するだけ**で全クライアントが次回起動時に強制更新される。
+- `setup.exe` / インストール URL は**初回インストール専用**。以降の起動はスタートメニュー / デスクトップの「Watashi」ショートカット (.appref-ms) から行わせること。
+- ⚠ インストール先フォルダの `Watashi.Client.exe` を直接起動すると更新チェックは走らない。タスクバーへピン留めする場合もショートカット経由でピン留めさせる。
+- 配布サーバーに到達できない場合 (オフライン等) は、チェック失敗後にインストール済みバージョンがそのまま起動する。
 
 ### アプリケーションアイコン (鳥居)
 
