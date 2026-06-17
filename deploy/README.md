@@ -96,6 +96,8 @@ $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere
 
 配布サーバーは [IIS-MIME.md](IIS-MIME.md) の MIME 設定を完了させること。
 
+発行物に加えて、利用者向けのインストールページ [install/publish.htm](install/publish.htm) を、配布先の install ディレクトリに発行物と一緒に置く (新 ClickOnce は `publish.htm` を生成しないため、このリポジトリのものを手動で同梱する)。利用者には `https://watashi.internal/install/publish.htm` を案内する。配置レイアウトは [IIS-MIME.md](IIS-MIME.md) の「配布先構成例」を参照。
+
 ### 更新ポリシー (起動毎の必須バージョンチェック)
 
 発行プロファイルは **起動のたびに更新チェック → 新版があれば強制適用** に設定済み:
@@ -106,7 +108,7 @@ $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere
 | `UpdateRequired` | `true` + `MinimumRequiredVersion` = 発行バージョン | 新版を「スキップ」できず、適用してから起動 |
 
 - バージョンは発行時刻ベース (`1.yy.MMdd.HHmm`) で自動採番されるため、**再発行するだけ**で全クライアントが次回起動時に強制更新される。
-- `setup.exe` / インストール URL は**初回インストール専用**。以降の起動はスタートメニュー / デスクトップの「Watashi」ショートカット (.appref-ms) から行わせること。
+- インストールページ (`publish.htm`) / インストール URL は**初回インストール専用**。以降の起動はスタートメニュー / デスクトップの「Watashi」ショートカット (.appref-ms) から行わせること。
 - ⚠ インストール先フォルダの `Watashi.Client.exe` を直接起動すると更新チェックは走らない。タスクバーへピン留めする場合もショートカット経由でピン留めさせる。
 - 配布サーバーに到達できない場合 (オフライン等) は、チェック失敗後にインストール済みバージョンがそのまま起動する。
 
