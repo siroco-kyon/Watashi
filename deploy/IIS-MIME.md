@@ -52,19 +52,26 @@ fileExtension mimeType
 
 ## 配布先構成例
 
+発行物 (`bin\publish\` の中身) を、そのまま IIS の install ディレクトリへ展開する。
+`publish.htm` だけは ClickOnce が生成しないので、リポジトリの `deploy/install/publish.htm` を一緒に置く。
+
 ```
-\\fileserver\share\Watashi\
-├── Watashi.Client.application
-├── Application Files\
-│   └── Watashi.Client_1_0_0_1\
-│       ├── Watashi.Client.exe.manifest
-│       ├── Watashi.Client.exe.deploy
-│       ├── (依存 DLL).deploy
-│       └── appsettings.json.deploy
+\\fileserver\share\Watashi\            (= https://watashi.internal/install/)
+├── publish.htm                         ← 利用者が開くインストールページ (deploy/install/ から手動コピー)
+├── Watashi.Client.application          ← デプロイ マニフェスト (インストールの入口)
+├── Launcher.exe
+└── Application Files\
+    └── Watashi.Client_1_26_0612_1217\
+        ├── Watashi.Client.dll.manifest
+        ├── Watashi.Client.dll.deploy
+        ├── (依存 DLL).deploy
+        └── deployment.json.deploy
 ```
 
-クライアントは `https://watashi.internal/install/Watashi.Client.application` を開くだけでインストール開始。
-更新は `UpdateInterval=1 Day` で自動チェックされる。
+- 利用者には **`https://watashi.internal/install/publish.htm`** を案内する (インストールページ)。
+- `publish.htm` は隣の `Watashi.Client.application` からバージョンを自動表示するため、再発行ごとの編集は不要。
+- ページを介さず `https://watashi.internal/install/Watashi.Client.application` を直接開いてもインストールは始まる。
+- 更新は発行プロファイルの `UpdateMode=Foreground` 設定で、ショートカット起動のたびに自動チェックされる ([README.md](README.md) の「更新ポリシー」参照)。
 
 ## 証明書
 

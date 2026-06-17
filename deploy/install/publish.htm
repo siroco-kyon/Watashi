@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<!--
+  ClickOnce インストール用ランディングページ（手動作成）。
+
+  .NET 8 の新 ClickOnce は publish.htm を生成しないため、このファイルを
+  配布先 IIS の install ディレクトリに一緒に置く。
+
+  配置例 (https://watashi.internal/install/):
+    install/
+    ├── publish.htm                 ← このファイル（index.html にリネームし既定ドキュメントにしてもよい）
+    ├── Watashi.Client.application
+    ├── Launcher.exe
+    └── Application Files\...
+
+  前提:
+    - IIS に .application / .manifest / .deploy の MIME 設定が必要 (deploy/IIS-MIME.md)。
+    - 署名証明書の発行 CA をクライアントが信頼していないと、インストール時に
+      「発行元不明」警告が出る (deploy/CERTIFICATE.md)。警告のまま進めることは可能。
+    - 本体は SelfContained=true のため、クライアントに .NET ランタイムの事前導入は不要。
+
+  インストールリンクは相対パスなので、配置するホスト/サブパスを問わずそのまま動く。
+  値を変えて再発行したら、このページは変更不要（リンク先ファイル名は固定）。
+-->
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watashi のインストール</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: "Segoe UI", "Yu Gothic UI", system-ui, sans-serif;
+      background: #f4f5f7;
+      color: #1f2328;
+    }
+    .card {
+      width: min(92vw, 460px);
+      background: #fff;
+      border: 1px solid #e3e6ea;
+      border-radius: 14px;
+      padding: 40px 36px;
+      box-shadow: 0 8px 28px rgba(0,0,0,.08);
+      text-align: center;
+    }
+    .torii { font-size: 56px; line-height: 1; }
+    h1 { margin: 12px 0 4px; font-size: 24px; }
+    p.lead { margin: 0 0 28px; color: #57606a; font-size: 14px; }
+    a.install {
+      display: inline-block;
+      padding: 13px 40px;
+      background: #c8102e;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: background .15s;
+    }
+    a.install:hover { background: #a50d26; }
+    p.version { margin: 18px 0 0; font-size: 12.5px; color: #8b949e; letter-spacing: .02em; }
+    .note {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid #eceef0;
+      text-align: left;
+      font-size: 12.5px;
+      color: #57606a;
+      line-height: 1.7;
+    }
+    .note b { color: #1f2328; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0d1117; color: #e6edf3; }
+      .card { background: #161b22; border-color: #30363d; box-shadow: none; }
+      p.lead, .note { color: #9198a1; }
+      .note b { color: #e6edf3; }
+      .note { border-top-color: #21262d; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="torii" aria-hidden="true">⛩️</div>
+    <h1>Watashi</h1>
+    <p class="lead">社内ファイル転送クライアント</p>
+
+    <a class="install" href="Watashi.Client.application">インストール / 起動</a>
+    <p class="version" id="ver" hidden></p>
+
+    <div class="note">
+      <p><b>ボタンを押すとインストールが始まります。</b>ブラウザによっては
+      <code>Watashi.Client.application</code> がダウンロードされるので、
+      ダウンロードしたファイルを開いてください。</p>
+      <p>2 回目以降は、スタートメニュー / デスクトップの
+      <b>「Watashi」ショートカット</b>から起動してください
+      （直接 exe を起動すると自動更新が走りません）。</p>
+      <p>動作要件: <b>Windows PC</b>。追加のインストールは不要です。</p>
+    </div>
+  </main>
+
+  <script>
+    // 配置済みの Watashi.Client.application からバージョンを読み取って表示する。
+    // 再発行のたびにこの HTML を編集しなくても、常に最新バージョンが出る。
+    fetch('Watashi.Client.application', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (xml) {
+        var doc = new DOMParser().parseFromString(xml, 'application/xml');
+        var ids = Array.prototype.slice.call(doc.getElementsByTagNameNS('*', 'assemblyIdentity'));
+        var app = ids.filter(function (e) {
+          return (e.getAttribute('name') || '').endsWith('.application');
+        })[0] || ids[0];
+        var v = app && app.getAttribute('version');
+        if (!v) return;
+        var label = '最新バージョン ' + v;
+        // 採番ルール 1.yy.MMdd.HHmm に一致する場合は発行日時も添える
+        var m = v.match(/^\d+\.(\d{2})\.(\d{2})(\d{2})\.(\d{2})(\d{2})$/);
+        if (m) label += '（20' + m[1] + '-' + m[2] + '-' + m[3] + ' ' + m[4] + ':' + m[5] + ' 発行）';
+        var el = document.getElementById('ver');
+        el.textContent = label;
+        el.hidden = false;
+      })
+      .catch(function () { /* 取得失敗時はバージョン非表示のまま */ });
+  </script>
+</body>
+</html>
