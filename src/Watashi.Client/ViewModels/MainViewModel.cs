@@ -81,7 +81,40 @@ public partial class MainViewModel : ObservableObject
         _statusClearTimer.Start();
 
         if (message.Contains("失敗") || message.Contains("エラー"))
-            ErrorMessage = $"{source}: {message}";
+            ShowErrorBanner($"{source}: {message}");
+    }
+
+    /// <summary>
+    /// 失敗/エラーを赤バナーに (再) 表示し、クライアントログにも残す。
+    /// ErrorMessage は [ObservableProperty] のため同値の再代入では変更通知が出ず、
+    /// ✕ で閉じた後に同じエラーが再発しても二度と表示されなかった。
+    /// 一旦空にして「空→値」の遷移を作り、毎回確実に再点灯させる。
+    /// </summary>
+    private void ShowErrorBanner(string banner, Exception? ex = null)
+    {
+        if (ex is ApiException api)
+            AppLog.Error($"{banner} (HTTP {(int)api.StatusCode})");
+        else if (ex is not null)
+            AppLog.Error(banner, ex);
+        else
+            AppLog.Error(banner);
+
+        if (ErrorMessage == banner) ErrorMessage = string.Empty;
+        ErrorMessage = banner;
+    }
+
+    /// <summary>
+    /// アップロード/ダウンロードのエラーを確実に表示＋記録する。
+    /// StatusMessage 経由 (OnStatusMessageChanged) は同値だと発火しないため、
+    /// 操作系エラーはこの経路で直接バナー/ステータス/ログへ送る。
+    /// </summary>
+    private void ReportOperationError(string userMessage, Exception? ex = null)
+    {
+        latestStatusSource = "操作";
+        LatestStatusMessage = $"{DateTime.Now:HH:mm:ss} 操作: {userMessage}";
+        _statusClearTimer.Stop();
+        _statusClearTimer.Start();
+        ShowErrorBanner($"操作: {userMessage}", ex);
     }
 
     /// <summary>エラーバナーの ✕ ボタンから呼ばれ、バナーを閉じる。</summary>
@@ -192,9 +225,9 @@ public partial class MainViewModel : ObservableObject
         catch (OperationCanceledException) { StatusMessage = "アップロードをキャンセルしました。"; }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
-            StatusMessage = "アップロード失敗: 書き込み権限がありません。";
+            ReportOperationError("アップロード失敗: 書き込み権限がありません。", ex);
         }
-        catch (Exception ex) { StatusMessage = "アップロード失敗: " + ex.Message; }
+        catch (Exception ex) { ReportOperationError("アップロード失敗: " + ex.Message, ex); }
         finally { EndTransfer(); }
     }
 
@@ -250,9 +283,9 @@ public partial class MainViewModel : ObservableObject
         catch (OperationCanceledException) { StatusMessage = "ダウンロードをキャンセルしました。"; }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
-            StatusMessage = "ダウンロード失敗: 読み取り権限がありません。";
+            ReportOperationError("ダウンロード失敗: 読み取り権限がありません。", ex);
         }
-        catch (Exception ex) { StatusMessage = "ダウンロード失敗: " + ex.Message; }
+        catch (Exception ex) { ReportOperationError("ダウンロード失敗: " + ex.Message, ex); }
         finally { EndTransfer(); }
     }
 
@@ -331,8 +364,8 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = completedMessage;
         }
         catch (OperationCanceledException) { StatusMessage = "アップロードをキャンセルしました。"; }
-        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden) { StatusMessage = "アップロード失敗: 書き込み権限がありません。"; }
-        catch (Exception ex) { StatusMessage = "アップロード失敗: " + ex.Message; }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden) { ReportOperationError("アップロード失敗: 書き込み権限がありません。", ex); }
+        catch (Exception ex) { ReportOperationError("アップロード失敗: " + ex.Message, ex); }
         finally { EndTransfer(); }
     }
 
@@ -383,8 +416,8 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = $"ダウンロード完了: {targets.Count} 件";
         }
         catch (OperationCanceledException) { StatusMessage = "ダウンロードをキャンセルしました。"; }
-        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden) { StatusMessage = "ダウンロード失敗: 読み取り権限がありません。"; }
-        catch (Exception ex) { StatusMessage = "ダウンロード失敗: " + ex.Message; }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden) { ReportOperationError("ダウンロード失敗: 読み取り権限がありません。", ex); }
+        catch (Exception ex) { ReportOperationError("ダウンロード失敗: " + ex.Message, ex); }
         finally { EndTransfer(); }
     }
 
