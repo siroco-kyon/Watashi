@@ -106,6 +106,7 @@ public partial class App : Application
 
     private static void ShowFatal(string title, Exception ex)
     {
+        AppLog.Error(title, ex);
         var msg = $"{ex.GetType().Name}: {ex.Message}\n\n{ex.StackTrace}";
         if (ex.InnerException is not null)
             msg += $"\n\n--- Inner ---\n{ex.InnerException.GetType().Name}: {ex.InnerException.Message}\n{ex.InnerException.StackTrace}";
