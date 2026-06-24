@@ -21,7 +21,7 @@ public partial class LoginViewModel : ObservableObject
     public bool CanRemember => true;
     public string RememberTooltip => _settings.IsHttps
         ? "この PC を記憶し、次回以降は自動ログインします。"
-        : "HTTP 接続ではサーバー側で自動ログインが禁止される場合があります。";
+        : "HTTP 接続ではデバイストークンが平文で通信されます。サーバー設定により自動ログインが禁止される場合があります。";
 
     public event Action<LoginResponse>? LoggedIn;
 

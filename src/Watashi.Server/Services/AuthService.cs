@@ -90,6 +90,7 @@ public class AuthService
         await _db.SaveChangesAsync(ct);
 
         var idleMinutes = await GetSettingIntAsync(Shared.Constants.SettingKeys.SessionIdleMinutes, 30, ct);
+        var passwordWarningDays = await GetSettingIntAsync(Shared.Constants.SettingKeys.PasswordWarningDays, 14, ct);
         return new LoginResponse
         {
             AccessToken = accessToken,
@@ -98,6 +99,7 @@ public class AuthService
             ExpiresIn = _opts.AccessTokenMinutes * 60,
             MustChangePassword = user.MustChangePassword || user.PasswordExpiresAt <= now,
             PasswordExpiresInDays = ComputeExpiresInDays(user, now),
+            PasswordWarningDays = passwordWarningDays,
             IdleMinutes = idleMinutes,
         };
     }

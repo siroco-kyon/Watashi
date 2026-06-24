@@ -18,6 +18,7 @@ public class SessionManager
     public bool IsAdmin { get; private set; }
     public bool MustChangePassword { get; private set; }
     public int? PasswordExpiresInDays { get; private set; }
+    public int PasswordWarningDays { get; private set; } = 14;
 
     public event Action? IdleTimedOut;
     public event Action? RefreshNeedsPasswordChange;
@@ -38,6 +39,7 @@ public class SessionManager
         _accessExpiresUtc = DateTime.UtcNow.AddSeconds(res.ExpiresIn);
         MustChangePassword = res.MustChangePassword;
         PasswordExpiresInDays = res.PasswordExpiresInDays;
+        PasswordWarningDays = res.PasswordWarningDays;
         if (res.IdleMinutes > 0) _idleTimeout = TimeSpan.FromMinutes(res.IdleMinutes);
         ParseClaims(_accessToken);
         ResetIdleTimer();
@@ -48,6 +50,7 @@ public class SessionManager
         _accessToken = null; _refreshToken = null; _refreshTokenId = null;
         UserId = null; Username = null; IsAdmin = false;
         MustChangePassword = false; PasswordExpiresInDays = null;
+        PasswordWarningDays = 14;
         _idleTimer?.Dispose(); _idleTimer = null;
     }
 

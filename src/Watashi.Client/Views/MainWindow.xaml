@@ -5,7 +5,9 @@
         Width="1200" Height="780" MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         Icon="{StaticResource ToriiIcon}"
-        Background="{StaticResource BgBrush}">
+        Background="{StaticResource BgBrush}"
+        PreviewKeyDown="OnPreviewKeyDown"
+        PreviewMouseDown="OnPreviewMouseDown">
 
     <Window.Resources>
         <Style x:Key="ClearFilterButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">
@@ -220,7 +222,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Local pane -->
-            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0">
+            <Border x:Name="LocalPane" Grid.Column="0" Style="{StaticResource Card}" Padding="0">
                 <DockPanel>
                     <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
                         <StackPanel Orientation="Horizontal">
@@ -272,14 +274,15 @@
                         </Grid>
                     </DockPanel>
 
-                    <ListView x:Name="LocalList"
-                              ItemsSource="{Binding Local.Entries}"
-                              SelectedItem="{Binding Local.Selected}"
-                              SelectionMode="Extended"
-                              MouseDoubleClick="OnLocalDoubleClick"
-                              KeyDown="OnLocalListKeyDown"
-                              GridViewColumnHeader.Click="OnLocalHeaderClick"
-                              BorderThickness="0,1,0,0">
+                    <Grid>
+                        <ListView x:Name="LocalList"
+                                  ItemsSource="{Binding Local.Entries}"
+                                  SelectedItem="{Binding Local.Selected}"
+                                  SelectionMode="Extended"
+                                  MouseDoubleClick="OnLocalDoubleClick"
+                                  KeyDown="OnLocalListKeyDown"
+                                  GridViewColumnHeader.Click="OnLocalHeaderClick"
+                                  BorderThickness="0,1,0,0">
                         <ListView.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="開く / 展開" Click="OnLocalContextOpen"/>
@@ -314,14 +317,35 @@
                                 <GridViewColumn Header="更新" DisplayMemberBinding="{Binding ModifiedAt, Converter={StaticResource Utc}}" Width="160"/>
                             </GridView>
                         </ListView.View>
-                    </ListView>
+                        </ListView>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Local.HasNoFilterMatches, Converter={StaticResource BoolToVis}}"
+                                    Margin="20" IsHitTestVisible="False">
+                            <TextBlock Text="🔍" FontSize="32" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                            <TextBlock Text="一致するファイルやフォルダがありません"
+                                       Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="絞り込み条件を変更してください"
+                                       Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Local.IsFolderEmpty, Converter={StaticResource BoolToVis}}"
+                                    Margin="20" IsHitTestVisible="False">
+                            <TextBlock Text="📂" FontSize="32" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                            <TextBlock Text="このフォルダは空です"
+                                       Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
                 </DockPanel>
             </Border>
 
             <GridSplitter Grid.Column="1" Width="14" Background="Transparent"/>
 
             <!-- Remote pane -->
-            <Border Grid.Column="2" Style="{StaticResource Card}" Padding="0">
+            <Border x:Name="RemotePane" Grid.Column="2" Style="{StaticResource Card}" Padding="0">
                 <DockPanel>
                     <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0"
                             Background="{StaticResource AccentSoftBrush}">
@@ -389,6 +413,21 @@
                                   KeyDown="OnRemoteListKeyDown"
                                   GridViewColumnHeader.Click="OnRemoteHeaderClick"
                                   BorderThickness="0,1,0,0">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding Type}" Value="parent"/>
+                                                <Condition Binding="{Binding CanGoUp}" Value="False"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="IsEnabled" Value="False"/>
+                                            <Setter Property="Opacity" Value="0.45"/>
+                                            <Setter Property="ToolTip" Value="この場所より上には移動できません"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListView.ItemContainerStyle>
                             <ListView.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="開く / 展開" Click="OnRemoteContextOpen"/>
@@ -410,12 +449,39 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="名前" DisplayMemberBinding="{Binding Name}" Width="260"/>
+                                    <GridViewColumn Header="名前" Width="260">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
                                     <GridViewColumn Header="サイズ" DisplayMemberBinding="{Binding Size, Converter={StaticResource SizeFmt}}" Width="90"/>
                                     <GridViewColumn Header="更新" DisplayMemberBinding="{Binding ModifiedAt, Converter={StaticResource Utc}}" Width="160"/>
                                 </GridView>
                             </ListView.View>
                         </ListView>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Remote.HasNoFilterMatches, Converter={StaticResource BoolToVis}}"
+                                    Margin="20" IsHitTestVisible="False">
+                            <TextBlock Text="🔍" FontSize="32" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                            <TextBlock Text="一致するファイルやフォルダがありません"
+                                       Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="絞り込み条件を変更してください"
+                                       Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Remote.IsFolderEmpty, Converter={StaticResource BoolToVis}}"
+                                    Margin="20" IsHitTestVisible="False">
+                            <TextBlock Text="📂" FontSize="32" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                            <TextBlock Text="このフォルダは空です"
+                                       Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
+                        </StackPanel>
 
                         <!-- Empty state: locations granted but no remote connection selected -->
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"

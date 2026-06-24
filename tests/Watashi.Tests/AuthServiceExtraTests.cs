@@ -20,7 +20,11 @@ public class AuthServiceExtraTests
         AccessTokenMinutes = 15, RefreshTokenDays = 30,
     });
 
-    private static async Task<User> SeedUserAsync(TestDb db, int idleMinutes = 30, int passwordExpiryDays = 90)
+    private static async Task<User> SeedUserAsync(
+        TestDb db,
+        int idleMinutes = 30,
+        int passwordExpiryDays = 90,
+        int passwordWarningDays = 14)
     {
         var u = new User
         {
@@ -33,6 +37,7 @@ public class AuthServiceExtraTests
         db.Db.Users.Add(u);
         db.Db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.SessionIdleMinutes, Value = idleMinutes.ToString(), UpdatedAt = DateTime.UtcNow });
         db.Db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.PasswordExpiryDays, Value = passwordExpiryDays.ToString(), UpdatedAt = DateTime.UtcNow });
+        db.Db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.PasswordWarningDays, Value = passwordWarningDays.ToString(), UpdatedAt = DateTime.UtcNow });
         await db.Db.SaveChangesAsync();
         return u;
     }
@@ -66,6 +71,39 @@ public class AuthServiceExtraTests
         var svc = Build(db);
         var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
         login.Response!.IdleMinutes.Should().Be(30);
+    }
+
+    [Fact]
+    public async Task Login_should_propagate_password_warning_days_setting()
+    {
+        using var db = new TestDb();
+        await SeedUserAsync(db, passwordWarningDays: 7);
+        var svc = Build(db);
+
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+
+        login.Response!.PasswordWarningDays.Should().Be(7);
+    }
+
+    [Fact]
+    public async Task Login_should_fallback_to_default_password_warning_days_when_setting_missing()
+    {
+        using var db = new TestDb();
+        var user = new User
+        {
+            Username = "alice",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!@#"),
+            PasswordChangedAt = DateTime.UtcNow,
+            PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.Db.Users.Add(user);
+        await db.Db.SaveChangesAsync();
+        var svc = Build(db);
+
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+
+        login.Response!.PasswordWarningDays.Should().Be(14);
     }
 
     [Fact]

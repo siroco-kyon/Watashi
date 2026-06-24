@@ -32,6 +32,12 @@ public partial class LocalPaneViewModel : ObservableObject
     [ObservableProperty] private string? sortKey;
     [ObservableProperty] private string filterText = string.Empty;
 
+    public bool HasNoFilterMatches =>
+        !string.IsNullOrWhiteSpace(FilterText) &&
+        !_all.Any(e => FileEntryFilter.Matches(e, FilterText));
+
+    public bool IsFolderEmpty => string.IsNullOrWhiteSpace(FilterText) && _all.Count == 0;
+
     public LocalPaneViewModel(LocalFileService files, AppSettings settings)
     {
         _files = files; _settings = settings;
@@ -126,6 +132,8 @@ public partial class LocalPaneViewModel : ObservableObject
             Entries.Add(new FileEntry { Name = "..", Type = FileEntryTypes.Parent, CanGoUp = true });
         foreach (var e in FileEntrySort.Sort(_all, SortKey).Where(e => FileEntryFilter.Matches(e, FilterText)))
             Entries.Add(e);
+        OnPropertyChanged(nameof(HasNoFilterMatches));
+        OnPropertyChanged(nameof(IsFolderEmpty));
     }
 
     /// <summary>列ヘッダクリックで昇順 ⇄ 降順を切り替える (ローカルはクライアント側ソート)。</summary>

@@ -13,10 +13,13 @@ namespace Watashi.Client;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm;
-    public MainWindow(MainViewModel vm, AppSettings settings)
+    private readonly SessionManager _session;
+
+    public MainWindow(MainViewModel vm, AppSettings settings, SessionManager session)
     {
         InitializeComponent();
         _vm = vm;
+        _session = session;
         DataContext = vm;
         InitializeDragDrop(settings);
         Loaded += OnLoaded;
@@ -38,6 +41,37 @@ public partial class MainWindow : Window
         _vm.Local.RefreshCommand.Execute(null);
         _ = _vm.Remote.RefreshAsync();
     }
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        _session.ResetIdleTimer();
+        if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) return;
+
+        // Alt combinations are reported as Key.System by WPF, with the actual
+        // arrow key stored in SystemKey.
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key is not (Key.Left or Key.Right or Key.Up)) return;
+
+        var useRemotePane = RemotePane.IsKeyboardFocusWithin;
+        if (!useRemotePane && !LocalPane.IsKeyboardFocusWithin) return;
+
+        e.Handled = true;
+        if (useRemotePane)
+        {
+            if (key == Key.Left) _vm.Remote.GoBackCommand.Execute(null);
+            else if (key == Key.Right) _vm.Remote.GoForwardCommand.Execute(null);
+            else _vm.Remote.GoUpCommand.Execute(null);
+        }
+        else
+        {
+            if (key == Key.Left) _vm.Local.GoBackCommand.Execute(null);
+            else if (key == Key.Right) _vm.Local.GoForwardCommand.Execute(null);
+            else _vm.Local.GoUpCommand.Execute(null);
+        }
+    }
+
+    private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
+        => _session.ResetIdleTimer();
 
     private async void OnLogout(object sender, RoutedEventArgs e)
     {
