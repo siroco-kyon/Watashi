@@ -8,6 +8,7 @@ public class LoginResponse
     public int ExpiresIn { get; set; }
     public bool MustChangePassword { get; set; }
     public int? PasswordExpiresInDays { get; set; }
+    public int PasswordWarningDays { get; set; } = 14;
     /// <summary>クライアントのアイドルタイムアウト分数（サーバ側 SystemSettings 由来）。</summary>
     public int IdleMinutes { get; set; } = 30;
 }

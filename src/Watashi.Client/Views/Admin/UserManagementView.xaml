@@ -25,18 +25,45 @@
                         </StackPanel>
                     </DockPanel>
                 </Border>
-                <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0">
-                    <ListView.View>
-                        <GridView>
-                            <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
-                            <GridViewColumn Header="ユーザー名" DisplayMemberBinding="{Binding Username}" Width="180"/>
-                            <GridViewColumn Header="管理者" DisplayMemberBinding="{Binding IsAdmin}" Width="64"/>
-                            <GridViewColumn Header="Lock" DisplayMemberBinding="{Binding IsLocked}" Width="60"/>
-                            <GridViewColumn Header="PW期限" DisplayMemberBinding="{Binding PasswordExpiresAt, Converter={StaticResource Utc}}" Width="160"/>
-                            <GridViewColumn Header="最終ログイン" DisplayMemberBinding="{Binding LastLoginAt, Converter={StaticResource Utc}}" Width="160"/>
-                        </GridView>
-                    </ListView.View>
-                </ListView>
+                <Grid>
+                    <ListView x:Name="UserList"
+                              ItemsSource="{Binding Items}"
+                              SelectedItem="{Binding Selected}"
+                              BorderThickness="0,1,0,0"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
+                                <GridViewColumn Header="ユーザー名" DisplayMemberBinding="{Binding Username}" Width="180"/>
+                                <GridViewColumn Header="管理者" DisplayMemberBinding="{Binding IsAdmin}" Width="64"/>
+                                <GridViewColumn Header="Lock" DisplayMemberBinding="{Binding IsLocked}" Width="60"/>
+                                <GridViewColumn Header="PW期限" DisplayMemberBinding="{Binding PasswordExpiresAt, Converter={StaticResource Utc}}" Width="160"/>
+                                <GridViewColumn Header="最終ログイン" DisplayMemberBinding="{Binding LastLoginAt, Converter={StaticResource Utc}}" Width="160"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="20" IsHitTestVisible="False">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasItems, ElementName=UserList}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="👥" FontSize="32" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                        <TextBlock Text="ユーザーがいません" Style="{StaticResource Muted}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="右側のフォームからユーザーを作成してください"
+                                   Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
             </DockPanel>
         </Border>
 

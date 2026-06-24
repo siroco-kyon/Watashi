@@ -38,6 +38,12 @@ public partial class RemotePaneViewModel : ObservableObject
     public bool HasLocations => Locations.Count > 0;
     public bool HasNoLocations => Locations.Count == 0;
     public bool NeedsLocationSelection => Locations.Count > 0 && SelectedLocation is null;
+    public bool HasNoFilterMatches =>
+        SelectedLocation is not null &&
+        !string.IsNullOrWhiteSpace(FilterText) &&
+        !_all.Any(e => FileEntryFilter.Matches(e, FilterText));
+    public bool IsFolderEmpty =>
+        SelectedLocation is not null && string.IsNullOrWhiteSpace(FilterText) && _all.Count == 0;
 
     public RemotePaneViewModel(ApiClient api)
     {
@@ -54,6 +60,8 @@ public partial class RemotePaneViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasLocation));
         OnPropertyChanged(nameof(NeedsLocationSelection));
+        OnPropertyChanged(nameof(HasNoFilterMatches));
+        OnPropertyChanged(nameof(IsFolderEmpty));
         if (value is null)
         {
             _all.Clear();
@@ -189,6 +197,8 @@ public partial class RemotePaneViewModel : ObservableObject
         if (_parentEntry is not null) Entries.Add(_parentEntry);
         foreach (var e in _all.Where(e => FileEntryFilter.Matches(e, FilterText)))
             Entries.Add(e);
+        OnPropertyChanged(nameof(HasNoFilterMatches));
+        OnPropertyChanged(nameof(IsFolderEmpty));
     }
 
     /// <summary>列ヘッダクリックで昇順 ⇄ 降順を切り替え、サーバから並べ直して取得する。</summary>

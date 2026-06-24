@@ -69,14 +69,14 @@ public partial class App : Application
     // 旧 API 互換（直接呼ぶ箇所がもう無くなったらこのメソッドごと削除可）。
     public void RestartLoginFlow() => RequestLogout();
 
-    private async Task StartLoginFlowAsync()
+    private async Task StartLoginFlowAsync(bool allowAutoLogin = true)
     {
         var session = Services.GetRequiredService<SessionManager>();
         var api = Services.GetRequiredService<ApiClient>();
         var cred = Services.GetRequiredService<CredentialStore>();
 
         // HTTP/HTTPS どちらでも自動ログイン試行。サーバー側 Auth:AllowHttpForAutoLogin で最終判定される。
-        var saved = cred.LoadDeviceToken();
+        var saved = allowAutoLogin ? cred.LoadDeviceToken() : null;
         if (saved is not null)
         {
             try
@@ -85,6 +85,7 @@ public partial class App : Application
                 var res = await api.AutoLoginAsync(saved.Value.machineName, saved.Value.windowsUser, saved.Value.token, cts.Token);
                 session.SetFromLogin(res);
                 if (res.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
+                ShowPasswordExpiryWarning(session);
                 ShowMain();
                 return;
             }
@@ -101,7 +102,20 @@ public partial class App : Application
         if (!ShowLogin(out var rememberDevice)) { Shutdown(); return; }
         if (session.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
         if (rememberDevice) await TrySaveTrustedDeviceAsync(api, cred);
+        ShowPasswordExpiryWarning(session);
         ShowMain();
+    }
+
+    private static void ShowPasswordExpiryWarning(SessionManager session)
+    {
+        if (session.PasswordExpiresInDays is not int remaining ||
+            remaining <= 0 || remaining > session.PasswordWarningDays) return;
+
+        MessageBox.Show(
+            $"パスワードの有効期限まで残り {remaining} 日です。期限までに変更してください。",
+            "Watashi - パスワード期限",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
     }
 
     private static void ShowFatal(string title, Exception ex)
@@ -141,11 +155,13 @@ public partial class App : Application
     }
 
     private bool _logoutInProgress;
+    private bool _suppressAutoLoginOnce;
 
     /// <summary>ログアウト要求。MainWindow を閉じて再ログインフローを開始する。</summary>
     public void RequestLogout()
     {
         _logoutInProgress = true;
+        _suppressAutoLoginOnce = true;
         MainWindow?.Close();
     }
 
@@ -158,7 +174,9 @@ public partial class App : Application
             if (_logoutInProgress)
             {
                 _logoutInProgress = false;
-                try { await StartLoginFlowAsync(); }
+                var allowAutoLogin = !_suppressAutoLoginOnce;
+                _suppressAutoLoginOnce = false;
+                try { await StartLoginFlowAsync(allowAutoLogin); }
                 catch (Exception ex) { ShowFatal("再ログイン失敗", ex); Shutdown(); }
             }
             else
@@ -244,6 +262,7 @@ public partial class App : Application
                         MessageBox.Show(app.MainWindow,
                             "無操作のためログアウトしました。再ログインしてください。",
                             "アイドルタイムアウト", MessageBoxButton.OK, MessageBoxImage.Information);
+                        session.Clear();
                         app.RequestLogout();
                     }
                 });

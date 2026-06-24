@@ -17,6 +17,12 @@ using Watashi.Server.Services;
 using Watashi.Shared.Cifs;
 using Watashi.Shared.Constants;
 
+if (DatabaseBackupCommand.IsRequested(args))
+{
+    Environment.ExitCode = DatabaseBackupCommand.Run(args);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseWindowsService(o => o.ServiceName = "Watashi.Server");
 

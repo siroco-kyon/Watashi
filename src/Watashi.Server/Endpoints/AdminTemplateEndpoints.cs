@@ -17,6 +17,12 @@ public static class AdminTemplateEndpoints
         group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
         {
             var items = await db.PermissionTemplates.AsNoTracking()
+                .OrderByDescending(t =>
+                    (t.CanRead ? 1 : 0) +
+                    (t.CanWrite ? 1 : 0) +
+                    (t.CanDelete ? 1 : 0) +
+                    (t.CanRename ? 1 : 0))
+                .ThenBy(t => t.Name)
                 .Select(t => new PermissionTemplateDto
                 {
                     Id = t.Id, Name = t.Name,

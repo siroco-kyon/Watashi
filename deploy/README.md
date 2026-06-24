@@ -176,10 +176,13 @@ Agent A/B と Server の共有秘密はすべて同じ値にする。1段チェ�
 
 ```powershell
 schtasks.exe /Create /SC DAILY /TN "Watashi DB Backup" `
-    /TR "powershell.exe -File C:\Apps\Watashi\backup.ps1" /ST 02:00 /RL HIGHEST
+    /TR "powershell.exe -NoProfile -File C:\Apps\Watashi\backup.ps1" /ST 02:00 /RL HIGHEST
 ```
 
-`backup.ps1` で `watashi.db` を `BackupDatabase()` ベースで日次バックアップ + 月次世代管理。
+`backup.ps1` で `watashi.db` を `BackupDatabase()` ベースでオンラインバックアップする。
+既定では日次を7日、毎月1日の月次を12か月保持する。
+DB・バックアップ先・Server 配置先が既定と異なる場合は `-DatabasePath`、
+`-BackupDirectory`、`-ServerInstallDir` を指定する。
 
 ## 5. ログ削除バッチ
 
