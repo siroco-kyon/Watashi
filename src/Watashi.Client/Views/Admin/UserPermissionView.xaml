@@ -21,15 +21,24 @@
                     </DockPanel>
                 </Border>
 
-                <Grid DockPanel.Dock="Top" Margin="12,10,12,8">
-                    <TextBox Text="{Binding UserFilter, UpdateSourceTrigger=PropertyChanged}"
-                             Padding="30,5,8,5"
-                             ToolTip="ユーザー名で絞り込み"/>
-                    <TextBlock Text="🔍" FontSize="13" Margin="9,0,0,0"
-                               IsHitTestVisible="False"
-                               VerticalAlignment="Center"
-                               Foreground="{StaticResource TextMutedBrush}"/>
-                </Grid>
+                <DockPanel DockPanel.Dock="Top" Margin="12,10,12,8">
+                    <ComboBox DockPanel.Dock="Right"
+                              Width="92"
+                              ItemsSource="{Binding UserSortOptions}"
+                              SelectedItem="{Binding SelectedUserSortOption}"
+                              DisplayMemberPath="Label"
+                              ToolTip="ユーザーの並び替え"
+                              Margin="6,0,0,0"/>
+                    <Grid>
+                        <TextBox Text="{Binding UserFilter, UpdateSourceTrigger=PropertyChanged}"
+                                 Padding="30,5,8,5"
+                                 ToolTip="ユーザー名で絞り込み"/>
+                        <TextBlock Text="🔍" FontSize="13" Margin="9,0,0,0"
+                                   IsHitTestVisible="False"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextMutedBrush}"/>
+                    </Grid>
+                </DockPanel>
 
                 <Button Content="🔄 再読み込み" Command="{Binding RefreshCommand}"
                         DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" Margin="10"
@@ -129,6 +138,20 @@
                                 Content="🗑 選択を削除"
                                 Command="{Binding DeleteCommand}"
                                 HorizontalAlignment="Right" DockPanel.Dock="Right"/>
+                        <ComboBox Width="120"
+                                  ItemsSource="{Binding PermissionSortOptions}"
+                                  SelectedItem="{Binding SelectedPermissionSortOption}"
+                                  DisplayMemberPath="Label"
+                                  ToolTip="付与済みパスの並び替え"
+                                  HorizontalAlignment="Right"
+                                  DockPanel.Dock="Right"
+                                  Margin="0,0,6,0"/>
+                        <TextBox Width="170"
+                                 Text="{Binding PermissionSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="付与済みパスを検索"
+                                 HorizontalAlignment="Right"
+                                 DockPanel.Dock="Right"
+                                 Margin="0,0,6,0"/>
                     </DockPanel>
 
                     <!-- Quick add: bundle apply + copy from user -->
@@ -173,7 +196,7 @@
                     </Border>
 
                     <Grid>
-                        <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                        <ListView ItemsSource="{Binding ItemsView}" SelectedItem="{Binding Selected}">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
                                     <Setter Property="ToolTip">

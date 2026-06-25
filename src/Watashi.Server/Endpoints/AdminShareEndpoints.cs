@@ -38,8 +38,29 @@ public static class AdminShareEndpoints
         {
             var s = await db.CifsShares.FindAsync(new object?[] { id }, ct);
             if (s is null) return Results.NotFound();
-            if (req.DisplayName is not null) s.DisplayName = req.DisplayName;
-            await db.SaveChangesAsync(ct);
+            if (req.HostId.HasValue)
+            {
+                if (!await db.CifsHosts.AsNoTracking().AnyAsync(h => h.Id == req.HostId.Value, ct))
+                    return Results.BadRequest(new { error = "Host 不在" });
+                s.HostId = req.HostId.Value;
+            }
+            if (req.ShareName is not null)
+            {
+                if (string.IsNullOrWhiteSpace(req.ShareName))
+                    return Results.BadRequest(new { error = "ShareName 必須" });
+                s.ShareName = req.ShareName.Trim();
+            }
+            if (req.DisplayName is not null)
+                s.DisplayName = string.IsNullOrWhiteSpace(req.DisplayName) ? s.ShareName : req.DisplayName.Trim();
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                db.ChangeTracker.Clear();
+                return Results.BadRequest(new { error = "同じホストに同名の共有が既にあります。" });
+            }
             await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareUpdate, $"share:{id}", ct: ct);
             return Results.NoContent();
         });

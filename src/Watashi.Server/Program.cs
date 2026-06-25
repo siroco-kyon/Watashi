@@ -203,6 +203,7 @@ app.MapAdminTemplateEndpoints();
 app.MapAdminUserPermissionEndpoints();
 app.MapAdminPermissionBundleEndpoints();
 app.MapAdminUserEndpoints();
+app.MapAdminDeviceEndpoints();
 app.MapAdminHostEndpoints();
 app.MapAdminShareEndpoints();
 app.MapAdminNodeEndpoints();

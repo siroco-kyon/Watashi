@@ -1,8 +1,11 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Watashi.Client.Services;
 
 namespace Watashi.Client.ViewModels;
+
+public sealed record AdminSortOption(string Label, string PropertyName, ListSortDirection Direction = ListSortDirection.Ascending);
 
 /// <summary>
 /// Admin VM 共通の StatusMessage + try/catch ラッパー + ObservableCollection 一括差し替え。
@@ -40,5 +43,30 @@ public abstract partial class AdminViewModelBase : ObservableObject
     {
         target.Clear();
         foreach (var item in items) target.Add(item);
+    }
+
+    protected static bool MatchesSearch(string searchText, params object?[] values)
+    {
+        var search = searchText.Trim();
+        if (string.IsNullOrEmpty(search)) return true;
+        foreach (var value in values)
+        {
+            if (value is null) continue;
+            if (value.ToString()?.Contains(search, StringComparison.OrdinalIgnoreCase) == true)
+                return true;
+        }
+        return false;
+    }
+
+    protected static void ApplySort(ICollectionView view, AdminSortOption? option)
+    {
+        if (option is null) return;
+        view.SortDescriptions.Clear();
+        view.SortDescriptions.Add(new SortDescription(option.PropertyName, option.Direction));
+        var first = view.SourceCollection.Cast<object>().FirstOrDefault();
+        if (first?.GetType().GetProperty("Id") is not null &&
+            !string.Equals(option.PropertyName, "Id", StringComparison.Ordinal))
+            view.SortDescriptions.Add(new SortDescription("Id", ListSortDirection.Ascending));
+        view.Refresh();
     }
 }

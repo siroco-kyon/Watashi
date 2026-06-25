@@ -19,7 +19,12 @@
                         </StackPanel>
                     </DockPanel>
                 </Border>
-                <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0">
+                <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
+                    <ComboBox DockPanel.Dock="Right" Width="110" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSortOption}"
+                              DisplayMemberPath="Label" ToolTip="並び替え" Margin="6,0,0,0"/>
+                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="テンプレートを検索"/>
+                </DockPanel>
+                <ListView ItemsSource="{Binding ItemsView}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
@@ -39,9 +44,29 @@
         <Border Grid.Column="2" Style="{StaticResource Card}" Padding="0">
             <DockPanel>
                 <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
-                    <TextBlock Text="テンプレートを追加" Style="{StaticResource H3}"/>
+                    <TextBlock Text="テンプレート情報" Style="{StaticResource H3}"/>
                 </Border>
                 <StackPanel Margin="16">
+                    <TextBlock Text="選択中のテンプレート" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding Selected.Name, TargetNullValue=テンプレートを選択してください}"
+                               FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="名前" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding HasSelected}" Margin="0,0,0,12"/>
+
+                    <TextBlock Text="操作権限" Style="{StaticResource Muted}" Margin="0,0,0,6"/>
+                    <CheckBox Content="Read (読み取り)" IsChecked="{Binding EditCanRead}" IsEnabled="{Binding HasSelected}"/>
+                    <CheckBox Content="Write (書き込み)" IsChecked="{Binding EditCanWrite}" IsEnabled="{Binding HasSelected}"/>
+                    <CheckBox Content="Delete (削除)" IsChecked="{Binding EditCanDelete}" IsEnabled="{Binding HasSelected}"/>
+                    <CheckBox Content="Rename (名前変更)" IsChecked="{Binding EditCanRename}" IsEnabled="{Binding HasSelected}" Margin="0,0,0,14"/>
+
+                    <Button Content="保存" Command="{Binding SaveCommand}" IsEnabled="{Binding HasSelected}" Height="34"/>
+
+                    <Separator Margin="0,16,0,14"/>
+
+                    <TextBlock Text="テンプレートを追加" Style="{StaticResource H3}" Margin="0,0,0,12"/>
+
                     <TextBlock Text="名前" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
                     <TextBox Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
 

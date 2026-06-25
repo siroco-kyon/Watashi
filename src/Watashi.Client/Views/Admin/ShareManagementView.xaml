@@ -20,7 +20,12 @@
                         </StackPanel>
                     </DockPanel>
                 </Border>
-                <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0">
+                <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
+                    <ComboBox DockPanel.Dock="Right" Width="120" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSortOption}"
+                              DisplayMemberPath="Label" ToolTip="並び替え" Margin="6,0,0,0"/>
+                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="共有を検索"/>
+                </DockPanel>
+                <ListView ItemsSource="{Binding ItemsView}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
@@ -35,13 +40,35 @@
 
         <GridSplitter Grid.Column="1" Background="Transparent" Width="12"/>
 
-        <!-- Form -->
+        <!-- Edit / Create form -->
         <Border Grid.Column="2" Style="{StaticResource Card}" Padding="0">
             <DockPanel>
                 <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
-                    <TextBlock Text="共有を追加" Style="{StaticResource H3}"/>
+                    <TextBlock Text="共有情報" Style="{StaticResource H3}"/>
                 </Border>
                 <StackPanel Margin="16">
+                    <TextBlock Text="選択中の共有" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding Selected.DisplayName, TargetNullValue=共有を選択してください}"
+                               FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="対象ホスト" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding Hosts}" SelectedValue="{Binding EditHostId}"
+                              SelectedValuePath="Id" DisplayMemberPath="Name" IsEnabled="{Binding HasSelected}" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="共有名 (SMBの共有名)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding EditShareName, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding HasSelected}" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="表示名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding EditDisplayName, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding HasSelected}" Margin="0,0,0,14"/>
+
+                    <Button Content="保存" Command="{Binding SaveCommand}" IsEnabled="{Binding HasSelected}" Height="34"/>
+
+                    <Separator Margin="0,16,0,14"/>
+
+                    <TextBlock Text="共有を追加" Style="{StaticResource H3}" Margin="0,0,0,12"/>
+
                     <TextBlock Text="対象ホスト" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
                     <ComboBox ItemsSource="{Binding Hosts}" SelectedValue="{Binding NewHostId}"
                               SelectedValuePath="Id" DisplayMemberPath="Name" Margin="0,0,0,10"/>

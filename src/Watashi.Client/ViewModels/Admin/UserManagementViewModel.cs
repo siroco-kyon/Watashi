@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
+using System.Windows.Data;
 using Watashi.Client.Services;
 using Watashi.Shared.DTOs.Admin;
 
@@ -12,12 +14,46 @@ public partial class UserManagementViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
     public ObservableCollection<UserDto> Items { get; } = new();
+    public ICollectionView ItemsView { get; }
+    public ObservableCollection<AdminSortOption> SortOptions { get; } = new()
+    {
+        new("ユーザー名", nameof(UserDto.Username)),
+        new("ID", nameof(UserDto.Id)),
+        new("管理者", nameof(UserDto.IsAdmin), ListSortDirection.Descending),
+        new("ロック", nameof(UserDto.IsLocked), ListSortDirection.Descending),
+        new("PW期限", nameof(UserDto.PasswordExpiresAt)),
+        new("最終ログイン", nameof(UserDto.LastLoginAt), ListSortDirection.Descending),
+    };
     [ObservableProperty] private UserDto? selected;
+    [ObservableProperty] private string searchText = string.Empty;
+    [ObservableProperty] private AdminSortOption? selectedSortOption;
     [ObservableProperty] private string newUsername = string.Empty;
     [ObservableProperty] private string newPassword = string.Empty;
     [ObservableProperty] private bool newIsAdmin;
+    [ObservableProperty] private bool editIsAdmin;
 
-    public UserManagementViewModel(ApiClient api) { _api = api; }
+    public bool HasSelected => Selected is not null;
+
+    public UserManagementViewModel(ApiClient api)
+    {
+        _api = api;
+        ItemsView = CollectionViewSource.GetDefaultView(Items);
+        ItemsView.Filter = item => item is UserDto u && MatchesSearch(
+            SearchText, u.Id, u.Username, u.IsAdmin ? "管理者 admin" : "一般 user", u.IsLocked ? "ロック locked" : "有効 active",
+            u.PasswordExpiresAt, u.LastLoginAt);
+        SelectedSortOption = SortOptions[0];
+        ApplySort(ItemsView, SelectedSortOption);
+    }
+
+    partial void OnSearchTextChanged(string value) => ItemsView.Refresh();
+
+    partial void OnSelectedSortOptionChanged(AdminSortOption? value) => ApplySort(ItemsView, value);
+
+    partial void OnSelectedChanged(UserDto? value)
+    {
+        OnPropertyChanged(nameof(HasSelected));
+        EditIsAdmin = value?.IsAdmin ?? false;
+    }
 
     [RelayCommand]
     public Task ExportCsvAsync() => SafeAsync(async () =>
@@ -71,7 +107,13 @@ public partial class UserManagementViewModel : AdminViewModelBase
     });
 
     [RelayCommand]
-    public Task RefreshAsync() => SafeAsync(async () => ReplaceAll(Items, await _api.GetUsersAsync()));
+    public Task RefreshAsync() => SafeAsync(async () =>
+    {
+        var selectedId = Selected?.Id;
+        ReplaceAll(Items, await _api.GetUsersAsync());
+        if (selectedId.HasValue)
+            Selected = Items.FirstOrDefault(u => u.Id == selectedId.Value);
+    });
 
     [RelayCommand]
     public Task CreateAsync() => SafeAsync(async () =>
@@ -82,6 +124,14 @@ public partial class UserManagementViewModel : AdminViewModelBase
         NewUsername = NewPassword = string.Empty; NewIsAdmin = false;
         await RefreshAsync();
     }, successMessage: "ユーザーを作成しました。");
+
+    [RelayCommand]
+    public Task SaveAsync() => SafeAsync(async () =>
+    {
+        if (Selected is null) { StatusMessage = "保存するユーザーを選択してください。"; return; }
+        await _api.UpdateUserAsync(Selected.Id, new UpdateUserRequest { IsAdmin = EditIsAdmin });
+        await RefreshAsync();
+    }, successMessage: "保存しました。");
 
     [RelayCommand]
     public Task DeleteAsync() => SafeAsync(async () =>

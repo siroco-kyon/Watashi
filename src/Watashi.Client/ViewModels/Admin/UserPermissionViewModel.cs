@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Windows.Data;
 using Watashi.Client.Services;
 using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
@@ -31,6 +33,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     private readonly Dictionary<int, int> _countsByUser = new();
 
     public ObservableCollection<UserPermissionDto> Items { get; } = new();
+    public ICollectionView ItemsView { get; }
     public ObservableCollection<UserPermissionSummary> UserSummaries { get; } = new();
     public ObservableCollection<HostDto> Hosts { get; } = new();
     public ObservableCollection<ShareDto> Shares { get; } = new();
@@ -38,6 +41,22 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     public ObservableCollection<FileEntry> BrowseEntries { get; } = new();
     public ObservableCollection<PermissionBundleDto> Bundles { get; } = new();
     public ObservableCollection<UserDto> CopyFromCandidates { get; } = new();
+    public ObservableCollection<AdminSortOption> UserSortOptions { get; } = new()
+    {
+        new("ユーザー名", nameof(UserPermissionSummary.Username)),
+        new("ID", nameof(UserPermissionSummary.Id)),
+        new("権限数", nameof(UserPermissionSummary.PermissionCount), ListSortDirection.Descending),
+        new("管理者", nameof(UserPermissionSummary.IsAdmin), ListSortDirection.Descending),
+    };
+    public ObservableCollection<AdminSortOption> PermissionSortOptions { get; } = new()
+    {
+        new("ホスト", nameof(UserPermissionDto.HostName)),
+        new("共有", nameof(UserPermissionDto.ShareName)),
+        new("パス", nameof(UserPermissionDto.AllowedPath)),
+        new("テンプレ", nameof(UserPermissionDto.TemplateName)),
+        new("表示名", nameof(UserPermissionDto.DisplayName)),
+        new("作成日時", nameof(UserPermissionDto.CreatedAt), ListSortDirection.Descending),
+    };
 
     [ObservableProperty] private UserDto? selectedUser;
     [ObservableProperty] private UserPermissionSummary? selectedSummary;
@@ -49,6 +68,9 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     [ObservableProperty] private UserPermissionDto? selected;
     [ObservableProperty] private string browsePath = "/";
     [ObservableProperty] private string userFilter = string.Empty;
+    [ObservableProperty] private string permissionSearchText = string.Empty;
+    [ObservableProperty] private AdminSortOption? selectedUserSortOption;
+    [ObservableProperty] private AdminSortOption? selectedPermissionSortOption;
     [ObservableProperty] private FileEntry? selectedBrowseEntry;
     [ObservableProperty] private PermissionBundleDto? selectedBundle;
     [ObservableProperty] private UserDto? copyFromUser;
@@ -63,9 +85,21 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     public UserPermissionViewModel(ApiClient api)
     {
         _api = api;
+        ItemsView = CollectionViewSource.GetDefaultView(Items);
+        ItemsView.Filter = item => item is UserPermissionDto p && MatchesSearch(
+            PermissionSearchText, p.Id, p.Username, p.HostName, p.ShareName, p.AllowedPath, p.TemplateName, p.DisplayName);
+        SelectedUserSortOption = UserSortOptions[0];
+        SelectedPermissionSortOption = PermissionSortOptions[0];
+        ApplySort(ItemsView, SelectedPermissionSortOption);
         UserSummaries.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoUsers));
         Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoItems));
     }
+
+    partial void OnPermissionSearchTextChanged(string value) => ItemsView.Refresh();
+
+    partial void OnSelectedUserSortOptionChanged(AdminSortOption? value) => ApplyUserFilter(SelectedUser?.Id);
+
+    partial void OnSelectedPermissionSortOptionChanged(AdminSortOption? value) => ApplySort(ItemsView, value);
 
     [RelayCommand]
     public Task RefreshAsync() => SafeAsync(async () =>
@@ -159,11 +193,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     public Task LoadItemsAsync() => SafeAsync(async () =>
     {
         if (SelectedUser is null) { Items.Clear(); return; }
-        var items = await _api.GetUserPermissionsAsync(SelectedUser.Id);
-        ReplaceAll(Items, items
-            .OrderBy(i => i.HostName)
-            .ThenBy(i => i.ShareName)
-            .ThenBy(i => i.AllowedPath));
+        ReplaceAll(Items, await _api.GetUserPermissionsAsync(SelectedUser.Id));
     });
 
     [RelayCommand]
@@ -281,7 +311,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         var filtered = string.IsNullOrEmpty(filter)
             ? _allUsers
             : _allUsers.Where(u => u.Username.Contains(filter, StringComparison.OrdinalIgnoreCase));
-        var list = filtered.ToList();
+        var list = SortUsers(filtered).ToList();
 
         UserSummaries.Clear();
         foreach (var u in list)
@@ -295,5 +325,26 @@ public partial class UserPermissionViewModel : AdminViewModelBase
             : list.FirstOrDefault();
         SelectedUser = nextUser;
         SelectedSummary = nextUser is null ? null : UserSummaries.FirstOrDefault(s => s.Id == nextUser.Id);
+    }
+
+    private IEnumerable<UserDto> SortUsers(IEnumerable<UserDto> users)
+    {
+        var option = SelectedUserSortOption ?? UserSortOptions[0];
+        var descending = option.Direction == ListSortDirection.Descending;
+        return option.PropertyName switch
+        {
+            nameof(UserPermissionSummary.Id) => descending
+                ? users.OrderByDescending(u => u.Id)
+                : users.OrderBy(u => u.Id),
+            nameof(UserPermissionSummary.PermissionCount) => descending
+                ? users.OrderByDescending(u => _countsByUser.TryGetValue(u.Id, out var c) ? c : 0).ThenBy(u => u.Username)
+                : users.OrderBy(u => _countsByUser.TryGetValue(u.Id, out var c) ? c : 0).ThenBy(u => u.Username),
+            nameof(UserPermissionSummary.IsAdmin) => descending
+                ? users.OrderByDescending(u => u.IsAdmin).ThenBy(u => u.Username)
+                : users.OrderBy(u => u.IsAdmin).ThenBy(u => u.Username),
+            _ => descending
+                ? users.OrderByDescending(u => u.Username)
+                : users.OrderBy(u => u.Username),
+        };
     }
 }

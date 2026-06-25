@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Windows.Data;
 using Watashi.Client.Services;
 using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
@@ -18,13 +20,33 @@ public partial class PermissionBundleViewModel : AdminViewModelBase
     private readonly List<ShareDto> _allShares = new();
 
     public ObservableCollection<PermissionBundleDto> Items { get; } = new();
+    public ICollectionView ItemsView { get; }
     public ObservableCollection<HostDto> Hosts { get; } = new();
     public ObservableCollection<ShareDto> Shares { get; } = new();
     public ObservableCollection<PermissionTemplateDto> Templates { get; } = new();
     public ObservableCollection<PermissionBundleEntryDto> EditingEntries { get; } = new();
+    public ICollectionView EditingEntriesView { get; }
     public ObservableCollection<FileEntry> BrowseEntries { get; } = new();
+    public ObservableCollection<AdminSortOption> SortOptions { get; } = new()
+    {
+        new("名前", nameof(PermissionBundleDto.Name)),
+        new("ID", nameof(PermissionBundleDto.Id)),
+        new("作成日時", nameof(PermissionBundleDto.CreatedAt), ListSortDirection.Descending),
+    };
+    public ObservableCollection<AdminSortOption> EntrySortOptions { get; } = new()
+    {
+        new("ホスト", nameof(PermissionBundleEntryDto.HostName)),
+        new("共有", nameof(PermissionBundleEntryDto.ShareName)),
+        new("パス", nameof(PermissionBundleEntryDto.AllowedPath)),
+        new("テンプレ", nameof(PermissionBundleEntryDto.TemplateName)),
+        new("表示名", nameof(PermissionBundleEntryDto.DisplayName)),
+    };
 
     [ObservableProperty] private PermissionBundleDto? selected;
+    [ObservableProperty] private string searchText = string.Empty;
+    [ObservableProperty] private string entrySearchText = string.Empty;
+    [ObservableProperty] private AdminSortOption? selectedSortOption;
+    [ObservableProperty] private AdminSortOption? selectedEntrySortOption;
     [ObservableProperty] private string editName = string.Empty;
     [ObservableProperty] private string editDescription = string.Empty;
 
@@ -44,8 +66,26 @@ public partial class PermissionBundleViewModel : AdminViewModelBase
     public PermissionBundleViewModel(ApiClient api)
     {
         _api = api;
+        ItemsView = CollectionViewSource.GetDefaultView(Items);
+        ItemsView.Filter = item => item is PermissionBundleDto b && MatchesSearch(
+            SearchText, b.Id, b.Name, b.Description, b.CreatedAt, b.Entries.Count);
+        EditingEntriesView = CollectionViewSource.GetDefaultView(EditingEntries);
+        EditingEntriesView.Filter = item => item is PermissionBundleEntryDto e && MatchesSearch(
+            EntrySearchText, e.Id, e.HostName, e.ShareName, e.AllowedPath, e.TemplateName, e.DisplayName);
+        SelectedSortOption = SortOptions[0];
+        SelectedEntrySortOption = EntrySortOptions[0];
+        ApplySort(ItemsView, SelectedSortOption);
+        ApplySort(EditingEntriesView, SelectedEntrySortOption);
         Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoItems));
     }
+
+    partial void OnSearchTextChanged(string value) => ItemsView.Refresh();
+
+    partial void OnEntrySearchTextChanged(string value) => EditingEntriesView.Refresh();
+
+    partial void OnSelectedSortOptionChanged(AdminSortOption? value) => ApplySort(ItemsView, value);
+
+    partial void OnSelectedEntrySortOptionChanged(AdminSortOption? value) => ApplySort(EditingEntriesView, value);
 
     [RelayCommand]
     public Task RefreshAsync() => SafeAsync(async () =>

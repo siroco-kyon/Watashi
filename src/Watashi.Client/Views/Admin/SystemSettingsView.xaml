@@ -13,10 +13,17 @@
                 <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
                     <DockPanel>
                         <TextBlock Text="システム設定" Style="{StaticResource H3}" DockPanel.Dock="Left"/>
-                        <Button Content="🔄 再読み込み" Command="{Binding RefreshCommand}" Style="{StaticResource GhostButton}" HorizontalAlignment="Right"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="🔄 再読み込み" Command="{Binding RefreshCommand}" Style="{StaticResource GhostButton}"/>
+                        </StackPanel>
                     </DockPanel>
                 </Border>
-                <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0">
+                <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
+                    <ComboBox DockPanel.Dock="Right" Width="120" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSortOption}"
+                              DisplayMemberPath="Label" ToolTip="並び替え" Margin="6,0,0,0"/>
+                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="設定を検索"/>
+                </DockPanel>
+                <ListView ItemsSource="{Binding ItemsView}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Key" DisplayMemberBinding="{Binding Key}" Width="240"/>
