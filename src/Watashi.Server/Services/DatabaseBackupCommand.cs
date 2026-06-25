@@ -12,12 +12,15 @@ public static class DatabaseBackupCommand
         string? outputPath = null;
         try
         {
-            var databasePath = RequiredOption(args, "--database");
-            outputPath = RequiredOption(args, "--output");
+            var databasePath = Path.GetFullPath(RequiredOption(args, "--database"));
+            var requestedOutputPath = Path.GetFullPath(RequiredOption(args, "--output"));
             if (!File.Exists(databasePath))
                 throw new FileNotFoundException("バックアップ元 DB が見つかりません。", databasePath);
+            if (string.Equals(databasePath, requestedOutputPath, GetPathComparison()))
+                throw new InvalidOperationException("バックアップ元 DB と出力先には別のファイルを指定してください。");
 
-            var outputDirectory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
+            outputPath = requestedOutputPath;
+            var outputDirectory = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(outputDirectory)) Directory.CreateDirectory(outputDirectory);
             if (File.Exists(outputPath)) File.Delete(outputPath);
 
@@ -61,4 +64,9 @@ public static class DatabaseBackupCommand
         }
         throw new ArgumentException($"必須オプション {name} が指定されていません。");
     }
+
+    private static StringComparison GetPathComparison() =>
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 }
