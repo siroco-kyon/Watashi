@@ -62,4 +62,40 @@ public class DatabaseBackupCommandTests
             try { Directory.Delete(root, recursive: true); } catch { }
         }
     }
+
+    [Fact]
+    public void Run_rejects_same_source_and_output_without_deleting_source()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "watashi-backup-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var sourcePath = Path.Combine(root, "source.db");
+        try
+        {
+            using (var source = new SqliteConnection($"Data Source={sourcePath}"))
+            {
+                source.Open();
+                using var command = source.CreateCommand();
+                command.CommandText = "CREATE TABLE Sample (Value TEXT NOT NULL); INSERT INTO Sample VALUES ('safe');";
+                command.ExecuteNonQuery();
+            }
+
+            var aliasOfSourcePath = Path.Combine(root, ".", "source.db");
+            var exitCode = DatabaseBackupCommand.Run(new[]
+            {
+                "--backup", "--database", sourcePath, "--output", aliasOfSourcePath,
+            });
+
+            exitCode.Should().Be(1);
+            File.Exists(sourcePath).Should().BeTrue();
+            using var remaining = new SqliteConnection($"Data Source={sourcePath};Mode=ReadOnly");
+            remaining.Open();
+            using var query = remaining.CreateCommand();
+            query.CommandText = "SELECT Value FROM Sample";
+            query.ExecuteScalar().Should().Be("safe");
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
 }
