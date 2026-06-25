@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Windows.Data;
 using Watashi.Client.Services;
 using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
@@ -11,7 +13,19 @@ public partial class NodeManagementViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
     public ObservableCollection<NodeDto> Items { get; } = new();
+    public ICollectionView ItemsView { get; }
+    public ObservableCollection<AdminSortOption> SortOptions { get; } = new()
+    {
+        new("名前", nameof(NodeDto.Name)),
+        new("ID", nameof(NodeDto.Id)),
+        new("種別", nameof(NodeDto.NodeType)),
+        new("Health", nameof(NodeDto.HealthStatus)),
+        new("LastBeat", nameof(NodeDto.LastHeartbeatAt), ListSortDirection.Descending),
+        new("作成日時", nameof(NodeDto.CreatedAt), ListSortDirection.Descending),
+    };
     [ObservableProperty] private NodeDto? selected;
+    [ObservableProperty] private string searchText = string.Empty;
+    [ObservableProperty] private AdminSortOption? selectedSortOption;
     [ObservableProperty] private string newName = string.Empty;
     [ObservableProperty] private string newType = NodeTypes.Direct;
     [ObservableProperty] private string? newEndpoint;
@@ -25,7 +39,20 @@ public partial class NodeManagementViewModel : AdminViewModelBase
     [ObservableProperty] private int? editGatewayNodeId;
     [ObservableProperty] private int editMaxConcurrency = 20;
 
-    public NodeManagementViewModel(ApiClient api) { _api = api; }
+    public NodeManagementViewModel(ApiClient api)
+    {
+        _api = api;
+        ItemsView = CollectionViewSource.GetDefaultView(Items);
+        ItemsView.Filter = item => item is NodeDto n && MatchesSearch(
+            SearchText, n.Id, n.Name, n.NodeType, n.Endpoint, n.GatewayNodeName, n.HealthStatus,
+            n.IsActive ? "有効 active" : "無効 inactive", n.MaxConcurrency);
+        SelectedSortOption = SortOptions[0];
+        ApplySort(ItemsView, SelectedSortOption);
+    }
+
+    partial void OnSearchTextChanged(string value) => ItemsView.Refresh();
+
+    partial void OnSelectedSortOptionChanged(AdminSortOption? value) => ApplySort(ItemsView, value);
 
     partial void OnSelectedChanged(NodeDto? value)
     {
@@ -49,7 +76,13 @@ public partial class NodeManagementViewModel : AdminViewModelBase
     }
 
     [RelayCommand]
-    public Task RefreshAsync() => SafeAsync(async () => ReplaceAll(Items, await _api.GetNodesAsync()));
+    public Task RefreshAsync() => SafeAsync(async () =>
+    {
+        var selectedId = Selected?.Id;
+        ReplaceAll(Items, await _api.GetNodesAsync());
+        if (selectedId.HasValue)
+            Selected = Items.FirstOrDefault(n => n.Id == selectedId.Value);
+    });
 
     [RelayCommand]
     public Task CreateAsync() => SafeAsync(async () =>

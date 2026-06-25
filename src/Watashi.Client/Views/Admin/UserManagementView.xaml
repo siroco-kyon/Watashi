@@ -25,9 +25,20 @@
                         </StackPanel>
                     </DockPanel>
                 </Border>
+                <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
+                    <ComboBox DockPanel.Dock="Right"
+                              Width="130"
+                              ItemsSource="{Binding SortOptions}"
+                              SelectedItem="{Binding SelectedSortOption}"
+                              DisplayMemberPath="Label"
+                              ToolTip="並び替え"
+                              Margin="6,0,0,0"/>
+                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="ユーザー一覧を検索"/>
+                </DockPanel>
                 <Grid>
                     <ListView x:Name="UserList"
-                              ItemsSource="{Binding Items}"
+                              ItemsSource="{Binding ItemsView}"
                               SelectedItem="{Binding Selected}"
                               BorderThickness="0,1,0,0"
                               VirtualizingPanel.IsVirtualizing="True"
@@ -69,13 +80,32 @@
 
         <GridSplitter Grid.Column="1" Background="Transparent" Width="12"/>
 
-        <!-- Create form -->
+        <!-- Edit / Create form -->
         <Border Grid.Column="2" Style="{StaticResource Card}" Padding="0">
             <DockPanel>
                 <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
-                    <TextBlock Text="新規ユーザー" Style="{StaticResource H3}"/>
+                    <TextBlock Text="ユーザー情報" Style="{StaticResource H3}"/>
                 </Border>
                 <StackPanel Margin="16">
+                    <TextBlock Text="選択中のユーザー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding Selected.Username, TargetNullValue=ユーザーを選択してください}"
+                               FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+                    <CheckBox Content="管理者"
+                              IsChecked="{Binding EditIsAdmin}"
+                              IsEnabled="{Binding HasSelected}"
+                              Margin="0,0,0,12"/>
+
+                    <Button Content="保存"
+                            Command="{Binding SaveCommand}"
+                            IsEnabled="{Binding HasSelected}"
+                            Height="34"
+                            Margin="0,0,0,14"/>
+
+                    <Separator Margin="0,0,0,14"/>
+
+                    <TextBlock Text="新規ユーザー" Style="{StaticResource H3}" Margin="0,0,0,12"/>
+
                     <TextBlock Text="ユーザー名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
                     <TextBox Text="{Binding NewUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
 

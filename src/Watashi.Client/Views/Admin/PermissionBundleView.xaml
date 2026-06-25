@@ -20,6 +20,17 @@
                         </Border>
                     </DockPanel>
                 </Border>
+                <DockPanel DockPanel.Dock="Top" Margin="10,10,10,8">
+                    <ComboBox DockPanel.Dock="Right"
+                              Width="86"
+                              ItemsSource="{Binding SortOptions}"
+                              SelectedItem="{Binding SelectedSortOption}"
+                              DisplayMemberPath="Label"
+                              ToolTip="セットの並び替え"
+                              Margin="6,0,0,0"/>
+                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="セットを検索"/>
+                </DockPanel>
                 <StackPanel DockPanel.Dock="Bottom" Margin="10,8,10,10">
                     <Button Content="＋ 新規セット" Style="{StaticResource PrimaryButton}"
                             Command="{Binding NewBundleCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,6"/>
@@ -27,7 +38,7 @@
                             Command="{Binding RefreshCommand}" HorizontalAlignment="Stretch"/>
                 </StackPanel>
                 <Grid>
-                    <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                    <ListBox ItemsSource="{Binding ItemsView}" SelectedItem="{Binding Selected}"
                              BorderThickness="0,1,0,0" BorderBrush="{StaticResource BorderBrush}">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
@@ -186,8 +197,20 @@
                         <Button Content="🗑 行を削除" Style="{StaticResource GhostButton}"
                                 Command="{Binding RemoveEntryCommand}"
                                 HorizontalAlignment="Right" DockPanel.Dock="Right"/>
+                        <ComboBox Width="110"
+                                  ItemsSource="{Binding EntrySortOptions}"
+                                  SelectedItem="{Binding SelectedEntrySortOption}"
+                                  DisplayMemberPath="Label"
+                                  ToolTip="行の並び替え"
+                                  DockPanel.Dock="Right"
+                                  Margin="0,0,6,0"/>
+                        <TextBox Width="170"
+                                 Text="{Binding EntrySearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="行を検索"
+                                 DockPanel.Dock="Right"
+                                 Margin="0,0,6,0"/>
                     </DockPanel>
-                    <ListView ItemsSource="{Binding EditingEntries}" SelectedItem="{Binding SelectedEntry}">
+                    <ListView ItemsSource="{Binding EditingEntriesView}" SelectedItem="{Binding SelectedEntry}">
                         <ListView.View>
                             <GridView>
                                 <GridViewColumn Header="ホスト" Width="120">

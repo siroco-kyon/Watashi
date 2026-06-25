@@ -80,9 +80,16 @@ public partial class MainViewModel : ObservableObject
         _statusClearTimer.Stop();
         _statusClearTimer.Start();
 
-        if (message.Contains("失敗") || message.Contains("エラー"))
+        if (ShouldShowErrorBanner(message))
             ShowErrorBanner($"{source}: {message}");
     }
+
+    private static bool ShouldShowErrorBanner(string message) =>
+        message.Contains("失敗", StringComparison.Ordinal) ||
+        message.Contains("エラー", StringComparison.Ordinal) ||
+        message.Contains("権限がありません", StringComparison.Ordinal) ||
+        message.Contains("アクセスできません", StringComparison.Ordinal) ||
+        message.Contains("拒否", StringComparison.Ordinal);
 
     /// <summary>
     /// 失敗/エラーを赤バナーに (再) 表示し、クライアントログにも残す。
@@ -119,7 +126,21 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>エラーバナーの ✕ ボタンから呼ばれ、バナーを閉じる。</summary>
     [RelayCommand]
-    private void DismissError() => ErrorMessage = string.Empty;
+    private void DismissError()
+    {
+        ErrorMessage = string.Empty;
+        ClearErrorStatusForReplay();
+    }
+
+    private void ClearErrorStatusForReplay()
+    {
+        if (ShouldShowErrorBanner(StatusMessage))
+            StatusMessage = string.Empty;
+        if (ShouldShowErrorBanner(Local.StatusMessage))
+            Local.StatusMessage = string.Empty;
+        if (ShouldShowErrorBanner(Remote.StatusMessage))
+            Remote.StatusMessage = string.Empty;
+    }
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
     partial void OnErrorMessageChanged(string value) => OnPropertyChanged(nameof(HasError));

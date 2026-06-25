@@ -18,5 +18,7 @@ public class CreateShareRequest
 
 public class UpdateShareRequest
 {
+    public int? HostId { get; set; }
+    public string? ShareName { get; set; }
     public string? DisplayName { get; set; }
 }

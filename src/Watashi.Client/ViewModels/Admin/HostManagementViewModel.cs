@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Windows.Data;
 using Watashi.Client.Services;
 using Watashi.Shared.DTOs.Admin;
 
@@ -10,8 +12,20 @@ public partial class HostManagementViewModel : AdminViewModelBase
 {
     private readonly ApiClient _api;
     public ObservableCollection<HostDto> Items { get; } = new();
+    public ICollectionView ItemsView { get; }
     public ObservableCollection<NodeDto> Nodes { get; } = new();
+    public ObservableCollection<AdminSortOption> SortOptions { get; } = new()
+    {
+        new("名前", nameof(HostDto.Name)),
+        new("ID", nameof(HostDto.Id)),
+        new("アドレス", nameof(HostDto.HostAddress)),
+        new("ユーザー", nameof(HostDto.CredUsername)),
+        new("ノード", nameof(HostDto.ExecutionNodeName)),
+        new("作成日時", nameof(HostDto.CreatedAt), ListSortDirection.Descending),
+    };
     [ObservableProperty] private HostDto? selected;
+    [ObservableProperty] private string searchText = string.Empty;
+    [ObservableProperty] private AdminSortOption? selectedSortOption;
     [ObservableProperty] private string name = string.Empty;
     [ObservableProperty] private string hostAddress = string.Empty;
     [ObservableProperty] private int port = 445;
@@ -19,7 +33,19 @@ public partial class HostManagementViewModel : AdminViewModelBase
     [ObservableProperty] private string credPassword = string.Empty;
     [ObservableProperty] private int? selectedNodeId;
 
-    public HostManagementViewModel(ApiClient api) { _api = api; }
+    public HostManagementViewModel(ApiClient api)
+    {
+        _api = api;
+        ItemsView = CollectionViewSource.GetDefaultView(Items);
+        ItemsView.Filter = item => item is HostDto h && MatchesSearch(
+            SearchText, h.Id, h.Name, h.HostAddress, h.Port, h.Description, h.CredUsername, h.ExecutionNodeName);
+        SelectedSortOption = SortOptions[0];
+        ApplySort(ItemsView, SelectedSortOption);
+    }
+
+    partial void OnSearchTextChanged(string value) => ItemsView.Refresh();
+
+    partial void OnSelectedSortOptionChanged(AdminSortOption? value) => ApplySort(ItemsView, value);
 
     [RelayCommand]
     public Task RefreshAsync() => SafeAsync(async () =>

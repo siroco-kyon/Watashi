@@ -136,11 +136,16 @@ public static class AdminUserEndpoints
 
         group.MapGet("/{id:int}/devices", async (int id, AppDbContext db, CancellationToken ct) =>
         {
-            var devices = await db.TrustedDevices.AsNoTracking().Where(d => d.UserId == id)
-                .Select(d => new DeviceDto
+            var devices = await (
+                from d in db.TrustedDevices.AsNoTracking()
+                join u in db.Users.AsNoTracking() on d.UserId equals u.Id
+                where d.UserId == id
+                orderby d.MachineName
+                select new DeviceDto
                 {
                     Id = d.Id,
                     UserId = d.UserId,
+                    Username = u.Username,
                     MachineName = d.MachineName,
                     WindowsUsername = d.WindowsUsername,
                     RegisteredAt = d.RegisteredAt,
@@ -148,8 +153,8 @@ public static class AdminUserEndpoints
                     IsRevoked = d.IsRevoked,
                     RevokedReason = d.RevokedReason,
                     RevokedAt = d.RevokedAt,
-                })
-                .ToListAsync(ct);
+                }
+            ).ToListAsync(ct);
             return Results.Ok(devices);
         });
 

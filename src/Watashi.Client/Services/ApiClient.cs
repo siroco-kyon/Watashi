@@ -148,6 +148,8 @@ public class ApiClient
         PostJsonNoContentAsync($"api/admin/users/{id}/reset-password", req, ct);
     public Task<List<DeviceDto>> GetDevicesAsync(int userId, CancellationToken ct = default) =>
         GetAsync<List<DeviceDto>>($"api/admin/users/{userId}/devices", ct);
+    public Task<List<DeviceDto>> GetAllDevicesAsync(CancellationToken ct = default) =>
+        GetAsync<List<DeviceDto>>("api/admin/devices", ct);
     public Task RevokeDevicesAsync(int userId, CancellationToken ct = default) =>
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/users/{userId}/devices", null, ct);
 

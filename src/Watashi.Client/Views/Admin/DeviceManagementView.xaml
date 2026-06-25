@@ -7,19 +7,25 @@
                 <DockPanel>
                     <TextBlock Text="信頼デバイス" Style="{StaticResource H3}" DockPanel.Dock="Left"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock Text="ユーザー:" Style="{StaticResource Muted}" Margin="0,0,6,0"/>
-                        <ComboBox Width="200" ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}" DisplayMemberPath="Username" Margin="0,0,8,0"/>
                         <Button Content="🔄 再読み込み" Command="{Binding RefreshCommand}" Style="{StaticResource GhostButton}" Margin="0,0,6,0"/>
-                        <Button Content="全デバイス失効" Command="{Binding RevokeAllCommand}" Style="{StaticResource DangerButton}"/>
+                        <Button Content="選択ユーザーを失効" Command="{Binding RevokeAllCommand}" Style="{StaticResource DangerButton}"
+                                IsEnabled="{Binding HasSelectedDevice}"/>
                     </StackPanel>
                 </DockPanel>
             </Border>
+            <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
+                <ComboBox DockPanel.Dock="Right" Width="130" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSortOption}"
+                          DisplayMemberPath="Label" ToolTip="並び替え" Margin="6,0,0,0"/>
+                <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="ユーザー、端末、Windowsユーザーを検索"/>
+            </DockPanel>
             <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                        Margin="16,8,16,0" DockPanel.Dock="Top" TextWrapping="Wrap"/>
-            <ListView ItemsSource="{Binding Devices}" BorderThickness="0,1,0,0">
+            <ListView ItemsSource="{Binding DevicesView}" SelectedItem="{Binding SelectedDevice}" BorderThickness="0,1,0,0">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
+                        <GridViewColumn Header="ユーザー" DisplayMemberBinding="{Binding Username}" Width="160"/>
                         <GridViewColumn Header="マシン" DisplayMemberBinding="{Binding MachineName}" Width="200"/>
                         <GridViewColumn Header="Windowsユーザー" DisplayMemberBinding="{Binding WindowsUsername}" Width="200"/>
                         <GridViewColumn Header="登録" DisplayMemberBinding="{Binding RegisteredAt, Converter={StaticResource Utc}}" Width="160"/>

@@ -4,6 +4,7 @@ public class DeviceDto
 {
     public int Id { get; set; }
     public int UserId { get; set; }
+    public string? Username { get; set; }
     public string MachineName { get; set; } = string.Empty;
     public string WindowsUsername { get; set; } = string.Empty;
     public DateTime RegisteredAt { get; set; }
