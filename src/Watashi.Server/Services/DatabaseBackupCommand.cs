@@ -16,7 +16,8 @@ public static class DatabaseBackupCommand
             var requestedOutputPath = Path.GetFullPath(RequiredOption(args, "--output"));
             if (!File.Exists(databasePath))
                 throw new FileNotFoundException("バックアップ元 DB が見つかりません。", databasePath);
-            if (string.Equals(databasePath, requestedOutputPath, GetPathComparison()))
+            if (PathsEqual(databasePath, requestedOutputPath) ||
+                PathsEqual(ResolvePathLinks(databasePath), ResolvePathLinks(requestedOutputPath)))
                 throw new InvalidOperationException("バックアップ元 DB と出力先には別のファイルを指定してください。");
 
             outputPath = requestedOutputPath;
@@ -63,6 +64,74 @@ public static class DatabaseBackupCommand
                 return args[i + 1];
         }
         throw new ArgumentException($"必須オプション {name} が指定されていません。");
+    }
+
+    private static bool PathsEqual(string left, string right) =>
+        string.Equals(NormalizePathForComparison(left), NormalizePathForComparison(right), GetPathComparison());
+
+    private static string NormalizePathForComparison(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(fullPath);
+        return string.Equals(fullPath, root, GetPathComparison())
+            ? fullPath
+            : Path.TrimEndingDirectorySeparator(fullPath);
+    }
+
+    internal static string ResolvePathLinks(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(fullPath);
+        if (string.IsNullOrEmpty(root)) return fullPath;
+
+        var relativePath = Path.GetRelativePath(root, fullPath);
+        if (relativePath == ".") return fullPath;
+
+        var separators = new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }
+            .Distinct()
+            .ToArray();
+        var current = root;
+        foreach (var part in relativePath.Split(separators, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = Path.Combine(current, part);
+            current = TryResolveExistingLink(candidate) ?? candidate;
+        }
+
+        return Path.GetFullPath(current);
+    }
+
+    private static string? TryResolveExistingLink(string path)
+    {
+        try
+        {
+            FileSystemInfo info;
+            if (Directory.Exists(path))
+            {
+                info = new DirectoryInfo(path);
+            }
+            else if (File.Exists(path))
+            {
+                info = new FileInfo(path);
+            }
+            else
+            {
+                return null;
+            }
+
+            if ((info.Attributes & FileAttributes.ReparsePoint) == 0 &&
+                string.IsNullOrEmpty(info.LinkTarget))
+                return null;
+
+            return info.ResolveLinkTarget(returnFinalTarget: true)?.FullName;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static StringComparison GetPathComparison() =>
