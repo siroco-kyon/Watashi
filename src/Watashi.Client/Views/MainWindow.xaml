@@ -256,7 +256,9 @@
                         </Button>
                         <TextBox Name="LocalPathBox"
                                  Text="{Binding Local.CurrentPath, UpdateSourceTrigger=PropertyChanged}"
-                                 KeyDown="OnLocalPathKeyDown"/>
+                                 KeyDown="OnLocalPathKeyDown"
+                                 GotKeyboardFocus="OnPathBoxGotKeyboardFocus"
+                                 PreviewMouseLeftButtonDown="OnPathBoxPreviewMouseLeftButtonDown"/>
                     </DockPanel>
 
                     <DockPanel DockPanel.Dock="Top" Margin="10,0,10,8">
@@ -384,6 +386,8 @@
                         <TextBox Name="RemotePathBox"
                                  Text="{Binding Remote.CurrentPath, UpdateSourceTrigger=PropertyChanged}"
                                  KeyDown="OnRemotePathKeyDown"
+                                 GotKeyboardFocus="OnPathBoxGotKeyboardFocus"
+                                 PreviewMouseLeftButtonDown="OnPathBoxPreviewMouseLeftButtonDown"
                                  IsEnabled="{Binding Remote.HasLocation}"/>
                     </DockPanel>
 

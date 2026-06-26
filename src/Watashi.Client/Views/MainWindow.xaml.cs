@@ -142,6 +142,25 @@ public partial class MainWindow : Window
         if (e.Key == Key.Enter) { e.Handled = true; _vm.Remote.NavigateCommand.Execute(_vm.Remote.CurrentPath); }
     }
 
+    // パス入力欄: フォーカスが入ったら全選択する。クリックでも Tab 移動でも効くので
+    // すぐ Ctrl+C でコピーできる。LocalPathBox / RemotePathBox で共有。
+    private void OnPathBoxGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox tb) tb.SelectAll();
+    }
+
+    // 未フォーカス時の最初の左クリックを横取りして手動でフォーカスを当てる。
+    // こうしないとマウスを離した瞬間にカーソルが置かれ、全選択が解除されてしまう。
+    // 2 回目以降 (既にフォーカス済み) は横取りしないので、通常のカーソル移動・部分選択ができる。
+    private void OnPathBoxPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is TextBox tb && !tb.IsKeyboardFocusWithin)
+        {
+            e.Handled = true;
+            tb.Focus();
+        }
+    }
+
     private void OnClearLocalFilter(object sender, RoutedEventArgs e) => ClearFilter(LocalFilterBox);
     private void OnClearRemoteFilter(object sender, RoutedEventArgs e) => ClearFilter(RemoteFilterBox);
 
