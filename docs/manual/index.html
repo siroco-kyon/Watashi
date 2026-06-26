@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watashi 利用者マニュアル ｜ はじめての方へ</title>
+<style>
+  /* ===== ブランドカラー (アプリの Colors.xaml に合わせています) ===== */
+  :root{
+    --accent:#C73E1D;        /* 鳥居の朱色 */
+    --accent-hover:#A83216;
+    --accent-deep:#5C1A0B;
+    --accent-soft:#F9E5E0;
+    --header:#1B2A41;        /* 深い藍 */
+    --header-alt:#243B5C;
+    --bg:#F6F7F9;
+    --surface:#FFFFFF;
+    --surface-alt:#F0F2F5;
+    --border:#D5D9DE;
+    --border-strong:#9CA3AF;
+    --text:#1F2328;
+    --text-2:#4A535C;
+    --muted:#6B7280;
+    --danger:#CF222E;
+    --danger-soft:#FFE9EA;
+    --warning:#BF8700;
+    --warning-soft:#FFF6E0;
+    --success:#1F883D;
+    --success-soft:#E6F5EB;
+    --info:#0969DA;
+    --info-soft:#E6F0FB;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(15,27,45,.06), 0 6px 20px rgba(15,27,45,.05);
+    --maxw:920px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+    color:var(--text);
+    background:var(--bg);
+    line-height:1.85;
+    font-size:16px;
+  }
+  code,kbd,.mono{font-family:"Consolas","SFMono-Regular",Menlo,monospace;}
+
+  /* ===== レイアウト ===== */
+  .layout{display:flex; align-items:flex-start;}
+  /* サイドバー目次 */
+  .toc{
+    position:sticky; top:0;
+    width:290px; min-width:290px; height:100vh;
+    overflow-y:auto;
+    background:var(--header);
+    color:#dfe6f1;
+    padding:22px 16px 60px;
+  }
+  .toc .brand{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .toc .brand .ttl{font-size:20px; font-weight:700; color:#fff; letter-spacing:.5px;}
+  .toc .brand .sub{font-size:11px; color:#9fb0c9;}
+  .toc .ver{font-size:11px; color:#7e90ab; margin:0 0 18px 42px;}
+  .toc a{
+    display:block; color:#cfd8e6; text-decoration:none;
+    padding:5px 10px; border-radius:6px; font-size:13.5px;
+    border-left:3px solid transparent;
+  }
+  .toc a:hover{background:rgba(255,255,255,.07); color:#fff;}
+  .toc a.active{background:var(--accent); color:#fff; border-left-color:#fff;}
+  .toc a.lvl2{padding-left:26px; font-size:12.5px; color:#a9b7cc;}
+  .toc .grp{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#7e90ab; margin:18px 0 4px 10px;}
+
+  /* 本文 */
+  .content{flex:1; min-width:0; padding:0 0 120px;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px;}
+
+  /* ヒーロー */
+  .hero{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; padding:46px 28px 40px; position:relative; overflow:hidden;
+  }
+  .hero::after{content:""; position:absolute; top:0; left:0; right:0; height:6px; background:var(--accent);}
+  .hero .wrap{max-width:var(--maxw);}
+  .hero h1{font-size:32px; margin:0 0 8px; font-weight:800;}
+  .hero p{font-size:16px; color:#c8d3e3; margin:0;}
+  .hero .torii-big{position:absolute; right:-20px; bottom:-30px; opacity:.13;}
+
+  h2{
+    font-size:25px; margin:54px 0 14px; padding-bottom:10px;
+    border-bottom:3px solid var(--accent); scroll-margin-top:14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  h2 .num{
+    background:var(--accent); color:#fff; font-size:15px; font-weight:700;
+    min-width:34px; height:34px; border-radius:8px;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  h3{font-size:19px; margin:34px 0 10px; color:var(--accent-deep); scroll-margin-top:14px;}
+  h4{font-size:16px; margin:22px 0 6px; color:var(--header);}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0; padding-left:24px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);}
+
+  /* ステップ番号付き手順 */
+  ol.steps{counter-reset:step; list-style:none; padding-left:0; margin:18px 0;}
+  ol.steps>li{
+    counter-increment:step; position:relative;
+    padding:4px 0 16px 52px; margin:0;
+  }
+  ol.steps>li::before{
+    content:counter(step); position:absolute; left:0; top:2px;
+    width:34px; height:34px; border-radius:50%;
+    background:var(--accent); color:#fff; font-weight:700;
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+  }
+  ol.steps>li::after{
+    content:""; position:absolute; left:16px; top:38px; bottom:0; width:2px;
+    background:var(--border);
+  }
+  ol.steps>li:last-child::after{display:none;}
+  ol.steps>li strong{color:var(--accent-deep);}
+
+  /* カード/コールアウト */
+  .note,.tip,.warn,.danger,.key{
+    border-radius:var(--radius); padding:14px 18px; margin:18px 0;
+    border:1px solid var(--border); position:relative; padding-left:52px;
+  }
+  .note::before,.tip::before,.warn::before,.danger::before,.key::before{
+    position:absolute; left:16px; top:13px; font-size:20px;
+  }
+  .note{background:var(--info-soft); border-color:#bcd6f5;}
+  .note::before{content:"ℹ️";}
+  .tip{background:var(--success-soft); border-color:#bfe3cb;}
+  .tip::before{content:"💡";}
+  .warn{background:var(--warning-soft); border-color:#f0dca0;}
+  .warn::before{content:"⚠️";}
+  .danger{background:var(--danger-soft); border-color:#f3c0c4;}
+  .danger::before{content:"⛔";}
+  .key{background:var(--accent-soft); border-color:#e7c3ba;}
+  .key::before{content:"⛩";}
+  .note strong,.tip strong,.warn strong,.danger strong,.key strong{display:block; margin-bottom:2px;}
+
+  /* テーブル */
+  table{border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px; background:var(--surface); box-shadow:var(--shadow); border-radius:8px; overflow:hidden;}
+  th,td{border:1px solid var(--border); padding:9px 12px; text-align:left; vertical-align:top;}
+  th{background:var(--surface-alt); font-weight:700; color:var(--header);}
+  tbody tr:nth-child(even){background:#fafbfc;}
+  td .yes{color:var(--success); font-weight:700;}
+  td .no{color:var(--danger); font-weight:700;}
+
+  /* キーボード表記 */
+  kbd{
+    background:#fff; border:1px solid var(--border-strong);
+    border-bottom-width:2px; border-radius:5px; padding:1px 7px;
+    font-size:13px; box-shadow:0 1px 0 rgba(0,0,0,.04); white-space:nowrap;
+  }
+  code:not(.block){background:var(--surface-alt); padding:1px 6px; border-radius:4px; font-size:14px; color:var(--accent-deep);}
+
+  /* 画面メッセージ表示 (アプリの文言) */
+  .msg{
+    display:inline-block; background:#2b2b2b; color:#e8e8e8;
+    border-radius:6px; padding:3px 10px; font-size:13.5px;
+    font-family:"Consolas",monospace; margin:2px 0;
+  }
+  .msg.err{background:var(--danger); color:#fff;}
+  .msg.ok{background:var(--success); color:#fff;}
+
+  /* UIボタン風 */
+  .uibtn{display:inline-block; background:var(--accent); color:#fff; border-radius:6px; padding:2px 10px; font-size:13px; font-weight:600; white-space:nowrap;}
+  .uibtn.ghost{background:#fff; color:var(--text); border:1px solid var(--border-strong);}
+  .uichip{display:inline-block; background:var(--surface-alt); border:1px solid var(--border); border-radius:13px; padding:1px 10px; font-size:13px;}
+
+  /* 図 (SVG) */
+  figure{margin:22px 0; text-align:center;}
+  figure svg{max-width:100%; height:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow);}
+  figcaption{font-size:13px; color:var(--muted); margin-top:8px;}
+
+  /* スクリーンショット枠 */
+  .shot{margin:22px 0;}
+  .shot img.shot-img{max-width:100%; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); display:block; margin:0 auto;}
+  .shot-ph{
+    border:2px dashed var(--accent); border-radius:var(--radius);
+    background:repeating-linear-gradient(45deg,#fff,#fff 12px,var(--accent-soft) 12px,var(--accent-soft) 24px);
+    padding:34px 20px; text-align:center; color:var(--text);
+  }
+  .shot-ph-inner{display:inline-flex; flex-direction:column; align-items:center; gap:6px; background:rgba(255,255,255,.92); padding:18px 26px; border-radius:8px; max-width:560px;}
+  .shot-ph .cam{font-size:34px;}
+  .shot-ph strong{color:var(--accent); font-size:15px;}
+  .shot-ph .fn{font-family:"Consolas",monospace; background:var(--surface-alt); border:1px solid var(--border); border-radius:5px; padding:3px 10px; font-size:13px;}
+  .shot-ph .hint{font-size:13.5px; color:var(--text-2);}
+  .shot-ph .note2{font-size:12px; color:var(--muted);}
+
+  /* 用語ミニ定義 */
+  dl.terms{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:6px 20px; box-shadow:var(--shadow);}
+  dl.terms dt{font-weight:700; color:var(--accent-deep); margin-top:14px;}
+  dl.terms dd{margin:2px 0 6px; color:var(--text-2);}
+
+  .lead{font-size:17px; color:var(--text-2);}
+  .pill{display:inline-block; background:var(--accent-soft); color:var(--accent-deep); border-radius:12px; padding:1px 10px; font-size:12.5px; font-weight:600; margin-right:4px;}
+
+  hr.sec{border:none; border-top:1px dashed var(--border); margin:40px 0;}
+
+  /* 戻るボタン */
+  .totop{position:fixed; right:22px; bottom:22px; background:var(--accent); color:#fff; width:46px; height:46px; border-radius:50%; display:none; align-items:center; justify-content:center; text-decoration:none; font-size:20px; box-shadow:var(--shadow); z-index:50;}
+  .totop.show{display:flex;}
+
+  /* モバイル */
+  .menu-toggle{display:none;}
+  @media(max-width:900px){
+    .toc{position:fixed; left:0; top:0; z-index:100; transform:translateX(-100%); transition:transform .25s; box-shadow:4px 0 24px rgba(0,0,0,.3);}
+    .toc.open{transform:translateX(0);}
+    .menu-toggle{display:flex; position:fixed; left:14px; top:14px; z-index:90; background:var(--accent); color:#fff; border:none; border-radius:8px; width:46px; height:42px; font-size:20px; align-items:center; justify-content:center; box-shadow:var(--shadow); cursor:pointer;}
+    .hero{padding-top:60px;}
+  }
+  @media print{
+    .toc,.totop,.menu-toggle{display:none;}
+    body{background:#fff;}
+    h2{break-after:avoid;}
+    table,figure,.shot{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+
+<button class="menu-toggle" onclick="document.querySelector('.toc').classList.toggle('open')" aria-label="目次">☰</button>
+
+<div class="layout">
+
+  <!-- ============ 目次 ============ -->
+  <nav class="toc" id="toc">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#C73E1D"/>
+        <rect x="22" y="34" width="9" height="54" fill="#C73E1D"/>
+        <rect x="69" y="34" width="9" height="54" fill="#C73E1D"/>
+        <rect x="16" y="40" width="68" height="8" fill="#C73E1D"/>
+      </svg>
+      <div>
+        <div class="ttl">Watashi</div>
+        <div class="sub">利用者マニュアル</div>
+      </div>
+    </div>
+    <div class="ver">はじめての方向け／全機能ガイド</div>
+
+    <div class="grp">準備</div>
+    <a href="#intro" class="lvl1">0. このツールについて</a>
+    <a href="#install" class="lvl1">1. インストールと起動</a>
+    <a href="#login" class="lvl1">2. ログイン</a>
+    <a href="#firstpw" class="lvl1">3. 初回パスワード変更</a>
+
+    <div class="grp">基本操作</div>
+    <a href="#main" class="lvl1">4. メイン画面の見かた</a>
+    <a href="#browse" class="lvl1">5. フォルダの移動</a>
+    <a href="#openfile" class="lvl1">6. ファイルは開けません</a>
+    <a href="#search" class="lvl1">7. 絞り込み・並べ替え</a>
+
+    <div class="grp">ファイルのやりとり</div>
+    <a href="#upload" class="lvl1">8. アップロード</a>
+    <a href="#download" class="lvl1">9. ダウンロード</a>
+    <a href="#dragdrop" class="lvl1">10. ドラッグ＆ドロップ</a>
+    <a href="#multi" class="lvl1">11. まとめて転送</a>
+
+    <div class="grp">整理する</div>
+    <a href="#newfolder" class="lvl1">12. 新規フォルダ</a>
+    <a href="#rename" class="lvl1">13. 名前の変更</a>
+    <a href="#delete" class="lvl1">14. 削除</a>
+    <a href="#context" class="lvl1">15. 右クリックメニュー</a>
+
+    <div class="grp">権限としくみ</div>
+    <a href="#perm" class="lvl1">16. 権限（できること）</a>
+    <a href="#keys" class="lvl1">17. ショートカット一覧</a>
+    <a href="#logout" class="lvl1">18. ログアウト／自動ログアウト</a>
+    <a href="#remember" class="lvl1">19. このPCを記憶する</a>
+    <a href="#password" class="lvl1">20. パスワードの管理</a>
+
+    <div class="grp">困ったとき</div>
+    <a href="#trouble" class="lvl1">21. トラブル＆エラー集</a>
+    <a href="#glossary" class="lvl1">22. 用語集</a>
+    <a href="#shots" class="lvl1">付録. 画像の差し替え方</a>
+  </nav>
+
+  <!-- ============ 本文 ============ -->
+  <main class="content">
+
+    <!-- ===== ヒーロー ===== -->
+    <header class="hero">
+      <svg class="torii-big" width="240" height="240" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
+        <rect x="22" y="34" width="9" height="54" fill="#fff"/>
+        <rect x="69" y="34" width="9" height="54" fill="#fff"/>
+        <rect x="16" y="40" width="68" height="8" fill="#fff"/>
+      </svg>
+      <div class="wrap">
+        <h1>⛩ Watashi 利用者マニュアル</h1>
+        <p>パソコンが苦手な方でも大丈夫。社内ファイルサーバーへのファイルの出し入れを、最初から最後まで丁寧に説明します。</p>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <!-- ========================================================= -->
+      <!-- 0. このツールについて -->
+      <!-- ========================================================= -->
+      <h2 id="intro"><span class="num">0</span>このツールについて</h2>
+
+      <p class="lead">Watashi（わたし）は、<strong>社内のファイルサーバー（共有フォルダ）に置いてあるファイルを、あなたのパソコンから安全に出し入れするためのアプリ</strong>です。</p>
+
+      <p>たとえばこんなときに使います。</p>
+      <ul>
+        <li>サーバーにある資料を<strong>自分のパソコンに取り出す（ダウンロード）</strong></li>
+        <li>自分が作った資料を<strong>サーバーに置く（アップロード）</strong></li>
+        <li>サーバーのフォルダを整理する（フォルダ作成・名前変更・削除）</li>
+      </ul>
+
+      <h3>3つの「場所」を覚えてください</h3>
+      <p>このアプリには、ファイルの置き場所が大きく分けて2つ出てきます。これだけ覚えれば操作はぐっと分かりやすくなります。</p>
+
+      <figure>
+        <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="あなたのPCと社内サーバーの関係図">
+          <!-- PC -->
+          <rect x="30" y="80" width="180" height="100" rx="10" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="2"/>
+          <text x="120" y="70" text-anchor="middle" font-size="16" font-weight="700" fill="#1B2A41">💻 ローカル</text>
+          <text x="120" y="125" text-anchor="middle" font-size="14" fill="#1F2328">あなたの</text>
+          <text x="120" y="145" text-anchor="middle" font-size="14" fill="#1F2328">パソコンの中</text>
+          <text x="120" y="200" text-anchor="middle" font-size="11" fill="#6B7280">画面の「左側」</text>
+
+          <!-- 中央サーバー -->
+          <rect x="300" y="90" width="150" height="80" rx="10" fill="#1B2A41" stroke="#1B2A41"/>
+          <text x="375" y="125" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">中央サーバー</text>
+          <text x="375" y="146" text-anchor="middle" font-size="11" fill="#9fb0c9">（自動で中継）</text>
+
+          <!-- サーバー -->
+          <rect x="550" y="80" width="180" height="100" rx="10" fill="#F9E5E0" stroke="#C73E1D" stroke-width="2"/>
+          <text x="640" y="70" text-anchor="middle" font-size="16" font-weight="700" fill="#5C1A0B">⛩ リモート</text>
+          <text x="640" y="125" text-anchor="middle" font-size="14" fill="#1F2328">社内ファイル</text>
+          <text x="640" y="145" text-anchor="middle" font-size="14" fill="#1F2328">サーバー</text>
+          <text x="640" y="200" text-anchor="middle" font-size="11" fill="#6B7280">画面の「右側」</text>
+
+          <!-- 矢印 -->
+          <line x1="210" y1="120" x2="298" y2="120" stroke="#6B7280" stroke-width="2"/>
+          <polygon points="298,120 288,115 288,125" fill="#6B7280"/>
+          <line x1="452" y1="120" x2="548" y2="120" stroke="#6B7280" stroke-width="2"/>
+          <polygon points="548,120 538,115 538,125" fill="#6B7280"/>
+          <text x="255" y="112" text-anchor="middle" font-size="10" fill="#6B7280">インターネット/社内LAN</text>
+        </svg>
+        <figcaption>図0-1：あなたのパソコン（ローカル）と社内サーバー（リモート）の関係。間は中央サーバーが自動でつなぐので、あなたは意識しなくて大丈夫です。</figcaption>
+      </figure>
+
+      <dl class="terms">
+        <dt>ローカル（このPC）</dt>
+        <dd>あなたが今使っているパソコンの中。アプリの画面では<strong>左側</strong>に表示されます。アイコンは💻。</dd>
+        <dt>リモート（社内サーバー）</dt>
+        <dd>会社の共有ファイルサーバー。アプリの画面では<strong>右側</strong>に表示されます。アイコンは⛩（鳥居）。</dd>
+        <dt>接続場所（リモートの場所）</dt>
+        <dd>リモート側で「どの共有フォルダを見るか」の選択肢です。たとえば「経理部ドキュメント」「営業部共有」など。あなたが見られる場所は<strong>管理者が決めて</strong>います（→<a href="#perm">第16章</a>）。</dd>
+      </dl>
+
+      <div class="key">
+        <strong>このアプリの大事な考え方</strong>
+        左（自分のPC）と右（社内サーバー）の間で、ファイルを<strong>「上げる（アップロード）」「下ろす（ダウンロード）」</strong>のが基本動作です。FFFTP などの「2画面ファイル転送ソフト」を使ったことがある方は、それとほぼ同じ感覚です。
+      </div>
+
+      <div class="note">
+        <strong>接続先は変更できません（それで正常です）</strong>
+        どのサーバーにつなぐか、どんな機能が使えるかは、配布時に<strong>管理者があらかじめ固定</strong>しています。利用者側で接続先を入力したり変えたりする画面はありません。「サーバーアドレスはどこに入れるの？」と探す必要はありません。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 1. インストールと起動 -->
+      <!-- ========================================================= -->
+      <h2 id="install"><span class="num">1</span>インストールと起動</h2>
+
+      <h3>1-1. 初回だけ：インストール</h3>
+      <ol class="steps">
+        <li>情シス（管理者）から案内された<strong>インストール用のURL</strong>を、ブラウザ（Edge など）で開きます。<br>
+          <span class="mono" style="font-size:13px;color:#6B7280">例： https://watashi.internal/install/Watashi.Client.application</span></li>
+        <li>画面の指示にしたがってインストールを進めます。完了すると、<strong>スタートメニュー</strong>（および必要に応じてデスクトップ）に「Watashi」が追加されます。</li>
+      </ol>
+
+      <div class="shot">
+        <img class="shot-img" src="images/01-install.png" data-desc="インストール用URLをブラウザで開いた画面／インストール確認ダイアログ" alt="インストール画面">
+        <figcaption>図1-1：インストールの画面（スクリーンショットを差し込めます）</figcaption>
+      </div>
+
+      <h3>1-2. 2回目以降：起動のしかた</h3>
+      <ol class="steps">
+        <li><strong>スタートメニュー</strong>（またはデスクトップ）の「<strong>Watashi</strong>」をクリックして起動します。</li>
+        <li>起動すると、最初に<strong>新しいバージョンがないか自動でチェック</strong>します。新しい版があればその場で適用されてから起動します（あなたの操作は不要です）。</li>
+        <li>続いて<strong>ログイン画面</strong>が開きます。</li>
+      </ol>
+
+      <div class="warn">
+        <strong>必ず「Watashi」のショートカットから起動してください</strong>
+        起動するたびに自動でバージョンチェック（ClickOnce 自動更新）が走るのは、スタートメニュー／デスクトップの「Watashi」から起動したときだけです。exe ファイルを直接ダブルクリックして起動すると<strong>更新されず、古いまま動いてしまう</strong>ことがあります。「新しい版にならない」と感じたら、まず起動方法を見直してください。
+      </div>
+
+      <div class="note">
+        <strong>起動時に「更新しています」と出たら</strong>
+        新しい版を適用している最中です。<strong>スキップはできません（必須更新）</strong>。終わるまで少し待つと、自動で起動します。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 2. ログイン -->
+      <!-- ========================================================= -->
+      <h2 id="login"><span class="num">2</span>ログイン</h2>
+
+      <p>起動するとログイン画面が開きます。<strong>接続先サーバーはすでに設定済み</strong>なので、あなたが入力するのは「ユーザー名」と「パスワード」だけです。</p>
+
+      <figure>
+        <svg viewBox="0 0 460 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ログイン画面の説明図">
+          <rect x="1" y="1" width="458" height="428" rx="12" fill="#F6F7F9" stroke="#D5D9DE"/>
+          <rect x="1" y="1" width="458" height="6" rx="3" fill="#C73E1D"/>
+          <!-- ロゴ -->
+          <path d="M180 40 Q230 30 280 40 L276 47 Q230 38 184 47 Z" fill="#C73E1D"/>
+          <rect x="192" y="47" width="7" height="40" fill="#C73E1D"/>
+          <rect x="261" y="47" width="7" height="40" fill="#C73E1D"/>
+          <rect x="187" y="52" width="86" height="6" fill="#C73E1D"/>
+          <text x="230" y="108" text-anchor="middle" font-size="22" font-weight="800" fill="#1F2328">Watashi</text>
+          <!-- カード -->
+          <rect x="60" y="125" width="340" height="240" rx="10" fill="#fff" stroke="#D5D9DE"/>
+          <text x="80" y="155" font-size="12" fill="#6B7280">ユーザー名</text>
+          <rect x="80" y="162" width="300" height="32" rx="6" fill="#fff" stroke="#9CA3AF"/>
+          <text x="92" y="183" font-size="13" fill="#1F2328">alice</text>
+          <text x="80" y="218" font-size="12" fill="#6B7280">パスワード</text>
+          <rect x="80" y="225" width="300" height="32" rx="6" fill="#fff" stroke="#9CA3AF"/>
+          <text x="92" y="246" font-size="14" fill="#1F2328" letter-spacing="2">••••••••</text>
+          <!-- 目玉 -->
+          <circle cx="362" cy="241" r="13" fill="#F0F2F5"/>
+          <text x="362" y="246" text-anchor="middle" font-size="14">👁</text>
+          <!-- チェック -->
+          <rect x="80" y="272" width="16" height="16" rx="3" fill="#fff" stroke="#9CA3AF"/>
+          <text x="104" y="285" font-size="13" fill="#1F2328">このPCを記憶する</text>
+          <!-- ボタン -->
+          <rect x="80" y="305" width="300" height="38" rx="7" fill="#C73E1D"/>
+          <text x="230" y="330" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">ログイン</text>
+          <!-- 接続テスト -->
+          <text x="230" y="392" text-anchor="middle" font-size="13" fill="#C73E1D" text-decoration="underline">接続テスト</text>
+
+          <!-- 吹き出し -->
+          <text x="412" y="246" font-size="11" fill="#C73E1D">← 目玉</text>
+        </svg>
+        <figcaption>図2-1：ログイン画面の各部</figcaption>
+      </figure>
+
+      <div class="shot">
+        <img class="shot-img" src="images/02-login.png" data-desc="実際のログイン画面" alt="ログイン画面">
+        <figcaption>図2-2：実際のログイン画面（スクリーンショットを差し込めます）</figcaption>
+      </div>
+
+      <h3>2-1. ログインの手順</h3>
+      <ol class="steps">
+        <li><strong>ユーザー名</strong>を入力します。（管理者から伝えられたものです）</li>
+        <li><strong>パスワード</strong>を入力します。初回のパスワードは管理者から伝えられます。</li>
+        <li><span class="uibtn">ログイン</span> ボタンを押します（<kbd>Enter</kbd> キーでもログインできます）。</li>
+      </ol>
+
+      <h3>2-2. 👁 目玉アイコン（パスワードの確認）</h3>
+      <p>パスワード欄の右端にある<strong>👁 目玉アイコン</strong>を押すと、隠れているパスワードを<strong>一時的に文字として表示</strong>できます。打ち間違いの確認に便利です。もう一度押すと、また隠れます。</p>
+      <div class="tip">
+        <strong>キーボードだけでも切り替え可能</strong>
+        パスワード欄にカーソルがある状態で <kbd>Alt</kbd> ＋ <kbd>P</kbd> を押しても、表示／非表示を切り替えられます。
+      </div>
+
+      <h3>2-3. 「このPCを記憶する」</h3>
+      <p>チェックを入れてログインすると、次回からは<strong>自動でログイン</strong>され、ユーザー名・パスワードの入力を省略できます。詳しくは<a href="#remember">第19章</a>で説明します。</p>
+
+      <h3>2-4. 接続テスト</h3>
+      <p>画面下の <span class="uibtn ghost">接続テスト</span> を押すと、「サーバーにちゃんとつながるか」だけを確認できます。ログインできないときの切り分けに使います。</p>
+      <ul>
+        <li>結果が <span class="msg ok">✓ 接続できました。</span> なら、サーバーへの通信はできています（あとはユーザー名・パスワードの問題）。</li>
+        <li><span class="msg err">✗ ...</span> と出たら、ネットワークやサーバー側の問題の可能性があります。情シスに連絡してください。</li>
+      </ul>
+      <div class="note">
+        <strong>接続テスト画面でできること</strong>
+        この画面は<strong>接続先の確認と疎通テストだけ</strong>を行うもので、接続先を書き換えることはできません（接続先は管理者が固定しています）。現在の接続先サーバーのアドレスと、ドラッグ＆ドロップが有効か無効かも、ここで確認できます。
+      </div>
+
+      <h3>2-5. パスワードの期限が近いとき</h3>
+      <p>パスワードの有効期限まで残り少ない（既定では14日以内）と、ログイン後に次のようなお知らせが出ます。早めに変更してください（変更方法は<a href="#password">第20章</a>）。</p>
+      <p><span class="msg">パスワードの有効期限まで残り 7 日です。期限までに変更してください。</span></p>
+
+      <!-- ========================================================= -->
+      <!-- 3. 初回パスワード変更 -->
+      <!-- ========================================================= -->
+      <h2 id="firstpw"><span class="num">3</span>初回パスワード変更</h2>
+
+      <p><strong>初めてログインしたとき</strong>、または<strong>パスワードの期限が切れたとき・管理者がリセットしたとき</strong>は、ログインの直後に<strong>パスワード変更画面が必ず表示</strong>されます。ここで新しいパスワードを決めるまで先に進めません。</p>
+
+      <figure>
+        <svg viewBox="0 0 460 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="パスワード変更画面の説明図">
+          <rect x="20" y="10" width="420" height="410" rx="12" fill="#fff" stroke="#D5D9DE"/>
+          <text x="40" y="48" font-size="20" font-weight="800" fill="#1F2328">パスワード変更</text>
+          <text x="40" y="74" font-size="13" fill="#BF8700">⚠ パスワード変更が必要です</text>
+
+          <text x="40" y="108" font-size="12" fill="#6B7280">現在のパスワード</text>
+          <rect x="40" y="116" width="380" height="32" rx="6" fill="#fff" stroke="#9CA3AF"/>
+          <circle cx="402" cy="132" r="12" fill="#F0F2F5"/><text x="402" y="137" text-anchor="middle" font-size="13">👁</text>
+
+          <text x="40" y="178" font-size="12" fill="#6B7280">新しいパスワード</text>
+          <rect x="40" y="186" width="380" height="32" rx="6" fill="#fff" stroke="#9CA3AF"/>
+          <circle cx="402" cy="202" r="12" fill="#F0F2F5"/><text x="402" y="207" text-anchor="middle" font-size="13">👁</text>
+          <text x="40" y="238" font-size="11" fill="#6B7280">12文字以上 / 英大・英小・数字・記号 を各1文字以上</text>
+
+          <text x="40" y="270" font-size="12" fill="#6B7280">新しいパスワード（確認）</text>
+          <rect x="40" y="278" width="380" height="32" rx="6" fill="#fff" stroke="#9CA3AF"/>
+          <circle cx="402" cy="294" r="12" fill="#F0F2F5"/><text x="402" y="299" text-anchor="middle" font-size="13">👁</text>
+
+          <rect x="40" y="340" width="380" height="40" rx="7" fill="#C73E1D"/>
+          <text x="230" y="366" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">変更</text>
+        </svg>
+        <figcaption>図3-1：パスワード変更画面。3つの欄すべてに 👁 目玉アイコンが付いています。</figcaption>
+      </figure>
+
+      <h3>3-1. パスワードのルール（必須条件）</h3>
+      <p>新しいパスワードは、次の条件を<strong>すべて満たす</strong>必要があります。</p>
+      <table>
+        <thead><tr><th>条件</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td>12文字以上</td><td>短いパスワードは設定できません。</td></tr>
+          <tr><td>英大文字を1文字以上</td><td>A〜Z のどれか。</td></tr>
+          <tr><td>英小文字を1文字以上</td><td>a〜z のどれか。</td></tr>
+          <tr><td>数字を1文字以上</td><td>0〜9 のどれか。</td></tr>
+          <tr><td>記号を1文字以上</td><td>! # @ - などの記号。</td></tr>
+        </tbody>
+      </table>
+
+      <table>
+        <thead><tr><th>判定</th><th>例</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td><span class="no">NG ✗</span></td><td><code>password123</code></td><td>大文字・記号がない</td></tr>
+          <tr><td><span class="no">NG ✗</span></td><td><code>Short1!</code></td><td>12文字に足りない</td></tr>
+          <tr><td><span class="no">NG ✗</span></td><td><code>nouppercases123!</code></td><td>大文字がない</td></tr>
+          <tr><td><span class="yes">OK ✓</span></td><td><code>Spring2026!Welcome</code></td><td>すべて満たす</td></tr>
+          <tr><td><span class="yes">OK ✓</span></td><td><code>Watashi#Tool-2026</code></td><td>すべて満たす</td></tr>
+        </tbody>
+      </table>
+
+      <h3>3-2. 手順</h3>
+      <ol class="steps">
+        <li><strong>現在のパスワード</strong>を入力します。（初回は管理者から伝えられたもの）</li>
+        <li><strong>新しいパスワード</strong>を、上のルールを満たすように入力します。</li>
+        <li><strong>新しいパスワード（確認）</strong>に、もう一度<strong>まったく同じ</strong>パスワードを入力します。</li>
+        <li><span class="uibtn">変更</span> を押します。成功するとメイン画面に進みます。</li>
+      </ol>
+
+      <div class="warn">
+        <strong>「新しいパスワードと確認が一致しません。」と出たら</strong>
+        2番目と3番目の欄の文字が違っています。👁 目玉アイコンで両方を表示して、同じ文字になっているか確認してください。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 4. メイン画面 -->
+      <!-- ========================================================= -->
+      <h2 id="main"><span class="num">4</span>メイン画面の見かた</h2>
+
+      <p>ログインが終わると、メイン画面が開きます。画面は大きく6つの部分でできています。まずは「どこに何があるか」をざっくり覚えましょう。</p>
+
+      <figure>
+        <svg viewBox="0 0 820 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="メイン画面のレイアウト図">
+          <rect x="1" y="1" width="818" height="468" rx="10" fill="#fff" stroke="#9CA3AF"/>
+          <!-- ① ヘッダー -->
+          <rect x="1" y="1" width="818" height="46" rx="10" fill="#fff" stroke="#D5D9DE"/>
+          <circle cx="22" cy="24" r="9" fill="#C73E1D"/>
+          <text x="40" y="29" font-size="14" font-weight="700" fill="#1F2328">Watashi</text>
+          <rect x="560" y="11" width="120" height="26" rx="13" fill="#F0F2F5"/>
+          <text x="575" y="29" font-size="12" fill="#1F2328">👤 alice / HTTPS</text>
+          <rect x="688" y="11" width="44" height="26" rx="6" fill="#C73E1D"/>
+          <text x="710" y="29" text-anchor="middle" font-size="12" fill="#fff">管理</text>
+          <text x="748" y="29" font-size="13">⟳</text>
+          <text x="770" y="29" font-size="13">⏻</text>
+          <text x="792" y="29" font-size="13">ⓘ</text>
+          <circle cx="803" cy="24" r="14" fill="none" stroke="#C73E1D" stroke-width="2"/>
+          <text x="803" y="29" text-anchor="middle" font-size="12" font-weight="700" fill="#C73E1D">①</text>
+
+          <!-- ② ツールバー -->
+          <rect x="1" y="47" width="818" height="42" fill="#fff" stroke="#D5D9DE"/>
+          <rect x="14" y="55" width="120" height="26" rx="6" fill="#C73E1D"/>
+          <text x="74" y="72" text-anchor="middle" font-size="12" fill="#fff">⬆ アップロード</text>
+          <rect x="142" y="55" width="120" height="26" rx="6" fill="#C73E1D"/>
+          <text x="202" y="72" text-anchor="middle" font-size="12" fill="#fff">⬇ ダウンロード</text>
+          <circle cx="300" cy="68" r="14" fill="none" stroke="#C73E1D" stroke-width="2"/>
+          <text x="300" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="#C73E1D">②</text>
+
+          <!-- ③ ローカルペイン -->
+          <rect x="10" y="98" width="390" height="300" rx="8" fill="#fff" stroke="#D5D9DE"/>
+          <rect x="10" y="98" width="390" height="30" rx="8" fill="#F0F2F5"/>
+          <text x="24" y="118" font-size="13" font-weight="700" fill="#1B2A41">💻 ローカル (このPC)</text>
+          <rect x="20" y="136" width="370" height="24" rx="5" fill="#fff" stroke="#9CA3AF"/>
+          <text x="28" y="153" font-size="11" fill="#1F2328">◀ ▶ ⬆ ⟳  D:\work</text>
+          <text x="360" y="153" font-size="11" fill="#C73E1D">📂 移動</text>
+          <text x="28" y="184" font-size="12" fill="#1F2328">📁 ..</text>
+          <text x="28" y="206" font-size="12" fill="#1F2328">📁 ProjectA</text>
+          <text x="28" y="228" font-size="12" fill="#1F2328">📄 memo.txt</text>
+          <circle cx="376" cy="112" r="13" fill="none" stroke="#C73E1D" stroke-width="2"/>
+          <text x="376" y="117" text-anchor="middle" font-size="11" font-weight="700" fill="#C73E1D">③</text>
+
+          <!-- ④ リモートペイン -->
+          <rect x="420" y="98" width="390" height="300" rx="8" fill="#fff" stroke="#D5D9DE"/>
+          <rect x="420" y="98" width="390" height="30" rx="8" fill="#F9E5E0"/>
+          <text x="434" y="118" font-size="13" font-weight="700" fill="#5C1A0B">⛩ リモート　接続場所:[経理部▼]</text>
+          <rect x="430" y="136" width="370" height="24" rx="5" fill="#fff" stroke="#9CA3AF"/>
+          <text x="438" y="153" font-size="11" fill="#1F2328">◀ ▶ ⬆ ⟳  /dept-A/2026</text>
+          <text x="772" y="153" font-size="11" fill="#C73E1D">移動</text>
+          <text x="438" y="184" font-size="12" fill="#1F2328">📁 ..</text>
+          <text x="438" y="206" font-size="12" fill="#1F2328">📁 reports</text>
+          <text x="438" y="228" font-size="12" fill="#1F2328">📄 budget.xlsx</text>
+          <circle cx="786" cy="112" r="13" fill="none" stroke="#C73E1D" stroke-width="2"/>
+          <text x="786" y="117" text-anchor="middle" font-size="11" font-weight="700" fill="#C73E1D">④</text>
+
+          <!-- ⑥ 転送バー -->
+          <rect x="10" y="404" width="800" height="30" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/>
+          <text x="22" y="423" font-size="11" fill="#1F2328">転送中: report.xlsx</text>
+          <rect x="150" y="414" width="180" height="9" rx="4" fill="#fff" stroke="#9CA3AF"/>
+          <rect x="150" y="414" width="140" height="9" rx="4" fill="#C73E1D"/>
+          <text x="345" y="423" font-size="11" fill="#C73E1D">80%</text>
+          <rect x="640" y="411" width="70" height="18" rx="4" fill="#CF222E"/>
+          <text x="675" y="424" text-anchor="middle" font-size="10" fill="#fff">キャンセル</text>
+          <circle cx="797" cy="419" r="13" fill="none" stroke="#C73E1D" stroke-width="2"/>
+          <text x="797" y="424" text-anchor="middle" font-size="11" font-weight="700" fill="#C73E1D">⑥</text>
+
+          <!-- ⑤ ステータスバー -->
+          <rect x="1" y="440" width="818" height="28" fill="#F0F2F5" stroke="#D5D9DE"/>
+          <circle cx="18" cy="454" r="5" fill="#1F883D"/>
+          <text x="30" y="458" font-size="11" fill="#1F2328">● 接続中 (HTTPS)　|　アップロード完了　|　ユーザー: alice</text>
+          <circle cx="800" cy="454" r="13" fill="none" stroke="#C73E1D" stroke-width="2"/>
+          <text x="800" y="459" text-anchor="middle" font-size="11" font-weight="700" fill="#C73E1D">⑤</text>
+        </svg>
+        <figcaption>図4-1：メイン画面のレイアウトと各部の番号</figcaption>
+      </figure>
+
+      <div class="shot">
+        <img class="shot-img" src="images/03-main.png" data-desc="実際のメイン画面全体" alt="メイン画面">
+        <figcaption>図4-2：実際のメイン画面（スクリーンショットを差し込めます）</figcaption>
+      </div>
+
+      <table>
+        <thead><tr><th>番号</th><th>名前</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>①</td><td>ヘッダー</td><td>左に鳥居ロゴと「Watashi」。右に<strong>ログイン中のユーザー名</strong>・接続方式（HTTPS/HTTP）・<span class="uibtn">管理</span>ボタン（管理者のみ表示）・<span class="uichip">⟳ 更新</span>・<span class="uichip">⏻ ログアウト</span>・<span class="uichip">ⓘ 情報</span>。</td></tr>
+          <tr><td>②</td><td>ツールバー</td><td><span class="uibtn">⬆ アップロード</span> と <span class="uibtn">⬇ ダウンロード</span> の2つのボタン。</td></tr>
+          <tr><td>③</td><td>ローカルペイン（左）</td><td>💻 あなたのパソコンの中のフォルダ・ファイル。</td></tr>
+          <tr><td>④</td><td>リモートペイン（右）</td><td>⛩ 社内サーバーのフォルダ・ファイル。上部の<strong>「接続場所」</strong>で見る場所を切り替えます。</td></tr>
+          <tr><td>⑤</td><td>ステータスバー</td><td>下端。接続状態（緑の●）、直近の操作結果やエラー、ログイン中のユーザー名を表示。</td></tr>
+          <tr><td>⑥</td><td>転送バー</td><td>アップロード／ダウンロード中だけ現れる進捗バー。速度・残り時間・<span class="uibtn ghost">キャンセル</span>も表示。</td></tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <strong>赤い帯（エラーバナー）について</strong>
+        操作が失敗したときは、画面上部に<strong>赤い帯</strong>でエラー内容が大きく表示されます。内容を読んだら、帯の右にある <strong>✕</strong> で閉じられます。
+      </div>
+
+      <div class="tip">
+        <strong>長い名前は、マウスを乗せると全部見える</strong>
+        ファイル名やパスが長くて「…」で省略されているときは、その行に<strong>マウスカーソルを乗せる（ホバーする）</strong>と、省略されていない全文がポップアップ（ツールチップ）で表示されます。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 5. フォルダの移動 -->
+      <!-- ========================================================= -->
+      <h2 id="browse"><span class="num">5</span>フォルダの移動（中を見る）</h2>
+
+      <p>左右どちらのペインでも、フォルダの中に入ったり、ひとつ上に戻ったりする方法は同じです。</p>
+
+      <h3>5-1. フォルダの中に入る</h3>
+      <ul>
+        <li>フォルダ（📁）を<strong>ダブルクリック</strong>すると、その中に入ります。</li>
+        <li>フォルダを選んで <kbd>Enter</kbd> キーでも入れます。</li>
+      </ul>
+
+      <h3>5-2. ひとつ上のフォルダに戻る</h3>
+      <ul>
+        <li>一覧のいちばん上にある <code>📁 ..</code>（点が2つ）をダブルクリックすると、<strong>ひとつ上の階層</strong>に戻ります。</li>
+        <li>ツールバーの <span class="uichip">⬆</span> ボタン、<kbd>Backspace</kbd> キー、<kbd>Alt</kbd>＋<kbd>↑</kbd> でも上に戻れます。</li>
+      </ul>
+      <div class="note">
+        <strong><code>..</code> が薄く（グレーに）なっていて押せないとき</strong>
+        そこが<strong>あなたに許可された範囲のいちばん上</strong>です。それより上のフォルダは見る権限がないため、移動できません。マウスを乗せると <span class="msg">この場所より上には移動できません</span> と表示されます。これは故障ではなく、正常な制限です。
+      </div>
+
+      <h3>5-3. 戻る／進む</h3>
+      <p>ブラウザの「戻る・進む」と同じように、ひとつ前に見ていたフォルダに戻れます。</p>
+      <table>
+        <thead><tr><th>操作</th><th>ボタン</th><th>キーボード</th></tr></thead>
+        <tbody>
+          <tr><td>戻る（前に見ていた場所へ）</td><td><span class="uichip">◀</span></td><td><kbd>Alt</kbd>＋<kbd>←</kbd></td></tr>
+          <tr><td>進む</td><td><span class="uichip">▶</span></td><td><kbd>Alt</kbd>＋<kbd>→</kbd></td></tr>
+          <tr><td>ひとつ上へ</td><td><span class="uichip">⬆</span></td><td><kbd>Alt</kbd>＋<kbd>↑</kbd> / <kbd>Backspace</kbd></td></tr>
+          <tr><td>再読み込み（最新の状態に更新）</td><td><span class="uichip">⟳</span></td><td><kbd>F5</kbd></td></tr>
+        </tbody>
+      </table>
+
+      <h3>5-4. パスを直接入力して移動</h3>
+      <p>行き先がわかっている場合は、パス入力欄に直接打ち込んで <kbd>Enter</kbd>、または横の <span class="uibtn ghost">移動</span> ボタンで一気に移動できます。</p>
+      <ul>
+        <li>ローカル例： <code>D:\work\2026</code></li>
+        <li>リモート例： <code>/dept-A/2026</code></li>
+      </ul>
+      <div class="tip">
+        <strong>パス欄はクリックすると全文が選ばれます</strong>
+        パス入力欄をクリックすると、中の文字が<strong>すべて選択された状態</strong>になります。そのまま <kbd>Ctrl</kbd>＋<kbd>C</kbd> で今いる場所のパスをコピーできて便利です。もう一度クリックすると、ふつうにカーソルを置いて一部だけ直せます。
+      </div>
+
+      <h3>5-5. 📂 ボタンでフォルダを選ぶ（ローカルのみ）</h3>
+      <p>ローカルペインのパス欄の隣にある <span class="uibtn ghost">📂</span> ボタンを押すと、Windows のおなじみの<strong>フォルダ選択ダイアログ</strong>（エクスプローラ風のツリー）が開きます。目的のフォルダをツリーから選んで一発で移動できます。パスを手入力するのが苦手な方におすすめです。</p>
+
+      <div class="shot">
+        <img class="shot-img" src="images/04-folderpicker.png" data-desc="📂ボタンで開くフォルダ選択ダイアログ" alt="フォルダ選択ダイアログ">
+        <figcaption>図5-1：📂ボタンで開くフォルダ選択ダイアログ</figcaption>
+      </div>
+
+      <h3>5-6. 「このフォルダは空です」などの案内</h3>
+      <table>
+        <thead><tr><th>表示</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td>📂 このフォルダは空です</td><td>中身がないだけ。問題ありません。</td></tr>
+          <tr><td>🔍 一致するファイルやフォルダがありません</td><td>絞り込み検索の条件に合うものが無い（→<a href="#search">第7章</a>）。検索文字を消すと元に戻ります。</td></tr>
+          <tr><td>未接続 ／ リモート接続先が未選択です</td><td>右上の「接続場所」をまだ選んでいない状態。場所を選んでください。</td></tr>
+          <tr><td>⛩ アクセスできるリモート場所がありません</td><td>あなたに見られる共有がまだ割り当てられていない。管理者に依頼してください（→<a href="#perm">第16章</a>）。</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ========================================================= -->
+      <!-- 6. ファイルは開けません -->
+      <!-- ========================================================= -->
+      <h2 id="openfile"><span class="num">6</span>⚠ ファイルはダブルクリックでは開きません</h2>
+
+      <div class="danger">
+        <strong>とても大事な仕様です</strong>
+        このアプリでは、<strong>ファイル（📄）をダブルクリックしても、何も起きません</strong>。Excel や PDF などが、その場で開いたりはしません。これは不具合ではなく、<strong>わざとそうしている設計</strong>です。
+      </div>
+
+      <p>「ダブルクリックで開く」ができるのは<strong>フォルダ（📁）だけ</strong>です。フォルダをダブルクリックすると中に入りますが、ファイルをダブルクリックしても <kbd>Enter</kbd> を押しても、右クリックの「開く / 展開」を選んでも、<strong>ファイルの中身は開きません</strong>。</p>
+
+      <h3>6-1. では、ファイルの中身を見るには？</h3>
+
+      <h4>リモート（サーバー）のファイルを見たいとき</h4>
+      <ol class="steps">
+        <li>そのファイルを、まず自分のパソコンに<strong>ダウンロード</strong>します（→<a href="#download">第9章</a>）。</li>
+        <li>ダウンロードした自分のパソコンのファイルを、いつもどおり Excel や PDF ビューアなどで開きます。</li>
+      </ol>
+
+      <h4>ローカル（自分のPC）のファイルを見たいとき</h4>
+      <ol class="steps">
+        <li>そのファイルを右クリックして <strong>「エクスプローラで表示」</strong> を選びます。</li>
+        <li>Windows のエクスプローラがそのファイルを選んだ状態で開くので、エクスプローラ側でダブルクリックして開きます。</li>
+      </ol>
+
+      <div class="note">
+        <strong>なぜこんな仕様なの？</strong>
+        Watashi は「ファイルを安全に運ぶための道具」に役割をしぼっています。中身を勝手に開いてしまうと、意図しないアプリが立ち上がったり、編集したつもりがサーバーに反映されない、といった混乱が起きます。<strong>「見る・編集するのはダウンロードしてから」</strong>とルールを単純にすることで、誤操作を防いでいます。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 7. 絞り込み・並べ替え -->
+      <!-- ========================================================= -->
+      <h2 id="search"><span class="num">7</span>絞り込み（検索）と並べ替え</h2>
+
+      <h3>7-1. 名前で絞り込む（検索）</h3>
+      <p>各ペインのパス欄の下に <strong>🔍 絞り込み欄</strong>があります。ここに文字を入力すると、その文字を名前に<strong>含む</strong>ファイル・フォルダだけが表示されます（部分一致）。</p>
+      <ul>
+        <li>例：<code>2026</code> と入れると、名前に「2026」を含むものだけが残ります。</li>
+        <li>右端の <strong>×</strong> を押すと、絞り込みを解除して全部表示に戻ります。</li>
+      </ul>
+      <div class="note">
+        <strong>絞り込みは「いま表示しているフォルダの中」だけ</strong>
+        絞り込みは、今開いているフォルダの中身に対してかかります。サブフォルダの奥まで横断して探すものではありません。
+      </div>
+
+      <h3>7-2. 並べ替え（ソート）</h3>
+      <p>一覧の上にある列の見出し（<strong>名前 / サイズ / 更新</strong>）をクリックすると、その項目で並べ替わります。もう一度クリックすると、昇順↔降順が切り替わります。</p>
+      <table>
+        <thead><tr><th>クリックする見出し</th><th>並び順</th></tr></thead>
+        <tbody>
+          <tr><td>名前</td><td>あいうえお／アルファベット順</td></tr>
+          <tr><td>サイズ</td><td>ファイルの大きさ順</td></tr>
+          <tr><td>更新</td><td>更新日時の新しい／古い順</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ========================================================= -->
+      <!-- 8. アップロード -->
+      <!-- ========================================================= -->
+      <h2 id="upload"><span class="num">8</span>アップロード（自分のPC → サーバー）</h2>
+
+      <p class="lead">アップロード＝<strong>自分のパソコンのファイルを、社内サーバーに置くこと</strong>です。「左から右へ」運びます。</p>
+
+      <figure>
+        <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="アップロードの方向図">
+          <rect x="30" y="40" width="250" height="120" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+          <text x="155" y="30" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">💻 ローカル（左）</text>
+          <text x="155" y="90" text-anchor="middle" font-size="13" fill="#1F2328">📄 送りたいファイル</text>
+          <text x="155" y="115" text-anchor="middle" font-size="13" fill="#1F2328">を選ぶ</text>
+
+          <rect x="420" y="40" width="250" height="120" rx="8" fill="#F9E5E0" stroke="#C73E1D"/>
+          <text x="545" y="30" text-anchor="middle" font-size="14" font-weight="700" fill="#5C1A0B">⛩ リモート（右）</text>
+          <text x="545" y="90" text-anchor="middle" font-size="13" fill="#1F2328">📁 置きたいフォルダ</text>
+          <text x="545" y="115" text-anchor="middle" font-size="13" fill="#1F2328">を開いておく</text>
+
+          <line x1="285" y1="100" x2="415" y2="100" stroke="#C73E1D" stroke-width="4"/>
+          <polygon points="415,100 398,90 398,110" fill="#C73E1D"/>
+          <text x="350" y="88" text-anchor="middle" font-size="13" font-weight="700" fill="#C73E1D">⬆ アップロード</text>
+        </svg>
+        <figcaption>図8-1：アップロードは「左で選ぶ → 右に置く」</figcaption>
+      </figure>
+
+      <h3>8-1. 手順</h3>
+      <ol class="steps">
+        <li><strong>左ペイン（ローカル）</strong>で、送りたいファイル（またはフォルダ）を<strong>クリックして選択</strong>します。</li>
+        <li><strong>右ペイン（リモート）</strong>で、置きたい先のフォルダを開いておきます。必要なら上部の「接続場所」も選びます。</li>
+        <li>ツールバーの <span class="uibtn">⬆ アップロード</span> を押します。</li>
+        <li>進捗バーが出て、終わると <span class="msg ok">アップロード完了: ◯◯</span> と表示されます。</li>
+      </ol>
+
+      <div class="tip">
+        <strong>右クリックからでもOK</strong>
+        左ペインでファイルを右クリック →「アップロード」でも同じ動作です。
+      </div>
+
+      <h3>8-2. すでに同じ名前のファイルがあるとき（上書き確認）</h3>
+      <p>置き先に同じ名前のファイルがある場合は、上書きするか確認されます。</p>
+      <p><span class="msg">◯◯ はリモートに既に存在します。上書きしますか？</span></p>
+      <ul>
+        <li><strong>はい</strong>：古いファイルが新しいもので置き換わります。</li>
+        <li><strong>いいえ</strong>：アップロードを取りやめます。</li>
+      </ul>
+
+      <h3>8-3. フォルダごとアップロード</h3>
+      <p>ファイルだけでなく、<strong>フォルダを丸ごと</strong>アップロードもできます。フォルダを選んで <span class="uibtn">⬆ アップロード</span> すると確認が出ます。</p>
+      <p><span class="msg">フォルダ "◯◯" をフォルダごとアップロードしますか？</span></p>
+      <p>置き先に同じ名前のフォルダがある場合は、<strong>中身を結合（マージ）し、同じ名前のファイルは上書き</strong>してアップロードします。</p>
+
+      <h3>8-4. 進捗・速度・残り時間・キャンセル</h3>
+      <p>転送中は画面下に進捗バーが出ます。</p>
+      <ul>
+        <li><strong>転送中: ファイル名</strong> … 今送っているファイル</li>
+        <li><strong>速度</strong>（例：12.3 MB/s）と <strong>残り時間</strong>の目安</li>
+        <li><strong>%（パーセント）</strong> … 全体の進み具合</li>
+        <li><span class="uibtn ghost" style="background:#CF222E;color:#fff;border:none">キャンセル</span> … 押すと途中で中止できます（<span class="msg">アップロードをキャンセルしました。</span>）</li>
+      </ul>
+      <div class="note">
+        <strong>ファイルの大きさに制限はありません</strong>
+        大きなファイルでも送れます。ただしネットワークが不安定だと途中で止まることがあります。その場合はもう一度試してください。<br>
+        また、<strong>1つの転送が終わるまで、次の転送は始められません</strong>。複数同時には走りません（「別の転送が進行中です。完了までお待ちください。」と出ます）。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 9. ダウンロード -->
+      <!-- ========================================================= -->
+      <h2 id="download"><span class="num">9</span>ダウンロード（サーバー → 自分のPC）</h2>
+
+      <p class="lead">ダウンロード＝<strong>社内サーバーのファイルを、自分のパソコンに取り出すこと</strong>です。「右から左へ」運びます。</p>
+
+      <h3>9-1. 手順</h3>
+      <ol class="steps">
+        <li><strong>右ペイン（リモート）</strong>で、取り出したいファイルをクリックして選択します。</li>
+        <li><strong>左ペイン（ローカル）</strong>で、保存したい先のフォルダを開いておきます。</li>
+        <li>ツールバーの <span class="uibtn">⬇ ダウンロード</span> を押します（右クリック →「ダウンロード」でも可）。</li>
+        <li>進捗バーが出て、終わると <span class="msg ok">ダウンロード完了: ◯◯</span> と表示されます。</li>
+      </ol>
+
+      <div class="note">
+        <strong>保存先は「左ペインで今開いているフォルダ」</strong>
+        ダウンロードしたファイルは、左ペイン（ローカル）で<strong>今表示しているフォルダ</strong>に保存されます。先に左ペインで保存したい場所を開いておきましょう。
+      </div>
+
+      <h3>9-2. 途中で失敗しても、壊れたファイルは残りません</h3>
+      <div class="tip">
+        <strong>「.part」という仕組みで安全にダウンロード</strong>
+        ダウンロード中は、いったん <code>ファイル名.part</code> という一時ファイルに書き込み、<strong>最後まで完了したときだけ</strong>正式な名前に変わります。通信が切れたりキャンセルしたときは、この <code>.part</code> ファイルは<strong>自動で消える</strong>ので、中途半端な壊れたファイルがフォルダに残りません。
+      </div>
+
+      <h3>9-3. 同じ名前・フォルダごと</h3>
+      <p>アップロードと同じく、保存先に同名ファイルがあると上書き確認が出ます。</p>
+      <p><span class="msg">◯◯ はローカルフォルダに既に存在します。上書きしますか？</span></p>
+      <p>フォルダを選んでダウンロードすると、<strong>フォルダごと丸ごと</strong>取り出せます（中身も全部）。</p>
+
+      <!-- ========================================================= -->
+      <!-- 10. ドラッグ&ドロップ -->
+      <!-- ========================================================= -->
+      <h2 id="dragdrop"><span class="num">10</span>ドラッグ＆ドロップ（マウスでつかんで運ぶ）</h2>
+
+      <div class="note">
+        <strong>この機能は使えない場合があります</strong>
+        ドラッグ＆ドロップが使えるかどうかは、<strong>配布時に管理者が決めて</strong>います。使えるかどうかは、ログイン画面の <span class="uibtn ghost">接続テスト</span> 画面で「ドラッグ＆ドロップ転送: 有効／無効」と確認できます。無効の場合は、ボタン操作（第8・9章）を使ってください。
+      </div>
+
+      <p>有効になっている場合は、マウスでファイルをつかんで運ぶだけで転送できます。</p>
+      <table>
+        <thead><tr><th>つかむ場所</th><th>落とす場所</th><th>結果</th></tr></thead>
+        <tbody>
+          <tr><td>左ペイン（ローカル）の項目</td><td>右ペイン（リモート）</td><td><strong>アップロード</strong></td></tr>
+          <tr><td>右ペイン（リモート）の項目</td><td>左ペイン（ローカル）</td><td><strong>ダウンロード</strong></td></tr>
+          <tr><td>Windowsのエクスプローラのファイル</td><td>右ペイン（リモート）</td><td><strong>アップロード</strong>（エクスプローラから直接）</td></tr>
+        </tbody>
+      </table>
+      <p>複数のファイルをまとめて選んでから運ぶこともできます。同名の項目は上書きされる旨の確認が出ます。</p>
+
+      <!-- ========================================================= -->
+      <!-- 11. まとめて転送 -->
+      <!-- ========================================================= -->
+      <h2 id="multi"><span class="num">11</span>まとめて転送（複数選択）</h2>
+      <p>ファイルは<strong>1つずつでなく、まとめて</strong>転送できます。</p>
+      <ul>
+        <li><kbd>Ctrl</kbd> を押しながらクリック … 飛び飛びに複数選択</li>
+        <li><kbd>Shift</kbd> を押しながらクリック … 上から下まで範囲をまとめて選択</li>
+      </ul>
+      <p>複数選んだ状態で <span class="uibtn">⬆ アップロード</span> または <span class="uibtn">⬇ ダウンロード</span> を押すと、最初に1回だけ確認が出て、まとめて転送します。</p>
+      <p><span class="msg">3 件をアップロードします。リモートの同名項目は上書きされます。よろしいですか？</span></p>
+
+      <!-- ========================================================= -->
+      <!-- 12. 新規フォルダ -->
+      <!-- ========================================================= -->
+      <h2 id="newfolder"><span class="num">12</span>新しいフォルダを作る</h2>
+      <ol class="steps">
+        <li>フォルダを作りたいペインで、作りたい場所を開きます。</li>
+        <li>一覧の上で<strong>右クリック</strong> →「<strong>新規フォルダ...</strong>」を選びます。</li>
+        <li>フォルダ名を入力する小さな窓が出るので、名前を入れて <span class="uibtn">OK</span>。</li>
+      </ol>
+      <p>成功すると <span class="msg ok">フォルダを作成しました: ◯◯</span> と表示されます。</p>
+      <div class="warn">
+        <strong>リモートに作るときは、先に「接続場所」を選んでください</strong>
+        リモート側で場所を選んでいないと <span class="msg">先にリモート場所を選択してください。</span> と出ます。<br>
+        また、リモートに新規フォルダを作るには<strong>書き込み（Write）権限</strong>が必要です。権限がないと <span class="msg err">フォルダ作成失敗: 書き込み権限がありません。</span> と出ます（→<a href="#perm">第16章</a>）。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 13. リネーム -->
+      <!-- ========================================================= -->
+      <h2 id="rename"><span class="num">13</span>名前の変更（リネーム）</h2>
+      <ol class="steps">
+        <li>名前を変えたいファイル／フォルダを選びます。</li>
+        <li><kbd>F2</kbd> キーを押す（または右クリック →「リネーム...」）。</li>
+        <li>新しい名前を入力して <span class="uibtn">OK</span>。</li>
+      </ol>
+
+      <h3>13-1. リネームのルール（できないこと）</h3>
+      <table>
+        <thead><tr><th>ルール</th><th>説明</th></tr></thead>
+        <tbody>
+          <tr><td>名前に <code>/</code> や <code>\</code> は使えない</td><td>フォルダの区切り文字なので名前に含められません。入れると <span class="msg">リネーム名に / や \ は含められません</span> と出ます。</td></tr>
+          <tr><td>同じフォルダの中での名前変更だけ</td><td>リネームで<strong>別のフォルダへ移動はできません</strong>。移動したいときは、ダウンロード／アップロードで運び直します。サーバーが拒否すると <span class="msg">リネームでは親ディレクトリを変更できません</span> と出ます。</td></tr>
+          <tr><td>許可された範囲の「いちばん上」のフォルダ自体は変更不可</td><td>あなたに割り当てられた共有のルート（例：<code>/dept-A</code> そのもの）は、誤って消したり名前を変えたりできないよう保護されています。中身は変更できます。</td></tr>
+          <tr><td>リモートのリネームには Rename 権限が必要</td><td>権限がないと <span class="msg err">リネーム失敗: リネーム権限がありません。</span> と出ます。</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ========================================================= -->
+      <!-- 14. 削除 -->
+      <!-- ========================================================= -->
+      <h2 id="delete"><span class="num">14</span>削除</h2>
+      <div class="danger">
+        <strong>削除は元に戻せません</strong>
+        このアプリの削除には「ごみ箱」がありません。消したファイル・フォルダは<strong>復元できません</strong>。本当に消してよいか、よく確認してから操作してください。
+      </div>
+      <ol class="steps">
+        <li>消したいファイル／フォルダを選びます。</li>
+        <li><kbd>Delete</kbd> キーを押す（または右クリック →「削除」）。</li>
+        <li>確認ダイアログが出ます。内容を読んで、よければ <span class="uibtn">OK</span>。</li>
+      </ol>
+      <p>確認ダイアログの文面（例）：</p>
+      <p><span class="msg">リモートのファイル "budget.xlsx" を削除しますか？　この操作は元に戻せません。</span></p>
+      <div class="warn">
+        <strong>フォルダを消すと中身ごと消えます</strong>
+        フォルダを削除すると、その中のファイル・サブフォルダも<strong>すべて一緒に</strong>消えます。<br>
+        リモートの削除には<strong>削除（Delete）権限</strong>が必要です。無いと <span class="msg err">削除失敗: 削除権限がありません。</span> と出ます。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 15. 右クリックメニュー -->
+      <!-- ========================================================= -->
+      <h2 id="context"><span class="num">15</span>右クリックメニュー早見表</h2>
+      <p>ファイル一覧の上で<strong>右クリック</strong>すると、選んでいる項目に対してできる操作が一覧で出ます。</p>
+      <table>
+        <thead><tr><th>メニュー</th><th>ローカル（左）</th><th>リモート（右）</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>開く / 展開</td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td>フォルダなら中に入る。<code>..</code> なら上へ。（ファイルは開きません→<a href="#openfile">第6章</a>）</td></tr>
+          <tr><td>アップロード / ダウンロード</td><td>アップロード</td><td>ダウンロード</td><td>ボタンと同じ動作</td></tr>
+          <tr><td>リネーム...（F2）</td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td>同じフォルダ内で名前変更</td></tr>
+          <tr><td>削除（Del）</td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td>確認ダイアログ付き</td></tr>
+          <tr><td>新規フォルダ...</td><td><span class="yes">✓</span></td><td><span class="yes">✓</span></td><td>フォルダ名を入力して作成</td></tr>
+          <tr><td>エクスプローラで表示</td><td><span class="yes">✓</span></td><td><span class="no">—</span></td><td>Windowsのエクスプローラでその場所を開く（ローカルのみ）</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ========================================================= -->
+      <!-- 16. 権限 -->
+      <!-- ========================================================= -->
+      <h2 id="perm"><span class="num">16</span>権限（あなたにできること）</h2>
+
+      <p class="lead">「アップロードできない」「削除できない」「そもそもサーバーのフォルダが見えない」——それは故障ではなく、<strong>あなたに割り当てられた権限</strong>によるものかもしれません。この章では、その仕組みを説明します。</p>
+
+      <div class="key">
+        <strong>権限は、管理者（情シス）が決めています</strong>
+        誰が・どの共有フォルダの・どの操作（見る／置く／消す／名前を変える）をできるかは、すべて<strong>管理者が一人ひとりに設定</strong>しています。あなた自身で自分の権限を変えることはできません。必要な操作ができないときは、管理者に「この場所で◯◯がしたい」と依頼してください。
+      </div>
+
+      <h3>16-1. 4つの権限</h3>
+      <p>権限は、共有フォルダごと（さらにその中のサブフォルダごと）に、次の4種類を組み合わせて与えられます。</p>
+
+      <figure>
+        <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="4つの権限のブロック図">
+          <g>
+            <rect x="20" y="40" width="150" height="90" rx="10" fill="#E6F0FB" stroke="#0969DA" stroke-width="2"/>
+            <text x="95" y="72" text-anchor="middle" font-size="16" font-weight="700" fill="#0969DA">Read</text>
+            <text x="95" y="95" text-anchor="middle" font-size="12" fill="#1F2328">見る</text>
+            <text x="95" y="113" text-anchor="middle" font-size="12" fill="#1F2328">ダウンロード</text>
+          </g>
+          <g>
+            <rect x="190" y="40" width="150" height="90" rx="10" fill="#E6F5EB" stroke="#1F883D" stroke-width="2"/>
+            <text x="265" y="72" text-anchor="middle" font-size="16" font-weight="700" fill="#1F883D">Write</text>
+            <text x="265" y="95" text-anchor="middle" font-size="12" fill="#1F2328">アップロード</text>
+            <text x="265" y="113" text-anchor="middle" font-size="12" fill="#1F2328">フォルダ作成</text>
+          </g>
+          <g>
+            <rect x="360" y="40" width="150" height="90" rx="10" fill="#FFE9EA" stroke="#CF222E" stroke-width="2"/>
+            <text x="435" y="72" text-anchor="middle" font-size="16" font-weight="700" fill="#CF222E">Delete</text>
+            <text x="435" y="95" text-anchor="middle" font-size="12" fill="#1F2328">削除</text>
+          </g>
+          <g>
+            <rect x="530" y="40" width="150" height="90" rx="10" fill="#FFF6E0" stroke="#BF8700" stroke-width="2"/>
+            <text x="605" y="72" text-anchor="middle" font-size="16" font-weight="700" fill="#BF8700">Rename</text>
+            <text x="605" y="95" text-anchor="middle" font-size="12" fill="#1F2328">名前の変更</text>
+          </g>
+          <text x="360" y="22" text-anchor="middle" font-size="13" fill="#6B7280">これらを組み合わせて「あなたの権限」が決まります</text>
+        </svg>
+        <figcaption>図16-1：4つの権限</figcaption>
+      </figure>
+
+      <table>
+        <thead><tr><th>権限</th><th>できること</th><th>これが無いと…</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Read</strong>（読み取り）</td><td>リモートの一覧表示・フォルダ移動・<strong>ダウンロード</strong></td><td>そもそも<strong>中身が見えず</strong>、ダウンロードもできません。</td></tr>
+          <tr><td><strong>Write</strong>（書き込み）</td><td><strong>アップロード</strong>・<strong>新規フォルダ作成</strong></td><td>アップロード・フォルダ作成ができません。</td></tr>
+          <tr><td><strong>Delete</strong>（削除）</td><td>ファイル／フォルダの<strong>削除</strong></td><td>削除ができません。</td></tr>
+          <tr><td><strong>Rename</strong>（名前変更）</td><td>同じフォルダ内での<strong>名前の変更</strong></td><td>名前の変更ができません。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>16-2. よくある権限パターンと、できること</h3>
+      <p>管理者は、たとえば次のような「<strong>テンプレート（ひな型）</strong>」を組み合わせて割り当てます。あなたがどのパターンかは、管理者に確認できます。</p>
+
+      <table>
+        <thead>
+          <tr><th>パターン</th><th>見る</th><th>ダウンロード</th><th>アップロード/フォルダ作成</th><th>削除</th><th>名前変更</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>読取のみ</strong><br>（Readだけ）</td>
+            <td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td>
+          </tr>
+          <tr>
+            <td><strong>読取＋書込</strong></td>
+            <td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td>
+          </tr>
+          <tr>
+            <td><strong>読取＋書込＋名前変更</strong></td>
+            <td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="yes">✓</td>
+          </tr>
+          <tr>
+            <td><strong>フルアクセス</strong></td>
+            <td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <strong>「読取のみ（Readだけ）」の人ができること・できないこと</strong><br>
+        ✅ できる：フォルダの中を見る／フォルダを移動する／ファイルを自分のPCにダウンロードする<br>
+        ❌ できない：アップロード／新規フォルダ作成／削除／名前の変更（やろうとすると「◯◯権限がありません」というエラーになります）<br>
+        <span style="color:var(--muted)">＝「サーバーの資料を見て、必要なものを手元に落とすだけ」の使い方になります。サーバー側を書き換える操作は一切できません。</span>
+      </div>
+
+      <h3>16-3. 同じ共有でも、フォルダによって権限が違うことがあります</h3>
+      <p>権限は「共有まるごと」ではなく、<strong>共有の中のフォルダ単位</strong>でも設定できます。たとえば同じ共有の中でも——</p>
+      <ul>
+        <li><code>/dept-A</code> … フルアクセス（自由に編集できる自部署フォルダ）</li>
+        <li><code>/shared/templates</code> … 読取のみ（みんなの共通ひな型なので、見るだけ）</li>
+      </ul>
+      <p>——のように、場所ごとに違うことがあります。「あっちのフォルダでは消せたのに、こっちでは消せない」というのは、こうした設定のためです。</p>
+
+      <h3>16-4. リモートに何も表示されないとき</h3>
+      <p>右ペインに <span class="msg">⛩ アクセスできるリモート場所がありません</span><br>「管理者にユーザー権限の追加を依頼してください」と出る場合、あなたにはまだ<strong>1つも共有が割り当てられていません</strong>。管理者に、使いたい共有フォルダへのアクセス権を依頼してください。</p>
+
+      <!-- ========================================================= -->
+      <!-- 17. ショートカット -->
+      <!-- ========================================================= -->
+      <h2 id="keys"><span class="num">17</span>キーボードショートカット一覧</h2>
+      <table>
+        <thead><tr><th>キー</th><th>動作</th><th>使う場所</th></tr></thead>
+        <tbody>
+          <tr><td><kbd>ダブルクリック</kbd> / <kbd>Enter</kbd></td><td>フォルダを開く（中に入る）</td><td>ファイル一覧</td></tr>
+          <tr><td><kbd>Backspace</kbd></td><td>ひとつ上のフォルダへ</td><td>ファイル一覧</td></tr>
+          <tr><td><kbd>Alt</kbd>＋<kbd>←</kbd></td><td>戻る</td><td>各ペイン</td></tr>
+          <tr><td><kbd>Alt</kbd>＋<kbd>→</kbd></td><td>進む</td><td>各ペイン</td></tr>
+          <tr><td><kbd>Alt</kbd>＋<kbd>↑</kbd></td><td>ひとつ上のフォルダへ</td><td>各ペイン</td></tr>
+          <tr><td><kbd>F5</kbd></td><td>左右どちらも最新に更新</td><td>画面全体</td></tr>
+          <tr><td><kbd>F2</kbd></td><td>名前の変更（リネーム）</td><td>ファイル一覧</td></tr>
+          <tr><td><kbd>Delete</kbd></td><td>削除（確認あり）</td><td>ファイル一覧</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>そのパスへ移動</td><td>パス入力欄</td></tr>
+          <tr><td><kbd>Ctrl</kbd>＋<kbd>C</kbd></td><td>今いる場所のパスをコピー（欄をクリックで全選択される）</td><td>パス入力欄</td></tr>
+          <tr><td><kbd>Alt</kbd>＋<kbd>P</kbd></td><td>パスワードの表示／非表示</td><td>パスワード欄</td></tr>
+          <tr><td><kbd>Ctrl</kbd>＋クリック / <kbd>Shift</kbd>＋クリック</td><td>複数選択</td><td>ファイル一覧</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ========================================================= -->
+      <!-- 18. ログアウト -->
+      <!-- ========================================================= -->
+      <h2 id="logout"><span class="num">18</span>ログアウト／自動ログアウト</h2>
+
+      <h3>18-1. 自分でログアウトする</h3>
+      <p>画面右上の <span class="uichip">⏻</span> ボタンを押します。確認ダイアログ <span class="msg">ログアウトしますか？</span> が出るので <span class="uibtn">OK</span>。ログイン画面に戻ります。</p>
+      <p>ログアウトすると、このPCの自動ログイン情報も消えます（次回はまた手入力ログインになります）。共有のパソコンを使っているときは、<strong>離席・終業時に必ずログアウト</strong>しましょう。</p>
+
+      <h3>18-2. 何もしないと自動でログアウトされます</h3>
+      <div class="note">
+        <strong>アイドルタイムアウト</strong>
+        一定時間、何も操作しないでいると、自動的にログアウトされます（<strong>初期設定は30分</strong>。社内の方針で管理者が変更している場合があります）。そのときは <span class="msg">無操作のためログアウトしました。再ログインしてください。</span> と表示されます。慌てず、もう一度ログインしてください。
+      </div>
+
+      <h3>18-3. 突然「再ログインしてください」と出たら</h3>
+      <p>セキュリティのしくみ（同じアカウントが複数の場所から使われた疑いを検知するなど）により、安全のため強制的にログアウトされることがあります。もう一度ログインすれば使えます。頻繁に起きる場合は情シスに相談してください。</p>
+
+      <!-- ========================================================= -->
+      <!-- 19. このPCを記憶する -->
+      <!-- ========================================================= -->
+      <h2 id="remember"><span class="num">19</span>「このPCを記憶する」（自動ログイン）</h2>
+
+      <p>ログイン画面で「<strong>このPCを記憶する</strong>」にチェックを入れてログインすると、次回起動から<strong>ユーザー名・パスワードの入力なしで自動ログイン</strong>できます。自分専用のパソコンなら便利な機能です。</p>
+
+      <h3>19-1. しくみと注意点</h3>
+      <table>
+        <thead><tr><th>項目</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>記憶のされ方</td><td>「PC名 ＋ Windowsのユーザー名 ＋ このPC専用の合言葉（デバイストークン）」で本人確認します。パスワードそのものは保存されません。</td></tr>
+          <tr><td>保存場所</td><td>Windowsの安全な保管庫（Credential Manager）に暗号化して保存。同じPCの<strong>別のWindowsユーザーからは読めません</strong>。</td></tr>
+          <tr><td>1人1台まで</td><td>記憶できるのは<strong>1人につき1台</strong>。別のPCで「記憶する」をオンにすると、前のPCの記憶は無効になります。</td></tr>
+          <tr><td>解除される場合</td><td>ログアウトしたとき／管理者が「全デバイス失効」をしたとき（退職対応など）／セキュリティ上の理由で強制解除されたとき。</td></tr>
+        </tbody>
+      </table>
+
+      <div class="warn">
+        <strong>共有パソコンでは使わないで</strong>
+        他の人も使うパソコンで「このPCを記憶する」をオンにすると、別の人があなたとしてログインできてしまう恐れがあります。<strong>自分専用のPCでだけ</strong>使ってください。
+      </div>
+
+      <div class="note">
+        <strong>HTTP接続のとき</strong>
+        会社の設定によっては自動ログインが安全のため禁止されていることがあります。チェックを入れても自動ログインがすぐ切れる場合は、情シスに確認してください（HTTPSでの接続が推奨です）。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 20. パスワードの管理 -->
+      <!-- ========================================================= -->
+      <h2 id="password"><span class="num">20</span>パスワードの管理</h2>
+
+      <h3>20-1. パスワードを変えたいとき</h3>
+      <p>このアプリには、ふだん（期限内）に自分からパスワードを変える専用ボタンは用意されていません。パスワード変更画面は、次のタイミングで<strong>自動的に</strong>表示されます。</p>
+      <ul>
+        <li>初めてログインしたとき</li>
+        <li>パスワードの有効期限が切れたとき（初期設定は<strong>90日</strong>）</li>
+        <li>管理者がパスワードをリセットしたとき</li>
+      </ul>
+      <p>このとき表示される画面で、新しいパスワードを設定します（やり方は<a href="#firstpw">第3章</a>と同じ）。</p>
+
+      <div class="tip">
+        <strong>今すぐ変えたいときは</strong>
+        期限前でもどうしても変更したい場合は、<strong>管理者にパスワードのリセットを依頼</strong>してください。次回ログイン時に変更画面が出ます。
+      </div>
+
+      <h3>20-2. パスワードを忘れた／アカウントがロックされた</h3>
+      <p>自分では解除できません。<strong>情シス（管理者）に連絡</strong>してください。管理者がロック解除やパスワードのリセットをしてくれます。</p>
+
+      <!-- ========================================================= -->
+      <!-- 21. トラブル -->
+      <!-- ========================================================= -->
+      <h2 id="trouble"><span class="num">21</span>困ったとき（トラブル＆エラー集）</h2>
+
+      <h3>21-1. ログインできない</h3>
+      <table>
+        <thead><tr><th>画面に出る言葉</th><th>意味と対処</th></tr></thead>
+        <tbody>
+          <tr><td><span class="msg err">ユーザー名またはパスワードが違います。</span></td><td>入力ミスの可能性。大文字・小文字、<kbd>CapsLock</kbd>、数字や記号をよく確認。👁 目玉アイコンで表示して確認しましょう。</td></tr>
+          <tr><td><span class="msg err">アカウントがロックされています。管理者に連絡してください。</span></td><td>パスワードを連続で間違えるとロックされます（既定15回）。情シスにロック解除を依頼。</td></tr>
+          <tr><td><span class="msg err">しばらく時間を置いてから…／429 Too Many Requests</span></td><td>短時間にログインを試しすぎ。<strong>1分ほど待って</strong>からもう一度。</td></tr>
+          <tr><td><span class="msg err">通信エラー: …</span></td><td>ネットワークかサーバーの問題。<span class="uibtn ghost">接続テスト</span>で疎通を確認し、ダメなら情シスへ。</td></tr>
+          <tr><td>パスワード変更画面が出る</td><td>期限切れ／管理者リセット。新しいパスワードを設定すれば進めます（<a href="#firstpw">第3章</a>）。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>21-2. ファイル操作でつまずく</h3>
+      <table>
+        <thead><tr><th>症状</th><th>対処</th></tr></thead>
+        <tbody>
+          <tr><td>ファイルをダブルクリックしても開かない</td><td><strong>仕様です</strong>。ダウンロードしてから開きます（<a href="#openfile">第6章</a>）。</td></tr>
+          <tr><td>右ペインが空っぽ／何も見えない</td><td>「接続場所」を選んでいないか、権限が無い可能性。場所を選ぶ→それでも空なら管理者へ（<a href="#perm">第16章</a>）。</td></tr>
+          <tr><td><span class="msg err">…権限がありません。</span></td><td>その操作の権限が無い。管理者に依頼（<a href="#perm">第16章</a>）。</td></tr>
+          <tr><td><code>..</code> が押せない（グレー）</td><td>許可された範囲のいちばん上。正常な制限です。</td></tr>
+          <tr><td><span class="msg err">リネームでは親ディレクトリを変更できません</span></td><td>リネームで別フォルダへ移動はできません。同じフォルダ内で名前を変えるのみ（<a href="#rename">第13章</a>）。</td></tr>
+          <tr><td>大きいファイルが途中で止まる</td><td>ネットワークの一時的な不調か、セッション切れの可能性。もう一度試す。</td></tr>
+          <tr><td><span class="msg">ホスト/共有が見つかりません</span></td><td>管理者がサーバー設定を変更・削除した可能性。情シスに確認。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>21-3. 起動・更新まわり</h3>
+      <table>
+        <thead><tr><th>症状</th><th>対処</th></tr></thead>
+        <tbody>
+          <tr><td>起動時に更新の進捗が出る</td><td>自動更新中。終わるまで待つ（必須更新でスキップ不可）。</td></tr>
+          <tr><td>更新しても新しい版にならない</td><td>exeを直接起動している可能性。<strong>スタートメニュー／デスクトップの「Watashi」</strong>から起動する（<a href="#install">第1章</a>）。</td></tr>
+          <tr><td><span class="msg err">配布設定 (deployment.json) …</span>と出て起動しない</td><td>配布パッケージの不備。利用者では直せません。<strong>管理者に連絡</strong>してください。</td></tr>
+          <tr><td>自動ログインがすぐ切れる</td><td>サーバー設定でHTTP自動ログインが禁止されている可能性。情シスに確認、またはHTTPSで接続（<a href="#remember">第19章</a>）。</td></tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <strong>困ったら、まずこの3つ</strong>
+        ① <kbd>F5</kbd> で更新してみる　② 一度ログアウト→ログインし直す　③ それでもダメなら、<strong>画面の赤い帯（エラー文）をそのまま情シスに伝える</strong>。エラーの文章が解決の手がかりになります。
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- 22. 用語集 -->
+      <!-- ========================================================= -->
+      <h2 id="glossary"><span class="num">22</span>用語集</h2>
+      <dl class="terms">
+        <dt>ローカル</dt><dd>あなたのパソコンの中。画面の左側。</dd>
+        <dt>リモート</dt><dd>社内のファイルサーバー。画面の右側。</dd>
+        <dt>共有 / 接続場所</dt><dd>サーバー上の共有フォルダ。右上の「接続場所」で切り替える。</dd>
+        <dt>アップロード</dt><dd>自分のPC → サーバーへファイルを置くこと。</dd>
+        <dt>ダウンロード</dt><dd>サーバー → 自分のPCへファイルを取り出すこと。</dd>
+        <dt>パス</dt><dd>ファイルやフォルダの場所を表す住所のような文字列。例：<code>/dept-A/2026</code></dd>
+        <dt>権限（Read / Write / Delete / Rename）</dt><dd>あなたができる操作の種類。管理者が設定する（第16章）。</dd>
+        <dt>自動更新（ClickOnce）</dt><dd>起動時に新しい版を自動で取り込むしくみ。</dd>
+        <dt>アイドルタイムアウト</dt><dd>無操作が続くと自動ログアウトする安全機能（初期30分）。</dd>
+        <dt>デバイストークン</dt><dd>「このPCを記憶する」で使う、このPC専用の合言葉。</dd>
+      </dl>
+
+      <hr class="sec">
+
+      <!-- ========================================================= -->
+      <!-- 付録：画像差し替え -->
+      <!-- ========================================================= -->
+      <h2 id="shots"><span class="num">★</span>付録：スクリーンショットの差し替え方</h2>
+      <p>このマニュアルには、実際の画面写真（スクリーンショット）を後から差し込めるよう、<strong>差し替え枠</strong>を用意してあります。枠には、入れるべき画像の<strong>ファイル名</strong>と<strong>説明</strong>が表示されています。</p>
+
+      <h3>やり方</h3>
+      <ol class="steps">
+        <li>このHTMLファイルと同じ場所にある <code>images</code> フォルダを開きます。<br>
+          <span class="mono" style="font-size:13px;color:#6B7280">（無ければ <code>images</code> という名前のフォルダを作ってください）</span></li>
+        <li>Watashi の画面でスクリーンショットを撮ります（Windowsなら <kbd>Windows</kbd>＋<kbd>Shift</kbd>＋<kbd>S</kbd> など）。</li>
+        <li>撮った画像を、枠に書かれている<strong>ファイル名どおりの名前（PNG形式）</strong>で <code>images</code> フォルダに保存します。</li>
+        <li>このHTMLをブラウザで開き直す（<kbd>F5</kbd>で再読み込み）と、差し替え枠が<strong>実際の画像に自動で置き換わります</strong>。</li>
+      </ol>
+
+      <h3>差し込めるファイル名の一覧</h3>
+      <table>
+        <thead><tr><th>ファイル名（imagesフォルダ内）</th><th>撮る画面</th></tr></thead>
+        <tbody>
+          <tr><td><code>images/01-install.png</code></td><td>インストール画面</td></tr>
+          <tr><td><code>images/02-login.png</code></td><td>ログイン画面</td></tr>
+          <tr><td><code>images/03-main.png</code></td><td>メイン画面の全体</td></tr>
+          <tr><td><code>images/04-folderpicker.png</code></td><td>📂フォルダ選択ダイアログ</td></tr>
+        </tbody>
+      </table>
+      <div class="tip">
+        <strong>画像を追加したいときは</strong>
+        本文中の好きな場所に、次の1行を貼り付けるだけで新しい差し替え枠を増やせます。<code>src</code> と <code>data-desc</code> を変えてください。<br>
+        <code class="block" style="display:block;white-space:pre-wrap;background:#2b2b2b;color:#e8e8e8;padding:10px;border-radius:6px;margin-top:8px;font-size:12.5px">&lt;div class="shot"&gt;&lt;img class="shot-img" src="images/05-xxx.png" data-desc="説明"&gt;&lt;/div&gt;</code>
+      </div>
+
+      <hr class="sec">
+      <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">
+        ⛩ Watashi 利用者マニュアル<br>
+        不明点は情シス（管理者）までお問い合わせください。
+      </p>
+
+    </div><!-- /wrap -->
+  </main>
+</div><!-- /layout -->
+
+<a href="#" class="totop" id="totop" aria-label="ページ先頭へ">↑</a>
+
+<script>
+  // ===== スクリーンショット枠：画像が無いときは差し替え案内を表示 =====
+  document.querySelectorAll('img.shot-img').forEach(function(img){
+    img.addEventListener('error', function(){
+      var ph = document.createElement('div');
+      ph.className = 'shot-ph';
+      var src = img.getAttribute('src') || '';
+      var desc = img.getAttribute('data-desc') || '';
+      ph.innerHTML =
+        '<div class="shot-ph-inner">' +
+          '<span class="cam">📷</span>' +
+          '<strong>スクリーンショットをここに差し込めます</strong>' +
+          '<span class="fn">' + src + '</span>' +
+          (desc ? '<span class="hint">撮る画面：' + desc + '</span>' : '') +
+          '<span class="note2">この名前の画像を images フォルダに置いて再読み込みすると、ここに表示されます</span>' +
+        '</div>';
+      img.replaceWith(ph);
+    });
+  });
+
+  // ===== 目次：スクロールに合わせて現在位置をハイライト =====
+  var sections = Array.prototype.slice.call(document.querySelectorAll('main h2[id]'));
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  function onScroll(){
+    var pos = window.scrollY + 120;
+    var current = null;
+    sections.forEach(function(s){ if (s.offsetTop <= pos) current = s.id; });
+    links.forEach(function(a){
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+    document.getElementById('totop').classList.toggle('show', window.scrollY > 400);
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+
+  // モバイル：目次リンクを押したら閉じる
+  document.querySelectorAll('.toc a').forEach(function(a){
+    a.addEventListener('click', function(){ document.querySelector('.toc').classList.remove('open'); });
+  });
+</script>
+</body>
+</html>
