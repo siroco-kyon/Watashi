@@ -46,6 +46,17 @@ public partial class PasswordRevealBox : UserControl
         InitializeComponent();
     }
 
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) return;
+
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key != Key.P) return;
+
+        e.Handled = true;
+        SetCurrentValue(IsRevealedProperty, !IsRevealed);
+    }
+
     private static object? CoercePassword(DependencyObject d, object? baseValue) => baseValue as string ?? string.Empty;
 
     private static void OnPasswordChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
