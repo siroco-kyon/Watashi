@@ -194,14 +194,16 @@ public partial class MainWindow : Window
 
     private void OnLocalListKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Back) { e.Handled = true; _vm.Local.GoUpCommand.Execute(null); }
+        if (e.Key == Key.Enter) { e.Handled = true; _vm.Local.OpenSelectedCommand.Execute(null); }
+        else if (e.Key == Key.Back) { e.Handled = true; _vm.Local.GoUpCommand.Execute(null); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnLocalDelete(sender, e); }
         else if (e.Key == Key.F2) { e.Handled = true; OnLocalContextRename(sender, e); }
     }
 
     private void OnRemoteListKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Back) { e.Handled = true; _vm.Remote.GoUpCommand.Execute(null); }
+        if (e.Key == Key.Enter) { e.Handled = true; _ = _vm.Remote.OpenSelectedAsync(); }
+        else if (e.Key == Key.Back) { e.Handled = true; _vm.Remote.GoUpCommand.Execute(null); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnRemoteDelete(sender, e); }
         else if (e.Key == Key.F2) { e.Handled = true; OnRemoteContextRename(sender, e); }
     }
