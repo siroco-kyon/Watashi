@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watashi 導入提案資料</title>
+<style>
+  :root{
+    --accent:#C73E1D;       /* 鳥居の朱色 */
+    --accent-hover:#A83216;
+    --accent-deep:#5C1A0B;
+    --accent-soft:#F9E5E0;
+    --header:#1B2A41;
+    --header-alt:#243B5C;
+    --bg:#F6F7F9;
+    --surface:#FFFFFF;
+    --surface-alt:#F0F2F5;
+    --border:#D5D9DE;
+    --text:#1F2328;
+    --text-2:#4A535C;
+    --muted:#6B7280;
+    --danger:#CF222E;
+    --danger-soft:#FFE9EA;
+    --warning:#BF8700;
+    --warning-soft:#FFF6E0;
+    --success:#1F883D;
+    --success-soft:#E6F5EB;
+    --info:#0969DA;
+    --info-soft:#E6F0FB;
+    --shadow:0 1px 2px rgba(15,27,45,.06), 0 10px 30px rgba(15,27,45,.06);
+    --maxw:1000px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+    color:var(--text); background:var(--bg); line-height:1.85; font-size:16px;
+  }
+  code,.mono{font-family:"Consolas","SFMono-Regular",Menlo,monospace;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px;}
+
+  /* 表紙 */
+  .cover{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; padding:64px 28px 56px; position:relative; overflow:hidden; text-align:center;
+  }
+  .cover::after{content:""; position:absolute; left:0; right:0; bottom:0; height:6px; background:var(--accent);}
+  .cover .torii{margin:0 auto 16px; display:block;}
+  .cover .doctype{display:inline-block; font-size:13px; letter-spacing:3px; color:#9fb0c9; border:1px solid #3a4f70; border-radius:20px; padding:4px 16px; margin-bottom:18px;}
+  .cover h1{font-size:40px; margin:0 0 10px; font-weight:800; letter-spacing:1px;}
+  .cover .tag{font-size:18px; color:#c8d3e3; margin:0;}
+  .cover .meta{margin-top:26px; font-size:13px; color:#8294b0;}
+
+  h2{font-size:26px; margin:56px 0 16px; padding-bottom:10px; border-bottom:3px solid var(--accent); display:flex; align-items:center; gap:12px; scroll-margin-top:14px;}
+  h2 .n{background:var(--accent); color:#fff; font-size:16px; font-weight:700; min-width:38px; height:38px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center;}
+  h3{font-size:19px; margin:30px 0 10px; color:var(--accent-deep);}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0; padding-left:24px;} li{margin:6px 0;}
+  a{color:var(--accent);}
+
+  /* 結論ボックス */
+  .conclusion{
+    background:var(--accent-soft); border:1px solid #e7c3ba; border-left:6px solid var(--accent);
+    border-radius:12px; padding:22px 26px; margin:26px 0; box-shadow:var(--shadow);
+  }
+  .conclusion h3{margin:0 0 8px; color:var(--accent-deep); font-size:18px;}
+  .conclusion p{margin:6px 0; font-size:16px;}
+  .conclusion b{color:var(--accent-deep);}
+
+  /* サマリーカード */
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:24px 0;}
+  @media(max-width:760px){.stats{grid-template-columns:1fr;}}
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; box-shadow:var(--shadow); text-align:center;}
+  .stat .ico{font-size:30px;}
+  .stat .big{font-size:20px; font-weight:800; color:var(--header); margin:6px 0 2px;}
+  .stat .desc{font-size:13px; color:var(--text-2);}
+
+  /* コールアウト */
+  .note,.tip,.warn{border-radius:10px; padding:14px 18px; margin:18px 0; border:1px solid var(--border); position:relative; padding-left:50px;}
+  .note::before,.tip::before,.warn::before{position:absolute; left:16px; top:13px; font-size:19px;}
+  .note{background:var(--info-soft); border-color:#bcd6f5;} .note::before{content:"ℹ️";}
+  .tip{background:var(--success-soft); border-color:#bfe3cb;} .tip::before{content:"💡";}
+  .warn{background:var(--warning-soft); border-color:#f0dca0;} .warn::before{content:"⚠️";}
+
+  /* テーブル */
+  table{border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px; background:var(--surface); box-shadow:var(--shadow); border-radius:8px; overflow:hidden;}
+  th,td{border:1px solid var(--border); padding:11px 13px; text-align:left; vertical-align:top;}
+  th{background:var(--header); color:#fff; font-weight:700;}
+  tbody tr:nth-child(even){background:#fafbfc;}
+
+  /* Before / After 比較表 */
+  .cmp th:nth-child(2){background:#7a2438;}   /* 現行=くすんだ赤 */
+  .cmp th:nth-child(3){background:#1f6b3a;}   /* Watashi=緑 */
+  .cmp td:nth-child(2){background:#fff5f5;}
+  .cmp td:nth-child(3){background:#f2fbf5;}
+  .cmp td:nth-child(1){font-weight:700; color:var(--header); width:23%;}
+  .cmp .x{color:var(--danger); font-weight:700; margin-right:4px;}
+  .cmp .o{color:var(--success); font-weight:700; margin-right:4px;}
+
+  .pill{display:inline-block; background:var(--accent-soft); color:var(--accent-deep); border-radius:12px; padding:1px 10px; font-size:12.5px; font-weight:700; margin-right:4px;}
+  .lead{font-size:17px; color:var(--text-2);}
+  figure{margin:24px 0; text-align:center;}
+  figure svg{max-width:100%; height:auto; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow);}
+  figcaption{font-size:13px; color:var(--muted); margin-top:8px;}
+  hr.sec{border:none; border-top:1px dashed var(--border); margin:40px 0;}
+
+  /* 印刷ボタン */
+  .printbtn{position:fixed; right:22px; bottom:22px; background:var(--accent); color:#fff; border:none; border-radius:30px; padding:12px 22px; font-size:14px; font-weight:700; box-shadow:var(--shadow); cursor:pointer; z-index:50; display:flex; align-items:center; gap:8px;}
+  .printbtn:hover{background:var(--accent-hover);}
+
+  footer{text-align:center; color:var(--muted); font-size:12.5px; padding:40px 20px 60px;}
+
+  @media print{
+    .printbtn{display:none;}
+    body{background:#fff; font-size:12px; line-height:1.6;}
+    .cover{padding:40px 20px;}
+    .cover h1{font-size:30px;}
+    h2{margin:26px 0 10px; font-size:19px; break-after:avoid;}
+    table,figure,.conclusion,.stats,.stat{break-inside:avoid;}
+    .stats{gap:10px;}
+    a{color:var(--text); text-decoration:none;}
+  }
+</style>
+</head>
+<body>
+
+  <!-- ===== 表紙 ===== -->
+  <header class="cover">
+    <svg class="torii" width="76" height="76" viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
+      <rect x="22" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="69" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="16" y="40" width="68" height="8" fill="#fff"/>
+    </svg>
+    <div class="doctype">導入提案資料</div>
+    <h1>社内ファイル共有ツールの刷新提案</h1>
+    <p class="tag">現行ツールの課題を解決する後継ツール「Watashi（わたし）」のご提案</p>
+    <p class="meta">— 安全性・運用性・保守性を一段引き上げる —</p>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ===== エグゼクティブサマリー ===== -->
+    <h2><span class="n">1</span>ご提案の要旨</h2>
+    <p class="lead">現在、社内のファイル受け渡しに利用している既存ツール（仮称：<b>PANDA</b>）には、<b>セキュリティ・運用・保守</b>の面で見過ごせない課題があります。本資料では、それらをまとめて解決する後継ツール <b>「Watashi」</b> への移行をご提案します。</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="ico">🔒</div>
+        <div class="big">安全性を強化</div>
+        <div class="desc">平文HTTP通信 → HTTPS＋暗号化＋ユーザー別の最小権限へ</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🛠️</div>
+        <div class="big">運用工数を削減</div>
+        <div class="desc">ユーザー追加・権限設定・ログ確認を、すべて管理画面（GUI）で完結</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🧩</div>
+        <div class="big">保守負担を軽減</div>
+        <div class="desc">専用DB（MySQL）不要・IIS必須でない、シンプルな構成</div>
+      </div>
+    </div>
+
+    <div class="conclusion">
+      <h3>結論</h3>
+      <p>Watashi は、現行ツールで挙がっている <b>10 個の課題すべてに対応</b>しています。とくに<b>「通信の暗号化」と「ユーザーごとの権限分離」</b>はセキュリティ・内部統制の観点で効果が大きく、あわせて<b>日々の運用・保守の手間も大幅に減らせます</b>。</p>
+      <p>まずは小規模な<b>試験導入（PoC）</b>から始めることを提案します（→ <a href="#next">第7章</a>）。</p>
+    </div>
+
+    <!-- ===== 現状の課題 ===== -->
+    <h2><span class="n">2</span>現行ツール（PANDA）の課題</h2>
+    <p>現場・情シスから挙がっている主な課題は次のとおりです。単なる「使いにくさ」にとどまらず、<b>情報漏えいリスク</b>や<b>運用コスト</b>に直結するものが含まれます。</p>
+
+    <table>
+      <thead><tr><th style="width:46px">#</th><th>現行ツールの課題</th><th>これが招くリスク・コスト</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>通信が <b>HTTP のみ</b>（暗号化なし・平文）</td><td>パスワードやファイルが盗聴される恐れ。社外監査でも指摘対象</td></tr>
+        <tr><td>2</td><td>ツール名が他製品と重複（<b>PANDA</b>）</td><td>検索・問い合わせ・社内周知で混乱。サポート情報が見つけにくい</td></tr>
+        <tr><td>3</td><td><b>ユーザーごとに権限を分けられない</b></td><td>全員が同じ範囲にアクセス。最小権限の原則を満たせない</td></tr>
+        <tr><td>4</td><td><b>MySQL</b> の脆弱性対応が大変</td><td>DBの監視・パッチ当てが恒常的な負担。放置は重大リスク</td></tr>
+        <tr><td>5</td><td>ログは <b>DB を直接見る</b>しかない</td><td>「誰が何をしたか」の確認に手間と専門知識が必要。監査対応が困難</td></tr>
+        <tr><td>6</td><td><b>ユーザー追加が大変</b></td><td>異動・入退社のたびに手作業。情シスの定常負荷</td></tr>
+        <tr><td>7</td><td>許可パスを <b>1 つずつ入力</b></td><td>権限付与に時間がかかり、設定ミス（過剰付与）も起きやすい</td></tr>
+        <tr><td>8</td><td><b>設定変更が大変</b></td><td>ちょっとした変更にも作業コスト。属人化しやすい</td></tr>
+        <tr><td>9</td><td><b>IIS を使う構成でしか</b>構築できない</td><td>サーバ構成の自由度が低く、移設・冗長化がしにくい</td></tr>
+        <tr><td>10</td><td><b>MySQL の立ち上げ</b>が大変</td><td>初期構築・移設に専門作業が必要。環境を増やしにくい</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===== Watashiで何が変わるか（中核） ===== -->
+    <h2><span class="n">3</span>Watashi で何が変わるか（課題別の対応）</h2>
+    <p class="lead">上記 10 個の課題が、Watashi ではどう解決されるかを一覧にしました。<b>本資料の中核</b>です。</p>
+
+    <table class="cmp">
+      <thead><tr><th>観点</th><th>現行ツール（PANDA）</th><th>Watashi（後継）</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>① 通信の安全性</td>
+          <td><span class="x">✗</span>HTTP のみ（平文）</td>
+          <td><span class="o">✓</span><b>HTTPS 対応</b>。通信もパスワードも暗号化。サーバ間も相互認証（mTLS）</td>
+        </tr>
+        <tr>
+          <td>② 名称</td>
+          <td><span class="x">✗</span>他製品と重複（PANDA）</td>
+          <td><span class="o">✓</span>固有名「<b>Watashi</b>」＋鳥居ブランド。社内名称への<b>改称も容易</b></td>
+        </tr>
+        <tr>
+          <td>③ 権限管理</td>
+          <td><span class="x">✗</span>ユーザー別に分けられない</td>
+          <td><span class="o">✓</span><b>ユーザー × 共有 × フォルダ単位</b>で、閲覧/書込/削除/改名を個別に付与</td>
+        </tr>
+        <tr>
+          <td>④ データベース保守</td>
+          <td><span class="x">✗</span>MySQL の脆弱性対応が負担</td>
+          <td><span class="o">✓</span><b>専用DBサーバ不要</b>（軽量な内蔵DB）。監視・パッチ対象が減る</td>
+        </tr>
+        <tr>
+          <td>⑤ ログ確認</td>
+          <td><span class="x">✗</span>DBを直接見るしかない</td>
+          <td><span class="o">✓</span><b>管理画面でログ閲覧・絞り込み・CSV出力</b>。「誰が・いつ・何を」が一目で分かる</td>
+        </tr>
+        <tr>
+          <td>⑥ ユーザー追加</td>
+          <td><span class="x">✗</span>1人ずつ手作業で大変</td>
+          <td><span class="o">✓</span>管理画面で作成。さらに <b>CSV で一括登録</b>（入退社・異動も一気に反映）</td>
+        </tr>
+        <tr>
+          <td>⑦ 許可パスの設定</td>
+          <td><span class="x">✗</span>1つずつ入力</td>
+          <td><span class="o">✓</span>フォルダを<b>一覧から選んで指定</b>。「権限セット」で<b>まとめて一括付与</b>、他ユーザーから<b>コピー</b>も可</td>
+        </tr>
+        <tr>
+          <td>⑧ 設定変更</td>
+          <td><span class="x">✗</span>作業が大変・属人的</td>
+          <td><span class="o">✓</span>パスワード期限・タイムアウト等も<b>管理画面（GUI）から変更</b></td>
+        </tr>
+        <tr>
+          <td>⑨ サーバ構成</td>
+          <td><span class="x">✗</span>IIS を使う構成必須</td>
+          <td><span class="o">✓</span><b>Windowsサービス単体で稼働</b>。IIS は必須ではなく、使いたければ前段に置くことも可</td>
+        </tr>
+        <tr>
+          <td>⑩ 初期構築</td>
+          <td><span class="x">✗</span>MySQL の立ち上げが大変</td>
+          <td><span class="o">✓</span>初回起動で<b>DBが自動生成</b>。DB構築作業ゼロで、検証環境も簡単に増やせる</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tip">
+      <b>ポイント：</b>挙げていただいた 10 個の課題は、<b>すべて Watashi で解決済み</b>です。後付けの対策ではなく、設計の段階から「安全・簡単な運用・軽い保守」を前提に作られています。
+    </div>
+
+    <!-- ===== 構成の比較図 ===== -->
+    <h2><span class="n">4</span>システム構成の比較（イメージ）</h2>
+    <p>専門的な部分は割愛し、<b>構成がシンプルになる</b>ことだけ図でご覧ください。</p>
+
+    <figure>
+      <svg viewBox="0 0 860 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="現行ツールとWatashiの構成比較">
+        <!-- 見出し -->
+        <text x="215" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#7a2438">現行（PANDA）</text>
+        <text x="645" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#1f6b3a">Watashi</text>
+        <line x1="430" y1="44" x2="430" y2="340" stroke="#D5D9DE" stroke-dasharray="5 5"/>
+
+        <!-- 現行 -->
+        <rect x="120" y="56" width="190" height="44" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="215" y="83" text-anchor="middle" font-size="13" fill="#1F2328">利用者の PC</text>
+        <rect x="120" y="140" width="190" height="50" rx="8" fill="#fff5f5" stroke="#7a2438"/>
+        <text x="215" y="162" text-anchor="middle" font-size="13" fill="#1F2328">Web アプリ</text>
+        <text x="215" y="180" text-anchor="middle" font-size="11" fill="#7a2438">※ IIS が必須</text>
+        <rect x="120" y="232" width="190" height="50" rx="8" fill="#fff5f5" stroke="#7a2438"/>
+        <text x="215" y="254" text-anchor="middle" font-size="13" fill="#1F2328">MySQL（別サーバ）</text>
+        <text x="215" y="272" text-anchor="middle" font-size="11" fill="#7a2438">※ 立上げ・脆弱性対応が負担</text>
+        <!-- 矢印 現行 -->
+        <line x1="215" y1="100" x2="215" y2="138" stroke="#CF222E" stroke-width="2"/>
+        <text x="225" y="124" font-size="11" fill="#CF222E">HTTP（平文）⚠</text>
+        <line x1="215" y1="190" x2="215" y2="230" stroke="#9CA3AF" stroke-width="2"/>
+        <text x="225" y="316" font-size="11.5" fill="#7a2438" text-anchor="middle" x="215">構成要素が多く、保守の手間が大きい</text>
+
+        <!-- Watashi -->
+        <rect x="550" y="56" width="190" height="44" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="645" y="83" text-anchor="middle" font-size="13" fill="#1F2328">利用者の PC（専用アプリ）</text>
+        <rect x="550" y="150" width="190" height="64" rx="8" fill="#f2fbf5" stroke="#1f6b3a"/>
+        <text x="645" y="176" text-anchor="middle" font-size="13" fill="#1F2328">Watashi サーバー</text>
+        <text x="645" y="195" text-anchor="middle" font-size="11" fill="#1f6b3a">Windowsサービス＋内蔵DB</text>
+        <text x="645" y="208" text-anchor="middle" font-size="10.5" fill="#1f6b3a">IIS不要 / DB自動生成</text>
+        <rect x="550" y="256" width="190" height="44" rx="8" fill="#F9E5E0" stroke="#C73E1D"/>
+        <text x="645" y="283" text-anchor="middle" font-size="13" fill="#5C1A0B">社内ファイルサーバー</text>
+        <!-- 矢印 Watashi -->
+        <line x1="645" y1="100" x2="645" y2="148" stroke="#1f883d" stroke-width="2"/>
+        <text x="655" y="128" font-size="11" fill="#1f883d">HTTPS（暗号化）🔒</text>
+        <line x1="645" y1="214" x2="645" y2="254" stroke="#1f883d" stroke-width="2"/>
+        <text x="645" y="330" font-size="11.5" fill="#1f6b3a" text-anchor="middle">構成がシンプルで、安全かつ運用が軽い</text>
+      </svg>
+      <figcaption>図：現行ツールと Watashi の構成比較（イメージ）。Watashi は別DBサーバ・IIS を前提にせず、構成がシンプルになります。</figcaption>
+    </figure>
+
+    <!-- ===== セキュリティ ===== -->
+    <h2><span class="n">5</span>セキュリティ面の強化（重点）</h2>
+    <p>情報漏えい対策・内部統制の観点で、現行からの改善が特に大きい点です。</p>
+    <ul>
+      <li><b>通信の暗号化</b>：HTTPS に対応。パスワードやファイルが平文で流れません。</li>
+      <li><b>最小権限の徹底</b>：ユーザーごと・フォルダごとに「閲覧だけ／書き込みまで／削除まで」を細かく設定。<b>必要な人に必要な範囲だけ</b>を渡せます。</li>
+      <li><b>パスワードの安全な管理</b>：強度ルール（12文字以上＋英大小・数字・記号）、有効期限、一定回数の失敗で自動ロック。</li>
+      <li><b>全操作の記録（監査ログ）</b>：ファイル操作も管理操作も自動で記録。<b>管理画面で確認・CSV出力</b>でき、監査・調査にすぐ使えます。</li>
+      <li><b>機微情報の保護</b>：サーバ間も相互認証（mTLS）、保存する接続情報も暗号化。</li>
+    </ul>
+    <div class="note">
+      <b>内部統制・監査の観点：</b>「誰が・いつ・どのファイルに・何をしたか」がすべて残り、管理画面からすぐ提示できます。現行のように「DBを直接調べる」必要はありません。
+    </div>
+
+    <!-- ===== 運用・保守 ===== -->
+    <h2><span class="n">6</span>運用・保守の負担軽減</h2>
+    <table>
+      <thead><tr><th>項目</th><th>Watashi での改善</th></tr></thead>
+      <tbody>
+        <tr><td>ユーザー管理</td><td>管理画面で追加・削除・ロック解除・パスワード再設定。<b>CSV一括登録</b>で入退社・異動も一気に反映</td></tr>
+        <tr><td>権限付与</td><td>フォルダを一覧から選択。<b>「権限セット」</b>（部署の標準権限）を作っておけば<b>1クリックで一括付与</b>。他ユーザーからのコピーも可</td></tr>
+        <tr><td>ログ確認</td><td>管理画面で絞り込み表示・<b>CSV出力</b>（Excelでそのまま開ける）</td></tr>
+        <tr><td>設定変更</td><td>パスワード期限・タイムアウト・ロック回数なども管理画面から変更</td></tr>
+        <tr><td>DB保守</td><td>専用DBサーバ（MySQL）が不要。<b>監視・パッチ対象が減り、立ち上げ作業もゼロ</b></td></tr>
+        <tr><td>サーバ構成</td><td>Windowsサービスとして常駐。<b>異常終了時は自動再起動</b>、DBの<b>自動バックアップ</b>、古いログの<b>自動削除</b></td></tr>
+        <tr><td>アプリ更新</td><td>クライアントは<b>起動するたびに自動で最新版に更新</b>。配り直し不要</td></tr>
+      </tbody>
+    </table>
+    <div class="tip">
+      <b>情シスの定常負荷が下がります：</b>これまで手作業だった「ユーザー追加・権限設定・ログ抽出・DB保守」が、画面操作や自動化に置き換わります。
+    </div>
+
+    <!-- ===== 導入のしやすさ / 次のステップ ===== -->
+    <h2 id="next"><span class="n">7</span>導入のしやすさと、次のステップ</h2>
+
+    <h3>導入・移行のしやすさ</h3>
+    <ul>
+      <li><b>サーバは1本</b>から：別DBの構築が不要なため、検証環境もすぐ用意できます。</li>
+      <li><b>利用者の移行も簡単</b>：ユーザーは<b>CSVで一括登録</b>。利用者はインストール用URLを開くだけで導入完了（追加ソフト不要）。</li>
+      <li><b>踏み台ごしのアクセスにも対応</b>：拠点や閉じたネットワークの先のファイルサーバーにも、中継（エージェント）方式で対応できます。</li>
+      <li><b>マニュアル完備</b>：<b>利用者向け・管理者向けの説明書</b>を用意済み。導入時の教育コストを抑えられます。</li>
+    </ul>
+
+    <h3>ご提案するステップ</h3>
+    <ol>
+      <li><b>試験導入（PoC）</b>：1部署・少人数で、検証用サーバに Watashi を立てて実運用に近い形で試す。</li>
+      <li><b>評価</b>：安全性（HTTPS・権限分離）、運用性（ユーザー追加・ログ）、保守性を、現行と比較確認。</li>
+      <li><b>本番展開</b>：問題なければ対象部署を拡大し、現行ツールから順次切り替え。</li>
+    </ol>
+
+    <div class="conclusion">
+      <h3>ご判断のお願い</h3>
+      <p>まずは<b>試験導入（PoC）の実施</b>についてご承認いただけますと、現行ツールの課題がどれだけ解消されるかを、実際の画面・数字でご報告できます。</p>
+    </div>
+
+    <hr class="sec">
+
+    <!-- ===== 付録 ===== -->
+    <h2><span class="n">＊</span>付録：補足資料</h2>
+    <p>本ツールには、導入後すぐ使える説明資料が揃っています（社内サーバに配置すると相互リンクで参照できます）。</p>
+    <ul>
+      <li><b>ポータル（玄関ページ）</b>：インストールと各マニュアルへの入口</li>
+      <li><b>利用者マニュアル</b>：ログイン〜ファイル操作までを図解で説明（全23章）</li>
+      <li><b>管理者マニュアル</b>：管理コンソール全機能の運用手順（全17章）</li>
+    </ul>
+    <p style="color:var(--muted); font-size:13.5px;">※ 本資料中の「PANDA」は現行ツールの仮称です。実際の名称・数値は社内事情に合わせて差し替えてください。技術的な詳細根拠が必要な場合は、別添の機能仕様書（FEATURES / SPECIFICATION）をご参照ください。</p>
+
+  </div>
+
+  <footer>
+    ⛩ Watashi 導入提案資料 ／ 社内検討用
+  </footer>
+
+  <button class="printbtn" onclick="window.print()">🖨 印刷 / PDFで保存</button>
+
+</body>
+</html>
