@@ -73,6 +73,27 @@ fileExtension mimeType
 - ページを介さず `https://watashi.internal/install/Watashi.Client.application` を直接開いてもインストールは始まる。
 - 更新は発行プロファイルの `UpdateMode=Foreground` 設定で、ショートカット起動のたびに自動チェックされる ([README.md](README.md) の「更新ポリシー」参照)。
 
+### ポータル + マニュアルも一緒に置く (推奨)
+
+インストールページに加えて、**ポータル (玄関) ページ**と**マニュアル**もサイトのルートへ置くと、利用者には URL を 1 つ案内するだけで済む。リンクは相対パスなので、下のレイアウトどおりに配置すればそのままつながる。
+
+```
+\\fileserver\share\Watashi\            (= https://watashi.internal/  サイトのルート)
+├── index.html                          ← ポータル (deploy/site/index.html を配置 / IIS 既定ドキュメント)
+├── install/                            ← 上記のインストール一式 (publish.htm + ClickOnce 発行物)
+│   ├── publish.htm
+│   ├── Watashi.Client.application
+│   └── Application Files\ ...
+└── manual/                             ← docs/manual/ の中身をそのままコピー
+    ├── index.html                       (利用者マニュアル)
+    ├── admin.html                       (管理者マニュアル)
+    └── images\ ...
+```
+
+- 利用者には **`https://watashi.internal/`** (ポータル) を案内すればよい。そこから「インストール / 利用者マニュアル / 管理者マニュアル」へ 1 クリックで到達できる。
+- `.htm` / `.html` は IIS の既定 MIME なので、マニュアルとポータルに追加の MIME 設定は不要 (ClickOnce 用の `.application` / `.manifest` / `.deploy` の MIME 設定は従来どおり必要)。
+- リンク先のフォルダ名 (`install` / `manual`) を変える場合は、`index.html` の `<a href>` を合わせて直す。
+
 ## 証明書
 
 - 発行: 社内 CA から Code Signing 証明書

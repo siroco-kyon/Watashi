@@ -98,6 +98,8 @@ $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere
 
 発行物に加えて、利用者向けのインストールページ [install/publish.htm](install/publish.htm) を、配布先の install ディレクトリに発行物と一緒に置く (新 ClickOnce は `publish.htm` を生成しないため、このリポジトリのものを手動で同梱する)。利用者には `https://watashi.internal/install/publish.htm` を案内する。配置レイアウトは [IIS-MIME.md](IIS-MIME.md) の「配布先構成例」を参照。
 
+さらに、サイトのルートに **ポータル (玄関) ページ** [site/index.html](site/index.html) を、マニュアル [docs/manual/](../docs/manual/) を `manual/` に置くと、「インストール / 利用者マニュアル / 管理者マニュアル」の 3 つへ 1 ページから案内できる。利用者には `https://watashi.internal/` を案内するだけで済む。配置レイアウトは [IIS-MIME.md](IIS-MIME.md) の「ポータル + マニュアルも一緒に置く」を参照。
+
 ### 更新ポリシー (起動毎の必須バージョンチェック)
 
 発行プロファイルは **起動のたびに更新チェック → 新版があれば強制適用** に設定済み:
