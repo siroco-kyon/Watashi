@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watashi 管理者マニュアル ｜ 情シス向け</title>
+<style>
+  /* ===== ブランドカラー (アプリの Colors.xaml に合わせています) ===== */
+  :root{
+    --accent:#C73E1D;        /* 鳥居の朱色 */
+    --accent-hover:#A83216;
+    --accent-deep:#5C1A0B;
+    --accent-soft:#F9E5E0;
+    --header:#1B2A41;        /* 深い藍 */
+    --header-alt:#243B5C;
+    --bg:#F6F7F9;
+    --surface:#FFFFFF;
+    --surface-alt:#F0F2F5;
+    --border:#D5D9DE;
+    --border-strong:#9CA3AF;
+    --text:#1F2328;
+    --text-2:#4A535C;
+    --muted:#6B7280;
+    --danger:#CF222E;
+    --danger-soft:#FFE9EA;
+    --warning:#BF8700;
+    --warning-soft:#FFF6E0;
+    --success:#1F883D;
+    --success-soft:#E6F5EB;
+    --info:#0969DA;
+    --info-soft:#E6F0FB;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(15,27,45,.06), 0 6px 20px rgba(15,27,45,.05);
+    --maxw:920px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+    color:var(--text);
+    background:var(--bg);
+    line-height:1.85;
+    font-size:16px;
+  }
+  code,kbd,.mono{font-family:"Consolas","SFMono-Regular",Menlo,monospace;}
+
+  /* ===== レイアウト ===== */
+  .layout{display:flex; align-items:flex-start;}
+  .toc{
+    position:sticky; top:0;
+    width:300px; min-width:300px; height:100vh;
+    overflow-y:auto;
+    background:var(--header);
+    color:#dfe6f1;
+    padding:22px 16px 60px;
+  }
+  .toc .brand{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .toc .brand .ttl{font-size:20px; font-weight:700; color:#fff; letter-spacing:.5px;}
+  .toc .brand .sub{font-size:11px; color:#9fb0c9;}
+  .toc .ver{font-size:11px; color:#7e90ab; margin:0 0 14px 42px;}
+  .toc .xlink{display:block; margin:0 0 16px; padding:8px 10px; background:rgba(255,255,255,.06); border-radius:8px; color:#cfd8e6; text-decoration:none; font-size:12.5px; border-left:3px solid var(--accent);}
+  .toc .xlink:hover{background:rgba(255,255,255,.12); color:#fff;}
+  .toc a.nav{
+    display:block; color:#cfd8e6; text-decoration:none;
+    padding:5px 10px; border-radius:6px; font-size:13.5px;
+    border-left:3px solid transparent;
+  }
+  .toc a.nav:hover{background:rgba(255,255,255,.07); color:#fff;}
+  .toc a.nav.active{background:var(--accent); color:#fff; border-left-color:#fff;}
+  .toc .grp{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#7e90ab; margin:18px 0 4px 10px;}
+
+  .content{flex:1; min-width:0; padding:0 0 120px;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px;}
+
+  .hero{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; padding:46px 28px 40px; position:relative; overflow:hidden;
+  }
+  .hero::after{content:""; position:absolute; top:0; left:0; right:0; height:6px; background:var(--accent);}
+  .hero .wrap{max-width:var(--maxw);}
+  .hero h1{font-size:32px; margin:0 0 8px; font-weight:800;}
+  .hero p{font-size:16px; color:#c8d3e3; margin:0;}
+  .hero .torii-big{position:absolute; right:-20px; bottom:-30px; opacity:.13;}
+
+  h2{
+    font-size:25px; margin:54px 0 14px; padding-bottom:10px;
+    border-bottom:3px solid var(--accent); scroll-margin-top:14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  h2 .num{
+    background:var(--accent); color:#fff; font-size:15px; font-weight:700;
+    min-width:34px; height:34px; border-radius:8px; padding:0 6px;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  h3{font-size:19px; margin:34px 0 10px; color:var(--accent-deep); scroll-margin-top:14px;}
+  h4{font-size:16px; margin:22px 0 6px; color:var(--header);}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0; padding-left:24px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);}
+
+  ol.steps{counter-reset:step; list-style:none; padding-left:0; margin:18px 0;}
+  ol.steps>li{counter-increment:step; position:relative; padding:4px 0 16px 52px; margin:0;}
+  ol.steps>li::before{
+    content:counter(step); position:absolute; left:0; top:2px;
+    width:34px; height:34px; border-radius:50%;
+    background:var(--accent); color:#fff; font-weight:700;
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+  }
+  ol.steps>li::after{content:""; position:absolute; left:16px; top:38px; bottom:0; width:2px; background:var(--border);}
+  ol.steps>li:last-child::after{display:none;}
+  ol.steps>li strong{color:var(--accent-deep);}
+
+  .note,.tip,.warn,.danger,.key{
+    border-radius:var(--radius); padding:14px 18px; margin:18px 0;
+    border:1px solid var(--border); position:relative; padding-left:52px;
+  }
+  .note::before,.tip::before,.warn::before,.danger::before,.key::before{position:absolute; left:16px; top:13px; font-size:20px;}
+  .note{background:var(--info-soft); border-color:#bcd6f5;}
+  .note::before{content:"ℹ️";}
+  .tip{background:var(--success-soft); border-color:#bfe3cb;}
+  .tip::before{content:"💡";}
+  .warn{background:var(--warning-soft); border-color:#f0dca0;}
+  .warn::before{content:"⚠️";}
+  .danger{background:var(--danger-soft); border-color:#f3c0c4;}
+  .danger::before{content:"⛔";}
+  .key{background:var(--accent-soft); border-color:#e7c3ba;}
+  .key::before{content:"⛩";}
+  .note strong,.tip strong,.warn strong,.danger strong,.key strong{display:block; margin-bottom:2px;}
+
+  table{border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px; background:var(--surface); box-shadow:var(--shadow); border-radius:8px; overflow:hidden;}
+  th,td{border:1px solid var(--border); padding:9px 12px; text-align:left; vertical-align:top;}
+  th{background:var(--surface-alt); font-weight:700; color:var(--header);}
+  tbody tr:nth-child(even){background:#fafbfc;}
+  td .yes{color:var(--success); font-weight:700;}
+  td .no{color:var(--danger); font-weight:700;}
+
+  kbd{background:#fff; border:1px solid var(--border-strong); border-bottom-width:2px; border-radius:5px; padding:1px 7px; font-size:13px; white-space:nowrap;}
+  code:not(.block){background:var(--surface-alt); padding:1px 6px; border-radius:4px; font-size:14px; color:var(--accent-deep);}
+
+  .msg{display:inline-block; background:#2b2b2b; color:#e8e8e8; border-radius:6px; padding:3px 10px; font-size:13.5px; font-family:"Consolas",monospace; margin:2px 0;}
+  .msg.err{background:var(--danger); color:#fff;}
+  .msg.ok{background:var(--success); color:#fff;}
+
+  .uibtn{display:inline-block; background:var(--accent); color:#fff; border-radius:6px; padding:2px 10px; font-size:13px; font-weight:600; white-space:nowrap;}
+  .uibtn.ghost{background:#fff; color:var(--text); border:1px solid var(--border-strong);}
+  .uibtn.danger{background:var(--danger); color:#fff;}
+  .uichip{display:inline-block; background:var(--surface-alt); border:1px solid var(--border); border-radius:13px; padding:1px 10px; font-size:13px;}
+  .tag{display:inline-block; font-family:"Consolas",monospace; background:var(--accent-soft); color:var(--accent-deep); border-radius:5px; padding:1px 7px; font-size:12.5px;}
+
+  figure{margin:22px 0; text-align:center;}
+  figure svg{max-width:100%; height:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow);}
+  figcaption{font-size:13px; color:var(--muted); margin-top:8px;}
+
+  pre.code{background:#1b2230; color:#e8edf5; border-radius:var(--radius); padding:16px 18px; overflow-x:auto; font-size:13px; line-height:1.6; box-shadow:var(--shadow); border:1px solid #2c3a52;}
+  pre.code .cm{color:#7e93b5;}
+  pre.code .kw{color:#e0936b;}
+
+  .shot{margin:22px 0;}
+  .shot img.shot-img{max-width:100%; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); display:block; margin:0 auto;}
+  .shot-ph{border:2px dashed var(--accent); border-radius:var(--radius); background:repeating-linear-gradient(45deg,#fff,#fff 12px,var(--accent-soft) 12px,var(--accent-soft) 24px); padding:34px 20px; text-align:center; color:var(--text);}
+  .shot-ph-inner{display:inline-flex; flex-direction:column; align-items:center; gap:6px; background:rgba(255,255,255,.92); padding:18px 26px; border-radius:8px; max-width:560px;}
+  .shot-ph .cam{font-size:34px;}
+  .shot-ph strong{color:var(--accent); font-size:15px;}
+  .shot-ph .fn{font-family:"Consolas",monospace; background:var(--surface-alt); border:1px solid var(--border); border-radius:5px; padding:3px 10px; font-size:13px;}
+  .shot-ph .hint{font-size:13.5px; color:var(--text-2);}
+  .shot-ph .note2{font-size:12px; color:var(--muted);}
+
+  dl.terms{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:6px 20px; box-shadow:var(--shadow);}
+  dl.terms dt{font-weight:700; color:var(--accent-deep); margin-top:14px;}
+  dl.terms dd{margin:2px 0 6px; color:var(--text-2);}
+
+  .lead{font-size:17px; color:var(--text-2);}
+  hr.sec{border:none; border-top:1px dashed var(--border); margin:40px 0;}
+
+  .totop{position:fixed; right:22px; bottom:22px; background:var(--accent); color:#fff; width:46px; height:46px; border-radius:50%; display:none; align-items:center; justify-content:center; text-decoration:none; font-size:20px; box-shadow:var(--shadow); z-index:50;}
+  .totop.show{display:flex;}
+
+  .menu-toggle{display:none;}
+  @media(max-width:900px){
+    .toc{position:fixed; left:0; top:0; z-index:100; transform:translateX(-100%); transition:transform .25s; box-shadow:4px 0 24px rgba(0,0,0,.3);}
+    .toc.open{transform:translateX(0);}
+    .menu-toggle{display:flex; position:fixed; left:14px; top:14px; z-index:90; background:var(--accent); color:#fff; border:none; border-radius:8px; width:46px; height:42px; font-size:20px; align-items:center; justify-content:center; box-shadow:var(--shadow); cursor:pointer;}
+    .hero{padding-top:60px;}
+  }
+  @media print{
+    .toc,.totop,.menu-toggle{display:none;}
+    body{background:#fff;}
+    h2{break-after:avoid;}
+    table,figure,.shot,pre.code{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+
+<button class="menu-toggle" onclick="document.querySelector('.toc').classList.toggle('open')" aria-label="目次">☰</button>
+
+<div class="layout">
+
+  <!-- ============ 目次 ============ -->
+  <nav class="toc" id="toc">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#C73E1D"/>
+        <rect x="22" y="34" width="9" height="54" fill="#C73E1D"/>
+        <rect x="69" y="34" width="9" height="54" fill="#C73E1D"/>
+        <rect x="16" y="40" width="68" height="8" fill="#C73E1D"/>
+      </svg>
+      <div>
+        <div class="ttl">Watashi</div>
+        <div class="sub">管理者マニュアル</div>
+      </div>
+    </div>
+    <div class="ver">情シス（管理者）向け／全機能ガイド</div>
+    <a class="xlink" href="index.html">👤 利用者向けマニュアルはこちら →</a>
+
+    <div class="grp">はじめに</div>
+    <a href="#intro" class="nav">0. このガイドについて</a>
+    <a href="#open" class="nav">1. 管理画面の開き方</a>
+    <a href="#flow" class="nav">2. 初期セットアップの流れ</a>
+
+    <div class="grp">タブ別の使い方</div>
+    <a href="#users" class="nav">3. ユーザー</a>
+    <a href="#hosts" class="nav">4. ホスト</a>
+    <a href="#shares" class="nav">5. 共有</a>
+    <a href="#templates" class="nav">6. テンプレート</a>
+    <a href="#userperm" class="nav">7. ユーザー権限</a>
+    <a href="#bundles" class="nav">8. 権限セット</a>
+    <a href="#devices" class="nav">9. 信頼デバイス</a>
+    <a href="#nodes" class="nav">10. 実行ノード</a>
+    <a href="#logs" class="nav">11. 操作ログ</a>
+    <a href="#settings" class="nav">12. システム設定</a>
+
+    <div class="grp">しくみと運用</div>
+    <a href="#auth" class="nav">13. 認証のしくみ</a>
+    <a href="#audit" class="nav">14. 監査ログコード一覧</a>
+    <a href="#trouble" class="nav">15. トラブル対応</a>
+    <a href="#recovery" class="nav">16. 管理者の緊急復旧</a>
+    <a href="#glossary" class="nav">17. 用語集</a>
+    <a href="#shots" class="nav">付録. 画像の差し替え方</a>
+  </nav>
+
+  <!-- ============ 本文 ============ -->
+  <main class="content">
+
+    <header class="hero">
+      <svg class="torii-big" width="240" height="240" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
+        <rect x="22" y="34" width="9" height="54" fill="#fff"/>
+        <rect x="69" y="34" width="9" height="54" fill="#fff"/>
+        <rect x="16" y="40" width="68" height="8" fill="#fff"/>
+      </svg>
+      <div class="wrap">
+        <h1>⛩ Watashi 管理者マニュアル</h1>
+        <p>情シス（管理者）向け。ユーザー・ホスト・権限・ノードの管理から、監査ログ・緊急復旧まで、運用に必要な操作を網羅的に説明します。</p>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <!-- ===================================================== 0 -->
+      <h2 id="intro"><span class="num">0</span>このガイドについて</h2>
+      <p class="lead">この文書は、Watashi の<strong>管理コンソール（管理画面）</strong>を操作する情シス担当者向けのマニュアルです。利用者（エンドユーザー）向けの操作は <a href="index.html">利用者マニュアル</a> を参照してください。</p>
+
+      <div class="key">
+        <strong>管理者ができること（全体像）</strong>
+        Watashi の管理コンソールは <strong>10個のタブ</strong>で構成され、次のことを管理します。
+        <ul style="margin-top:6px">
+          <li><strong>誰が使えるか</strong>：ユーザーの作成・パスワード・ロック・自動ログイン端末</li>
+          <li><strong>どこに繋ぐか</strong>：CIFSファイルサーバー（ホスト）・共有・接続経路（実行ノード）</li>
+          <li><strong>誰が何をできるか</strong>：権限テンプレート × ユーザー権限（共有 × パス単位）</li>
+          <li><strong>何が起きたか</strong>：全操作の監査ログ・システム設定</li>
+        </ul>
+      </div>
+
+      <div class="note">
+        <strong>すべての管理操作は監査ログに残ります</strong>
+        ユーザー追加・削除・権限変更・設定変更など、管理者の操作はすべて <span class="tag">ADMIN_*</span> プレフィックスで操作ログに記録されます（→<a href="#audit">第14章</a>）。「誰が・いつ・何を変えたか」を後から追跡できます。
+      </div>
+
+      <!-- ===================================================== 1 -->
+      <h2 id="open"><span class="num">1</span>管理画面の開き方</h2>
+      <ol class="steps">
+        <li><strong>管理者ユーザー</strong>（<code>IsAdmin = true</code>）でログインします。</li>
+        <li>メイン画面の右上にある朱色の <span class="uibtn">管理</span> ボタンをクリックします。</li>
+        <li>別ウィンドウで <strong>管理コンソール</strong>（タブ表示）が開きます。</li>
+      </ol>
+
+      <div class="note">
+        <strong>一般ユーザーには「管理」ボタンは表示されません</strong>
+        非管理者には管理ボタン自体が出ないため、管理画面には入れません。管理コンソールは<strong>別ウィンドウ</strong>なので、<strong>×（閉じる）</strong>でメイン画面に戻ります（Esc／戻るボタンはありません）。閉じると、権限変更の結果がメイン画面のリモート場所一覧に反映されます。
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 820 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="管理コンソールのタブ構成">
+          <rect x="1" y="1" width="818" height="148" rx="8" fill="#fff" stroke="#D5D9DE"/>
+          <rect x="1" y="1" width="818" height="34" fill="#F0F2F5"/>
+          <text x="16" y="23" font-size="13" font-weight="700" fill="#1B2A41">⛩ Watashi ／ 管理コンソール</text>
+          <g font-size="12.5" fill="#1F2328">
+            <rect x="14" y="48" width="74" height="28" rx="6" fill="#C73E1D"/><text x="51" y="67" text-anchor="middle" fill="#fff">ユーザー</text>
+            <rect x="92" y="48" width="62" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="123" y="67" text-anchor="middle">ホスト</text>
+            <rect x="158" y="48" width="56" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="186" y="67" text-anchor="middle">共有</text>
+            <rect x="218" y="48" width="98" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="267" y="67" text-anchor="middle">テンプレート</text>
+            <rect x="320" y="48" width="98" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="369" y="67" text-anchor="middle">ユーザー権限</text>
+            <rect x="422" y="48" width="84" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="464" y="67" text-anchor="middle">権限セット</text>
+            <rect x="510" y="48" width="96" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="558" y="67" text-anchor="middle">信頼デバイス</text>
+            <rect x="610" y="48" width="84" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="652" y="67" text-anchor="middle">実行ノード</text>
+            <rect x="698" y="48" width="74" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="735" y="67" text-anchor="middle">操作ログ</text>
+            <rect x="14" y="84" width="98" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="63" y="103" text-anchor="middle">システム設定</text>
+          </g>
+          <text x="16" y="135" font-size="12" fill="#6B7280">10個のタブ。左から順に設定していくのが基本（第2章の流れ）。</text>
+        </svg>
+        <figcaption>図1-1：管理コンソールの10タブ</figcaption>
+      </figure>
+
+      <div class="shot">
+        <img class="shot-img" src="images/admin-01-console.png" data-desc="管理コンソールを開いた画面（タブ全体）" alt="管理コンソール">
+        <figcaption>図1-2：管理コンソール（スクリーンショットを差し込めます）</figcaption>
+      </div>
+
+      <!-- ===================================================== 2 -->
+      <h2 id="flow"><span class="num">2</span>初期セットアップの流れ</h2>
+      <p>新しいCIFS共有を利用者に使わせるまでの典型的な順番です。<strong>上から順に</strong>進めると迷いません。</p>
+
+      <figure>
+        <svg viewBox="0 0 760 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="初期セットアップのフロー図">
+          <defs>
+            <marker id="ar" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#C73E1D"/></marker>
+          </defs>
+          <g font-size="13">
+            <rect x="250" y="14"  width="260" height="40" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/><text x="380" y="39" text-anchor="middle" fill="#1F2328">① 実行ノード登録（Agent追加時のみ）</text>
+            <rect x="250" y="70"  width="260" height="40" rx="8" fill="#F9E5E0" stroke="#C73E1D"/><text x="380" y="95" text-anchor="middle" fill="#5C1A0B">② ホスト登録（CIFSサーバー＋資格情報）</text>
+            <rect x="250" y="126" width="260" height="40" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/><text x="380" y="151" text-anchor="middle" fill="#1F2328">③ ホストの接続テスト</text>
+            <rect x="250" y="182" width="260" height="40" rx="8" fill="#F9E5E0" stroke="#C73E1D"/><text x="380" y="207" text-anchor="middle" fill="#5C1A0B">④ 共有登録（SMB共有名）</text>
+            <rect x="250" y="238" width="260" height="40" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/><text x="380" y="263" text-anchor="middle" fill="#1F2328">⑤ 権限テンプレート（必要なら追加）</text>
+            <rect x="250" y="294" width="260" height="40" rx="8" fill="#F9E5E0" stroke="#C73E1D"/><text x="380" y="319" text-anchor="middle" fill="#5C1A0B">⑥ ユーザー登録</text>
+            <rect x="250" y="350" width="260" height="40" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/><text x="380" y="375" text-anchor="middle" fill="#1F2328">⑦ ユーザー権限割当（核心）</text>
+            <rect x="250" y="406" width="260" height="40" rx="8" fill="#1B2A41"/><text x="380" y="431" text-anchor="middle" fill="#fff">⑧ 利用者へ通知（URL＋初期PW）</text>
+          </g>
+          <g stroke="#C73E1D" stroke-width="2">
+            <line x1="380" y1="54" x2="380" y2="68" marker-end="url(#ar)"/>
+            <line x1="380" y1="110" x2="380" y2="124" marker-end="url(#ar)"/>
+            <line x1="380" y1="166" x2="380" y2="180" marker-end="url(#ar)"/>
+            <line x1="380" y1="222" x2="380" y2="236" marker-end="url(#ar)"/>
+            <line x1="380" y1="278" x2="380" y2="292" marker-end="url(#ar)"/>
+            <line x1="380" y1="334" x2="380" y2="348" marker-end="url(#ar)"/>
+            <line x1="380" y1="390" x2="380" y2="404" marker-end="url(#ar)"/>
+          </g>
+        </svg>
+        <figcaption>図2-1：初期セットアップの流れ</figcaption>
+      </figure>
+
+      <div class="tip">
+        <strong>③の接続テストは必ず実施</strong>
+        ホストを登録したら、共有を1つ登録してから接続テストを行います。ここで失敗を早期に発見できれば、ユーザーに権限を渡したあとで「繋がらない」と言われずに済みます。
+      </div>
+
+      <!-- ===================================================== 3 -->
+      <h2 id="users"><span class="num">3</span>ユーザー（タブ）</h2>
+      <p>ユーザーアカウントの作成・削除・管理者フラグ・ロック解除・パスワードリセット・CSV一括取込／出力を行います。</p>
+
+      <h4>一覧の列</h4>
+      <p><code>ID</code> ／ <code>ユーザー名</code> ／ <code>管理者</code> ／ <code>Lock</code>（ロック状態） ／ <code>PW期限</code> ／ <code>最終ログイン</code>。検索ボックスと並び替えで絞り込めます。</p>
+
+      <h4>ツールバーのボタン</h4>
+      <table>
+        <thead><tr><th>ボタン</th><th>動作</th><th>監査ログ</th></tr></thead>
+        <tbody>
+          <tr><td><span class="uibtn ghost">🔄 再読み込み</span></td><td>一覧を最新に更新</td><td>—</td></tr>
+          <tr><td><span class="uibtn ghost">📥 CSV取込</span></td><td>CSVからユーザーを一括登録</td><td><span class="tag">ADMIN_USER_IMPORT</span></td></tr>
+          <tr><td><span class="uibtn ghost">📤 CSV出力</span></td><td>ユーザー一覧をCSVで保存</td><td><span class="tag">ADMIN_USER_EXPORT</span></td></tr>
+          <tr><td><span class="uibtn">🔓 ロック解除</span></td><td>連続失敗でロックされたユーザーを解除</td><td><span class="tag">ADMIN_USER_UNLOCK</span></td></tr>
+          <tr><td><span class="uibtn">🔑 PWリセット</span></td><td>新パスワードをダイアログで設定</td><td><span class="tag">ADMIN_USER_RESET_PW</span></td></tr>
+          <tr><td><span class="uibtn danger">🗑 削除</span></td><td>ユーザーを削除（確認あり）</td><td><span class="tag">ADMIN_USER_DELETE</span></td></tr>
+        </tbody>
+      </table>
+
+      <h3>3-1. 新規ユーザーの作成</h3>
+      <ol class="steps">
+        <li>右パネル「新規ユーザー」で <strong>ユーザー名</strong> を入力。</li>
+        <li><strong>初期パスワード</strong>を入力（👁 目玉アイコンで確認可。<strong>12文字以上／英大・英小・数字・記号を各1文字以上</strong>）。</li>
+        <li>管理者にするなら「<strong>管理者として作成</strong>」にチェック。</li>
+        <li><span class="uibtn">＋ 作成</span> を押す。</li>
+      </ol>
+      <div class="note">
+        <strong>新規・リセットしたユーザーは初回ログインで必ずパスワード変更</strong>
+        作成・リセットされたユーザーは <code>MustChangePassword=true</code> になり、初回ログイン時に強制的にパスワード変更画面が出ます。有効期限は「今 ＋ <code>PasswordExpiryDays</code>（既定90日）」で計算されます。
+      </div>
+
+      <h3>3-2. 管理者フラグの変更・ロック解除・PWリセット・削除</h3>
+      <ul>
+        <li><strong>管理者フラグ</strong>：一覧でユーザーを選び、右パネルの「管理者」チェックを変更して <span class="uibtn ghost">保存</span>。</li>
+        <li><strong>ロック解除</strong>：連続ログイン失敗（既定15回）でロックされたユーザーを選び <span class="uibtn">🔓 ロック解除</span>。</li>
+        <li><strong>PWリセット</strong>：ユーザーを選び <span class="uibtn">🔑 PWリセット</span> → ダイアログ（目玉アイコン付き）で新パスワードを入力。</li>
+        <li><strong>削除</strong>：ユーザーを選び <span class="uibtn danger">🗑 削除</span>。確認ダイアログ：<br>
+          <span class="msg">ユーザー "alice" を削除しますか？　このユーザーの権限・信頼デバイス・セッションも削除されます。</span></li>
+      </ul>
+
+      <div class="danger">
+        <strong>管理者ロックアウト防止（サーバが強制）</strong>
+        次の操作は、サーバが <span class="msg err">400 Bad Request</span> で拒否します。締め出しを防ぐための仕様です。
+        <ul style="margin-top:6px">
+          <li><strong>自分自身を削除</strong>する／<strong>自分自身の管理者フラグを外す</strong></li>
+          <li>他にアクティブな管理者がいない状況で、<strong>最後の管理者を削除／降格</strong>する</li>
+        </ul>
+        ※「アクティブな管理者」はロック中ユーザーを除外して数えます。ロック中の管理者しかいない場合は、先にその管理者を<strong>ロック解除</strong>してから操作してください。万一全管理者が締め出された場合は<a href="#recovery">第16章</a>へ。
+      </div>
+
+      <h3>3-3. CSV一括登録（インポート）</h3>
+      <p><span class="uibtn ghost">📥 CSV取込</span> → ファイル選択 → <strong>モード選択ダイアログ</strong>が出ます。</p>
+      <p><span class="msg">新規ユーザーのみ追加しますか？　[はい] 新規追加のみ（既存はスキップ）／[いいえ] 既存も上書き（PW再設定＋IsAdmin更新）／[キャンセル] 中止</span></p>
+      <table>
+        <thead><tr><th>モード</th><th>動作</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td>新規追加のみ<br>（[はい]）</td><td>既存ユーザー名と衝突する行はスキップ</td><td>「追加する人だけ取り込みたい」</td></tr>
+          <tr><td>上書き<br>（[いいえ]）</td><td>既存のPW再設定＋IsAdmin更新、<code>MustChangePassword=true</code>、失敗ロックも解除</td><td>運用切替の一斉リセット</td></tr>
+        </tbody>
+      </table>
+      <h4>CSVフォーマット</h4>
+      <p>UTF-8（BOM推奨）、1行目はヘッダー必須。必須列 <code>Username</code>, <code>Password</code> ／ 任意列 <code>IsAdmin</code>（省略時 false）。列順は問いません。</p>
+      <pre class="code">Username,Password,IsAdmin
+alice,SecretP@ss1234!!,false
+bob,AdminP@ss5678!!,true
+carol,CarolP@ss9012!!,false</pre>
+      <ul>
+        <li>パスワードはポリシー（12字＋大小数記号）を満たすこと。満たさない行は失敗として返り、<strong>他の行は処理されます</strong>（全行を1件ずつ処理）。</li>
+        <li>値にカンマ・改行・ダブルクォートを含む場合は <code>"..."</code> で囲む（RFC4180風）。</li>
+        <li>完了ダイアログに <strong>追加 N / 更新 N / スキップ N / 失敗 N</strong> と、失敗行の理由（行番号＋ユーザー名＋メッセージ、先頭10件）が表示されます。</li>
+      </ul>
+
+      <h3>3-4. CSVエクスポート（棚卸し用）</h3>
+      <p><span class="uibtn ghost">📤 CSV出力</span> → 保存先を指定。ファイル名は <code>watashi-users-YYYYMMDD-HHmmss.csv</code>。<br>
+      列：<code>Username, IsAdmin, IsLocked, MustChangePassword, PasswordExpiresAt, LastLoginAt, CreatedAt</code>。<strong>パスワード列は含まれません</strong>（DBに平文がないため）。BOM付きUTF-8でExcelでそのまま開けます（数式インジェクション対策済み）。</p>
+
+      <div class="tip">
+        <strong>退職者の扱い</strong>
+        削除でも構いませんが、監査ログとの紐付けが切れます。証跡を残すなら「<strong>全デバイス失効</strong>（第9章）＋<strong>PWリセット</strong>」で無効化する運用がおすすめです。
+      </div>
+
+      <div class="shot">
+        <img class="shot-img" src="images/admin-02-users.png" data-desc="ユーザー管理タブ（一覧＋右の作成フォーム）" alt="ユーザー管理">
+        <figcaption>図3-1：ユーザー管理タブ</figcaption>
+      </div>
+
+      <!-- ===================================================== 4 -->
+      <h2 id="hosts"><span class="num">4</span>ホスト（CIFSファイルサーバー）</h2>
+      <p>中央サーバー／Agent から接続する CIFS サーバーを登録します。</p>
+      <h4>入力項目（右パネル）</h4>
+      <table>
+        <thead><tr><th>項目</th><th>説明・例</th></tr></thead>
+        <tbody>
+          <tr><td>表示名</td><td>UI上の名前。例：<code>経理部ファイルサーバ</code></td></tr>
+          <tr><td>ホスト名 / IP</td><td>例：<code>fileserver01.corp.local</code></td></tr>
+          <tr><td>ポート</td><td>SMBの待受ポート（デフォルト <code>445</code>）</td></tr>
+          <tr><td>実行ノード</td><td>Direct（中央サーバー自身）／Agent（踏み台）から選択</td></tr>
+          <tr><td>CIFSユーザー</td><td>例：<code>WATASHI\svc-cifs</code></td></tr>
+          <tr><td>CIFSパスワード</td><td>👁で確認可。<strong>AES-256-GCMで即暗号化</strong>してDB保存（平文保存なし／APIレスポンスにも出ない）</td></tr>
+        </tbody>
+      </table>
+
+      <h4>操作と監査ログ</h4>
+      <table>
+        <thead><tr><th>ボタン</th><th>動作</th><th>監査ログ</th></tr></thead>
+        <tbody>
+          <tr><td><span class="uibtn">＋ 新規作成</span></td><td>入力内容で新規登録</td><td><span class="tag">ADMIN_HOST_CREATE</span></td></tr>
+          <tr><td><span class="uibtn ghost">保存</span></td><td>選択中ホストを更新（パスワード欄を空にすると既存PWを保持）</td><td><span class="tag">ADMIN_HOST_UPDATE</span></td></tr>
+          <tr><td><span class="uibtn danger">🗑 削除</span></td><td>ホスト削除（確認あり）</td><td><span class="tag">ADMIN_HOST_DELETE</span></td></tr>
+          <tr><td><span class="uibtn">🔌 接続テスト</span></td><td>SMBセッション確立を試行</td><td><span class="tag">ADMIN_HOST_TEST</span></td></tr>
+        </tbody>
+      </table>
+
+      <div class="warn">
+        <strong>接続テストには共有が1つ以上必要</strong>
+        接続テストは登録済みの共有を1つ使って SMB セッションを張ります。<strong>先に共有（第5章）を1つ登録</strong>しておいてください。結果は <span class="msg ok">✓ 接続できました。</span> または <span class="msg err">✗ 接続に失敗しました。</span>。失敗時は CIFS資格情報・ファイアウォール・ノード経路を確認します。
+      </div>
+
+      <!-- ===================================================== 5 -->
+      <h2 id="shares"><span class="num">5</span>共有（Share）</h2>
+      <p>ホストに紐づく SMB 共有名と、UI上の表示名を登録します。</p>
+      <table>
+        <thead><tr><th>入力</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>対象ホスト</td><td>プルダウンから選択</td></tr>
+          <tr><td>共有名 (SMBの共有名)</td><td>SMB上の実際の共有名。例：<code>documents</code></td></tr>
+          <tr><td>表示名</td><td>UI上の名前。例：<code>経理部ドキュメント</code></td></tr>
+        </tbody>
+      </table>
+      <p>同一ホスト内で <code>共有名（ShareName）</code> はユニーク制約です（同じ共有を複数の表示名で重複登録はできません）。監査ログ：<span class="tag">ADMIN_SHARE_CREATE</span> / <span class="tag">_UPDATE</span> / <span class="tag">_DELETE</span>。</p>
+
+      <!-- ===================================================== 6 -->
+      <h2 id="templates"><span class="num">6</span>テンプレート（権限テンプレート）</h2>
+      <p>操作権限の組み合わせに名前を付けて登録します。チェックは <strong>Read / Write / Delete / Rename</strong> の4つ。</p>
+
+      <h4>初期シード（新規DB）</h4>
+      <table>
+        <thead><tr><th>名前</th><th>Read</th><th>Write</th><th>Delete</th><th>Rename</th></tr></thead>
+        <tbody>
+          <tr><td>フルアクセス</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>読取+書込</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+          <tr><td>読取のみ</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        </tbody>
+      </table>
+      <p>一覧は権限の強さスコア（Read+Write+Delete+Rename の合計）の<strong>降順</strong>でクライアント側ソートされるため、フルアクセスが先頭に来ます。ユーザー権限タブの「権限テンプレート」ドロップダウンも<strong>デフォルトはフルアクセス</strong>です。</p>
+
+      <h3>6-1. 各権限でできること（重要）</h3>
+      <p>権限テンプレートのチェックは、Watashiクライアントの操作に次のように対応します。利用者に「なぜできない/できる」を説明するときの根拠になります。</p>
+      <table>
+        <thead><tr><th>権限</th><th>できること</th><th>注意・できないこと</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Read</strong></td><td>リモート一覧表示・フォルダ移動・ダウンロード</td><td>Readが無いと一覧取得もダウンロードも拒否</td></tr>
+          <tr><td><strong>Write</strong></td><td>アップロード・新規フォルダ作成</td><td>Writeだけでは削除もリネームもできない</td></tr>
+          <tr><td><strong>Delete</strong></td><td>ファイル/フォルダ削除</td><td>許可パスのルート自体はDeleteがあっても削除不可</td></tr>
+          <tr><td><strong>Rename</strong></td><td>同じ親フォルダ内でのリネーム</td><td>実行にはRenameに加え新名パスへのWriteも必要。フォルダ間移動は不可</td></tr>
+        </tbody>
+      </table>
+
+      <h4>よく使う組み合わせと利用者の体験</h4>
+      <table>
+        <thead><tr><th>テンプレート例</th><th>利用者ができること</th></tr></thead>
+        <tbody>
+          <tr><td>読取のみ</td><td>一覧・移動・ダウンロードのみ。アップロード/新規フォルダ/削除/リネームは権限エラー</td></tr>
+          <tr><td>読取+書込</td><td>＋アップロード・新規フォルダ作成。削除とリネームは不可</td></tr>
+          <tr><td>読取+書込+Rename</td><td>＋ファイル名変更。削除は不可</td></tr>
+          <tr><td>フルアクセス</td><td>許可パス配下の読み・書き・削除・リネームすべて可（ルート自体の削除/リネームは禁止）</td></tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <strong>使用中のテンプレートは削除できません</strong>
+        どこかのユーザー権限で使われているテンプレートは、FK制約で守られており削除するとサーバーエラーになります。先に該当する権限割当を外してください。監査ログ：<span class="tag">ADMIN_TEMPLATE_CREATE</span> / <span class="tag">_UPDATE</span> / <span class="tag">_DELETE</span>。
+      </div>
+
+      <!-- ===================================================== 7 -->
+      <h2 id="userperm"><span class="num">7</span>ユーザー権限（核心機能）</h2>
+      <p class="lead">Watashi の中心となる機能。<strong>ユーザー × 共有 × サブパス × テンプレート</strong>の粒度で「誰がどこで何をできるか」を割り当てます。</p>
+
+      <p>画面は <strong>左：ユーザー一覧（検索＋件数バッジ）</strong>／<strong>右：選択ユーザーの付与済みパス＋追加カード</strong>の構成です。</p>
+
+      <figure>
+        <svg viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ユーザー権限画面の構成">
+          <rect x="1" y="1" width="798" height="358" rx="8" fill="#fff" stroke="#D5D9DE"/>
+          <!-- left -->
+          <rect x="10" y="10" width="220" height="340" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/>
+          <text x="24" y="34" font-size="13" font-weight="700" fill="#1B2A41">ユーザー [14]</text>
+          <rect x="20" y="44" width="200" height="22" rx="5" fill="#fff" stroke="#9CA3AF"/><text x="28" y="60" font-size="11" fill="#6B7280">🔍 絞り込み...</text>
+          <g font-size="12">
+            <rect x="20" y="74" width="200" height="30" rx="5" fill="#C73E1D"/><text x="30" y="93" fill="#fff">tanaka</text><text x="200" y="93" text-anchor="end" fill="#fff">4件</text>
+            <text x="30" y="124" fill="#1F2328">suzuki</text><text x="210" y="124" text-anchor="end" fill="#6B7280">1件</text>
+            <text x="30" y="150" fill="#1F2328">ito</text><text x="210" y="150" text-anchor="end" fill="#6B7280">0件</text>
+          </g>
+          <!-- right -->
+          <text x="248" y="34" font-size="13" font-weight="700" fill="#5C1A0B">👤 tanaka ／ 付与済みのパス 4件</text>
+          <rect x="248" y="44" width="540" height="120" rx="6" fill="#fff" stroke="#D5D9DE"/>
+          <g font-size="11" fill="#1F2328">
+            <text x="258" y="62" font-weight="700" fill="#6B7280">ホスト ｜ 共有 ｜ パス ｜ テンプレ ｜ 表示名</text>
+            <line x1="256" y1="68" x2="780" y2="68" stroke="#E5E7EB"/>
+            <text x="258" y="86">test ｜ watashitest ｜ / ｜ フルアクセス</text>
+            <text x="258" y="106">test ｜ watashitest ｜ /新しいフォルダ ｜ 読取のみ</text>
+            <text x="258" y="126">test ｜ watashitest ｜ /プロジェクト ｜ フルアクセス</text>
+            <text x="258" y="146">test2 ｜ ステージ共有 ｜ / ｜ 読取+書込</text>
+          </g>
+          <!-- add card -->
+          <rect x="248" y="174" width="540" height="176" rx="6" fill="#F9E5E0" stroke="#C73E1D"/>
+          <text x="258" y="194" font-size="12" font-weight="700" fill="#5C1A0B">＋ パスを追加</text>
+          <g font-size="11" fill="#1F2328">
+            <text x="258" y="216">サーバー: [test ▼]    共有: [watashitest ▼]</text>
+            <text x="258" y="238">権限テンプレート: [フルアクセス ▼]</text>
+            <text x="258" y="260">許可パス: [/dept-A]    表示名(任意): [経理部 2026]</text>
+            <text x="258" y="282">ブラウズ: [/dept-A]  [開く]   2025 / 2026 / archive</text>
+          </g>
+          <rect x="258" y="300" width="180" height="30" rx="6" fill="#C73E1D"/><text x="348" y="320" text-anchor="middle" font-size="12" fill="#fff">＋ このパスを追加</text>
+        </svg>
+        <figcaption>図7-1：ユーザー権限画面（左：ユーザー一覧／右：付与済み＋追加カード）</figcaption>
+      </figure>
+
+      <h3>7-1. パスを追加する手順</h3>
+      <ol class="steps">
+        <li>左でユーザーをクリック（検索で絞り込み可）。件数バッジ（例 <code>tanaka 4件</code>）で付与状況がわかります。</li>
+        <li>下の「<strong>＋ パスを追加</strong>」で <strong>サーバー</strong> を選ぶ。</li>
+        <li><strong>共有</strong>が自動でそのサーバー配下に絞られるので選ぶ。</li>
+        <li><strong>権限テンプレート</strong>を選ぶ（デフォルトはフルアクセス）。</li>
+        <li><strong>許可パス</strong>を入力（共有全体なら <code>/</code>、サブフォルダなら <code>/dept-A</code>）。任意で<strong>表示名</strong>。</li>
+        <li>（任意）「<strong>ブラウズ</strong>」で実在ディレクトリを開き、サブフォルダをクリックすると許可パスに自動反映。</li>
+        <li><span class="uibtn">＋ このパスを追加</span> を押す → <span class="msg ok">パスを追加しました。</span></li>
+      </ol>
+
+      <div class="key">
+        <strong>1ユーザー × 1共有に複数のパス権限を持たせられる</strong>
+        例：<code>watashitest</code> 共有で <code>/dept-A</code> はフルアクセス、<code>/shared/templates</code> は読取のみ — のように、共有の中のフォルダごとに別の権限を与えられます。
+      </div>
+
+      <h4>特殊な制約</h4>
+      <ul>
+        <li>許可パスのルート（例 <code>/dept-A</code> 自体）は<strong>削除/リネーム不可</strong>（誤削除防止）。中身は操作可。</li>
+        <li>リネームは<strong>同じ親ディレクトリ内のみ</strong>（隠れた移動を防止）。</li>
+      </ul>
+
+      <h4>削除</h4>
+      <p>付与済みパスを選び <span class="uibtn danger">🗑 選択を削除</span>。確認ダイアログ：<br>
+      <span class="msg">この権限を削除しますか？</span>（対象のホスト/共有/パスが示されます）。監査ログ：<span class="tag">ADMIN_PERMISSION_CREATE</span> / <span class="tag">ADMIN_PERMISSION_DELETE</span>。</p>
+
+      <h3>7-2. 📦 セットから一括適用 ／ 📋 他ユーザーから全件コピー</h3>
+      <p>「付与済みのパス」上のクイック追加カードから、複数行をまとめて付与できます。</p>
+      <ul>
+        <li><strong>📦 セットから一括適用</strong>：権限セット（第8章）を選び <span class="uibtn">適用</span>。確認で <strong>[はい] 既存重複も上書き／[いいえ] 重複はスキップ（推奨）／[キャンセル]</strong>。結果：<span class="msg ok">セット適用: 追加 N / 更新 N / スキップ N</span>（監査：<span class="tag">ADMIN_BUNDLE_APPLY</span>）。</li>
+        <li><strong>📋 他ユーザーから全件コピー</strong>：コピー元ユーザーを選び <span class="uibtn ghost">コピー</span>。同じ確認ダイアログ。結果：<span class="msg ok">権限コピー: 追加 N / 更新 N / スキップ N</span>（監査：<span class="tag">ADMIN_PERMISSION_COPY</span>）。</li>
+      </ul>
+
+      <!-- ===================================================== 8 -->
+      <h2 id="bundles"><span class="num">8</span>権限セット（PermissionBundle）</h2>
+      <p>「経理部標準」「営業部標準」のように、<strong>複数の権限行をひとまとめにした再利用可能セット</strong>です。同じパス群を毎回手入力する手間を解消します。</p>
+
+      <h4>ワークフロー</h4>
+      <ol class="steps">
+        <li><span class="uibtn ghost">+ 新規セット</span> で名前を入力 → 空のセットが作成される。</li>
+        <li>左でセットを選択して右に詳細表示。</li>
+        <li>「<strong>＋ セットに行を追加</strong>」で 共有／テンプレート／許可パス／表示名 を入力して <span class="uibtn ghost">追加</span>。<br><span class="msg">行を追加しました。「保存」で確定してください。</span></li>
+        <li>すべての行を入れたら <span class="uibtn">💾 保存</span> で確定。</li>
+        <li><strong>ユーザー権限</strong>タブに移動し、各ユーザーへ「セットから一括適用」。</li>
+      </ol>
+
+      <div class="note">
+        <strong>セットはスナップショット展開</strong>
+        セットの編集は<strong>「全件置換」</strong>（差分編集ではない）です。セット自体を削除しても、<strong>すでに適用済みのユーザー権限は残ります</strong>（リンクではなく、適用時に展開される方式）。監査ログ：<span class="tag">ADMIN_BUNDLE_CREATE</span> / <span class="tag">_UPDATE</span> / <span class="tag">_DELETE</span> / <span class="tag">_APPLY</span>。
+      </div>
+
+      <!-- ===================================================== 9 -->
+      <h2 id="devices"><span class="num">9</span>信頼デバイス</h2>
+      <p>ユーザーの「このPCを記憶する（自動ログイン）」を管理します。</p>
+      <h4>一覧の列</h4>
+      <p><code>ID</code> ／ <code>ユーザー</code> ／ <code>マシン</code> ／ <code>Windowsユーザー</code> ／ <code>登録</code> ／ <code>最終使用</code> ／ <code>失効</code>。検索で絞り込めます。</p>
+      <ul>
+        <li><strong>1ユーザー＝1デバイスのみ</strong>（DBユニーク制約）。別PCで記憶をオンにすると古い方は失効します。</li>
+        <li><strong>退職者対応／紛失対応</strong>：対象の行を選び <span class="uibtn danger">選択ユーザーを失効</span>。確認後、その自動ログインは拒否され、ユーザーは手動ログインに戻ります。</li>
+      </ul>
+      <p>未選択だと <span class="msg">対象ユーザーのデバイス行を選択してください。</span> と出ます。監査ログ：<span class="tag">ADMIN_USER_REVOKE_DEVICES</span>。</p>
+
+      <!-- ===================================================== 10 -->
+      <h2 id="nodes"><span class="num">10</span>実行ノード</h2>
+      <p>CIFSへの接続経路です。<strong>Direct</strong>＝中央サーバー自身、<strong>Agent</strong>＝踏み台のエージェント。</p>
+
+      <figure>
+        <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ノードルーティング図">
+          <defs><marker id="a2" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6B7280"/></marker></defs>
+          <rect x="20" y="90" width="120" height="50" rx="8" fill="#1B2A41"/><text x="80" y="120" text-anchor="middle" font-size="12" fill="#fff">中央サーバー</text>
+          <!-- direct -->
+          <rect x="300" y="20" width="150" height="44" rx="8" fill="#E6F5EB" stroke="#1F883D"/><text x="375" y="47" text-anchor="middle" font-size="12" fill="#1F883D">CIFS（Direct）</text>
+          <line x1="140" y1="105" x2="298" y2="50" stroke="#6B7280" stroke-width="2" marker-end="url(#a2)"/>
+          <text x="200" y="68" font-size="10" fill="#6B7280">Direct＝直接SMB</text>
+          <!-- agent -->
+          <rect x="300" y="100" width="120" height="44" rx="8" fill="#F9E5E0" stroke="#C73E1D"/><text x="360" y="127" text-anchor="middle" font-size="12" fill="#5C1A0B">Agent A</text>
+          <rect x="560" y="100" width="170" height="44" rx="8" fill="#E6F5EB" stroke="#1F883D"/><text x="645" y="127" text-anchor="middle" font-size="12" fill="#1F883D">社内CIFS</text>
+          <line x1="140" y1="115" x2="298" y2="120" stroke="#6B7280" stroke-width="2" marker-end="url(#a2)"/>
+          <line x1="420" y1="122" x2="558" y2="122" stroke="#6B7280" stroke-width="2" marker-end="url(#a2)"/>
+          <text x="200" y="138" font-size="10" fill="#6B7280">HTTP(S)+mTLS</text>
+          <!-- chain -->
+          <rect x="300" y="170" width="120" height="44" rx="8" fill="#F9E5E0" stroke="#C73E1D"/><text x="360" y="197" text-anchor="middle" font-size="12" fill="#5C1A0B">Agent A</text>
+          <rect x="470" y="170" width="120" height="44" rx="8" fill="#F9E5E0" stroke="#C73E1D"/><text x="530" y="197" text-anchor="middle" font-size="12" fill="#5C1A0B">Agent B</text>
+          <rect x="630" y="170" width="100" height="44" rx="8" fill="#E6F5EB" stroke="#1F883D"/><text x="680" y="197" text-anchor="middle" font-size="11" fill="#1F883D">CIFS</text>
+          <line x1="420" y1="192" x2="468" y2="192" stroke="#6B7280" stroke-width="2" marker-end="url(#a2)"/>
+          <line x1="590" y1="192" x2="628" y2="192" stroke="#6B7280" stroke-width="2" marker-end="url(#a2)"/>
+          <text x="300" y="166" font-size="10" fill="#6B7280">1段チェーン（経由Agent）</text>
+        </svg>
+        <figcaption>図10-1：ノードのルーティング（Direct／Agent／1段チェーン）</figcaption>
+      </figure>
+
+      <h4>入力項目</h4>
+      <table>
+        <thead><tr><th>項目</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>名称</td><td>Agentの場合は Agent側 <code>AgentId</code> と一致させる（例 <code>bastion-a</code>）</td></tr>
+          <tr><td>種別</td><td>Direct / Agent</td></tr>
+          <tr><td>Endpoint</td><td>AgentのURL。例 <code>http://bastion-a:8081</code> または <code>https://bastion-a:8443</code></td></tr>
+          <tr><td>別のAgentを経由する（1段チェーン）</td><td>入口Agentを選択（例 <code>bastion-a</code>）</td></tr>
+          <tr><td>MaxConcurrency</td><td>Agentの同時接続上限（デフォルト 20、1以上）</td></tr>
+        </tbody>
+      </table>
+
+      <h4>HealthStatus</h4>
+      <table>
+        <thead><tr><th>状態</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag">Healthy</span></td><td>ハートビート受信済み（Agent）／起動中（Direct）</td></tr>
+          <tr><td><span class="tag">Unhealthy</span></td><td>90秒以上ハートビートなし（Agentのみ）。中央はアクセスを即<span class="msg err">503</span></td></tr>
+          <tr><td><span class="tag">Unknown</span></td><td>まだ一度もハートビート未受信（新規Agent／Gateway配下で直接heartbeatできない構成）</td></tr>
+        </tbody>
+      </table>
+      <p>削除前にホストでの使用チェックがあります。監査ログ：<span class="tag">ADMIN_NODE_CREATE</span> / <span class="tag">_UPDATE</span> / <span class="tag">_DELETE</span> / <span class="tag">_REGEN_KEY</span>。</p>
+
+      <!-- ===================================================== 11 -->
+      <h2 id="logs"><span class="num">11</span>操作ログ</h2>
+      <p>全ファイル操作と管理者操作の監査ログを閲覧・出力します。</p>
+      <h4>フィルタ</h4>
+      <ul>
+        <li><strong>User</strong>：ユーザー名で完全一致</li>
+        <li><strong>Operation</strong>：<code>READ</code> / <code>WRITE</code> / <code>DELETE</code> / <code>RENAME</code> または <code>ADMIN_*</code></li>
+        <li><strong>From / To (UTC)</strong>：期間指定</li>
+        <li><span class="uibtn">🔍 検索</span> でクエリ実行</li>
+      </ul>
+
+      <h4>カラム</h4>
+      <p><code>ID</code> ／ <code>時刻</code> ／ <code>User</code> ／ <code>端末</code> ／ <code>Op</code> ／ <code>Result</code>（success/failure）／ <code>ホスト / 共有</code> ／ <code>Path</code> ／ <code>Bytes</code> ／ <code>Dur(ms)</code> ／ <code>Err</code>。<br>
+      「ホスト / 共有」列はホスト名（1行目）と共有表示名（2行目）の2行表示。<strong>Path列にホバー</strong>すると「ホスト / 共有 :: パス」のフル表記がツールチップで出ます（例 <code>経理部FS / share-keiri :: /dept-A/file.txt</code>）。ログ取得後にホスト/共有が削除された場合は <code>(削除済 host#42)</code> のように表示されます（ログ自体は保全）。</p>
+
+      <h4>CSVエクスポート</h4>
+      <p><span class="uibtn ghost">📤 CSV出力</span>で、現在のフィルタ条件のまま全件CSVをダウンロード。BOM付きUTF-8でExcelでそのまま開けます（数式インジェクション対策済み）。列に <code>Location</code>（「ホスト / 共有 :: パス」）・<code>HostName</code>・<code>ShareName</code> を含み、<code>HostId/ShareId</code> も後方互換で残ります。</p>
+
+      <div class="note">
+        <strong>保管期間</strong>
+        デフォルト365日（<code>AuditLogRetentionDays</code> で変更可。<code>0</code>以下で永久保管）。日次バッチ <code>AuditLogPurgeService</code> が古いログを自動削除し、月次VACUUMでDBを圧縮します。
+      </div>
+
+      <!-- ===================================================== 12 -->
+      <h2 id="settings"><span class="num">12</span>システム設定</h2>
+      <p>左の一覧でKeyを選び、右の「値を編集」で値を変更して <span class="uibtn">💾 保存</span>。監査ログ：<span class="tag">ADMIN_SETTING_UPDATE</span>。</p>
+      <table>
+        <thead><tr><th>キー</th><th>用途</th><th>既定</th></tr></thead>
+        <tbody>
+          <tr><td><code>PasswordExpiryDays</code></td><td>パスワード有効期限（日）</td><td>90</td></tr>
+          <tr><td><code>PasswordWarningDays</code></td><td>期限警告を出し始める日数</td><td>14</td></tr>
+          <tr><td><code>AgentMaxConcurrency</code></td><td>Agent新規登録時のデフォルト同時接続上限</td><td>20</td></tr>
+          <tr><td><code>SessionIdleMinutes</code></td><td>クライアントのアイドルタイムアウト（分）</td><td>30</td></tr>
+          <tr><td><code>AuditLogRetentionDays</code></td><td>監査ログ保管日数（0以下で永久保管）</td><td>365</td></tr>
+          <tr><td><code>MaxFailedLoginAttempts</code></td><td>連続ログイン失敗で自動ロックするまでの回数</td><td>15</td></tr>
+        </tbody>
+      </table>
+
+      <div class="warn">
+        <strong>反映タイミングに注意</strong>
+        <ul style="margin-top:6px">
+          <li><code>PasswordExpiryDays</code> を変えても<strong>既存ユーザーの期限は再計算されません</strong>。次回パスワード変更時から新しい期限が適用されます。</li>
+          <li><code>SessionIdleMinutes</code> は<strong>ログイン中のクライアントには次回ログインまで反映されません</strong>（ログイン応答で配信されるため）。</li>
+          <li><code>AuditLogRetentionDays</code> は<strong>次の日次パージ実行時</strong>に反映（起動30秒後＋以降24時間毎）。即時反映したいならサーバ再起動＋30秒待ち。</li>
+          <li><code>MaxFailedLoginAttempts</code> は小さくするほど総当たり耐性が上がりますが、誤入力ロックも起きやすくなります。</li>
+        </ul>
+      </div>
+
+      <!-- ===================================================== 13 -->
+      <h2 id="auth"><span class="num">13</span>認証のしくみ（運用上の挙動）</h2>
+
+      <h3>13-1. リフレッシュトークンのローテーション＋盗難検知</h3>
+      <ul>
+        <li>リフレッシュ成功のたびに<strong>新トークンを発行し、旧トークンは即失効</strong>します。</li>
+        <li><strong>失効済みトークンが再提示された場合は再利用とみなし、当該ユーザーのアクティブな全リフレッシュトークンを失効</strong>（<span class="tag">token_reuse_detected</span>）。盗難検知機構です。</li>
+        <li>この場合、該当ユーザーは強制再ログインになります。</li>
+      </ul>
+      <div class="note">
+        <strong>あるユーザーが頻繁に「再ログインしてください」になる場合</strong>
+        複数端末での同一アカウント併用、Credential Managerに古いトークンが残存、などが原因のことがあります。対象ユーザーに「全デバイス失効」→再度信頼デバイス登録を案内してください。
+      </div>
+
+      <h3>13-2. ログインのレート制限</h3>
+      <p><code>/api/auth/login</code> と <code>/api/auth/auto-login</code> に <strong>IP単位の固定ウィンドウ制限</strong>（デフォルト 10回/分、<code>Auth:LoginPerMinutePerIp</code>）。超過すると <span class="msg err">429 Too Many Requests</span>。内部NAT等で同一IPに多数ユーザーがいる環境では値を上げてください（例 50）。</p>
+
+      <h3>13-3. その他</h3>
+      <ul>
+        <li>パスワードは bcrypt（ソルト自動付与）。アクセストークンはJWT(HS256)15分。リフレッシュは30日。</li>
+        <li>連続ログイン失敗が <code>MaxFailedLoginAttempts</code>（既定15）に達すると自動ロック。</li>
+        <li>リフレッシュのたびにDB状態を確認：ユーザーがロック／信頼デバイスが失効なら 401、<code>MustChangePassword</code> ならフラグ付与。</li>
+      </ul>
+
+      <!-- ===================================================== 14 -->
+      <h2 id="audit"><span class="num">14</span>監査ログコード一覧</h2>
+      <p>操作ログの <code>Op</code> 列に出るコードの早見表です。フィルタは<strong>完全一致</strong>なので、まとめて見たいときはCSV出力→Excelで <code>ADMIN_</code> 絞り込みが便利です。</p>
+      <table>
+        <thead><tr><th>コード</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag">READ</span> <span class="tag">WRITE</span> <span class="tag">DELETE</span> <span class="tag">RENAME</span></td><td>利用者のファイル操作</td></tr>
+          <tr><td><span class="tag">ADMIN_USER_*</span></td><td>ユーザー管理（CREATE/UPDATE/DELETE/UNLOCK/RESET_PW/REVOKE_DEVICES/IMPORT/EXPORT）</td></tr>
+          <tr><td><span class="tag">ADMIN_HOST_*</span></td><td>ホスト管理（CREATE/UPDATE/DELETE/TEST）</td></tr>
+          <tr><td><span class="tag">ADMIN_SHARE_*</span></td><td>共有管理（CREATE/UPDATE/DELETE）</td></tr>
+          <tr><td><span class="tag">ADMIN_TEMPLATE_*</span></td><td>テンプレート管理（CREATE/UPDATE/DELETE）</td></tr>
+          <tr><td><span class="tag">ADMIN_PERMISSION_*</span></td><td>権限管理（CREATE/DELETE/COPY）</td></tr>
+          <tr><td><span class="tag">ADMIN_BUNDLE_*</span></td><td>権限セット（CREATE/UPDATE/DELETE/APPLY）</td></tr>
+          <tr><td><span class="tag">ADMIN_NODE_*</span></td><td>ノード管理（CREATE/UPDATE/DELETE/REGEN_KEY）</td></tr>
+          <tr><td><span class="tag">ADMIN_SETTING_UPDATE</span></td><td>システム設定変更</td></tr>
+        </tbody>
+      </table>
+      <div class="tip">
+        <strong>「だれが何時に何を変えたか」を追跡したいとき</strong>
+        操作ログタブの Op フィルタは部分一致（<code>ADMIN_</code> だけ）では絞れず<strong>完全一致</strong>です（例 <code>ADMIN_USER_CREATE</code>）。横断的に見るなら CSV出力 → Excel側で <code>ADMIN_</code> フィルタが確実です。
+      </div>
+
+      <!-- ===================================================== 15 -->
+      <h2 id="trouble"><span class="num">15</span>トラブル対応</h2>
+      <table>
+        <thead><tr><th>症状</th><th>対処</th></tr></thead>
+        <tbody>
+          <tr><td>あるユーザーだけ全画面でエラー</td><td>操作ログでそのユーザーを絞り込み、<code>denied</code>（権限不足）/<code>not_found</code>（ホスト・共有削除済）/<code>parent_changed</code>（リネーム禁止違反）を確認</td></tr>
+          <tr><td>ログインの 429 が頻発</td><td>同一IPが1分10回超。NAT等なら <code>Auth:LoginPerMinutePerIp</code> を上げる。攻撃の可能性もあるのでまずIP確認</td></tr>
+          <tr><td>頻繁に「再ログイン」になる</td><td>リフレッシュトークン再利用検知の可能性。対象に「全デバイス失効」→再登録を案内（→<a href="#auth">13章</a>）</td></tr>
+          <tr><td>Agentが突然 Unhealthy</td><td>Agentサービス稼働確認 → Agentログ確認 → 中央への疎通 → 中央DBの <code>ExecutionNodes.Name</code> とAgent側 <code>Agent:AgentId</code> 一致 →（mTLS）証明書の期限・サムプリント</td></tr>
+          <tr><td>Agentが 503 頻発</td><td><code>MaxConcurrency</code> 超過 → ノードタブで値を上げる。同時転送数・Health状態も確認</td></tr>
+          <tr><td>操作が遅い／SMB操作毎にハンドシェイク</td><td>中央 <code>appsettings.json</code> の <code>Cifs:SessionIdleSeconds</code>（60→120等）/<code>Cifs:MaxSessionsPerKey</code>（4→8等）を増やす（要再起動）</td></tr>
+          <tr><td>ストレージ逼迫</td><td>AuditLogs肥大の可能性。<code>AuditLogRetentionDays</code> を短縮、または日次パージ稼働を確認。即時は古いログをDELETE＋VACUUM</td></tr>
+          <tr><td>全ユーザーにPW変更を強制したい</td><td>SQL：<code>UPDATE Users SET MustChangePassword=1, PasswordExpiresAt=datetime('now');</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Encryption MasterKey を変更したくなった</h3>
+      <div class="danger">
+        <strong>既存の暗号化済みCIFSパスワードはすべて復号不能になります</strong>
+        マスターキーを変えると、全ホストのCIFSパスワードを再設定する必要があります。手順：①新キー生成（旧キーは捨てない）②旧キーで全ホストの平文を運用記録から取得 ③<code>appsettings.json</code> のMasterKeyを差し替え ④サーバ再起動 ⑤全ホストの編集画面でパスワード再入力（新キーで再暗号化）。
+      </div>
+
+      <!-- ===================================================== 16 -->
+      <h2 id="recovery"><span class="num">16</span>管理者の緊急復旧（最悪のケース）</h2>
+      <p>別の管理者がいれば、その人が<strong>ユーザータブ → 🔓ロック解除／🔑PWリセット</strong>で復旧できます。<strong>他に管理者がいない</strong>場合のみ、DBを直接更新します。</p>
+
+      <h3>16-1. ロック解除だけ（パスワードは覚えている）</h3>
+      <p><code>sqlite3.exe</code> があれば：</p>
+      <pre class="code">sqlite3.exe C:\ProgramData\Watashi\watashi.db
+sqlite&gt; UPDATE Users SET IsLocked=0, FailedLoginCount=0 WHERE Username='admin';
+sqlite&gt; .quit</pre>
+
+      <h3>16-2. ロック＋パスワード忘れの両方（完全復旧）</h3>
+      <p>サーバ publish フォルダの <code>BCrypt.Net-Next.dll</code> で新ハッシュを生成し、<code>Microsoft.Data.Sqlite.dll</code> でDBに直接UPDATEします（<code>sqlite3.exe</code> 不要）。</p>
+      <pre class="code"><span class="cm"># === 環境に合わせて書き換え ===</span>
+$publishDir  = "C:\Program Files\Watashi\Server"   <span class="cm"># Watashi.Server.exe のフォルダ</span>
+$dbPath      = "C:\ProgramData\Watashi\watashi.db"
+$newPassword = "RecoverMe2026!@#"                  <span class="cm"># 12字＋大小数記号</span>
+
+<span class="cm"># 0. サーバ停止 (SQLite 排他ロック解放)</span>
+Stop-Service Watashi.Server -ErrorAction SilentlyContinue
+
+Push-Location $publishDir
+try {
+    <span class="cm"># 1. BCrypt ハッシュ生成</span>
+    Add-Type -Path ".\BCrypt.Net-Next.dll"
+    $hash = [BCrypt.Net.BCrypt]::HashPassword($newPassword)
+
+    <span class="cm"># 2. SQLite に UPDATE</span>
+    Add-Type -Path ".\SQLitePCLRaw.batteries_v2.dll"
+    [SQLitePCL.Batteries_V2]::Init()
+    Add-Type -Path ".\Microsoft.Data.Sqlite.dll"
+    $conn = New-Object Microsoft.Data.Sqlite.SqliteConnection("Data Source=$dbPath")
+    $conn.Open()
+    $cmd = $conn.CreateCommand()
+    $cmd.CommandText = @"
+UPDATE Users SET PasswordHash=@h, IsLocked=0, FailedLoginCount=0,
+  MustChangePassword=1, PasswordChangedAt=@now, PasswordExpiresAt=@exp
+WHERE Username='admin'
+"@
+    $p1=$cmd.CreateParameter();$p1.ParameterName="@h";$p1.Value=$hash
+    $p2=$cmd.CreateParameter();$p2.ParameterName="@now";$p2.Value=[DateTime]::UtcNow.ToString("o")
+    $p3=$cmd.CreateParameter();$p3.ParameterName="@exp";$p3.Value=[DateTime]::UtcNow.AddDays(90).ToString("o")
+    $cmd.Parameters.Add($p1)|Out-Null;$cmd.Parameters.Add($p2)|Out-Null;$cmd.Parameters.Add($p3)|Out-Null
+    $cmd.ExecuteNonQuery()
+    $conn.Close()
+}
+finally { Pop-Location }
+
+<span class="cm"># 3. サーバ再起動</span>
+Start-Service Watashi.Server</pre>
+      <p>実行後は <code>admin</code> ＋仮パスワードでログイン → 強制変更画面で本番用パスワードに置き換え → <strong>パスワードマネージャ等に保管</strong>して二度と忘れないようにしてください。このスクリプトは <code>PasswordChangedAt</code> も更新するため、既存リフレッシュトークンは自動失効します（横取り防止）。</p>
+
+      <!-- ===================================================== 17 -->
+      <h2 id="glossary"><span class="num">17</span>用語集</h2>
+      <dl class="terms">
+        <dt>ホスト</dt><dd>接続先のCIFS（SMB）ファイルサーバー。IP＋資格情報＋実行ノードで登録。</dd>
+        <dt>共有 (Share)</dt><dd>ホスト上のSMB共有。表示名と実際の共有名を持つ。</dd>
+        <dt>権限テンプレート</dt><dd>Read/Write/Delete/Rename の組み合わせに名前を付けたひな型。</dd>
+        <dt>ユーザー権限</dt><dd>ユーザー×共有×サブパス×テンプレートの割当。Watashiの核心。</dd>
+        <dt>権限セット (Bundle)</dt><dd>複数の権限行をまとめた再利用セット。スナップショット展開。</dd>
+        <dt>実行ノード</dt><dd>CIFSへの接続経路。Direct（中央自身）/Agent（踏み台）。</dd>
+        <dt>信頼デバイス</dt><dd>自動ログインに使う端末登録。1ユーザー1台。</dd>
+        <dt>監査ログ</dt><dd>全ファイル操作・全管理操作の記録。<span class="tag">ADMIN_*</span> プレフィックス。</dd>
+        <dt>mTLS</dt><dd>Server↔Agent間の双方向証明書認証。サムプリントで照合。</dd>
+        <dt>MustChangePassword</dt><dd>次回ログインで強制的にパスワード変更させるフラグ。</dd>
+      </dl>
+
+      <hr class="sec">
+
+      <!-- ===================================================== 付録 -->
+      <h2 id="shots"><span class="num">★</span>付録：スクリーンショットの差し替え方</h2>
+      <p>このマニュアルには、実際の画面写真を後から差し込める<strong>差し替え枠</strong>を用意してあります。枠には入れるべき<strong>ファイル名</strong>と<strong>説明</strong>が表示されます。</p>
+      <ol class="steps">
+        <li>このHTMLと同じ場所の <code>images</code> フォルダを開きます（無ければ作成）。</li>
+        <li>管理コンソールの画面を撮影します（<kbd>Windows</kbd>＋<kbd>Shift</kbd>＋<kbd>S</kbd> など）。</li>
+        <li>枠に書かれた<strong>ファイル名どおり（PNG）</strong>で <code>images</code> に保存します。</li>
+        <li>ブラウザで開き直す（<kbd>F5</kbd>）と、枠が実際の画像に置き換わります。</li>
+      </ol>
+      <table>
+        <thead><tr><th>ファイル名</th><th>撮る画面</th></tr></thead>
+        <tbody>
+          <tr><td><code>images/admin-01-console.png</code></td><td>管理コンソール全体（タブ）</td></tr>
+          <tr><td><code>images/admin-02-users.png</code></td><td>ユーザー管理タブ</td></tr>
+        </tbody>
+      </table>
+      <div class="tip">
+        <strong>枠を増やすには</strong>
+        本文に次の1行を貼り、<code>src</code> と <code>data-desc</code> を変えるだけです。<br>
+        <code class="block" style="display:block;white-space:pre-wrap;background:#2b2b2b;color:#e8e8e8;padding:10px;border-radius:6px;margin-top:8px;font-size:12.5px">&lt;div class="shot"&gt;&lt;img class="shot-img" src="images/admin-09-xxx.png" data-desc="説明"&gt;&lt;/div&gt;</code>
+      </div>
+
+      <hr class="sec">
+      <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">
+        ⛩ Watashi 管理者マニュアル　／　<a href="index.html">利用者マニュアルはこちら</a><br>
+        より詳しい仕様は <code>docs/ADMIN-GUIDE.md</code> / <code>docs/FEATURES.md</code> も参照してください。
+      </p>
+
+    </div><!-- /wrap -->
+  </main>
+</div><!-- /layout -->
+
+<a href="#" class="totop" id="totop" aria-label="ページ先頭へ">↑</a>
+
+<script>
+  document.querySelectorAll('img.shot-img').forEach(function(img){
+    img.addEventListener('error', function(){
+      var ph = document.createElement('div');
+      ph.className = 'shot-ph';
+      var src = img.getAttribute('src') || '';
+      var desc = img.getAttribute('data-desc') || '';
+      ph.innerHTML =
+        '<div class="shot-ph-inner">' +
+          '<span class="cam">📷</span>' +
+          '<strong>スクリーンショットをここに差し込めます</strong>' +
+          '<span class="fn">' + src + '</span>' +
+          (desc ? '<span class="hint">撮る画面：' + desc + '</span>' : '') +
+          '<span class="note2">この名前の画像を images フォルダに置いて再読み込みすると、ここに表示されます</span>' +
+        '</div>';
+      img.replaceWith(ph);
+    });
+  });
+
+  var sections = Array.prototype.slice.call(document.querySelectorAll('main h2[id]'));
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a.nav'));
+  function onScroll(){
+    var pos = window.scrollY + 120;
+    var current = null;
+    sections.forEach(function(s){ if (s.offsetTop <= pos) current = s.id; });
+    links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+    document.getElementById('totop').classList.toggle('show', window.scrollY > 400);
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+
+  document.querySelectorAll('.toc a').forEach(function(a){
+    a.addEventListener('click', function(){ document.querySelector('.toc').classList.remove('open'); });
+  });
+</script>
+</body>
+</html>
