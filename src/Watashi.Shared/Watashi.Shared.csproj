@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Watashi.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="SMBLibrary" Version="1.5.3.4" />
   </ItemGroup>
 
