@@ -119,33 +119,79 @@ public class CifsService
     public void Delete(CifsConnectionInfo info, string path)
     {
         using var session = Acquire(info);
-        var smbPath = ToSmbFile(path);
+        CifsDeleteWalker.Delete(path, new SmbDeleteOperations(session));
+    }
 
-        // まずファイルとして DELETE_ON_CLOSE で開く。対象がディレクトリだった場合は
-        // STATUS_FILE_IS_A_DIRECTORY が返るので、ディレクトリ用のオプションで再オープン。
-        // UI 側はファイル/ディレクトリの区別なしで Delete を呼ぶため、サーバで吸収する。
-        var status = session.Store.CreateFile(
-            out object handle, out FileStatus _, smbPath,
-            AccessMask.DELETE | AccessMask.SYNCHRONIZE,
-            FileAttributes.Normal,
-            ShareAccess.None,
-            CreateDisposition.FILE_OPEN,
-            CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
-            null);
-        if (status == NTStatus.STATUS_FILE_IS_A_DIRECTORY)
+    private sealed class SmbDeleteOperations : ICifsDeleteOperations
+    {
+        private readonly CifsSession _session;
+
+        public SmbDeleteOperations(CifsSession session)
         {
-            status = session.Store.CreateFile(
-                out handle, out FileStatus _, smbPath,
+            _session = session;
+        }
+
+        public NTStatus TryDeleteFile(string path)
+        {
+            var smbPath = ToSmbFile(path);
+            var status = _session.Store.CreateFile(
+                out object handle, out FileStatus _, smbPath,
+                AccessMask.DELETE | AccessMask.SYNCHRONIZE,
+                FileAttributes.Normal,
+                ShareAccess.Read | ShareAccess.Write | ShareAccess.Delete,
+                CreateDisposition.FILE_OPEN,
+                CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
+                null);
+            return status == NTStatus.STATUS_SUCCESS ? _session.Store.CloseFile(handle) : status;
+        }
+
+        public NTStatus TryDeleteEmptyDirectory(string path)
+        {
+            var smbPath = ToSmbDirectory(path);
+            var status = _session.Store.CreateFile(
+                out object handle, out FileStatus _, smbPath,
                 AccessMask.DELETE | AccessMask.SYNCHRONIZE,
                 FileAttributes.Directory,
-                ShareAccess.None,
+                ShareAccess.Read | ShareAccess.Write | ShareAccess.Delete,
                 CreateDisposition.FILE_OPEN,
                 CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
                 null);
+            return status == NTStatus.STATUS_SUCCESS ? _session.Store.CloseFile(handle) : status;
         }
-        if (status != NTStatus.STATUS_SUCCESS)
-            throw new IOException($"削除エラー: {status}");
-        try { session.Store.CloseFile(handle); } catch { }
+
+        public IReadOnlyList<CifsDeleteEntry> ListDirectory(string path)
+        {
+            var smbPath = ToSmbDirectory(path);
+            var status = _session.Store.CreateFile(
+                out object dirHandle, out FileStatus _, smbPath,
+                AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE,
+                FileAttributes.Directory,
+                ShareAccess.Read | ShareAccess.Write | ShareAccess.Delete,
+                CreateDisposition.FILE_OPEN,
+                CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
+                null);
+            if (status != NTStatus.STATUS_SUCCESS)
+                throw new IOException($"ディレクトリを開けません: {status}");
+
+            try
+            {
+                var queryStatus = _session.Store.QueryDirectory(out var entries, dirHandle, "*", FileInformationClass.FileDirectoryInformation);
+                if (queryStatus != NTStatus.STATUS_SUCCESS && queryStatus != NTStatus.STATUS_NO_MORE_FILES)
+                    throw new IOException($"ディレクトリ列挙エラー: {queryStatus}");
+
+                return (entries ?? new List<QueryDirectoryFileInformation>())
+                    .OfType<FileDirectoryInformation>()
+                    .Where(item => item.FileName is not ("." or ".."))
+                    .Select(item => new CifsDeleteEntry(
+                        item.FileName,
+                        (item.FileAttributes & FileAttributes.Directory) != 0))
+                    .ToList();
+            }
+            finally
+            {
+                try { _session.Store.CloseFile(dirHandle); } catch { }
+            }
+        }
     }
 
     public void Rename(CifsConnectionInfo info, string oldPath, string newPath)
