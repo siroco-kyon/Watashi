@@ -14,6 +14,20 @@ public partial class ChangePasswordViewModel : ObservableObject
     [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private bool isBusy;
 
+    // 強制変更 (true) か任意変更 (false) か。表示文言とキャンセルボタンの有無を切り替える。
+    // 既定は true: 呼び出し側が明示しない場合は安全側 (強制) として扱う。
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeaderMessage))]
+    [NotifyPropertyChangedFor(nameof(CanCancel))]
+    private bool isMandatory = true;
+
+    public string HeaderMessage => IsMandatory
+        ? "⚠ パスワード変更が必要です"
+        : "🔑 パスワードを変更します";
+
+    /// <summary>任意変更のときだけキャンセル可能。強制変更では従来どおり閉じる手段を出さない。</summary>
+    public bool CanCancel => !IsMandatory;
+
     public event Action? Completed;
 
     public ChangePasswordViewModel(ApiClient api, SessionManager session)

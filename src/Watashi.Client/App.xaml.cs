@@ -106,16 +106,19 @@ public partial class App : Application
         ShowMain();
     }
 
-    private static void ShowPasswordExpiryWarning(SessionManager session)
+    private void ShowPasswordExpiryWarning(SessionManager session)
     {
         if (session.PasswordExpiresInDays is not int remaining ||
             remaining <= 0 || remaining > session.PasswordWarningDays) return;
 
-        MessageBox.Show(
-            $"パスワードの有効期限まで残り {remaining} 日です。期限までに変更してください。",
+        var choice = MessageBox.Show(
+            $"パスワードの有効期限まで残り {remaining} 日です。\n今すぐパスワードを変更しますか？",
             "Watashi - パスワード期限",
-            MessageBoxButton.OK,
+            MessageBoxButton.OKCancel,
             MessageBoxImage.Warning);
+        // 「キャンセル」を選んでもメイン画面には進む。変更したい場合は OK で任意変更フローへ。
+        if (choice == MessageBoxResult.OK)
+            ShowChangePassword(mandatory: false);
     }
 
     private static void ShowFatal(string title, Exception ex)
@@ -187,9 +190,10 @@ public partial class App : Application
         w.Show();
     }
 
-    private bool ShowChangePassword()
+    private bool ShowChangePassword(bool mandatory = true)
     {
         var w = Services.GetRequiredService<ChangePasswordWindow>();
+        w.ViewModel.IsMandatory = mandatory;
         return w.ShowDialog() == true;
     }
 

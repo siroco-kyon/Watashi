@@ -85,6 +85,9 @@
                     <Button Style="{StaticResource IconButton}" Click="OnRefresh" ToolTip="再読み込み (F5)">
                         <TextBlock Text="⟳" FontSize="15"/>
                     </Button>
+                    <Button Style="{StaticResource IconButton}" Click="OnChangePassword" ToolTip="パスワード変更">
+                        <TextBlock Text="🔑" FontSize="14"/>
+                    </Button>
                     <Button Style="{StaticResource IconButton}" Click="OnLogout" ToolTip="ログアウト">
                         <TextBlock Text="⏻" FontSize="14"/>
                     </Button>
