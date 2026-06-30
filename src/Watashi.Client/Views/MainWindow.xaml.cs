@@ -88,6 +88,17 @@ public partial class MainWindow : Window
         ((App)Application.Current).RequestLogout();
     }
 
+    private void OnChangePassword(object sender, RoutedEventArgs e)
+    {
+        var sp = ((App)Application.Current).Services;
+        var w = sp.GetRequiredService<Views.ChangePasswordWindow>();
+        w.ViewModel.IsMandatory = false;   // メニューからの任意変更。キャンセル可能にする。
+        w.Owner = this;
+        if (w.ShowDialog() == true)
+            MessageBox.Show("パスワードを変更しました。", "パスワード変更",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void OnAbout(object sender, RoutedEventArgs e)
     {
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "不明";
