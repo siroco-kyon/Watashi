@@ -331,6 +331,30 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task Refresh_with_pre_change_token_does_not_revoke_post_change_tokens()
+    {
+        using var db = new TestDb();
+        var u = await SeedUserAsync(db);
+        var svc = Build(db);
+        var login = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+        var (changed, changeErr) = await svc.ChangePasswordAsync(u.Id, "Admin123!@#", "NewStrongPassword2026!");
+        changeErr.Should().BeNull();
+        changed.Should().NotBeNull();
+
+        var (oldRefresh, oldErr) = await svc.RefreshAsync(login.Response!.RefreshTokenId, login.Response.RefreshToken);
+        oldRefresh.Should().BeNull();
+        oldErr.Should().Be("password_changed");
+
+        var (oldReplay, oldReplayErr) = await svc.RefreshAsync(login.Response.RefreshTokenId, login.Response.RefreshToken);
+        oldReplay.Should().BeNull();
+        oldReplayErr.Should().Be("password_changed");
+
+        var (refreshed, refreshErr) = await svc.RefreshAsync(changed!.RefreshTokenId, changed.RefreshToken);
+        refreshErr.Should().BeNull();
+        refreshed.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task TrustDevice_replaces_existing_device_for_same_user()
     {
         using var db = new TestDb();

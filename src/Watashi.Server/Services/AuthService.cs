@@ -120,27 +120,32 @@ public class AuthService
         if (token is null || token.ExpiresAt <= DateTime.UtcNow)
             return (null, "invalid_token");
 
-        // 既に revoke 済みのトークンが再度提示された場合、ファミリー全体を失効させる（再利用検知）。
+        if (!BCrypt.Net.BCrypt.Verify(refreshTokenPlain, token.TokenHash))
+            return (null, "invalid_token");
+
+        var user = token.User!;
+        // Old tokens from before a password change are invalidated by themselves;
+        // they must not revoke newer sessions issued after the password change.
+        if (token.IssuedAt < user.PasswordChangedAt)
+        {
+            if (!token.IsRevoked)
+            {
+                token.IsRevoked = true;
+                token.LastUsedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+            }
+            return (null, "password_changed");
+        }
+
+        // Reuse of a revoked current-generation token is treated as theft.
         if (token.IsRevoked)
         {
             await RevokeFamilyAsync(token.UserId, ct);
             return (null, "token_reuse_detected");
         }
 
-        if (!BCrypt.Net.BCrypt.Verify(refreshTokenPlain, token.TokenHash))
-            return (null, "invalid_token");
-
-        var user = token.User!;
         if (user.IsLocked) return (null, "account_locked");
         if (token.Device is not null && token.Device.IsRevoked) return (null, "device_revoked");
-
-        // パスワード変更以前に発行された refresh token は無効化する。盗まれた refresh が
-        // パスワード変更後も使えてしまう問題への対策。
-        if (token.IssuedAt < user.PasswordChangedAt)
-        {
-            await RevokeFamilyAsync(user.Id, ct);
-            return (null, "password_changed");
-        }
 
         var now = DateTime.UtcNow;
 
