@@ -7,7 +7,7 @@ namespace Watashi.Client.Services;
 /// <summary>
 /// アプリ同梱の配布時設定 (deployment.json)。発行フォルダの exe と同じ場所に置かれ、
 /// 管理者が配布前に編集する。クライアントからは変更できない読み取り専用の設定で、
-/// 接続先サーバ (ServerUrl) と D&D の有効可否をここで固定する。
+/// 接続先サーバ (ServerUrl)、更新マニフェスト URL、D&D の有効可否をここで固定する。
 /// <para>
 /// settings.json (利用者ごとの可変設定) より優先される。これにより
 /// 「クライアントが接続先を勝手に変えられない」という配布要件を満たす。
@@ -18,6 +18,9 @@ public class DeploymentConfig
 {
     [JsonPropertyName("serverUrl")]
     public string? ServerUrl { get; set; }
+
+    [JsonPropertyName("updateManifestUrl")]
+    public string? UpdateManifestUrl { get; set; }
 
     [JsonPropertyName("enableDragDrop")]
     public bool EnableDragDrop { get; set; } = true;
@@ -43,14 +46,17 @@ public class DeploymentConfig
     }
 
     /// <summary>
-    /// 同梱設定を AppSettings に上書き適用する。deployment.json が接続先の唯一の真実。
+    /// 同梱設定を AppSettings に上書き適用する。deployment.json が接続先と更新確認先の唯一の真実。
     /// </summary>
-    /// <returns>有効な接続先を適用できたか。false の場合は配布パッケージの不備 (deployment.json 欠落 / serverUrl 未設定)。</returns>
+    /// <returns>有効な設定を適用できたか。false の場合は配布パッケージの不備 (deployment.json 欠落 / serverUrl または updateManifestUrl 未設定)。</returns>
     public static bool Apply(AppSettings settings)
     {
         var cfg = Load();
-        if (cfg is null || string.IsNullOrWhiteSpace(cfg.ServerUrl)) return false;
+        if (cfg is null ||
+            string.IsNullOrWhiteSpace(cfg.ServerUrl) ||
+            string.IsNullOrWhiteSpace(cfg.UpdateManifestUrl)) return false;
         settings.ServerUrl = cfg.ServerUrl.Trim();
+        settings.UpdateManifestUrl = cfg.UpdateManifestUrl?.Trim() ?? string.Empty;
         settings.EnableDragDrop = cfg.EnableDragDrop;
         settings.FileTransferTimeoutMinutes = NormalizeTimeoutMinutes(cfg.FileTransferTimeoutMinutes);
         return true;

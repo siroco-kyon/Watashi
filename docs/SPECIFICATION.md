@@ -113,6 +113,7 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 ```json
 {
   "serverUrl": "https://watashi.internal",
+  "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application",
   "enableDragDrop": true
 }
 ```
@@ -120,16 +121,17 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 | キー | 意味 |
 |---|---|
 | `serverUrl` | 接続先の中央サーバー URL。`https`/`http` のスキームで `IsHttps` を判定 |
+| `updateManifestUrl` | 起動時に取得する ClickOnce 配置マニフェスト URL。直接 exe 起動時もこの URL で公開バージョンを確認 |
 | `enableDragDrop` | ドラッグ&ドロップ機能を有効にするか。管理者が配布時に決定 |
 
 仕様:
 
 - `deployment.json` は exe と同じ場所に置く **Content (CopyToOutputDirectory=PreserveNewest)**
-- 起動時に `DeploymentConfig` が読み込み、`AppSettings` の `ServerUrl` / `EnableDragDrop` を**上書き**する
+- 起動時に `DeploymentConfig` が読み込み、`AppSettings` の `ServerUrl` / `UpdateManifestUrl` / `EnableDragDrop` を**上書き**する
   (これらのプロパティは `[JsonIgnore]` で、利用者ごとの `settings.json` には保存されない)
 - ClickOnce はマニフェストでファイルのハッシュを検証するため、`deployment.json` を後から書き換えると
   起動できない。**接続先を変えるには再発行 (re-publish) が必要**
-- `deployment.json` 欠落 / `serverUrl` 未設定時は **「配布設定エラー」を表示して終了**。
+- `deployment.json` 欠落 / `serverUrl` または `updateManifestUrl` 未設定時は **「配布設定エラー」を表示して終了**。
   接続先を末端で変更させない設計のため、設定画面は出さない (起動の fatal-gate)
 
 ### 3.2 利用者ごとの可変設定 settings.json
@@ -152,7 +154,7 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 ### 3.5 ClickOnce 配布
 
 - 配布 URL (例: `https://watashi.internal/install/Watashi.Client.application`) からインストール
-- 自動アップデート対応。操作中は強制再起動しない (次回起動で適用)
+- 自動アップデート対応。ショートカット起動時は ClickOnce が起動前に確認し、直接 exe 起動時もアプリ本体が `updateManifestUrl` を確認して新しい版があれば ClickOnce 更新を起動する
 - 発行ワークフローは [DEVELOPMENT.md](DEVELOPMENT.md) を参照
 
 ---
@@ -645,6 +647,7 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 | キー | デフォルト/例 | 説明 |
 |---|---|---|
 | `serverUrl` | `https://watashi.internal` | 接続先中央サーバー (変更には再発行) |
+| `updateManifestUrl` | `https://watashi.internal/install/Watashi.Client.application` | 起動時に確認する ClickOnce 配置マニフェスト |
 | `enableDragDrop` | `true` | D&D 機能の有効化 |
 
 ### 13.2 サーバー (appsettings.json)

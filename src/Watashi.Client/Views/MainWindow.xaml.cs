@@ -101,7 +101,7 @@ public partial class MainWindow : Window
 
     private void OnAbout(object sender, RoutedEventArgs e)
     {
-        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "不明";
+        var version = AppVersion.Display;
         MessageBox.Show($"Watashi - 社内 CIFS ファイル管理ツール\nバージョン {version}\n\n⛩ 鳥居をくぐって、信頼できる場所へ。",
                         "バージョン情報", MessageBoxButton.OK, MessageBoxImage.Information);
     }
