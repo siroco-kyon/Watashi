@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Threading;
 using Watashi.Shared.DTOs.Auth;
 
@@ -22,6 +23,11 @@ public class SessionManager
 
     public event Action? IdleTimedOut;
     public event Action? RefreshNeedsPasswordChange;
+    /// <summary>
+    /// refresh token がサーバに拒否された (期限切れ/パスワード変更/盗難検知等)。
+    /// 引数はサーバの失効理由コード (password_changed など)。UI 側で再ログインへ誘導する。
+    /// </summary>
+    public event Action<string?>? SessionExpired;
 
     /// <summary>サーバから refresh するための delegate。ApiClient と循環依存を避けるために外部から差し込む。</summary>
     public Func<string, string, CancellationToken, Task<RefreshResponse>>? RefreshDelegate { get; set; }
@@ -48,6 +54,7 @@ public class SessionManager
     public void Clear()
     {
         _accessToken = null; _refreshToken = null; _refreshTokenId = null;
+        _accessExpiresUtc = DateTime.MinValue;
         UserId = null; Username = null; IsAdmin = false;
         MustChangePassword = false; PasswordExpiresInDays = null;
         PasswordWarningDays = 14;
@@ -65,10 +72,23 @@ public class SessionManager
         await _gate.WaitAsync(ct);
         try
         {
-            if (DateTime.UtcNow < _accessExpiresUtc - TimeSpan.FromSeconds(30)) return _accessToken!;
+            if (_accessToken is not null &&
+                DateTime.UtcNow < _accessExpiresUtc - TimeSpan.FromSeconds(30)) return _accessToken;
             if (RefreshDelegate is null || _refreshTokenId is null || _refreshToken is null)
                 throw new InvalidOperationException("リフレッシュトークンがありません。");
-            var res = await RefreshDelegate(_refreshTokenId, _refreshToken, ct);
+            RefreshResponse res;
+            try
+            {
+                res = await RefreshDelegate(_refreshTokenId, _refreshToken, ct);
+            }
+            catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                // refresh token が失効している。ローカルセッションを破棄し、UI に再ログインを促す。
+                // (これが無いと refresh 期限切れ後は API 例外が出続けるだけで復帰手段が無かった)
+                Clear();
+                SessionExpired?.Invoke(ex.Message);
+                throw;
+            }
             _accessToken = res.AccessToken;
             _accessExpiresUtc = DateTime.UtcNow.AddSeconds(res.ExpiresIn);
             if (!string.IsNullOrEmpty(res.RefreshToken)) _refreshToken = res.RefreshToken;

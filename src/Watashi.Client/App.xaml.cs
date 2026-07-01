@@ -151,6 +151,16 @@ public partial class App : Application
             ShowChangePassword(mandatory: false);
     }
 
+    /// <summary>サーバが返す refresh 失効理由コードを利用者向けメッセージに変換する。</summary>
+    private static string DescribeSessionExpiry(string? reason) => reason switch
+    {
+        "password_changed" => "パスワードが変更されたため、セッションが無効になりました。",
+        "token_reuse_detected" => "セキュリティ保護のため、全てのセッションを無効化しました。",
+        "account_locked" => "アカウントがロックされています。管理者に連絡してください。",
+        "device_revoked" => "この端末の登録が無効化されています。",
+        _ => "セッションの有効期限が切れました。",
+    };
+
     private static void ShowFatal(string title, Exception ex)
     {
         AppLog.Error(title, ex);
@@ -289,14 +299,45 @@ public partial class App : Application
         {
             if (Current is App app)
             {
+                app.Dispatcher.BeginInvoke(async () =>
+                {
+                    if (app.MainWindow is not null)
+                    {
+                        // 手動ログアウトと同様、サーバ側でも refresh token を失効させる。
+                        // ローカルを消すだけだとサーバ側では最大 30 日間有効なまま残る。
+                        var rid = session.RefreshTokenId;
+                        var rt = session.RefreshToken;
+                        if (rid is not null && rt is not null)
+                        {
+                            try
+                            {
+                                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                                await sp.GetRequiredService<ApiClient>().LogoutAsync(rid, rt, cts.Token);
+                            }
+                            catch { /* オフライン等で失効できなくてもログアウト自体は続行する */ }
+                        }
+                        MessageBox.Show(app.MainWindow,
+                            "無操作のためログアウトしました。再ログインしてください。",
+                            "アイドルタイムアウト", MessageBoxButton.OK, MessageBoxImage.Information);
+                        session.Clear();
+                        app.RequestLogout();
+                    }
+                });
+            }
+        };
+        // refresh token がサーバに拒否された (期限切れ/パスワード変更/盗難検知など)。
+        // SessionManager 側で既に Clear 済みなので、通知して再ログインへ戻すだけ。
+        session.SessionExpired += reason =>
+        {
+            if (Current is App app)
+            {
                 app.Dispatcher.BeginInvoke(() =>
                 {
                     if (app.MainWindow is not null)
                     {
                         MessageBox.Show(app.MainWindow,
-                            "無操作のためログアウトしました。再ログインしてください。",
-                            "アイドルタイムアウト", MessageBoxButton.OK, MessageBoxImage.Information);
-                        session.Clear();
+                            DescribeSessionExpiry(reason) + "\n再ログインしてください。",
+                            "セッション期限切れ", MessageBoxButton.OK, MessageBoxImage.Information);
                         app.RequestLogout();
                     }
                 });

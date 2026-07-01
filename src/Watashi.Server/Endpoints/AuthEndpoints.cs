@@ -90,10 +90,15 @@ public static class AuthEndpoints
 
             var (response, error) = await auth.RefreshAsync(req.RefreshTokenId, req.RefreshToken, ct);
             if (response is null)
-                return Results.Unauthorized();
+            {
+                // 失効理由 (password_changed / token_reuse_detected / account_locked / device_revoked)
+                // をクライアントへ返し、再ログイン誘導のメッセージ出し分けに使う。
+                return Results.Json(new { error = error ?? "invalid_token" },
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
 
             return Results.Ok(response);
-        }).AllowAnonymous();
+        }).AllowAnonymous().RequireRateLimiting("refresh-ip");
 
         group.MapPost("/logout", async (
             RefreshRequest req,
