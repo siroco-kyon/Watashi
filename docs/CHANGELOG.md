@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-07-01 — 起動時更新チェックと公開バージョン同期
+
+### 機能追加 / 修正
+
+- **アプリ起動時に公開 ClickOnce マニフェストを確認** — `deployment.json` に `updateManifestUrl` を追加し、ショートカット起動だけでなく直接 exe 起動時も公開版とローカル版を比較するようにした。新しい版が見つかった場合は ClickOnce 更新を起動して、古いアプリは終了する。
+- **公開バージョンとアプリ内バージョン表示を同期** — ClickOnce の `ApplicationVersion` / `MinimumRequiredVersion` と、アプリの `Version` / `AssemblyVersion` / `FileVersion` / `InformationalVersion` を同じ `WatashiPublishVersion` から設定。About ダイアログは `AssemblyInformationalVersion` を表示する。
+- **配布設定の必須項目を更新** — `deployment.json` 欠落、`serverUrl` 未設定、`updateManifestUrl` 未設定はいずれも「配布設定エラー」として起動を止める。
+- **利用者向け案内を更新** — インストールページ、ポータル、ユーザーガイド、セットアップ手順から「直接 exe 起動では更新されない」という古い記述を修正。
+
+---
+
 ## 2026-06-08 — ドキュメント整備 (ブランディングガイド / 上長向け資料 / IIS・乖離修正)
 
 ### 文書

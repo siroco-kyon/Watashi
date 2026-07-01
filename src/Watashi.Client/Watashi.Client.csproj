@@ -7,7 +7,7 @@
   <ItemGroup>
     <!--
       配布時設定。exe と同じ場所に出力され、ClickOnce 発行物にも含まれる。
-      管理者が配布前に serverUrl / enableDragDrop を編集する (利用者は変更不可)。
+      管理者が配布前に serverUrl / updateManifestUrl / enableDragDrop を編集する (利用者は変更不可)。
       内容を変えたら再発行が必要 (ClickOnce マニフェストがハッシュ検証するため)。
     -->
     <Content Include="deployment.json">
@@ -31,9 +31,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1.0</FileVersion>
+    <WatashiVersion Condition="'$(WatashiPublishVersion)' == ''">1.0.1</WatashiVersion>
+    <WatashiVersion Condition="'$(WatashiPublishVersion)' != ''">$(WatashiPublishVersion)</WatashiVersion>
+    <Version>$(WatashiVersion)</Version>
+    <AssemblyVersion>$(WatashiVersion)</AssemblyVersion>
+    <FileVersion>$(WatashiVersion)</FileVersion>
+    <InformationalVersion>$(WatashiVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <!--
       鳥居アイコン。Win32 リソースとして埋め込まれ、エクスプローラの exe アイコン、
       タスクバー、ClickOnce インストーラ画面、Add/Remove Programs などで使われる。

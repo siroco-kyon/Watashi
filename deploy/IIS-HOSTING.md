@@ -468,6 +468,7 @@ Watashi.Client の配布物に同梱する `deployment.json` の `serverUrl` に
 ```json
 {
   "serverUrl": "https://watashi.internal",
+  "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application",
   "enableDragDrop": true
 }
 ```

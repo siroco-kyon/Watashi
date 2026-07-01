@@ -1,5 +1,6 @@
 {
   "serverUrl": "https://watashi.internal",
+  "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application",
   "enableDragDrop": true,
   "fileTransferTimeoutMinutes": 30
 }

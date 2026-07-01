@@ -76,7 +76,7 @@ Invoke-RestMethod http://127.0.0.1:18080/health
 
 # 3) クライアント起動
 cd ..\Watashi.Client
-# 接続先は同梱 deployment.json で固定。dev では serverUrl を http://127.0.0.1:18080 にしておく
+# 接続先と更新確認先は同梱 deployment.json で固定。dev では serverUrl を http://127.0.0.1:18080 にしておく
 dotnet run
 # → ログイン画面 → admin でログイン → パスワード変更画面 → メイン画面
 ```
@@ -218,15 +218,19 @@ ASP.NET Core の dev 証明書は 1 年で期限切れ。
 
 ### 接続先設定 (`deployment.json`) の確認
 
-接続先サーバと D&D 可否は exe と同じ場所の `deployment.json` で固定される。
+接続先サーバ、更新確認先、D&D 可否は exe と同じ場所の `deployment.json` で固定される。
 起動時に `DeploymentConfig.Apply` が読み込み、`AppSettings` に上書き適用する (`settings.json` より優先)。
 dev では `src\Watashi.Client\deployment.json` を編集すれば bin にコピーされて反映する:
 
 ```jsonc
-{ "serverUrl": "http://127.0.0.1:18080", "enableDragDrop": true }
+{
+  "serverUrl": "http://127.0.0.1:18080",
+  "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application",
+  "enableDragDrop": true
+}
 ```
 
-- `serverUrl` 未設定 / ファイル欠落時は「配布設定エラー」を表示して終了する (利用者は接続先を変更できない設計のため、設定画面は出さない)
+- `serverUrl` / `updateManifestUrl` 未設定またはファイル欠落時は「配布設定エラー」を表示して終了する (利用者は接続先を変更できない設計のため、設定画面は出さない)
 - `%LocalAppData%\Watashi\settings.json` には最終ローカルパス等のみ保存され、**接続先は保存されない**
 - `AppSettings.IsHttps` は `ServerUrl` のスキームから判定する (保存フィールドではなく URL を信用)
 

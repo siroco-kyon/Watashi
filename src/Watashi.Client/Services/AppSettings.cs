@@ -14,6 +14,13 @@ public class AppSettings
     public string ServerUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// 起動時に公開バージョン確認へ使う ClickOnce 配置マニフェスト URL。
+    /// deployment.json で固定し、利用者ごとの settings.json には保存しない。
+    /// </summary>
+    [JsonIgnore]
+    public string UpdateManifestUrl { get; set; } = string.Empty;
+
+    /// <summary>
     /// ペイン間およびエクスプローラからのドラッグ＆ドロップ転送の有効/無効。
     /// deployment.json で配布時に固定する。クライアントからは変更できないため保存しない。
     /// 機能ごと不要になったら MainWindow.DragDrop.cs を削除すればよい。

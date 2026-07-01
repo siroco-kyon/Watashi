@@ -68,7 +68,7 @@ $login.accessToken          # → JWT
 ```powershell
 # 4) WPF クライアント起動
 cd ..\Watashi.Client
-# 接続先は同梱 deployment.json で固定 (既定 https://watashi.internal)。
+# 接続先と更新確認先は同梱 deployment.json で固定。
 # dev では serverUrl を http://127.0.0.1:18080 に書き換えてから起動する。
 dotnet run
 # → ログイン: admin / Admin123!@# → パスワード変更画面 → メイン画面
@@ -174,7 +174,11 @@ ClientCertificateThumbprint = <Agent が提示するクライアント証明書 
 **Client の接続先 (同梱 `deployment.json`、発行前に編集)**:
 ```jsonc
 // exe と同じ場所。利用者は変更不可
-{ "serverUrl": "https://watashi.internal:8443", "enableDragDrop": true }
+{
+  "serverUrl": "https://watashi.internal:8443",
+  "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application",
+  "enableDragDrop": true
+}
 ```
 
 ### モード B: 混在 (Client↔Server は HTTPS、Server↔Agent は HTTP)
@@ -444,14 +448,15 @@ Git for Windows が入っていれば openssl も使える:
    - `<InstallUrl>`: ユーザーが開く URL (例: `https://watashi.internal/install/`)
    - `<ManifestCertificateThumbprint>`: Code Signing 証明書のサムプリント
 
-2. **接続先サーバと機能を `src\Watashi.Client\deployment.json` に設定** (発行前に必ず編集):
+2. **接続先サーバ・更新確認先・機能を `src\Watashi.Client\deployment.json` に設定** (発行前に必ず編集):
    ```jsonc
    {
      "serverUrl": "https://watashi.internal:8443",  // 接続する中央サーバ
+     "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application", // 起動時に確認する ClickOnce マニフェスト
      "enableDragDrop": true                          // ドラッグ＆ドロップ転送の可否
    }
    ```
-   - このファイルは発行物に同梱され、起動時にこの値で接続先・機能が**固定**される。利用者 (クライアント) からは変更できない
+   - このファイルは発行物に同梱され、起動時にこの値で接続先・更新確認先・機能が**固定**される。利用者 (クライアント) からは変更できない
    - `%LocalAppData%\Watashi\settings.json` より優先される
 
 3. 発行:
@@ -466,7 +471,7 @@ Git for Windows が入っていれば openssl も使える:
 
 6. 初回起動でそのまま **ログイン画面** が表示される (接続先は deployment.json で確定済みのため、利用者が入力する項目はない)。ログイン画面下の「接続テスト」で疎通確認のみ可能
 
-7. 以降、起動時にバージョンチェック → 更新があれば自動でダウンロード
+7. 以降、起動時に ClickOnce とアプリ本体の両方でバージョンチェック → 更新があれば自動でダウンロード
 
 > **接続先や D&D を変更したいとき**:
 > `deployment.json` を編集して **再発行** する。ClickOnce はマニフェストでファイルのハッシュを検証するため、発行後に配布物の deployment.json を直接書き換えるとインストール/更新に失敗する (必ず再発行・再署名すること)。

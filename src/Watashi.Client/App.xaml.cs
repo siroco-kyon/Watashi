@@ -47,12 +47,15 @@ public partial class App : Application
                 // deployment.json が無い / serverUrl 未設定 = 配布パッケージの不備。
                 // 利用者は接続先を変更できないため、設定画面ではなく明確なエラーを出して終了する。
                 MessageBox.Show(
-                    "接続先サーバが配布設定 (deployment.json) に指定されていません。\n" +
+                    "接続先サーバまたは更新マニフェスト URL が配布設定 (deployment.json) に指定されていません。\n" +
                     "配布パッケージが正しくないため起動できません。管理者に連絡してください。",
                     "Watashi - 配布設定エラー", MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown();
                 return;
             }
+
+            if (await StopForPublishedUpdateAsync())
+                return;
 
             Services = BuildServices(_settings);
             Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
@@ -68,6 +71,33 @@ public partial class App : Application
 
     // 旧 API 互換（直接呼ぶ箇所がもう無くなったらこのメソッドごと削除可）。
     public void RestartLoginFlow() => RequestLogout();
+
+    private async Task<bool> StopForPublishedUpdateAsync()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var result = await StartupUpdateChecker.CheckAsync(_settings.UpdateManifestUrl, cts.Token);
+
+        if (result.Outcome != StartupUpdateCheckOutcome.UpdateAvailable || result.ManifestUri is null)
+            return false;
+
+        MessageBox.Show(
+            $"新しい Watashi が公開されています。\n\n現在のバージョン: {result.CurrentVersion}\n最新のバージョン: {result.LatestVersion}\n\n更新を開始するため、このアプリを終了します。",
+            "Watashi - 更新",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+
+        if (!StartupUpdateChecker.LaunchUpdate(result.ManifestUri))
+        {
+            MessageBox.Show(
+                "更新プログラムを起動できませんでした。インストールページから Watashi を起動し直してください。",
+                "Watashi - 更新エラー",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+
+        Shutdown();
+        return true;
+    }
 
     private async Task StartLoginFlowAsync(bool allowAutoLogin = true)
     {
