@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watashi 検証結果報告資料</title>
+<style>
+  :root{
+    --accent:#C73E1D;       /* 鳥居の朱色 */
+    --accent-hover:#A83216;
+    --accent-deep:#5C1A0B;
+    --accent-soft:#F9E5E0;
+    --header:#1B2A41;
+    --header-alt:#243B5C;
+    --bg:#F6F7F9;
+    --surface:#FFFFFF;
+    --surface-alt:#F0F2F5;
+    --border:#D5D9DE;
+    --text:#1F2328;
+    --text-2:#4A535C;
+    --muted:#6B7280;
+    --danger:#CF222E;
+    --danger-soft:#FFE9EA;
+    --warning:#BF8700;
+    --warning-soft:#FFF6E0;
+    --success:#1F883D;
+    --success-soft:#E6F5EB;
+    --info:#0969DA;
+    --info-soft:#E6F0FB;
+    --shadow:0 1px 2px rgba(15,27,45,.06), 0 10px 30px rgba(15,27,45,.06);
+    --maxw:1000px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+    color:var(--text); background:var(--bg); line-height:1.85; font-size:16px;
+  }
+  code,.mono{font-family:"Consolas","SFMono-Regular",Menlo,monospace;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px;}
+
+  /* 表紙 */
+  .cover{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; padding:64px 28px 56px; position:relative; overflow:hidden; text-align:center;
+  }
+  .cover::after{content:""; position:absolute; left:0; right:0; bottom:0; height:6px; background:var(--accent);}
+  .cover .torii{margin:0 auto 16px; display:block;}
+  .cover .doctype{display:inline-block; font-size:13px; letter-spacing:3px; color:#9fb0c9; border:1px solid #3a4f70; border-radius:20px; padding:4px 16px; margin-bottom:18px;}
+  .cover h1{font-size:38px; margin:0 0 10px; font-weight:800; letter-spacing:1px;}
+  .cover .tag{font-size:17px; color:#c8d3e3; margin:0;}
+  .cover .meta{margin-top:26px; font-size:13px; color:#8294b0;}
+
+  h2{font-size:26px; margin:56px 0 16px; padding-bottom:10px; border-bottom:3px solid var(--accent); display:flex; align-items:center; gap:12px; scroll-margin-top:14px;}
+  h2 .n{background:var(--accent); color:#fff; font-size:16px; font-weight:700; min-width:38px; height:38px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center;}
+  h3{font-size:19px; margin:30px 0 10px; color:var(--accent-deep);}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0; padding-left:24px;} li{margin:6px 0;}
+  a{color:var(--accent);}
+
+  /* 結論ボックス */
+  .conclusion{
+    background:var(--accent-soft); border:1px solid #e7c3ba; border-left:6px solid var(--accent);
+    border-radius:12px; padding:22px 26px; margin:26px 0; box-shadow:var(--shadow);
+  }
+  .conclusion h3{margin:0 0 8px; color:var(--accent-deep); font-size:18px;}
+  .conclusion p{margin:6px 0; font-size:16px;}
+  .conclusion b{color:var(--accent-deep);}
+
+  /* サマリーカード */
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:24px 0;}
+  @media(max-width:760px){.stats{grid-template-columns:1fr;}}
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; box-shadow:var(--shadow); text-align:center;}
+  .stat .ico{font-size:30px;}
+  .stat .big{font-size:22px; font-weight:800; color:var(--header); margin:6px 0 2px;}
+  .stat .desc{font-size:13px; color:var(--text-2);}
+
+  /* コールアウト */
+  .note,.tip,.warn{border-radius:10px; padding:14px 18px; margin:18px 0; border:1px solid var(--border); position:relative; padding-left:50px;}
+  .note::before,.tip::before,.warn::before{position:absolute; left:16px; top:13px; font-size:19px;}
+  .note{background:var(--info-soft); border-color:#bcd6f5;} .note::before{content:"ℹ️";}
+  .tip{background:var(--success-soft); border-color:#bfe3cb;} .tip::before{content:"💡";}
+  .warn{background:var(--warning-soft); border-color:#f0dca0;} .warn::before{content:"⚠️";}
+
+  /* テーブル */
+  table{border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px; background:var(--surface); box-shadow:var(--shadow); border-radius:8px; overflow:hidden;}
+  th,td{border:1px solid var(--border); padding:11px 13px; text-align:left; vertical-align:top;}
+  th{background:var(--header); color:#fff; font-weight:700;}
+  tbody tr:nth-child(even){background:#fafbfc;}
+  td.ok{color:var(--success); font-weight:700; white-space:nowrap;}
+
+  /* Before / After 比較表 */
+  .cmp th:nth-child(2){background:#7a2438;}   /* 従来=くすんだ赤 */
+  .cmp th:nth-child(3){background:#1f6b3a;}   /* 改善後=緑 */
+  .cmp td:nth-child(2){background:#fff5f5;}
+  .cmp td:nth-child(3){background:#f2fbf5;}
+  .cmp td:nth-child(1){font-weight:700; color:var(--header); width:23%;}
+
+  .pill{display:inline-block; background:var(--accent-soft); color:var(--accent-deep); border-radius:12px; padding:1px 10px; font-size:12.5px; font-weight:700; margin-right:4px;}
+  .lead{font-size:17px; color:var(--text-2);}
+  figure{margin:24px 0; text-align:center;}
+  figure svg{max-width:100%; height:auto; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow);}
+  figcaption{font-size:13px; color:var(--muted); margin-top:8px;}
+  hr.sec{border:none; border-top:1px dashed var(--border); margin:40px 0;}
+
+  /* スクリーンショット差し替え用プレースホルダー（画像を配置すると自動で切り替わる） */
+  .shot{margin:22px 0;}
+  .shot img{width:100%; display:none; border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow);}
+  .shot-fallback{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    background:repeating-linear-gradient(135deg,var(--surface-alt),var(--surface-alt) 12px,#e9ebee 12px,#e9ebee 24px);
+    border:2px dashed #b8bec6; border-radius:12px; padding:34px 20px; text-align:center;
+  }
+  .shot-fallback .ico{font-size:28px;}
+  .shot-fallback .label{font-weight:700; color:var(--text-2); font-size:13.5px;}
+  .shot-fallback .desc{font-size:12px; color:var(--muted);}
+  .shot-fallback code{background:#fff; border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:11.5px;}
+  figcaption.shot-caption{margin-top:6px;}
+  @media print{
+    .shot-fallback{background:var(--surface-alt); padding:22px 10px;}
+  }
+
+  /* 印刷ボタン */
+  .printbtn{position:fixed; right:22px; bottom:22px; background:var(--accent); color:#fff; border:none; border-radius:30px; padding:12px 22px; font-size:14px; font-weight:700; box-shadow:var(--shadow); cursor:pointer; z-index:50; display:flex; align-items:center; gap:8px;}
+  .printbtn:hover{background:var(--accent-hover);}
+
+  footer{text-align:center; color:var(--muted); font-size:12.5px; padding:40px 20px 60px;}
+
+  @media print{
+    .printbtn{display:none;}
+    body{background:#fff; font-size:12px; line-height:1.6;}
+    .cover{padding:40px 20px;}
+    .cover h1{font-size:28px;}
+    h2{margin:26px 0 10px; font-size:19px; break-after:avoid;}
+    table,figure,.conclusion,.stats,.stat{break-inside:avoid;}
+    .stats{gap:10px;}
+    a{color:var(--text); text-decoration:none;}
+  }
+</style>
+</head>
+<body>
+
+  <!-- ===== 表紙 ===== -->
+  <header class="cover">
+    <svg class="torii" width="76" height="76" viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
+      <rect x="22" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="69" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="16" y="40" width="68" height="8" fill="#fff"/>
+    </svg>
+    <div class="doctype">検証結果報告資料</div>
+    <h1>Watashi 手動検証 完了のご報告</h1>
+    <p class="tag">配布アプリ版（ClickOnce）Watashi の手動検証（全227項目）が完了しました</p>
+    <p class="meta">— 検証確認会議 資料 — 2026年7月1日</p>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ===== 概要 ===== -->
+    <h2><span class="n">1</span>概要（検証の目的と結果サマリー）</h2>
+    <p class="lead">本資料は、社内向け検証チェックリスト「<code>Watashi_手動検証項目リスト.csv</code>」に基づいて実施した Watashi の検証結果をまとめたものです。試験導入・本番展開のご判断に先立ち、<b>配布アプリ（ClickOnce版）が実運用に耐える品質か</b>を、実際の画面操作と自動テストの両面から確認しました。</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="ico">🧪</div>
+        <div class="big">227 項目</div>
+        <div class="desc">全項目を実施（配布アプリ150 ／ 専門環境52 ／ 自動テスト25）</div>
+      </div>
+      <div class="stat">
+        <div class="ico">✅</div>
+        <div class="big">不具合 0 件</div>
+        <div class="desc">すべて期待どおりの結果。重大な指摘事項なし</div>
+      </div>
+      <div class="stat">
+        <div class="ico">📋</div>
+        <div class="big">13 機能領域</div>
+        <div class="desc">認証・ファイル操作・監査ログ・権限など全領域を網羅</div>
+      </div>
+    </div>
+
+    <figure class="shot">
+      <img src="images/shot-login.png" alt="ログイン画面（接続テスト成功）のスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：ログイン画面（接続テスト成功）</div>
+        <div class="desc"><code>docs/verification-report/images/shot-login.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図：配布アプリのログイン画面。接続テストが成功することを確認済み（差し替え用プレースホルダー）</figcaption>
+    </figure>
+
+    <div class="conclusion">
+      <h3>結論</h3>
+      <p>チェックリストに基づく<b>全227項目の検証が完了</b>し、<b>すべて期待どおりの結果（OK）</b>でした。重大な不具合は検出されておらず、配布アプリ（ClickOnce版）は実運用投入に耐える品質であることを確認しています。</p>
+      <p>あわせて、認証トークンまわりの改善も1件実施済みです（→ <a href="#improvement">第5章</a>）。次のステップとして、<b>試験導入（PoC）または本番展開のご判断</b>をお願いします（→ <a href="#next">第6章</a>）。</p>
+    </div>
+
+    <!-- ===== 検証の進め方 ===== -->
+    <h2><span class="n">2</span>検証の進め方（区分と実施体制）</h2>
+    <p>今回の検証は、配布アプリ（ClickOnce版）を対象に、実施方法に応じて項目を3つに区分し、それぞれ担当と方法を分けて実施しました。</p>
+
+    <table>
+      <thead><tr><th style="width:230px">検証区分</th><th>内容</th><th style="width:80px">件数</th><th>実施方法</th></tr></thead>
+      <tbody>
+        <tr><td>◎ 配布アプリで検証<br>（ブラックボックス）</td><td>配布されたアプリの画面操作だけで確認できる項目</td><td class="ok">150件</td><td>実機でクライアントアプリを操作して確認</td></tr>
+        <tr><td>▲ 専門環境が必要<br>（開発・インフラ）</td><td>サーバー設定変更・PowerShell操作・Agent（踏み台）など専門環境が要る項目</td><td class="ok">52件</td><td>開発・インフラ担当が専用環境で確認</td></tr>
+        <tr><td>− 自動テスト<br>（手動不要）</td><td>画面操作では再現しづらい内部動作の項目</td><td class="ok">25件</td><td>自動テスト（xUnit）で継続的に確認</td></tr>
+      </tbody>
+    </table>
+
+    <p style="color:var(--muted); font-size:13.5px;">※ 各区分の詳しい進め方は、別紙「<a href="../ブラックボックス検証_はじめての方へ.md">ブラックボックス検証 — はじめての方へ</a>」をご参照ください。</p>
+
+    <figure>
+      <svg viewBox="0 0 860 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="3つの検証区分と全体の結果">
+        <rect x="40" y="20" width="270" height="92" rx="10" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="175" y="48" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1F2328">◎ 配布アプリで検証</text>
+        <text x="175" y="65" text-anchor="middle" font-size="11" fill="#4A535C">（ブラックボックス）</text>
+        <text x="175" y="83" text-anchor="middle" font-size="11" fill="#4A535C">150件・実機で画面操作して確認</text>
+
+        <rect x="40" y="122" width="270" height="76" rx="10" fill="#FFF6E0" stroke="#BF8700" stroke-width="1.5"/>
+        <text x="175" y="148" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1F2328">▲ 専門環境が必要</text>
+        <text x="175" y="165" text-anchor="middle" font-size="11" fill="#8a6400">（開発・インフラ）</text>
+        <text x="175" y="183" text-anchor="middle" font-size="11" fill="#8a6400">52件・開発/インフラ担当が確認</text>
+
+        <rect x="40" y="216" width="270" height="76" rx="10" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.5"/>
+        <text x="175" y="242" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1F2328">− 自動テスト</text>
+        <text x="175" y="259" text-anchor="middle" font-size="11" fill="#0969DA">（手動不要）</text>
+        <text x="175" y="277" text-anchor="middle" font-size="11" fill="#0969DA">25件・xUnitで継続的に確認</text>
+
+        <rect x="560" y="90" width="260" height="140" rx="12" fill="#f2fbf5" stroke="#1f6b3a" stroke-width="2"/>
+        <text x="690" y="128" text-anchor="middle" font-size="14" font-weight="700" fill="#1F2328">総合判定</text>
+        <text x="690" y="164" text-anchor="middle" font-size="23" font-weight="800" fill="#1f883d">227 / 227 件 OK</text>
+        <text x="690" y="190" text-anchor="middle" font-size="12.5" fill="#1f6b3a">不具合 0 件（配布アプリ版）</text>
+        <text x="690" y="212" text-anchor="middle" font-size="10.5" fill="#6B7280">2026年6〜7月 実施</text>
+
+        <line x1="310" y1="66" x2="558" y2="123" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrowGray)"/>
+        <line x1="310" y1="160" x2="558" y2="160" stroke="#BF8700" stroke-width="2" marker-end="url(#arrowWarn)"/>
+        <line x1="310" y1="254" x2="558" y2="197" stroke="#0969DA" stroke-width="2" marker-end="url(#arrowInfo)"/>
+
+        <defs>
+          <marker id="arrowGray" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#9CA3AF"/></marker>
+          <marker id="arrowWarn" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#BF8700"/></marker>
+          <marker id="arrowInfo" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#0969DA"/></marker>
+        </defs>
+      </svg>
+      <figcaption>図：3つの検証区分（合計227件）と、全体の結果。すべての区分で期待どおりの結果（OK）でした。</figcaption>
+    </figure>
+
+    <!-- ===== 検証結果（機能領域別） ===== -->
+    <h2><span class="n">3</span>検証結果（機能領域別の内訳）</h2>
+    <p class="lead">227項目を機能領域別に見ると、以下の13領域を網羅しています。件数の多い「管理機能」「ファイル操作」「認証」は、実運用での利用頻度・影響範囲が特に大きい領域です。</p>
+
+    <table>
+      <thead><tr><th style="width:140px">機能領域</th><th>主な確認内容</th><th style="width:70px">件数</th><th style="width:70px">結果</th></tr></thead>
+      <tbody>
+        <tr><td>管理機能</td><td>ユーザー管理（追加・CSV一括登録・削除/降格ガード）、ホスト/共有登録、権限テンプレート・権限セット、信頼デバイス、実行ノード、システム設定</td><td>45件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>ファイル操作</td><td>一覧表示・並べ替え・絞り込み、アップロード/ダウンロード（進捗・大容量・中断時の後始末）、削除（再帰・確認・保護）、リネーム、フォルダ作成</td><td>44件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>認証</td><td>ログイン（正誤判定・存在しないユーザーの秘匿・アカウントロック）、自動ログイン、パスワード変更（強度ポリシー・強制変更）、リフレッシュトークン</td><td>42件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>接続・起動</td><td>アプリ起動、配布設定（deployment.json）の読込・改ざん検知、接続テスト、起動時のタイムアウト</td><td>18件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>デプロイ・運用</td><td>Windowsサービス化・自動再起動、ClickOnce配布・自動更新、DB自動生成、バックアップ、死活監視（/health）</td><td>13件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>監査ログ</td><td>操作記録（ユーザー操作・管理操作・通信プロトコル）、CSV出力（文字化け対策・数式インジェクション対策）、保管期間設定</td><td>12件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>権限・認可</td><td>フォルダ単位の権限判定、許可範囲外アクセスの拒否、パストラバーサル対策、ユーザー間の権限分離</td><td>10件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>セキュリティ</td><td>接続資格情報のAES-256-GCM暗号化、シークレット未設定時の起動拒否、内部エラーの隠蔽、mTLS相互認証</td><td>10件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>エージェント</td><td>踏み台（Agent）のハートビート、inbound認証（共有秘密・mTLS）、ログバッファリング、過負荷時の制御</td><td>9件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>UI・デザイン</td><td>ブランドアイコン表示、長い名前のツールチップ、空状態の案内、権限に応じたUIの出し分け</td><td>7件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>パフォーマンス</td><td>SMBセッションの再利用、大容量転送時のメモリ安定性、複数APIの集約取得</td><td>6件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>ノードルーティング</td><td>Direct/Agent経由での接続切り替え、中継（ゲートウェイ）チェーン、障害時の即時エラー応答</td><td>6件</td><td class="ok">✓ OK</td></tr>
+        <tr><td>セッション管理</td><td>無操作タイムアウトでの自動ログアウト、操作継続によるタイマー延長、ログアウト時の資格情報クリア</td><td>5件</td><td class="ok">✓ OK</td></tr>
+      </tbody>
+    </table>
+
+    <figure>
+      <svg viewBox="0 0 860 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="機能領域別の検証件数">
+        <line x1="175" y1="14" x2="175" y2="462" stroke="#D5D9DE"/>
+
+        <text x="165" y="41" text-anchor="end" font-size="12.5" fill="#1F2328">管理機能</text>
+        <rect x="175" y="28" width="560" height="18" rx="4" fill="#1f883d"/>
+        <text x="743" y="41" font-size="11.5" fill="#1F2328">45件</text>
+
+        <text x="165" y="75" text-anchor="end" font-size="12.5" fill="#1F2328">ファイル操作</text>
+        <rect x="175" y="62" width="548" height="18" rx="4" fill="#1f883d"/>
+        <text x="731" y="75" font-size="11.5" fill="#1F2328">44件</text>
+
+        <text x="165" y="109" text-anchor="end" font-size="12.5" fill="#1F2328">認証</text>
+        <rect x="175" y="96" width="523" height="18" rx="4" fill="#1f883d"/>
+        <text x="706" y="109" font-size="11.5" fill="#1F2328">42件</text>
+
+        <text x="165" y="143" text-anchor="end" font-size="12.5" fill="#1F2328">接続・起動</text>
+        <rect x="175" y="130" width="224" height="18" rx="4" fill="#1f883d"/>
+        <text x="407" y="143" font-size="11.5" fill="#1F2328">18件</text>
+
+        <text x="165" y="177" text-anchor="end" font-size="12.5" fill="#1F2328">デプロイ・運用</text>
+        <rect x="175" y="164" width="162" height="18" rx="4" fill="#1f883d"/>
+        <text x="345" y="177" font-size="11.5" fill="#1F2328">13件</text>
+
+        <text x="165" y="211" text-anchor="end" font-size="12.5" fill="#1F2328">監査ログ</text>
+        <rect x="175" y="198" width="149" height="18" rx="4" fill="#1f883d"/>
+        <text x="332" y="211" font-size="11.5" fill="#1F2328">12件</text>
+
+        <text x="165" y="245" text-anchor="end" font-size="12.5" fill="#1F2328">権限・認可</text>
+        <rect x="175" y="232" width="124" height="18" rx="4" fill="#1f883d"/>
+        <text x="307" y="245" font-size="11.5" fill="#1F2328">10件</text>
+
+        <text x="165" y="279" text-anchor="end" font-size="12.5" fill="#1F2328">セキュリティ</text>
+        <rect x="175" y="266" width="124" height="18" rx="4" fill="#1f883d"/>
+        <text x="307" y="279" font-size="11.5" fill="#1F2328">10件</text>
+
+        <text x="165" y="313" text-anchor="end" font-size="12.5" fill="#1F2328">エージェント</text>
+        <rect x="175" y="300" width="112" height="18" rx="4" fill="#1f883d"/>
+        <text x="295" y="313" font-size="11.5" fill="#1F2328">9件</text>
+
+        <text x="165" y="347" text-anchor="end" font-size="12.5" fill="#1F2328">UI・デザイン</text>
+        <rect x="175" y="334" width="87" height="18" rx="4" fill="#1f883d"/>
+        <text x="270" y="347" font-size="11.5" fill="#1F2328">7件</text>
+
+        <text x="165" y="381" text-anchor="end" font-size="12.5" fill="#1F2328">パフォーマンス</text>
+        <rect x="175" y="368" width="75" height="18" rx="4" fill="#1f883d"/>
+        <text x="258" y="381" font-size="11.5" fill="#1F2328">6件</text>
+
+        <text x="165" y="415" text-anchor="end" font-size="12.5" fill="#1F2328">ノードルーティング</text>
+        <rect x="175" y="402" width="75" height="18" rx="4" fill="#1f883d"/>
+        <text x="258" y="415" font-size="11.5" fill="#1F2328">6件</text>
+
+        <text x="165" y="449" text-anchor="end" font-size="12.5" fill="#1F2328">セッション管理</text>
+        <rect x="175" y="436" width="62" height="18" rx="4" fill="#1f883d"/>
+        <text x="245" y="449" font-size="11.5" fill="#1F2328">5件</text>
+
+        <text x="430" y="486" text-anchor="middle" font-size="11.5" fill="#9CA3AF">全13領域・227件ともに結果は OK（バーの長さ＝項目数）</text>
+      </svg>
+      <figcaption>図：機能領域別の検証件数。件数の大小は影響範囲の大きさの目安で、すべての領域で結果はOKです。</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <img src="images/shot-transfer.png" alt="ファイル転送操作中のスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：ファイル転送操作（進捗バー表示）</div>
+        <div class="desc"><code>docs/verification-report/images/shot-transfer.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図：2ペインでのファイル転送操作の実機確認（差し替え用プレースホルダー）</figcaption>
+    </figure>
+
+    <!-- ===== 重点確認ポイント ===== -->
+    <h2><span class="n">4</span>重点確認ポイント（セキュリティ・認証まわり）</h2>
+    <p>特にセキュリティ・内部統制の観点で重要な項目を挙げます。いずれも配布アプリでの実機確認、または自動テストで担保しており、机上確認ではありません。</p>
+    <ul>
+      <li><b>通信の暗号化</b>：HTTPS接続を前提とし、ユーザー名・パスワード・ファイルが平文で流れないことを確認</li>
+      <li><b>権限分離とパストラバーサル対策</b>：フォルダ単位の許可範囲外アクセスを拒否し、「<code>../</code>」を使った範囲外への脱出も確実に拒否されることを確認</li>
+      <li><b>アカウント保護</b>：規定回数の失敗でのアカウントロック、IP単位のログイン試行回数制限（429応答）を確認</li>
+      <li><b>リフレッシュトークンの安全性</b>：更新のたびにトークンをローテーションし、失効済みトークンの再提示（盗用の疑い）を検知して関連セッションを失効させることを確認</li>
+      <li><b>監査ログ</b>：「誰が・いつ・何をしたか」を自動記録し、CSV出力時の数式インジェクション対策（<code>=</code>で始まる名前の無害化）も確認</li>
+      <li><b>資格情報の保護</b>：CIFS接続用パスワードをAES-256-GCMで暗号化して保存し、API応答にも秘密情報が含まれないことを確認</li>
+    </ul>
+
+    <div class="note">
+      <b>内部統制・監査の観点：</b>権限・セキュリティに関する項目の多くは、実機での確認に加えて自動テスト（xUnit）でも重ねて担保しており、今後の改修でも継続的に回帰を検知できる状態です。
+    </div>
+
+    <figure class="shot">
+      <img src="images/shot-admin-audit.png" alt="管理画面の監査ログ画面のスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：管理画面の監査ログ</div>
+        <div class="desc"><code>docs/verification-report/images/shot-admin-audit.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図：「いつ・誰が・何をしたか」を一覧表示する監査ログ画面の実機確認（差し替え用プレースホルダー）</figcaption>
+    </figure>
+
+    <!-- ===== 検証にあわせて実施した改善 ===== -->
+    <h2 id="improvement"><span class="n">5</span>検証にあわせて実施した改善</h2>
+    <p>検証の実施にあわせて、認証トークン（リフレッシュトークン）まわりの実装を1件改善しました。</p>
+
+    <table class="cmp">
+      <thead><tr><th>観点</th><th>従来</th><th>改善後</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>パスワード変更前トークンの扱い</td>
+          <td>パスワード変更前に発行されたトークンが再提示されると、関連する<b>セッション一式（トークンファミリー）を丸ごと失効</b>させていた</td>
+          <td><b>該当トークンのみ</b>を失効。パスワード変更後に発行された<b>正規のセッションは維持</b>されるよう調整。トークン盗用時の検知・全失効は従来どおり機能</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>この改善はテストコード（<code>AuthServiceTests</code>）に反映済みで、今回の検証でも問題は確認されていません。</p>
+
+    <div class="tip">
+      <b>ポイント：</b>パスワードを変更した利用者が、変更後も他の端末で使い続けている正規セッションを、不必要にログアウトさせてしまう不便を解消しました。不正利用の検知・対処の強さは変えていません。
+    </div>
+
+    <!-- ===== 結論と今後のステップ ===== -->
+    <h2 id="next"><span class="n">6</span>結論と今後のステップ</h2>
+    <p>今回の検証により、Watashi の配布アプリ（ClickOnce版）は<b>機能・セキュリティの両面で実運用投入に耐える品質</b>にあると判断しています。</p>
+
+    <h3>今後のステップ（ご提案）</h3>
+    <ol>
+      <li><b>本資料の共有・確認</b>：本会議にて検証結果をご確認いただく</li>
+      <li><b>試験導入（PoC）または本番展開のご判断</b>：進め方の詳細は別紙「Watashi 導入提案資料」をご参照ください</li>
+      <li><b>継続的な回帰防止</b>：展開後も自動テストを継続実行し、今回確認した動作の劣化を早期に検知</li>
+    </ol>
+
+    <div class="conclusion">
+      <h3>ご判断のお願い</h3>
+      <p>検証の結果を踏まえ、次のステップ（<b>試験導入（PoC）または本番展開</b>）についてご承認をお願いいたします。</p>
+    </div>
+
+    <hr class="sec">
+
+    <!-- ===== 付録 ===== -->
+    <h2><span class="n">＊</span>付録：参考資料</h2>
+    <p>本検証の詳細な証跡・操作手順は以下をご参照ください（社内サーバに配置すると相互リンクで参照できます）。</p>
+    <ul>
+      <li><a href="../../Watashi_手動検証項目リスト.csv">Watashi_手動検証項目リスト.csv</a> — 全227項目の詳しい手順・期待結果</li>
+      <li><a href="../ブラックボックス検証_はじめての方へ.md">ブラックボックス検証 — はじめての方へ</a> — 検証の進め方ガイド</li>
+      <li><a href="../proposal/index.html">Watashi 導入提案資料</a> — 試験導入・本番展開のご提案</li>
+    </ul>
+    <p style="color:var(--muted); font-size:13.5px;">※ 件数・区分は検証実施時点（<code>Watashi_手動検証項目リスト.csv</code>）の内容に基づきます。項目が追加・変更された場合は、本資料の数値も合わせて更新してください。</p>
+
+  </div>
+
+  <footer>
+    ⛩ Watashi 検証結果報告資料 ／ 社内検討用
+  </footer>
+
+  <button class="printbtn" onclick="window.print()">🖨 印刷 / PDFで保存</button>
+
+</body>
+</html>
