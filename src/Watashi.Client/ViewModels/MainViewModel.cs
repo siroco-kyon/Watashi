@@ -579,12 +579,20 @@ public partial class MainViewModel : ObservableObject
         var normalized = PathHelper.NormalizePath(remotePath);
         if (normalized == "/") return;
 
-        var existing = await FindRemoteEntryAsync(hostId, shareId, normalized);
-        if (existing?.Type == FileEntryTypes.Directory) return;
-        if (existing is not null)
-            throw new IOException($"リモートに同名ファイルがあるためフォルダを作成できません: {normalized}");
-
-        await _api.MkdirAsync(hostId, shareId, normalized);
+        // まず mkdir を試す (新規フォルダが大半)。失敗したときだけ一覧で状態を確認する。
+        // 事前に毎回親フォルダを全件取得すると、サブフォルダの多いアップロードが非常に遅くなる。
+        try
+        {
+            await _api.MkdirAsync(hostId, shareId, normalized);
+        }
+        catch (ApiException ex) when (ex.StatusCode is not (HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized))
+        {
+            var existing = await FindRemoteEntryAsync(hostId, shareId, normalized);
+            if (existing?.Type == FileEntryTypes.Directory) return; // 既存フォルダ: 結合として続行
+            if (existing is not null)
+                throw new IOException($"リモートに同名ファイルがあるためフォルダを作成できません: {normalized}");
+            throw;
+        }
     }
 
     private async Task<FileEntry?> FindRemoteEntryAsync(int hostId, int shareId, string remotePath)
@@ -600,8 +608,10 @@ public partial class MainViewModel : ObservableObject
 
     private async Task<List<FileEntry>> ListAllRemoteEntriesAsync(int hostId, int shareId, string path)
     {
+        // page=0 で全件を一括取得する。旧サーバ (page=0 を page=1 扱い) の場合のみ
+        // page=2 以降を追加取得する。詳細は RemotePaneViewModel.RefreshAsync を参照。
         var all = new List<FileEntry>();
-        for (var page = 1; ; page++)
+        for (var page = 0; ; page = page == 0 ? 2 : page + 1)
         {
             var res = await _api.ListFilesAsync(hostId, shareId, path, page);
             var entries = res.Entries.Where(e => e.Type != FileEntryTypes.Parent).ToList();
