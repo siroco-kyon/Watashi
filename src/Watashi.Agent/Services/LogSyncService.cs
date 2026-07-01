@@ -58,10 +58,22 @@ public class LogSyncService : BackgroundService
         return TimeSpan.FromSeconds(seconds);
     }
 
+    /// <summary>送信を諦めた (MaxAttempts 到達) ログの保持期間。経過後に削除して SQLite の肥大を防ぐ。</summary>
+    private static readonly TimeSpan DeadLogRetention = TimeSpan.FromDays(7);
+
     private async Task SendBatchAsync(HttpClient client, CancellationToken ct)
     {
         await using var scope = _sp.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AgentDbContext>();
+
+        // MaxAttempts 到達分は送信対象外のまま残り続けるため、保持期間経過後にパージする。
+        var deadCutoff = DateTime.UtcNow - DeadLogRetention;
+        var purged = await db.PendingLogs
+            .Where(p => p.AttemptCount >= MaxAttempts && p.CreatedAt < deadCutoff)
+            .ExecuteDeleteAsync(ct);
+        if (purged > 0)
+            _log.LogWarning("LogSync: 送信を諦めた監査ログ {Count} 件を破棄しました (保持 {Days} 日超過)", purged, DeadLogRetention.TotalDays);
+
         var pending = await db.PendingLogs.AsNoTracking()
             .Where(p => p.AttemptCount < MaxAttempts)
             .OrderBy(p => p.Id).Take(200).ToListAsync(ct);

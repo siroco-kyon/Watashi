@@ -116,6 +116,50 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task Failed_login_lockout_and_unknown_user_are_audited()
+    {
+        using var db = new TestDb();
+        var user = await SeedUserAsync(db);
+        db.Db.SystemSettings.Add(new SystemSetting
+        {
+            Key = SettingKeys.MaxFailedLoginAttempts,
+            Value = "2",
+            UpdatedAt = DateTime.UtcNow,
+        });
+        await db.Db.SaveChangesAsync();
+        var svc = Build(db);
+
+        await svc.LoginAsync("alice", "wrong", clientIp: "10.0.0.1", machineName: "PC01");
+        await svc.LoginAsync("alice", "wrong", clientIp: "10.0.0.1", machineName: "PC01"); // ここでロック
+        await svc.LoginAsync("alice", "Admin123!@#", clientIp: "10.0.0.1"); // ロック中の試行
+        await svc.LoginAsync("nobody", "wrong", clientIp: "10.0.0.1");      // 存在しないユーザー
+
+        var logs = await db.Db.AuditLogs.AsNoTracking().ToListAsync();
+        logs.Count(l => l.Operation == AuthOperations.LoginFailed && l.ErrorMessage == "invalid_password")
+            .Should().Be(2);
+        logs.Count(l => l.Operation == AuthOperations.LoginLockedOut).Should().Be(1);
+        logs.Count(l => l.Operation == AuthOperations.LoginFailed && l.ErrorMessage == "account_locked")
+            .Should().Be(1);
+        var unknown = logs.Single(l => l.Operation == AuthOperations.LoginFailed && l.ErrorMessage == "unknown_user");
+        unknown.UserId.Should().BeNull();
+        unknown.Username.Should().Be("nobody");
+        logs.Where(l => l.Username == "alice").All(l => l.UserId == user.Id).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Successful_login_does_not_write_failure_audit()
+    {
+        using var db = new TestDb();
+        await SeedUserAsync(db);
+        var svc = Build(db);
+        var result = await svc.LoginAsync("alice", "Admin123!@#", clientIp: null);
+        result.Failure.Should().BeNull();
+        (await db.Db.AuditLogs.AsNoTracking().CountAsync(l =>
+            l.Operation == AuthOperations.LoginFailed || l.Operation == AuthOperations.LoginLockedOut))
+            .Should().Be(0);
+    }
+
+    [Fact]
     public async Task Refresh_with_valid_token_returns_new_access_token()
     {
         using var db = new TestDb();

@@ -63,6 +63,8 @@ public class AuditLogDto
         Operations.Rename => "リネーム",
         AuthOperations.LoginIdentityMismatch => "別Windowsユーザーでログイン",
         AuthOperations.LoginDeviceChanged => "ログイン端末の変更",
+        AuthOperations.LoginFailed => "ログイン失敗",
+        AuthOperations.LoginLockedOut => "アカウントロック",
         _ => string.IsNullOrWhiteSpace(operation) ? "-" : operation,
     };
 }

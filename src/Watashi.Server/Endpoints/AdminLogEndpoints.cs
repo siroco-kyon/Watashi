@@ -137,6 +137,8 @@ public static class AdminLogEndpoints
             "リネーム" => Operations.Rename,
             "別Windowsユーザーでログイン" => AuthOperations.LoginIdentityMismatch,
             "ログイン端末の変更" => AuthOperations.LoginDeviceChanged,
+            "ログイン失敗" => AuthOperations.LoginFailed,
+            "アカウントロック" => AuthOperations.LoginLockedOut,
             _ => value.ToUpperInvariant(),
         };
     }

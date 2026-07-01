@@ -44,18 +44,43 @@ public class AuthService
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username, ct);
         if (user is null)
+        {
+            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
+                userId: null, username, "unknown_user", machineName, clientIp));
+            await _db.SaveChangesAsync(ct);
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
+        }
 
         if (user.IsLocked)
+        {
+            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
+                user.Id, user.Username, "account_locked", machineName, clientIp));
+            await _db.SaveChangesAsync(ct);
             return new LoginResult(null, LoginFailureReason.AccountLocked);
+        }
 
         var passwordOk = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
         if (!passwordOk)
         {
             user.FailedLoginCount += 1;
             var maxAttempts = await GetSettingIntAsync(Shared.Constants.SettingKeys.MaxFailedLoginAttempts, DefaultMaxFailedAttempts, ct);
-            if (user.FailedLoginCount >= maxAttempts)
+            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
+                user.Id, user.Username, "invalid_password", machineName, clientIp));
+            if (user.FailedLoginCount >= maxAttempts && !user.IsLocked)
+            {
                 user.IsLocked = true;
+                _db.AuditLogs.Add(new AuditLog
+                {
+                    Timestamp = DateTime.UtcNow,
+                    UserId = user.Id,
+                    Username = user.Username,
+                    Operation = Shared.Constants.AuthOperations.LoginLockedOut,
+                    Result = Shared.Constants.AuditResults.Warning,
+                    Path = $"連続 {user.FailedLoginCount} 回のログイン失敗によりロック",
+                    ClientIp = clientIp,
+                    ClientHostname = machineName,
+                });
+            }
             await _db.SaveChangesAsync(ct);
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
         }
@@ -264,6 +289,20 @@ public class AuthService
         if (!string.IsNullOrEmpty(win)) user.LastWindowsUsername = win;
         if (!string.IsNullOrEmpty(machine)) user.LastMachineName = machine;
     }
+
+    /// <summary>ログイン失敗の監査ログを作る。理由コードは ErrorMessage に残す (unknown_user / account_locked / invalid_password)。</summary>
+    private static AuditLog CreateLoginAudit(string operation, int? userId, string username, string reason, string? machineName, string? clientIp)
+        => new()
+        {
+            Timestamp = DateTime.UtcNow,
+            UserId = userId,
+            Username = username,
+            Operation = operation,
+            Result = Shared.Constants.AuditResults.Failure,
+            ErrorMessage = reason,
+            ClientIp = clientIp,
+            ClientHostname = machineName,
+        };
 
     public async Task<TrustDeviceResponse> TrustDeviceAsync(int userId, string machineName, string windowsUsername, CancellationToken ct = default)
     {
