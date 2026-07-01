@@ -262,8 +262,27 @@ public static class AdminUserEndpoints
                 {
                     if (mode == UserImportModes.AddOnly) { result.Skipped++; continue; }
                     // upsert
+                    // IsAdmin 列が無い CSV では管理者フラグを変更しない (無条件反映すると
+                    // CSV に載った既存管理者が全員降格してしまう)。
+                    var newIsAdmin = idxAdm >= 0 ? isAdmin : existing.IsAdmin;
+                    // PATCH と同じく自己降格・最後の管理者降格を拒否し、ロックアウトを防ぐ。
+                    var decision = await AdminUserGuard.CanDemoteAsync(
+                        db, principal.GetUserId(), existing.Id, existing.IsAdmin, newIsAdmin, ct);
+                    if (decision != AdminUserGuard.Decision.Allow)
+                    {
+                        result.Failed++;
+                        result.Errors.Add(new()
+                        {
+                            LineNumber = lineNo,
+                            Username = username,
+                            Error = decision == AdminUserGuard.Decision.SelfTarget
+                                ? "自分自身を管理者から外すことはできません"
+                                : "他にアクティブな管理者がいないため、この管理者を降格できません",
+                        });
+                        continue;
+                    }
                     existing.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
-                    existing.IsAdmin = isAdmin;
+                    existing.IsAdmin = newIsAdmin;
                     existing.MustChangePassword = true;
                     existing.PasswordChangedAt = now;
                     existing.PasswordExpiresAt = now.AddDays(days);
