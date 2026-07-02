@@ -305,17 +305,23 @@ public partial class App : Application
                     {
                         // 手動ログアウトと同様、サーバ側でも refresh token を失効させる。
                         // ローカルを消すだけだとサーバ側では最大 30 日間有効なまま残る。
-                        var rid = session.RefreshTokenId;
-                        var rt = session.RefreshToken;
-                        if (rid is not null && rt is not null)
+                        try
                         {
-                            try
-                            {
-                                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            // 認証ヘッダの取得で access token の refresh (= refresh token の
+                            // ローテーション) が起こり得るため、先にトークンを確定させてから
+                            // 最新の rid/rt を読む。先に rid/rt を掴むと、ローテーションで
+                            // 発行された新しい refresh token が失効されずに生き残る。
+                            await session.GetValidAccessTokenAsync(cts.Token);
+                            var rid = session.RefreshTokenId;
+                            var rt = session.RefreshToken;
+                            if (rid is not null && rt is not null)
                                 await sp.GetRequiredService<ApiClient>().LogoutAsync(rid, rt, cts.Token);
-                            }
-                            catch { /* オフライン等で失効できなくてもログアウト自体は続行する */ }
                         }
+                        catch { /* オフライン等で失効できなくてもログアウト自体は続行する */ }
+                        // refresh が 401 で拒否された場合は SessionExpired 側が Clear と
+                        // 再ログイン誘導を済ませているので、二重にダイアログを出さない。
+                        if (!session.IsAuthenticated) return;
                         MessageBox.Show(app.MainWindow,
                             "無操作のためログアウトしました。再ログインしてください。",
                             "アイドルタイムアウト", MessageBoxButton.OK, MessageBoxImage.Information);
