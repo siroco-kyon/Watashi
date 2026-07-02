@@ -168,15 +168,16 @@ public partial class RemotePaneViewModel : ObservableObject
         try
         {
             IsBusy = true;
-            // サーバの 1 ページ上限 (200 件) を超えるフォルダでも全件取得する。
-            // ソートはサーバ側で行うため、全ページで同じ sort を渡せば全体が正しく並ぶ。
+            // まず page=0 (全件) を要求する。サーバはページ要求のたびに SMB 全列挙を行うため、
+            // 大きいフォルダでは 1 回で全件取得する方がはるかに速い。
+            // 旧サーバは page=0 を page=1 として扱い先頭 200 件を返すので、
+            // 足りない場合のみ従来どおり page=2 以降を追加取得する (後方互換)。
             _all.Clear();
             _parentEntry = null;
-            for (var page = 1; ; page++)
+            for (var page = 0; ; page = page == 0 ? 2 : page + 1)
             {
                 var res = await _api.ListFilesAsync(SelectedLocation.HostId, SelectedLocation.ShareId, CurrentPath, page, SortKey);
-                if (page == 1)
-                    _parentEntry = res.Entries.FirstOrDefault(x => x.Type == FileEntryTypes.Parent);
+                _parentEntry ??= res.Entries.FirstOrDefault(x => x.Type == FileEntryTypes.Parent);
                 var entries = res.Entries.Where(e => e.Type != FileEntryTypes.Parent).ToList();
                 _all.AddRange(entries);
                 if (_all.Count >= res.TotalCount || entries.Count == 0) break;

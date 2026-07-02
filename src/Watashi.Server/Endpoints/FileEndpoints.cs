@@ -30,9 +30,12 @@ public static class FileEndpoints
             {
                 var entries = (await router.ListAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct)).ToList();
                 entries = FileEntrySort.Sort(entries, sort);
-                int p = Math.Max(1, page ?? 1);
+                // page <= 0 は「全件」。クライアントは結局全ページを取得するため、
+                // ページ要求のたびに SMB 全列挙 + ソートを繰り返すより 1 回で返す方がはるかに速い。
+                bool all = (page ?? 1) <= 0;
+                int p = all ? 1 : Math.Max(1, page ?? 1);
                 int total = entries.Count;
-                var paged = entries.Skip((p - 1) * PageSize).Take(PageSize).ToList();
+                var paged = all ? entries : entries.Skip((p - 1) * PageSize).Take(PageSize).ToList();
                 bool isRoot = await perms.IsPermissionRootAsync(auth.UserId, shareId, auth.NormalizedPath, ct);
                 var parent = new FileEntry { Name = "..", Type = FileEntryTypes.Parent, CanGoUp = !isRoot && auth.NormalizedPath != "/" };
                 var response = new FileListResponse
