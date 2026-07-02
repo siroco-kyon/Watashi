@@ -43,7 +43,10 @@ public class PermissionService
     {
         var n = PathHelper.NormalizePath(path);
         var entries = await GetEntriesForShareAsync(userId, shareId, ct);
-        return entries.Any(e => e.AllowedPath == n);
+        // SMB は大文字小文字を区別しないため、CanPerformAsync (IsPathWithin) と同じく
+        // 大文字小文字を無視して比較しないと、表記違いで許可ルート保護をすり抜けられる。
+        return entries.Any(e => string.Equals(
+            PathHelper.NormalizePath(e.AllowedPath), n, StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<List<LocationDto>> GetUserLocationsAsync(int userId, int? hostId = null, int? shareId = null, CancellationToken ct = default)

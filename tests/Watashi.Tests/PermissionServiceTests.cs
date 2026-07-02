@@ -88,4 +88,27 @@ public class PermissionServiceTests
         (await svc.IsPermissionRootAsync(uid, sid, "/dept-A/sub")).Should().BeFalse();
         (await svc.IsPermissionRootAsync(uid, sid, "/dept-B")).Should().BeFalse();
     }
+
+    [Fact]
+    public async Task IsPermissionRoot_ignores_case_like_CanPerform()
+    {
+        // SMB は大文字小文字を区別しないので、CanPerformAsync (IsPathWithin) と同じ基準で
+        // 判定しないと表記違いのパスで許可ルート保護をすり抜けられる。
+        var (db, uid, sid) = await SeedAsync(canRead: true, canDelete: true, allowedPath: "/dept-A");
+        using var _ = db;
+        var svc = new PermissionService(db.Db);
+        (await svc.CanPerformAsync(uid, sid, "/DEPT-a", Operations.Delete)).allowed.Should().BeTrue();
+        (await svc.IsPermissionRootAsync(uid, sid, "/DEPT-a")).Should().BeTrue();
+        (await svc.IsPermissionRootAsync(uid, sid, "/dept-a/")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task IsPermissionRoot_normalizes_stored_path()
+    {
+        // 手入力等で正規化されていない AllowedPath が保存されていても保護が機能すること。
+        var (db, uid, sid) = await SeedAsync(canRead: true, allowedPath: "dept-A\\sub");
+        using var _ = db;
+        var svc = new PermissionService(db.Db);
+        (await svc.IsPermissionRootAsync(uid, sid, "/dept-A/sub")).Should().BeTrue();
+    }
 }
