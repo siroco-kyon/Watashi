@@ -18,6 +18,10 @@ public static class AuthOperations
     public const string LoginIdentityMismatch = "LOGIN_IDENTITY_MISMATCH";
     /// <summary>前回ログイン時と異なる端末 (マシン名) からのログイン。</summary>
     public const string LoginDeviceChanged = "LOGIN_DEVICE_CHANGED";
+    /// <summary>ログイン失敗 (パスワード不一致 / 存在しないユーザー / ロック中アカウントへの試行)。</summary>
+    public const string LoginFailed = "LOGIN_FAILED";
+    /// <summary>連続ログイン失敗によりアカウントがロックされた。</summary>
+    public const string LoginLockedOut = "LOGIN_LOCKED_OUT";
 }
 
 public static class AdminOperations

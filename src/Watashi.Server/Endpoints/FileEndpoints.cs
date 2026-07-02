@@ -59,6 +59,10 @@ public static class FileEndpoints
                 ctx.Response.Headers.ContentDisposition = $"attachment; filename*=UTF-8''{Uri.EscapeDataString(fileName)}";
                 ctx.Response.ContentType = "application/octet-stream";
                 await using var stream = await router.OpenReadAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct);
+                // サイズが分かる場合は Content-Length を返す。クライアントの進捗表示が正確になり、
+                // 転送途中でエラーが起きた場合も受信側が不完全なレスポンスとして確実に検知できる。
+                try { ctx.Response.ContentLength = stream.Length; }
+                catch (NotSupportedException) { /* チャンク転送のままにする */ }
                 var counting = new CountingStream(ctx.Response.Body);
                 await stream.CopyToAsync(counting, 4 * 1024 * 1024, ct);
                 ctx.Items["bytes"] = counting.BytesWritten;

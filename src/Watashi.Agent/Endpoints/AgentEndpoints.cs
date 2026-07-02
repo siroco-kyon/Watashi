@@ -46,6 +46,10 @@ public static class AgentEndpoints
             var info = req.ToInfo();
             ctx.Response.ContentType = "application/octet-stream";
             await using var stream = cifs.OpenRead(info, PathHelper.NormalizePath(req.Path));
+            // Content-Length を返すと、中央サーバ経由でクライアントまでサイズが伝搬し、
+            // 進捗表示と途中切断の検知が確実になる。
+            try { ctx.Response.ContentLength = stream.Length; }
+            catch (NotSupportedException) { /* チャンク転送のままにする */ }
             await stream.CopyToAsync(ctx.Response.Body, 4 * 1024 * 1024, ct);
             return Results.Empty;
         });
