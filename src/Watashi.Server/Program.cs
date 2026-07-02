@@ -156,6 +156,18 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true,
             }));
+    // refresh は全クライアントが定期的に呼ぶため login より緩い上限にする。
+    // NAT/プロキシで複数クライアントが同一 IP になる構成を想定し、既定 60/分。
+    options.AddPolicy("refresh-ip", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = builder.Configuration.GetValue<int?>("Auth:RefreshPerMinutePerIp") ?? 60,
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
 });
 
 var app = builder.Build();
