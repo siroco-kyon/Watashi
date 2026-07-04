@@ -27,7 +27,7 @@ public partial class AuditLogViewModel : AdminViewModelBase
         var res = await _api.GetLogsAsync(
             string.IsNullOrWhiteSpace(FilterUser) ? null : FilterUser,
             string.IsNullOrWhiteSpace(FilterOp) ? null : FilterOp,
-            FilterFrom, FilterTo, Page);
+            FilterFrom, ToInclusiveEnd(FilterTo), Page);
         ReplaceAll(Items, res.Items);
         TotalCount = res.TotalCount;
     });
@@ -41,6 +41,15 @@ public partial class AuditLogViewModel : AdminViewModelBase
         await _api.DownloadLogsCsvAsync(fs,
             string.IsNullOrWhiteSpace(FilterUser) ? null : FilterUser,
             string.IsNullOrWhiteSpace(FilterOp) ? null : FilterOp,
-            FilterFrom, FilterTo);
+            FilterFrom, ToInclusiveEnd(FilterTo));
     }, successMessage: "エクスポート完了");
+
+    /// <summary>
+    /// DatePicker の「終了日」は 0 時ちょうどで返るため、そのまま送るとその日のログが
+    /// 1 件も含まれない。日付のみ (時刻 0) の場合は当日の終端 (23:59:59.9999999) に広げる。
+    /// </summary>
+    private static DateTime? ToInclusiveEnd(DateTime? to)
+        => to.HasValue && to.Value.TimeOfDay == TimeSpan.Zero
+            ? to.Value.Date.AddDays(1).AddTicks(-1)
+            : to;
 }

@@ -29,7 +29,10 @@ public static class InternalEndpoints
             }
             var node = await db.ExecutionNodes.FirstOrDefaultAsync(n => n.Name == req.AgentId, ct);
             if (node is null) return Results.NotFound(new { error = "Unknown agent" });
-            node.LastHeartbeatAt = req.Timestamp == default ? DateTime.UtcNow : req.Timestamp;
+            // Agent 申告の Timestamp は使わない。Agent 側の時計が 90 秒以上ずれていると、
+            // NodeHealthMonitor (サーバ時計基準) が生存中のノードを Unhealthy 判定し続ける
+            // (逆方向のずれなら停止したノードが Healthy のまま残る) ため、受信時刻で記録する。
+            node.LastHeartbeatAt = DateTime.UtcNow;
             node.HealthStatus = HealthStatuses.Healthy;
             await db.SaveChangesAsync(ct);
             // 管理画面で更新された Node.MaxConcurrency を Agent に伝える。
@@ -73,6 +76,10 @@ public static class InternalEndpoints
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
+    /// <summary>
+    /// Agent からのハートビート。Timestamp は旧 Agent との互換のため受け取るだけで、
+    /// サーバ側では使用しない (Agent の時計ずれ対策として受信時刻を採用する)。
+    /// </summary>
     public record HeartbeatRequest(string AgentId, DateTime Timestamp);
     public record AuditBatchRequest(string[] Items);
     public class HeartbeatAck

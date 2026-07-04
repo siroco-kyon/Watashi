@@ -29,7 +29,18 @@ public static class AdminShareEndpoints
             if (!await db.CifsHosts.AsNoTracking().AnyAsync(h => h.Id == req.HostId, ct)) return Results.BadRequest(new { error = "Host 不在" });
             var s = new CifsShare { HostId = req.HostId, ShareName = req.ShareName, DisplayName = string.IsNullOrWhiteSpace(req.DisplayName) ? req.ShareName : req.DisplayName };
             db.CifsShares.Add(s);
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                // (HostId, ShareName) のユニーク制約違反。ChangeTracker を掃除しないと
+                // 後続の監査ログ SaveChanges で同じ例外が再発する。
+                db.ChangeTracker.Clear();
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareCreate, $"share:{req.ShareName}", AuditResults.Failure, "share_conflict", ct);
+                return Results.BadRequest(new { error = "同じホストに同名の共有が既にあります。" });
+            }
             await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareCreate, $"share:{s.Id}", ct: ct);
             return Results.Created($"/api/admin/shares/{s.Id}", new { id = s.Id });
         });
@@ -59,6 +70,7 @@ public static class AdminShareEndpoints
             catch (DbUpdateException)
             {
                 db.ChangeTracker.Clear();
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareUpdate, $"share:{id}", AuditResults.Failure, "share_conflict", ct);
                 return Results.BadRequest(new { error = "同じホストに同名の共有が既にあります。" });
             }
             await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareUpdate, $"share:{id}", ct: ct);

@@ -44,7 +44,17 @@ public static class AdminTemplateEndpoints
                 CanDelete = dto.CanDelete, CanRename = dto.CanRename,
             };
             db.PermissionTemplates.Add(entity);
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                // Name のユニーク制約違反。ChangeTracker を掃除しないと監査ログ側で同じ例外が再発する。
+                db.ChangeTracker.Clear();
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.TemplateCreate, $"template:{dto.Name}", AuditResults.Failure, "name_conflict", ct);
+                return Results.BadRequest(new { error = "同名のテンプレートが既に存在します。" });
+            }
             dto.Id = entity.Id;
             await audit.LogAdminAsync(principal, ctx, AdminOperations.TemplateCreate, $"template:{entity.Id}", ct: ct);
             return Results.Created($"/api/admin/permission-templates/{entity.Id}", dto);
@@ -59,7 +69,16 @@ public static class AdminTemplateEndpoints
             entity.CanWrite = dto.CanWrite;
             entity.CanDelete = dto.CanDelete;
             entity.CanRename = dto.CanRename;
-            await db.SaveChangesAsync(ct);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                db.ChangeTracker.Clear();
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.TemplateUpdate, $"template:{id}", AuditResults.Failure, "name_conflict", ct);
+                return Results.BadRequest(new { error = "同名のテンプレートが既に存在します。" });
+            }
             await audit.LogAdminAsync(principal, ctx, AdminOperations.TemplateUpdate, $"template:{id}", ct: ct);
             return Results.NoContent();
         });

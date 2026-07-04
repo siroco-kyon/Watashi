@@ -65,6 +65,9 @@ public static class AdminHostEndpoints
             if (h is null) return Results.NotFound();
             if (req.Port.HasValue && !IsSupportedSmbPort(req.Port.Value))
                 return Results.BadRequest(new { error = "Port は 445 (DirectTCP) または 139 (NetBIOS over TCP) のみ指定できます。" });
+            if (req.ExecutionNodeId.HasValue &&
+                !await db.ExecutionNodes.AsNoTracking().AnyAsync(n => n.Id == req.ExecutionNodeId.Value, ct))
+                return Results.BadRequest(new { error = "指定された ExecutionNode が存在しません。" });
             if (req.Name is not null) h.Name = req.Name;
             if (req.HostAddress is not null) h.HostAddress = req.HostAddress;
             if (req.Port.HasValue) h.Port = req.Port.Value;
