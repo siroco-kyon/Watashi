@@ -114,6 +114,7 @@ public static class AdminPermissionBundleEndpoints
             catch (DbUpdateException)
             {
                 db.ChangeTracker.Clear();
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.BundleUpdate, $"bundle:{id}", AuditResults.Failure, "duplicate_or_fk", ct);
                 return Results.BadRequest(new { error = "同名の権限セットが既にあるか、参照先 (Share/Template) が無効です。" });
             }
             await audit.LogAdminAsync(principal, ctx, AdminOperations.BundleUpdate, $"bundle:{id}", ct: ct);

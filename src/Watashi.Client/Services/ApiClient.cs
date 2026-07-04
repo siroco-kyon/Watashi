@@ -259,8 +259,8 @@ public class ApiClient
         var qs = new List<string> { $"page={page}" };
         if (!string.IsNullOrWhiteSpace(user)) qs.Add($"user={Uri.EscapeDataString(user)}");
         if (!string.IsNullOrWhiteSpace(op)) qs.Add($"op={Uri.EscapeDataString(op)}");
-        if (from.HasValue) qs.Add($"from={from.Value.ToString("o")}");
-        if (to.HasValue) qs.Add($"to={to.Value.ToString("o")}");
+        if (from.HasValue) qs.Add($"from={Uri.EscapeDataString(from.Value.ToString("o"))}");
+        if (to.HasValue) qs.Add($"to={Uri.EscapeDataString(to.Value.ToString("o"))}");
         return GetAsync<AuditPage>($"api/admin/logs?{string.Join('&', qs)}", ct);
     }
 
@@ -269,8 +269,8 @@ public class ApiClient
         var qs = new List<string>();
         if (!string.IsNullOrWhiteSpace(user)) qs.Add($"user={Uri.EscapeDataString(user)}");
         if (!string.IsNullOrWhiteSpace(op)) qs.Add($"op={Uri.EscapeDataString(op)}");
-        if (from.HasValue) qs.Add($"from={from.Value.ToString("o")}");
-        if (to.HasValue) qs.Add($"to={to.Value.ToString("o")}");
+        if (from.HasValue) qs.Add($"from={Uri.EscapeDataString(from.Value.ToString("o"))}");
+        if (to.HasValue) qs.Add($"to={Uri.EscapeDataString(to.Value.ToString("o"))}");
         var url = "api/admin/logs/export.csv" + (qs.Count > 0 ? "?" + string.Join('&', qs) : string.Empty);
         using var req = await CreateAuthedRequestAsync(HttpMethod.Get, url, ct);
         using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);

@@ -167,11 +167,14 @@ public static class FileEndpoints
     {
         var sw = Stopwatch.StartNew();
         var logOperation = auditOperation ?? operation;
-        var auth = await ResolveAuthAsync(principal, hostId, shareId, path, operation, perms);
+        // 監査ログの書き込みには常に CancellationToken.None を使う。リクエストの ct を渡すと、
+        // クライアント切断時に SaveChanges ごとキャンセルされ、実際に行われた操作
+        // (完了済みアップロード・権限拒否・中断された転送) の証跡が消えてしまう。
+        var auth = await ResolveAuthAsync(principal, hostId, shareId, path, operation, perms, ct);
         if (auth.Failure is not null)
         {
             await audit.LogAsync(principal, ctx, logOperation, hostId, shareId, path,
-                AuditResults.Failure, "denied", durationMs: sw.ElapsedMilliseconds, ct: ct);
+                AuditResults.Failure, "denied", durationMs: sw.ElapsedMilliseconds, ct: CancellationToken.None);
             return auth.Failure;
         }
 
@@ -187,7 +190,7 @@ public static class FileEndpoints
                 await audit.LogAsync(principal, ctx, logOperation, hostId, shareId, auth.NormalizedPath,
                     AuditResults.Failure, fr.Reason, targetPath: tgt,
                     durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
-                    usedPermissionId: auth.PermissionId, ct: ct);
+                    usedPermissionId: auth.PermissionId, ct: CancellationToken.None);
                 return fr.Result;
             }
             var bytes = ctx.Items.TryGetValue("bytes", out var b) ? b as long? : null;
@@ -196,16 +199,17 @@ public static class FileEndpoints
                 AuditResults.Success, targetPath: targetPath,
                 bytesTransferred: bytes,
                 durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
-                usedPermissionId: auth.PermissionId, ct: ct);
+                usedPermissionId: auth.PermissionId, ct: CancellationToken.None);
             return (IResult)raw;
         }
         catch (Exception ex)
         {
             var bytes = ctx.Items.TryGetValue("bytes", out var b) ? b as long? : null;
             await audit.LogAsync(principal, ctx, logOperation, hostId, shareId, auth.NormalizedPath,
-                AuditResults.Failure, ex.Message, bytesTransferred: bytes,
+                AuditResults.Failure, ex is OperationCanceledException ? "canceled" : ex.Message,
+                bytesTransferred: bytes,
                 durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
-                usedPermissionId: auth.PermissionId, ct: ct);
+                usedPermissionId: auth.PermissionId, ct: CancellationToken.None);
             return MapExecutionError(ex);
         }
     }

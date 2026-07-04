@@ -432,4 +432,36 @@ public class AuthServiceTests
         var result = await svc.AutoLoginAsync("PC01", "alice", "WRONG-TOKEN", clientIp: null);
         result.Failure.Should().Be(LoginFailureReason.InvalidCredentials);
     }
+
+    [Fact]
+    public async Task AutoLogin_matches_correct_user_when_multiple_users_share_machine()
+    {
+        using var db = new TestDb();
+        var alice = await SeedUserAsync(db);
+        var bob = new User
+        {
+            Username = "bob",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!@#"),
+            PasswordChangedAt = DateTime.UtcNow,
+            PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.Db.Users.Add(bob);
+        await db.Db.SaveChangesAsync();
+        var svc = Build(db);
+
+        // 同じマシン・同じ Windows ユーザーで 2 人の Watashi ユーザーがデバイス登録。
+        var aliceTrust = await svc.TrustDeviceAsync(alice.Id, "PC01", "shared-win-user");
+        var bobTrust = await svc.TrustDeviceAsync(bob.Id, "PC01", "shared-win-user");
+
+        // それぞれ自分のトークンで自動ログインできる (先頭 1 件しか照合しないと後勝ちで壊れる)。
+        var aliceResult = await svc.AutoLoginAsync("PC01", "shared-win-user", aliceTrust.DeviceToken, clientIp: null);
+        aliceResult.Failure.Should().BeNull();
+
+        var bobResult = await svc.AutoLoginAsync("PC01", "shared-win-user", bobTrust.DeviceToken, clientIp: null);
+        bobResult.Failure.Should().BeNull();
+
+        var wrong = await svc.AutoLoginAsync("PC01", "shared-win-user", "WRONG-TOKEN", clientIp: null);
+        wrong.Failure.Should().Be(LoginFailureReason.InvalidCredentials);
+    }
 }

@@ -215,16 +215,18 @@ public class AuthService
 
     public async Task<LoginResult> AutoLoginAsync(string machineName, string windowsUsername, string deviceToken, string? clientIp, CancellationToken ct = default)
     {
-        var device = await _db.TrustedDevices
+        // 同一マシン・同一 Windows ユーザーで複数の Watashi ユーザーがデバイス登録している場合があるため、
+        // 候補を全件取得し、提示されたトークンが検証できたデバイスを採用する。
+        var candidates = await _db.TrustedDevices
             .Include(d => d.User)
-            .FirstOrDefaultAsync(d =>
+            .Where(d =>
                 d.MachineName == machineName &&
                 d.WindowsUsername == windowsUsername &&
-                !d.IsRevoked, ct);
+                !d.IsRevoked)
+            .ToListAsync(ct);
+        var device = candidates.FirstOrDefault(d =>
+            d.User is not null && BCrypt.Net.BCrypt.Verify(deviceToken, d.DeviceTokenHash));
         if (device is null || device.User is null)
-            return new LoginResult(null, LoginFailureReason.InvalidCredentials);
-
-        if (!BCrypt.Net.BCrypt.Verify(deviceToken, device.DeviceTokenHash))
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
 
         var user = device.User;
