@@ -36,7 +36,7 @@ src/
     ├── ViewModels/    # MVVM (CommunityToolkit.Mvvm)
     ├── Services/      # ApiClient / SessionManager / CredentialStore
     └── Converters/    # WPF Value Converters
-tests/Watashi.Tests/   # xUnit (204 ケース、PathHelper / Permission / Auth / Crypto / Csv / AdminGuard ほか)
+tests/Watashi.Tests/   # xUnit (256 ケース、PathHelper / Permission / Auth / Crypto / Csv / AdminGuard ほか)
 deploy/                # Windows Service インストーラ、ClickOnce 設定
 docs/                  # ドキュメント
 ```
@@ -49,7 +49,7 @@ docs/                  # ドキュメント
 # ソリューション全体ビルド
 dotnet build Watashi.sln
 
-# 単体テスト (204 ケース)
+# 単体テスト (256 ケース)
 dotnet test tests\Watashi.Tests
 
 # クライアントのみビルド

@@ -37,12 +37,14 @@ public static class AdminNodeEndpoints
         {
             if (req.NodeType != NodeTypes.Direct && req.NodeType != NodeTypes.Agent)
                 return Results.BadRequest(new { error = "NodeType は Direct または Agent" });
+            var nameError = await ValidateNodeNameAsync(db, req.Name, currentNodeId: null, ct);
+            if (nameError is not null) return Results.BadRequest(new { error = nameError });
             var gatewayError = await ValidateGatewayAsync(
                 db, req.NodeType, req.Endpoint, req.GatewayNodeId, currentNodeId: null, ct);
             if (gatewayError is not null) return Results.BadRequest(new { error = gatewayError });
             var n = new ExecutionNode
             {
-                Name = req.Name,
+                Name = req.Name.Trim(),
                 NodeType = req.NodeType,
                 Endpoint = req.Endpoint,
                 ClientCertificateThumbprint = req.ClientCertificateThumbprint,
@@ -62,7 +64,12 @@ public static class AdminNodeEndpoints
         {
             var n = await db.ExecutionNodes.FindAsync(new object?[] { id }, ct);
             if (n is null) return Results.NotFound();
-            if (req.Name is not null) n.Name = req.Name;
+            if (req.Name is not null)
+            {
+                var nameError = await ValidateNodeNameAsync(db, req.Name, currentNodeId: id, ct);
+                if (nameError is not null) return Results.BadRequest(new { error = nameError });
+                n.Name = req.Name.Trim();
+            }
             if (req.Endpoint is not null) n.Endpoint = req.Endpoint;
             if (req.ClientCertificateThumbprint is not null) n.ClientCertificateThumbprint = req.ClientCertificateThumbprint;
             if (req.ClearGatewayNode == true)
@@ -122,6 +129,24 @@ public static class AdminNodeEndpoints
         });
 
         return app;
+    }
+
+    /// <summary>
+    /// ノード名の必須 + 一意性検証。Agent の heartbeat は AgentId とノード Name の完全一致で
+    /// 対象ノードを特定するため、同名ノードが複数あると健康状態の更新先が不定になる。
+    /// 前後空白も同様に照合失敗の原因になるため、保存時は Trim した名前で比較・登録する。
+    /// </summary>
+    internal static async Task<string?> ValidateNodeNameAsync(
+        AppDbContext db, string? name, int? currentNodeId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "ノード名を入力してください。";
+        var trimmed = name.Trim();
+        var duplicate = await db.ExecutionNodes.AsNoTracking()
+            .AnyAsync(n => n.Name == trimmed && (currentNodeId == null || n.Id != currentNodeId.Value), ct);
+        if (duplicate)
+            return "同名のノードが既に存在します。Agent の heartbeat はノード名で照合されるため、名前は一意にしてください。";
+        return null;
     }
 
     internal static async Task<string?> ValidateGatewayAsync(
