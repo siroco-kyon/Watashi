@@ -132,6 +132,11 @@ public static class AdminNodeEndpoints
             return "経由 Agent は Agent タイプのノードにのみ設定できます。";
         if (currentNodeId.HasValue && gatewayNodeId.Value == currentNodeId.Value)
             return "自分自身を経由 Agent にはできません。";
+        // 自ノードが既に他ノードの経由 Agent として使われている場合、ここに経由 Agent を
+        // 設定すると「B → 自ノード → C」の 2 段チェーンが事後的に成立してしまうため拒否する。
+        if (currentNodeId.HasValue &&
+            await db.ExecutionNodes.AsNoTracking().AnyAsync(n => n.GatewayNodeId == currentNodeId.Value, ct))
+            return "このノードは他ノードの経由 Agent として使用されているため、経由 Agent を設定できません (1段チェーンのみ対応)。";
         if (string.IsNullOrWhiteSpace(endpoint))
             return "経由 Agent を使うノードでは Endpoint を入力してください。";
         if (!IsHttpOrHttpsUrl(endpoint))

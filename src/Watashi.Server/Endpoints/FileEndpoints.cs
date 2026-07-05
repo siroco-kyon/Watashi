@@ -210,6 +210,14 @@ public static class FileEndpoints
                 bytesTransferred: bytes,
                 durationMs: sw.ElapsedMilliseconds, executionNodeId: execCtx.Node.Id,
                 usedPermissionId: auth.PermissionId, ct: CancellationToken.None);
+            // ダウンロード等でレスポンス送信開始後に失敗した場合、ステータスコードはもう
+            // 変更できない (Results.Problem の実行が二次例外になる)。接続を切って
+            // クライアント側に不完全なレスポンスとして検知させる。
+            if (ctx.Response.HasStarted)
+            {
+                ctx.Abort();
+                return Results.Empty;
+            }
             return MapExecutionError(ex);
         }
     }

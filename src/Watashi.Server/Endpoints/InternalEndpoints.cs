@@ -52,10 +52,13 @@ public static class InternalEndpoints
                 if (string.IsNullOrWhiteSpace(json)) continue;
                 try
                 {
-                    var log = JsonSerializer.Deserialize<AuditLog>(json, JsonOpts);
-                    if (log is null) { skipped++; continue; }
-                    log.Id = 0;
-                    if (log.Timestamp == default) log.Timestamp = DateTime.UtcNow;
+                    var log = TryParseAuditLog(json);
+                    if (log is null)
+                    {
+                        skipped++;
+                        logger.LogWarning("audit-log バッチ内の不正レコードをスキップ agent={Agent} len={Len}", agentLabel, json.Length);
+                        continue;
+                    }
                     db.AuditLogs.Add(log);
                     added++;
                 }
@@ -75,6 +78,26 @@ public static class InternalEndpoints
     }
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    /// <summary>
+    /// Agent から届いた監査ログ JSON を検証・正規化する。DB 制約 (Result の CHECK、
+    /// Username/Operation の NOT NULL) に違反するレコードが 1 件でも混ざると、バッチ全体の
+    /// SaveChanges が失敗 → Agent が再送を繰り返して正常なログまで破棄される (ポイズンバッチ)。
+    /// ここで不正レコードを弾いて残りを確実に保存する。不正なら null を返す。
+    /// </summary>
+    internal static AuditLog? TryParseAuditLog(string json)
+    {
+        var log = JsonSerializer.Deserialize<AuditLog>(json, JsonOpts);
+        if (log is null) return null;
+        log.Id = 0;
+        if (log.Timestamp == default) log.Timestamp = DateTime.UtcNow;
+        if (string.IsNullOrWhiteSpace(log.Operation)) return null;
+        if (string.IsNullOrWhiteSpace(log.Username)) log.Username = "(agent)";
+        var result = log.Result?.Trim().ToLowerInvariant();
+        if (result is not (AuditResults.Success or AuditResults.Failure or AuditResults.Warning)) return null;
+        log.Result = result;
+        return log;
+    }
 
     /// <summary>
     /// Agent からのハートビート。Timestamp は旧 Agent との互換のため受け取るだけで、

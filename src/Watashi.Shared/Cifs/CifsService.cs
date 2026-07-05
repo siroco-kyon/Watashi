@@ -77,12 +77,16 @@ public class CifsService
             if (status != NTStatus.STATUS_SUCCESS)
                 throw new IOException($"ファイルを開けません: {status}");
 
+            // サイズ取得に失敗したまま size=0 で続行すると、SmbReadStream が即 EOF を返し
+            // 「0 バイトのダウンロード成功」として既存ファイルを空で上書きしてしまう。必ず失敗させる。
             var infoStatus = session.Store.GetFileInformation(out FileInformation infoObj, handle, FileInformationClass.FileStandardInformation);
-            long size = 0;
-            if (infoStatus == NTStatus.STATUS_SUCCESS && infoObj is FileStandardInformation std)
-                size = std.EndOfFile;
+            if (infoStatus != NTStatus.STATUS_SUCCESS || infoObj is not FileStandardInformation std)
+            {
+                try { session.Store.CloseFile(handle); } catch { }
+                throw new IOException($"ファイルサイズ取得エラー: {infoStatus}");
+            }
 
-            return new SmbReadStream(session, handle, size);
+            return new SmbReadStream(session, handle, std.EndOfFile);
         }
         catch
         {
