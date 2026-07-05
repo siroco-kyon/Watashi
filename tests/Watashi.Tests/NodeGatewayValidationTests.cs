@@ -115,4 +115,16 @@ public class NodeGatewayValidationTests : IDisposable
         var gw = await AddGatewayAsync(gatewayNodeId: upstream.Id);
         (await ValidateAsync("http://agent-b:8081", gw.Id)).Should().Contain("1段チェーンのみ");
     }
+
+    [Fact]
+    public async Task 他ノードの経由Agentとして使用中のノードには経由Agentを設定できない()
+    {
+        // B → A のチェーンがある状態で A に経由 Agent C を設定すると
+        // B → A → C の 2 段チェーンが事後成立してしまうため拒否する。
+        var a = await AddGatewayAsync();
+        await AddGatewayAsync(gatewayNodeId: a.Id); // B (A を経由 Agent に使用)
+        var c = await AddGatewayAsync();
+        (await ValidateAsync(a.Endpoint, c.Id, currentNodeId: a.Id))
+            .Should().Contain("他ノードの経由 Agent として使用されている");
+    }
 }
