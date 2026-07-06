@@ -15,6 +15,17 @@ public partial class App : Application
 {
     public IServiceProvider Services { get; private set; } = null!;
     private AppSettings _settings = null!;
+    private SplashWindow? _splash;
+
+    /// <summary>
+    /// スプラッシュを閉じる。ログイン画面などの対話 UI を出す直前と、起動を中断する各経路で呼ぶ。
+    /// 再ログインフロー (ログアウト後の StartLoginFlowAsync) では既に null なので何もしない。
+    /// </summary>
+    private void CloseSplash()
+    {
+        _splash?.Close();
+        _splash = null;
+    }
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -38,6 +49,13 @@ public partial class App : Application
 
         try
         {
+            // 起動処理 (更新確認・自動ログイン等) はウィンドウ表示前にネットワークへ出るため、
+            // 環境によっては十数秒かかる。無反応に見えないよう最初にスプラッシュを表示し、
+            // 進捗 (%) と現在の工程を出す。
+            _splash = new SplashWindow();
+            _splash.Show();
+            _splash.SetProgress(5, "設定を読み込んでいます...");
+
             _settings = AppSettings.Load();
 
             // 接続先サーバと機能設定はアプリ同梱の deployment.json で固定する (管理者が配布時に設定)。
@@ -46,6 +64,7 @@ public partial class App : Application
             {
                 // deployment.json が無い / serverUrl 未設定 = 配布パッケージの不備。
                 // 利用者は接続先を変更できないため、設定画面ではなく明確なエラーを出して終了する。
+                CloseSplash();
                 MessageBox.Show(
                     "接続先サーバまたは更新マニフェスト URL が配布設定 (deployment.json) に指定されていません。\n" +
                     "配布パッケージが正しくないため起動できません。管理者に連絡してください。",
@@ -54,9 +73,14 @@ public partial class App : Application
                 return;
             }
 
+            _splash.SetProgress(25, "更新を確認しています...");
             if (await StopForPublishedUpdateAsync())
+            {
+                CloseSplash();
                 return;
+            }
 
+            _splash.SetProgress(60, "アプリケーションを初期化しています...");
             Services = BuildServices(_settings);
             Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
 
@@ -64,6 +88,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            CloseSplash();
             ShowFatal("起動失敗", ex);
             Shutdown();
         }
@@ -111,9 +136,12 @@ public partial class App : Application
         {
             try
             {
+                _splash?.SetProgress(80, "自動ログインしています...");
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
                 var res = await api.AutoLoginAsync(saved.Value.machineName, saved.Value.windowsUser, saved.Value.token, cts.Token);
                 session.SetFromLogin(res);
+                _splash?.SetProgress(100, "起動しています...");
+                CloseSplash();
                 if (res.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
                 ShowPasswordExpiryWarning(session);
                 ShowMain();
@@ -129,6 +157,8 @@ public partial class App : Application
             }
         }
 
+        // ここから先はログイン画面 (対話 UI)。スプラッシュは役目を終えたので閉じる。
+        CloseSplash();
         if (!ShowLogin(out var rememberDevice)) { Shutdown(); return; }
         if (session.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
         if (rememberDevice) await TrySaveTrustedDeviceAsync(api, cred);
