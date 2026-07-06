@@ -130,10 +130,11 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5
 
 複数の中央サーバ (= 接続先 DB) に向けたクライアントを併用する運用では、
 配布物ごとにアイコンの色を変えると「どの環境のクライアントか」がタスクバーだけで見分けられます。
-生成済みの色違い `.ico` (10 色、既定の朱と同ジオメトリ・マルチサイズ) を `assets/icons/` に同梱しています。
+生成済みの色違い `.ico` (既定の朱を含む 11 色、同ジオメトリ・マルチサイズ) を `assets/icons/` に同梱しています。
 
 | ファイル | 参考名 | アクセント | 濃色 (島木) |
 |---|---|---|---|
+| `assets/icons/Watashi-shu.ico`     | **朱 (しゅ) — 既定** | `#C73E1D` | `#5C1A0B` |
 | `assets/icons/Watashi-orange.ico`  | 橙 (だいだい) | `#C9731D` | `#5B330B` |
 | `assets/icons/Watashi-gold.ico`    | 山吹 (やまぶき) | `#C9A61D` | `#5B4B0B` |
 | `assets/icons/Watashi-lime.ico`    | 若草 (わかくさ) | `#73C91D` | `#335B0B` |
@@ -145,15 +146,23 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5
 | `assets/icons/Watashi-magenta.ico` | 紫 (むらさき) | `#C91DC9` | `#5B0B5B` |
 | `assets/icons/Watashi-rose.ico`    | 躑躅 (つつじ) | `#C91D64` | `#5B0B2C` |
 
-既定の朱色 (`#C73E1D`) と合わせて 11 環境まで区別できます。
-各色は元の朱と同じ導出規則 (アクセント = HSL(色相, 0.75, 0.45) / 濃色 = HSL(色相, 0.79, 0.20)) で
-色相だけを変えているため、明度・彩度のトーンは既定と揃います。
+`Watashi-shu.ico` は既定の `src/Watashi.Client/Watashi.ico` と同一内容のコピーです。
+他の 10 色は朱と同じ導出規則 (アクセント = HSL(色相, 0.75, 0.45) / 濃色 = HSL(色相, 0.79, 0.20)) で
+色相だけを変えているため、明度・彩度のトーンは既定と揃います。11 環境まで区別できます。
 
 **配布への適用手順 (環境ごと):**
 1. `src/Watashi.Client/deployment.json` の `serverUrl` をその環境の中央サーバに設定
 2. 選んだ色の `.ico` で `src/Watashi.Client/Watashi.ico` を上書き
    (`Copy-Item assets\icons\Watashi-blue.ico src\Watashi.Client\Watashi.ico -Force`)
 3. ClickOnce を再発行 ([§4](#4-配布物インストーラの名前-clickonce)。マニフェストがハッシュ検証するため再発行は必須)
+4. 発行が終わったら既定の朱に戻す:
+   `Copy-Item assets\icons\Watashi-shu.ico src\Watashi.Client\Watashi.ico -Force`
+   (Git が使えるなら `git restore src/Watashi.Client/Watashi.ico` でも同じ)
+
+> ⚠ **手順 2 の上書きは発行作業中だけの一時変更です。コミットしないでください。**
+> コミットするとリポジトリの既定アイコンがその色に置き換わってしまいます。
+> 万一上書きしたまま分からなくなっても、`Watashi-shu.ico` からのコピー /
+> `git restore` / `scripts/Generate-ToriiIcon.ps1` の再実行のどれでも朱色に復元できます。
 
 > `.ico` の差し替えで変わるのは exe・タスクバー・インストーラ・スタートメニューのアイコンです。
 > アプリ画面内のロゴ (ベクター) の色も揃えたい場合は、[§5-4](#5-4-色-朱色アクセント) の
