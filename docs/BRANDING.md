@@ -35,6 +35,8 @@ UI 文字列としての「Watashi」は以下に直書きされています。�
 
 | ファイル | 箇所 | 現在の値 |
 |---|---|---|
+| `src/Watashi.Client/Views/SplashWindow.xaml` | ウィンドウタイトル (タスクバー表示) | `Title="Watashi - 起動中"` |
+| 〃 | スプラッシュのロゴ文字 | `<TextBlock Text="Watashi" Style="{StaticResource H1}"/>` |
 | `src/Watashi.Client/Views/LoginWindow.xaml` | ウィンドウタイトル | `Title="Watashi - ログイン"` |
 | 〃 | ログイン画面の大見出し | `<TextBlock Text="Watashi" Style="{StaticResource H1}" .../>` |
 | `src/Watashi.Client/Views/MainWindow.xaml` | ウィンドウタイトル | `Title="Watashi"` |
@@ -45,7 +47,8 @@ UI 文字列としての「Watashi」は以下に直書きされています。�
 | `src/Watashi.Client/App.xaml.cs` | 各種ダイアログのタイトル (配布設定エラー / 致命エラー / PC 記憶) | `"Watashi - 配布設定エラー"` / `$"Watashi - {title}"` / `"Watashi - PC 記憶"` |
 | `src/Watashi.Client/Views/MainWindow.xaml.cs` | バージョン情報 (About) ダイアログ | `"Watashi - 社内 CIFS ファイル管理ツール\nバージョン ..."` |
 
-> ヘッダー直下の補足文字「CIFS ファイル管理」(`MainWindow.xaml`) も、必要なら合わせて変更してください。
+> ロゴ直下の補足文字「CIFS ファイル管理」も、必要なら合わせて変更してください。
+> 出現箇所は 3 ファイル: `MainWindow.xaml` (ヘッダー) / `LoginWindow.xaml` (「社内 CIFS ファイル管理」) / `SplashWindow.xaml` (スプラッシュ)。
 
 **置換の目安** (UI に出る文字列のみ対象、大文字小文字を区別):
 - `Text="Watashi"` → `Text="新名称"`
@@ -112,6 +115,10 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIcon.ps1
 `src/Watashi.Client/Themes/Icons.xaml` の以下を差し替えます。
 - `ToriiIcon` / `ToriiIconLight` (鳥居本体の `DrawingImage` ジオメトリ)
 - まったく別の画像にするなら、`DrawingImage` を `BitmapImage` 参照などに置き換える
+
+> `ToriiIcon` はスプラッシュ (`SplashWindow.xaml`)・ログイン画面・メイン/管理画面ヘッダー・
+> 各ウィンドウの `Icon` 属性から `StaticResource` 参照されているため、
+> Icons.xaml を 1 箇所差し替えれば全画面に反映されます (個別の修正は不要)。
 
 ### 5-4. 色 (朱色アクセント)
 ブランドカラーは `src/Watashi.Client/Themes/Colors.xaml`:
