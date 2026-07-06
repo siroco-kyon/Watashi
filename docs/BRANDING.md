@@ -31,6 +31,27 @@
 
 ## 2. 画面に表示されるアプリ名「Watashi」
 
+> ### 🚀 一括置換スクリプト (推奨)
+>
+> 本節と §4 (ClickOnce の製品名) の置換は、**`scripts/Rename-Brand.ps1`** で一括実行できます。
+> 名前空間・クラス名 (`Watashi.Client` 等) を巻き込まないアンカー付きパターンで置換し、
+> 日本語タイトルの文字コード (UTF-8 / BOM) も保持します。
+>
+> ```powershell
+> # まずプレビュー (何も書き換えません。変更予定の全箇所を一覧表示)
+> powershell -NoProfile -File scripts/Rename-Brand.ps1 -NewName "新名称" -WhatIf
+>
+> # 問題なければ適用
+> powershell -NoProfile -File scripts/Rename-Brand.ps1 -NewName "新名称"
+> ```
+>
+> - 置換対象: 本節の XAML/コードの表示名 + [§4](#4-配布物インストーラの名前-clickonce) の `ProductName`/`PublisherName`/`SuiteName`
+> - 置換**しない**もの (別途手動、下記各節参照): exe 名 ([§3](#3-exe-ファイル名watashiclientexe))・補足文字「CIFS ファイル管理」・アイコン/色 ([§5](#5-アイコン-鳥居マーク))・サーバー側の名前 ([§6](#6-任意-より広範にブランドを変える場合))
+> - 適用後は必ずリビルドで確認: `dotnet build src\Watashi.Client\Watashi.Client.csproj`
+> - 既定の旧名は `Watashi`。過去に一度改名済みで再度変える場合は `-OldName "現在の名前"` を指定
+>
+> 以下の表は、スクリプトが実際に書き換える箇所の内訳です (手動で直す場合の参照用)。
+
 UI 文字列としての「Watashi」は以下に直書きされています。新名称へ置換してください。
 
 | ファイル | 箇所 | 現在の値 |
@@ -87,8 +108,12 @@ UI 文字列としての「Watashi」は以下に直書きされています。�
 | `<SuiteName>` | `Watashi` | スタートメニューのグループ名 |
 | `<ApplicationIcon>` | `Watashi.ico` | インストーラ/ショートカットのアイコン ([§5](#5-アイコン-鳥居マーク)) |
 
+> 上表の 3 プロパティは [§2 の一括置換スクリプト](#2-画面に表示されるアプリ名watashi) が自動で書き換えます。
+> `<ApplicationIcon>` とアイコン実体はアイコン差し替え ([§5](#5-アイコン-鳥居マーク)) 側で扱います。
+
 > 配布 URL (`<PublishUrl>` / `<InstallUrl>` / `<UpdateUrl>`) のパスに `Watashi` が含まれる場合は、
 > 配布サーバ側の都合に合わせて任意に変更できます (ブランド名と一致させる必要はありません)。
+> スクリプトは URL を書き換えません (アンカーを `<ProductName>` 等の要素に限定しているため)。
 
 ---
 
