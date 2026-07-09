@@ -105,6 +105,23 @@
   figcaption{font-size:13px; color:var(--muted); margin-top:8px;}
   hr.sec{border:none; border-top:1px dashed var(--border); margin:40px 0;}
 
+  /* スクリーンショット差し替え用プレースホルダー（画像を配置すると自動で切り替わる） */
+  .shot{margin:22px 0;}
+  .shot img{width:100%; display:none; border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow);}
+  .shot-fallback{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    background:repeating-linear-gradient(135deg,var(--surface-alt),var(--surface-alt) 12px,#e9ebee 12px,#e9ebee 24px);
+    border:2px dashed #b8bec6; border-radius:12px; padding:34px 20px; text-align:center;
+  }
+  .shot-fallback .ico{font-size:28px;}
+  .shot-fallback .label{font-weight:700; color:var(--text-2); font-size:13.5px;}
+  .shot-fallback .desc{font-size:12px; color:var(--muted);}
+  .shot-fallback code{background:#fff; border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:11.5px;}
+  figcaption.shot-caption{margin-top:6px;}
+  @media print{
+    .shot-fallback{background:var(--surface-alt); padding:22px 10px;}
+  }
+
   /* 印刷ボタン */
   .printbtn{position:fixed; right:22px; bottom:22px; background:var(--accent); color:#fff; border:none; border-radius:30px; padding:12px 22px; font-size:14px; font-weight:700; box-shadow:var(--shadow); cursor:pointer; z-index:50; display:flex; align-items:center; gap:8px;}
   .printbtn:hover{background:var(--accent-hover);}
@@ -141,8 +158,74 @@
 
   <div class="wrap">
 
+    <!-- ===== 概要：Watashiとは ===== -->
+    <h2><span class="n">1</span>Watashi とは（全体像）</h2>
+    <p class="lead">Watashi は、社内のファイルサーバーへ<b>安全に・記録を残しながら</b>アクセスするための社内専用ツールです。長年使われてきた現行ツール（仮称：<b>PANDA</b>）の後継として、同じ「2画面でファイルをやり取りする」使用感はそのままに、<b>中身をまるごと作り直した</b>ものです。</p>
+
+    <figure>
+      <svg viewBox="0 0 860 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Watashiの全体構成（簡易図）">
+        <rect x="40" y="70" width="190" height="64" rx="10" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="135" y="97" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1F2328">利用者の PC</text>
+        <text x="135" y="116" text-anchor="middle" font-size="11.5" fill="#4A535C">専用アプリ（Watashi Client）</text>
+
+        <rect x="335" y="58" width="200" height="88" rx="10" fill="#f2fbf5" stroke="#1f6b3a" stroke-width="1.5"/>
+        <text x="435" y="86" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1F2328">Watashi サーバー</text>
+        <text x="435" y="105" text-anchor="middle" font-size="11.5" fill="#1f6b3a">社内に 1 台（常駐サービス）</text>
+        <text x="435" y="122" text-anchor="middle" font-size="11" fill="#1f6b3a">ユーザー・権限・記録を一括管理</text>
+
+        <rect x="640" y="70" width="190" height="64" rx="10" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.5"/>
+        <text x="735" y="97" text-anchor="middle" font-size="13.5" font-weight="700" fill="#5C1A0B">社内ファイルサーバー</text>
+        <text x="735" y="116" text-anchor="middle" font-size="11.5" fill="#5C1A0B">既存の共有フォルダ（そのまま）</text>
+
+        <line x1="230" y1="102" x2="333" y2="102" stroke="#1f883d" stroke-width="2.4" marker-end="url(#arrowG)"/>
+        <text x="281" y="86" text-anchor="middle" font-size="11.5" fill="#1f883d">HTTPS 🔒</text>
+        <text x="281" y="130" text-anchor="middle" font-size="10.5" fill="#6B7280">暗号化された通信</text>
+
+        <line x1="535" y1="102" x2="638" y2="102" stroke="#1f883d" stroke-width="2.4" marker-end="url(#arrowG)"/>
+        <text x="586" y="86" text-anchor="middle" font-size="11.5" fill="#1f883d">社内網</text>
+        <text x="586" y="130" text-anchor="middle" font-size="10.5" fill="#6B7280">（必要な拠点は中継対応）</text>
+
+        <defs>
+          <marker id="arrowG" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#1f883d"/></marker>
+        </defs>
+
+        <text x="435" y="186" text-anchor="middle" font-size="12" fill="#4A535C">左に自分の PC、右に社内サーバー — マウス操作でアップロード / ダウンロードするだけ</text>
+        <text x="435" y="208" text-anchor="middle" font-size="11" fill="#9CA3AF">昔ながらのファイル転送ソフトを、より安全・管理しやすくした後継とお考えください</text>
+      </svg>
+      <figcaption>図：Watashi の全体像（簡易構成図）。難しい設定は管理者側で行い、利用者はアプリを開くだけです。</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <img src="images/shot-main.png" alt="Watashi メイン画面（2ペイン）のスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：メイン画面（2ペイン）</div>
+        <div class="desc"><code>docs/proposal/images/shot-main.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図：実際の操作画面イメージ（差し替え用プレースホルダー）</figcaption>
+    </figure>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="ico">🔒</div>
+        <div class="big">見られない・改ざんされない</div>
+        <div class="desc">通信を暗号化（HTTPS）し、社外への持ち出しもなし</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🔑</div>
+        <div class="big">人ごとに触れる範囲を制御</div>
+        <div class="desc">フォルダ単位で「見る／書く／消す」を個別に設定</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🧭</div>
+        <div class="big">誰が何をしたか全部記録</div>
+        <div class="desc">操作ログを自動記録、管理画面から確認・CSV出力</div>
+      </div>
+    </div>
+
     <!-- ===== エグゼクティブサマリー ===== -->
-    <h2><span class="n">1</span>ご提案の要旨</h2>
+    <h2><span class="n">2</span>ご提案の要旨</h2>
     <p class="lead">現在、社内のファイル受け渡しに利用している既存ツール（仮称：<b>PANDA</b>）には、<b>セキュリティ・運用・保守</b>の面で見過ごせない課題があります。本資料では、それらをまとめて解決する後継ツール <b>「Watashi」</b> への移行をご提案します。</p>
 
     <div class="stats">
@@ -166,11 +249,11 @@
     <div class="conclusion">
       <h3>結論</h3>
       <p>Watashi は、現行ツールで挙がっている <b>10 個の課題すべてに対応</b>しています。とくに<b>「通信の暗号化」と「ユーザーごとの権限分離」</b>はセキュリティ・内部統制の観点で効果が大きく、あわせて<b>日々の運用・保守の手間も大幅に減らせます</b>。</p>
-      <p>まずは小規模な<b>試験導入（PoC）</b>から始めることを提案します（→ <a href="#next">第7章</a>）。</p>
+      <p>まずは小規模な<b>試験導入（PoC）</b>から始めることを提案します（→ <a href="#schedule">第8章</a> / <a href="#next">第9章</a>）。</p>
     </div>
 
     <!-- ===== 現状の課題 ===== -->
-    <h2><span class="n">2</span>現行ツール（PANDA）の課題</h2>
+    <h2><span class="n">3</span>現行ツール（PANDA）の課題</h2>
     <p>現場・情シスから挙がっている主な課題は次のとおりです。単なる「使いにくさ」にとどまらず、<b>情報漏えいリスク</b>や<b>運用コスト</b>に直結するものが含まれます。</p>
 
     <table>
@@ -179,18 +262,18 @@
         <tr><td>1</td><td>通信が <b>HTTP のみ</b>（暗号化なし・平文）</td><td>パスワードやファイルが盗聴される恐れ。社外監査でも指摘対象</td></tr>
         <tr><td>2</td><td>ツール名が他製品と重複（<b>PANDA</b>）</td><td>検索・問い合わせ・社内周知で混乱。サポート情報が見つけにくい</td></tr>
         <tr><td>3</td><td><b>ユーザーごとに権限を分けられない</b></td><td>全員が同じ範囲にアクセス。最小権限の原則を満たせない</td></tr>
-        <tr><td>4</td><td><b>MySQL</b> の脆弱性対応が大変</td><td>DBの監視・パッチ当てが恒常的な負担。放置は重大リスク</td></tr>
+        <tr><td>4</td><td><b>MySQL</b> の脆弱性対応が大変（<b>Web アプリと同一サーバに同居</b>）</td><td>DBの監視・パッチ当てが恒常的な負担。Webアプリと同居しているため、片方の対応がもう片方にも影響しやすい</td></tr>
         <tr><td>5</td><td>ログは <b>DB を直接見る</b>しかない</td><td>「誰が何をしたか」の確認に手間と専門知識が必要。監査対応が困難</td></tr>
         <tr><td>6</td><td><b>ユーザー追加が大変</b></td><td>異動・入退社のたびに手作業。情シスの定常負荷</td></tr>
         <tr><td>7</td><td>許可パスを <b>1 つずつ入力</b></td><td>権限付与に時間がかかり、設定ミス（過剰付与）も起きやすい</td></tr>
         <tr><td>8</td><td><b>設定変更が大変</b></td><td>ちょっとした変更にも作業コスト。属人化しやすい</td></tr>
         <tr><td>9</td><td><b>IIS を使う構成でしか</b>構築できない</td><td>サーバ構成の自由度が低く、移設・冗長化がしにくい</td></tr>
-        <tr><td>10</td><td><b>MySQL の立ち上げ</b>が大変</td><td>初期構築・移設に専門作業が必要。環境を増やしにくい</td></tr>
+        <tr><td>10</td><td><b>MySQL の立ち上げ</b>が大変</td><td>初期構築・移設に専門作業が必要。<b>Web(IIS)とDBが1台に同居</b>しているため、環境を増やす・切り分けるのも大変</td></tr>
       </tbody>
     </table>
 
     <!-- ===== Watashiで何が変わるか（中核） ===== -->
-    <h2><span class="n">3</span>Watashi で何が変わるか（課題別の対応）</h2>
+    <h2><span class="n">4</span>Watashi で何が変わるか（課題別の対応）</h2>
     <p class="lead">上記 10 個の課題が、Watashi ではどう解決されるかを一覧にしました。<b>本資料の中核</b>です。</p>
 
     <table class="cmp">
@@ -213,8 +296,8 @@
         </tr>
         <tr>
           <td>④ データベース保守</td>
-          <td><span class="x">✗</span>MySQL の脆弱性対応が負担</td>
-          <td><span class="o">✓</span><b>専用DBサーバ不要</b>（軽量な内蔵DB）。監視・パッチ対象が減る</td>
+          <td><span class="x">✗</span>MySQL の脆弱性対応が負担（<b>Webアプリと同一サーバに同居</b>）</td>
+          <td><span class="o">✓</span><b>専用DBサーバ不要</b>（軽量な内蔵DB）。監視・パッチ対象が減り、Webアプリとの同居リスクも解消</td>
         </tr>
         <tr>
           <td>⑤ ログ確認</td>
@@ -254,7 +337,7 @@
     </div>
 
     <!-- ===== 構成の比較図 ===== -->
-    <h2><span class="n">4</span>システム構成の比較（イメージ）</h2>
+    <h2><span class="n">5</span>システム構成の比較（イメージ）</h2>
     <p>専門的な部分は割愛し、<b>構成がシンプルになる</b>ことだけ図でご覧ください。</p>
 
     <figure>
@@ -267,17 +350,19 @@
         <!-- 現行 -->
         <rect x="120" y="56" width="190" height="44" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
         <text x="215" y="83" text-anchor="middle" font-size="13" fill="#1F2328">利用者の PC</text>
-        <rect x="120" y="140" width="190" height="50" rx="8" fill="#fff5f5" stroke="#7a2438"/>
-        <text x="215" y="162" text-anchor="middle" font-size="13" fill="#1F2328">Web アプリ</text>
-        <text x="215" y="180" text-anchor="middle" font-size="11" fill="#7a2438">※ IIS が必須</text>
-        <rect x="120" y="232" width="190" height="50" rx="8" fill="#fff5f5" stroke="#7a2438"/>
-        <text x="215" y="254" text-anchor="middle" font-size="13" fill="#1F2328">MySQL（別サーバ）</text>
-        <text x="215" y="272" text-anchor="middle" font-size="11" fill="#7a2438">※ 立上げ・脆弱性対応が負担</text>
         <!-- 矢印 現行 -->
         <line x1="215" y1="100" x2="215" y2="138" stroke="#CF222E" stroke-width="2"/>
         <text x="225" y="124" font-size="11" fill="#CF222E">HTTP（平文）⚠</text>
-        <line x1="215" y1="190" x2="215" y2="230" stroke="#9CA3AF" stroke-width="2"/>
-        <text x="225" y="316" font-size="11.5" fill="#7a2438" text-anchor="middle" x="215">構成要素が多く、保守の手間が大きい</text>
+        <!-- 現行サーバー（1台にIIS+MySQLが同居） -->
+        <rect x="110" y="140" width="210" height="136" rx="10" fill="#fff5f5" stroke="#7a2438" stroke-width="2"/>
+        <text x="215" y="156" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7a2438">現行サーバー（1 台）</text>
+        <rect x="125" y="163" width="180" height="44" rx="6" fill="#fff" stroke="#c98"/>
+        <text x="215" y="182" text-anchor="middle" font-size="12.5" fill="#1F2328">IIS 上の Web アプリ</text>
+        <text x="215" y="198" text-anchor="middle" font-size="10.5" fill="#7a2438">※ IIS が必須</text>
+        <rect x="125" y="215" width="180" height="44" rx="6" fill="#fff" stroke="#c98"/>
+        <text x="215" y="234" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">MySQL</text>
+        <text x="215" y="250" text-anchor="middle" font-size="10.5" fill="#7a2438">※ 同一サーバに同居</text>
+        <text x="225" y="316" font-size="11.5" fill="#7a2438" text-anchor="middle" x="215">1台にWebとDBが同居 → 障害・脆弱性の影響範囲が大きい</text>
 
         <!-- Watashi -->
         <rect x="550" y="56" width="190" height="44" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
@@ -294,11 +379,11 @@
         <line x1="645" y1="214" x2="645" y2="254" stroke="#1f883d" stroke-width="2"/>
         <text x="645" y="330" font-size="11.5" fill="#1f6b3a" text-anchor="middle">構成がシンプルで、安全かつ運用が軽い</text>
       </svg>
-      <figcaption>図：現行ツールと Watashi の構成比較（イメージ）。Watashi は別DBサーバ・IIS を前提にせず、構成がシンプルになります。</figcaption>
+      <figcaption>図：現行ツールと Watashi の構成比較（イメージ）。現行は 1 台のサーバーに Web アプリ（IIS）と DB（MySQL）が同居する構成ですが、Watashi は IIS・別DBサーバのいずれも前提にせず、構成がシンプルになります。</figcaption>
     </figure>
 
     <!-- ===== セキュリティ ===== -->
-    <h2><span class="n">5</span>セキュリティ面の強化（重点）</h2>
+    <h2><span class="n">6</span>セキュリティ面の強化（重点）</h2>
     <p>情報漏えい対策・内部統制の観点で、現行からの改善が特に大きい点です。</p>
     <ul>
       <li><b>通信の暗号化</b>：HTTPS に対応。パスワードやファイルが平文で流れません。</li>
@@ -311,8 +396,19 @@
       <b>内部統制・監査の観点：</b>「誰が・いつ・どのファイルに・何をしたか」がすべて残り、管理画面からすぐ提示できます。現行のように「DBを直接調べる」必要はありません。
     </div>
 
+    <figure class="shot">
+      <img src="images/shot-permission.png" alt="ユーザー権限設定画面のスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：権限設定画面</div>
+        <div class="desc"><code>docs/proposal/images/shot-permission.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図：ユーザー × フォルダ単位で権限を設定する管理画面（差し替え用プレースホルダー）</figcaption>
+    </figure>
+
     <!-- ===== 運用・保守 ===== -->
-    <h2><span class="n">6</span>運用・保守の負担軽減</h2>
+    <h2><span class="n">7</span>運用・保守の負担軽減</h2>
     <table>
       <thead><tr><th>項目</th><th>Watashi での改善</th></tr></thead>
       <tbody>
@@ -329,8 +425,78 @@
       <b>情シスの定常負荷が下がります：</b>これまで手作業だった「ユーザー追加・権限設定・ログ抽出・DB保守」が、画面操作や自動化に置き換わります。
     </div>
 
+    <figure class="shot">
+      <img src="images/shot-audit-log.png" alt="監査ログ画面のスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：監査ログ画面</div>
+        <div class="desc"><code>docs/proposal/images/shot-audit-log.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図：「いつ・誰が・何をしたか」を一覧表示する監査ログ画面（差し替え用プレースホルダー）</figcaption>
+    </figure>
+
+    <!-- ===== 導入スケジュール ===== -->
+    <h2 id="schedule"><span class="n">8</span>導入スケジュール（想定）</h2>
+    <p>本格導入の前に、まず<b>小規模な試験導入（PoC）</b>で効果を確認する進め方を想定しています。<b id="sched-total-start">2026年8月1日</b> 開始の場合、<b id="sched-total-end">2026年10月23日</b> 頃までの<b>約3ヶ月</b>で本番展開の判断まで到達できる見込みです。</p>
+
+    <figure>
+      <svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="導入スケジュールの想定（ガントチャート）">
+        <!-- 月の背景帯 -->
+        <rect x="210" y="34" width="200" height="220" fill="#fafbfc"/>
+        <rect x="410" y="34" width="200" height="220" fill="#f3f4f6"/>
+        <rect x="610" y="34" width="200" height="220" fill="#fafbfc"/>
+        <text data-month-offset="0" x="310" y="24" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4A535C">2026年8月</text>
+        <text data-month-offset="1" x="510" y="24" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4A535C">2026年9月</text>
+        <text data-month-offset="2" x="710" y="24" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4A535C">2026年10月</text>
+        <line x1="210" y1="34" x2="210" y2="254" stroke="#D5D9DE"/>
+        <line x1="410" y1="34" x2="410" y2="254" stroke="#D5D9DE"/>
+        <line x1="610" y1="34" x2="610" y2="254" stroke="#D5D9DE"/>
+        <line x1="810" y1="34" x2="810" y2="254" stroke="#D5D9DE"/>
+
+        <!-- 行ラベル -->
+        <text x="20" y="63" font-size="13" font-weight="700" fill="#1F2328">① 準備</text>
+        <text x="20" y="113" font-size="13" font-weight="700" fill="#1F2328">② 試験導入</text>
+        <text x="20" y="121" font-size="11" fill="#6B7280">（PoC・1部署）</text>
+        <text x="20" y="163" font-size="13" font-weight="700" fill="#1F2328">③ 評価</text>
+        <text x="20" y="213" font-size="13" font-weight="700" fill="#1F2328">④ 本番展開</text>
+        <text x="20" y="221" font-size="11" fill="#6B7280">（順次切替）</text>
+
+        <!-- バー -->
+        <rect x="210" y="46" width="100" height="26" rx="6" fill="#9CA3AF"/>
+        <text x="260" y="63" text-anchor="middle" font-size="11" fill="#fff">環境準備</text>
+        <text id="sched-short-prep" x="260" y="84" text-anchor="middle" font-size="10.5" fill="#6B7280">8/1〜8/14</text>
+
+        <rect x="310" y="96" width="200" height="26" rx="6" fill="#C73E1D"/>
+        <text x="410" y="113" text-anchor="middle" font-size="11" fill="#fff">PoC 実施（1部署・少人数）</text>
+        <text id="sched-short-poc" x="410" y="134" text-anchor="middle" font-size="10.5" fill="#6B7280">8/15〜9/11</text>
+
+        <rect x="510" y="146" width="100" height="26" rx="6" fill="#BF8700"/>
+        <text x="560" y="163" text-anchor="middle" font-size="11" fill="#fff">効果測定・評価</text>
+        <text id="sched-short-eval" x="560" y="184" text-anchor="middle" font-size="10.5" fill="#6B7280">9/12〜9/25</text>
+
+        <rect x="610" y="196" width="200" height="26" rx="6" fill="#1f6b3a"/>
+        <text x="710" y="213" text-anchor="middle" font-size="11" fill="#fff">対象拡大・本番切替</text>
+        <text id="sched-short-deploy" x="710" y="234" text-anchor="middle" font-size="10.5" fill="#6B7280">9/26〜10/23</text>
+
+        <text x="435" y="278" text-anchor="middle" font-size="11.5" fill="#9CA3AF">※ 開始日はこのページ下部の設定（SCHEDULE_START）を書き換えるだけで、全ての日付が自動的に再計算されます。</text>
+      </svg>
+      <figcaption>図：導入スケジュールの想定（ガントチャート）。まず①準備・②PoCから着手し、③評価を経て④本番展開へ進みます。</figcaption>
+    </figure>
+
+    <table>
+      <thead><tr><th style="width:150px">フェーズ</th><th>内容</th><th style="width:260px">期間</th></tr></thead>
+      <tbody>
+        <tr><td>① 準備</td><td>環境準備・実施体制の確認</td><td id="sched-range-prep">2026年8月1日 〜 2026年8月14日</td></tr>
+        <tr><td>② 試験導入（PoC）</td><td>1部署・少人数で、実運用に近い形で試行</td><td id="sched-range-poc">2026年8月15日 〜 2026年9月11日</td></tr>
+        <tr><td>③ 評価</td><td>安全性・運用性・保守性を現行ツールと比較</td><td id="sched-range-eval">2026年9月12日 〜 2026年9月25日</td></tr>
+        <tr><td>④ 本番展開</td><td>問題なければ対象部署を拡大し、順次切替</td><td id="sched-range-deploy">2026年9月26日 〜 2026年10月23日</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted); font-size:13px;">※ 上表・上図の日付は、本ファイル末尾の <code>SCHEDULE_START</code>（起点日）を書き換えるだけで自動的に再計算されます。日付が確定したら情シス担当にこの1箇所の変更を依頼してください。</p>
+
     <!-- ===== 導入のしやすさ / 次のステップ ===== -->
-    <h2 id="next"><span class="n">7</span>導入のしやすさと、次のステップ</h2>
+    <h2 id="next"><span class="n">9</span>導入のしやすさと、次のステップ</h2>
 
     <h3>導入・移行のしやすさ</h3>
     <ul>
@@ -371,6 +537,49 @@
   </footer>
 
   <button class="printbtn" onclick="window.print()">🖨 印刷 / PDFで保存</button>
+
+  <script>
+  (function(){
+    /* ============================================================
+       導入スケジュール（第8章）の自動計算設定
+       SCHEDULE_START（起点日）だけを書き換えれば、本文中の
+       スケジュール図・スケジュール表の日付がすべて自動的に更新されます。
+       ============================================================ */
+    var SCHEDULE_START = '2026-08-01'; // ← ここを実際の開始予定日 (YYYY-MM-DD) に変更
+    var PHASES = [
+      { key: 'prep',   weeks: 2 }, // ① 準備
+      { key: 'poc',    weeks: 4 }, // ② 試験導入（PoC）
+      { key: 'eval',   weeks: 2 }, // ③ 評価
+      { key: 'deploy', weeks: 4 }  // ④ 本番展開
+    ];
+    /* ============================================================ */
+
+    function addDays(d, n){ var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+    function fmtLong(d){ return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日'; }
+    function fmtShort(d){ return (d.getMonth() + 1) + '/' + d.getDate(); }
+    function setText(id, text){ var el = document.getElementById(id); if (el) el.textContent = text; }
+
+    var start = new Date(SCHEDULE_START + 'T00:00:00');
+    var cursor = start;
+    PHASES.forEach(function(p){
+      var phaseStart = cursor;
+      var phaseEnd = addDays(cursor, p.weeks * 7 - 1);
+      setText('sched-short-' + p.key, fmtShort(phaseStart) + '〜' + fmtShort(phaseEnd));
+      setText('sched-range-' + p.key, fmtLong(phaseStart) + ' 〜 ' + fmtLong(phaseEnd));
+      cursor = addDays(cursor, p.weeks * 7);
+    });
+    setText('sched-total-start', fmtLong(start));
+    setText('sched-total-end', fmtLong(addDays(cursor, -1)));
+
+    var monthEls = document.querySelectorAll('[data-month-offset]');
+    for (var i = 0; i < monthEls.length; i++) {
+      var el = monthEls[i];
+      var off = parseInt(el.getAttribute('data-month-offset'), 10);
+      var d = new Date(start.getFullYear(), start.getMonth() + off, 1);
+      el.textContent = d.getFullYear() + '年' + (d.getMonth() + 1) + '月';
+    }
+  })();
+  </script>
 
 </body>
 </html>
