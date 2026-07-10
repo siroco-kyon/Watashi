@@ -75,9 +75,36 @@ public sealed class SmbWriteStream : Stream
         if (!_disposed && disposing)
         {
             _disposed = true;
-            try { _session.Store.FlushFileBuffers(_handle); } catch { }
-            try { _session.Store.CloseFile(_handle); } catch { }
-            _session.Dispose();
+            Exception? failure = null;
+            try
+            {
+                var status = _session.Store.FlushFileBuffers(_handle);
+                if (status != NTStatus.STATUS_SUCCESS)
+                    failure = new IOException($"SMB フラッシュエラー: {status}");
+            }
+            catch (Exception ex)
+            {
+                failure = new IOException("SMB フラッシュ中に例外が発生しました。", ex);
+            }
+
+            try
+            {
+                var status = _session.Store.CloseFile(_handle);
+                if (status != NTStatus.STATUS_SUCCESS && failure is null)
+                    failure = new IOException($"SMB クローズエラー: {status}");
+            }
+            catch (Exception ex)
+            {
+                failure ??= new IOException("SMB クローズ中に例外が発生しました。", ex);
+            }
+
+            if (failure is null)
+                _session.Dispose();
+            else
+                _session.DisposeReal();
+
+            if (failure is not null)
+                throw failure;
         }
         base.Dispose(disposing);
     }

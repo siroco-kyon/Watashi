@@ -360,6 +360,6 @@ public static class AdminUserEndpoints
     private static async Task<int> GetExpiryDaysAsync(AppDbContext db, CancellationToken ct)
     {
         var s = await db.SystemSettings.AsNoTracking().FirstOrDefaultAsync(x => x.Key == SettingKeys.PasswordExpiryDays, ct);
-        return s is not null && int.TryParse(s.Value, out var d) ? d : 90;
+        return s is not null && int.TryParse(s.Value, out var d) && d is >= 1 and <= 36_500 ? d : 90;
     }
 }

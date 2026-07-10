@@ -7,9 +7,11 @@ internal interface ICifsDeleteOperations
     NTStatus TryDeleteFile(string path);
     IReadOnlyList<CifsDeleteEntry> ListDirectory(string path);
     NTStatus TryDeleteEmptyDirectory(string path);
+    bool IsReparsePoint(string path, bool isDirectory);
+    NTStatus TryDeleteReparsePoint(string path, bool isDirectory);
 }
 
-internal readonly record struct CifsDeleteEntry(string Name, bool IsDirectory);
+internal readonly record struct CifsDeleteEntry(string Name, bool IsDirectory, bool IsReparsePoint = false);
 
 internal static class CifsDeleteWalker
 {
@@ -20,6 +22,13 @@ internal static class CifsDeleteWalker
 
         if (status == NTStatus.STATUS_FILE_IS_A_DIRECTORY)
         {
+            if (operations.IsReparsePoint(path, isDirectory: true))
+            {
+                var reparseStatus = operations.TryDeleteReparsePoint(path, isDirectory: true);
+                if (reparseStatus != NTStatus.STATUS_SUCCESS)
+                    throw new IOException($"リパースポイント削除エラー ({path}): {reparseStatus}");
+                return;
+            }
             DeleteDirectoryRecursive(path, operations);
             return;
         }
@@ -32,6 +41,13 @@ internal static class CifsDeleteWalker
         foreach (var item in operations.ListDirectory(path))
         {
             var childPath = JoinPath(path, item.Name);
+            if (item.IsReparsePoint)
+            {
+                var reparseStatus = operations.TryDeleteReparsePoint(childPath, item.IsDirectory);
+                if (reparseStatus != NTStatus.STATUS_SUCCESS)
+                    throw new IOException($"リパースポイント削除エラー ({childPath}): {reparseStatus}");
+                continue;
+            }
             if (item.IsDirectory)
             {
                 DeleteDirectoryRecursive(childPath, operations);

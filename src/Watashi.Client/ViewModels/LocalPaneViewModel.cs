@@ -162,7 +162,11 @@ public partial class LocalPaneViewModel : ObservableObject
 
     public async Task NewFolderWithNameAsync(string name)
     {
-        if (string.IsNullOrWhiteSpace(name)) return;
+        if (!IsSimpleFileName(name))
+        {
+            StatusMessage = "フォルダ名には同じフォルダ内の有効な名前を指定してください。";
+            return;
+        }
         var path = Path.Combine(CurrentPath, name);
         try
         {
@@ -199,6 +203,11 @@ public partial class LocalPaneViewModel : ObservableObject
     {
         if (Selected is null || Selected.Type == FileEntryTypes.Parent) return;
         if (string.IsNullOrWhiteSpace(newName) || newName == Selected.Name) return;
+        if (!IsSimpleFileName(newName))
+        {
+            StatusMessage = "リネーム名には同じフォルダ内の有効な名前を指定してください。";
+            return;
+        }
         var oldFull = Path.Combine(CurrentPath, Selected.Name);
         var newFull = Path.Combine(CurrentPath, newName);
         var isDir = Selected.Type == FileEntryTypes.Directory;
@@ -241,6 +250,14 @@ public partial class LocalPaneViewModel : ObservableObject
     {
         CanGoBack = _back.Count > 0;
         CanGoForward = _forward.Count > 0;
+    }
+
+    private static bool IsSimpleFileName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name != name.Trim() || name is "." or "..") return false;
+        if (Path.IsPathRooted(name) || name.IndexOfAny(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }) >= 0)
+            return false;
+        return name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
     }
 
     private void SaveLastPathThrottled(string path)

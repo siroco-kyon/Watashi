@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Watashi.Server を Windows Service として登録する PowerShell スクリプト。
 

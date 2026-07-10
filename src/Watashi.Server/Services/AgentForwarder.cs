@@ -144,10 +144,10 @@ public class AgentForwarder
         res.EnsureSuccessStatusCode();
     }
 
-    public async Task RenameAsync(ExecutionNode node, CifsConnectionInfo info, string oldPath, string newPath, CancellationToken ct)
+    public async Task RenameAsync(ExecutionNode node, CifsConnectionInfo info, string oldPath, string newPath, CancellationToken ct, bool replaceIfExists = false)
     {
         var c = Client(node);
-        var body = BuildBody(info, new { oldPath, newPath });
+        var body = BuildBody(info, new { oldPath, newPath, replaceIfExists });
         using var req = new HttpRequestMessage(HttpMethod.Post, "agent/files/rename")
         {
             Content = JsonContent.Create(body),

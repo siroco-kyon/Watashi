@@ -54,13 +54,14 @@ public class HeartbeatService : BackgroundService
                         _limiter.SetMax(ack.MaxConcurrency);
                     }
                 }
-                catch (Exception parseEx)
+                catch (Exception parseEx) when (!ct.IsCancellationRequested)
                 {
                     // 旧サーバ (NoContent) 互換: 読めなくても heartbeat 自体は成功扱い。
                     _log.LogDebug(parseEx, "Heartbeat 応答パース失敗 (旧サーバの可能性)");
                 }
             }
-            catch (OperationCanceledException) { break; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
+            catch (OperationCanceledException ex) { _log.LogWarning(ex, "Heartbeat request timed out"); }
             catch (Exception ex) { _log.LogWarning(ex, "Heartbeat 送信失敗"); }
         } while (await timer.WaitForNextTickAsync(ct));
     }

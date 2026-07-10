@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Back up the Watashi SQLite database and prune daily/monthly generations.
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Generate color variants of the Watashi Torii icon as multi-size .ico files.
 

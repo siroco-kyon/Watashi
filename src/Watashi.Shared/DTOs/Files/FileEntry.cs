@@ -7,4 +7,5 @@ public class FileEntry
     public long? Size { get; set; }
     public DateTime? ModifiedAt { get; set; }
     public bool? CanGoUp { get; set; }
+    public bool IsReparsePoint { get; set; }
 }

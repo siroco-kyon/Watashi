@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Watashi.Server / Watashi.Agent の Windows Service を停止・削除する。
 

@@ -44,12 +44,14 @@ public class CifsService
             {
                 if (item.FileName is "." or "..") continue;
                 bool isDir = (item.FileAttributes & FileAttributes.Directory) != 0;
+                bool isReparsePoint = (item.FileAttributes & FileAttributes.ReparsePoint) != 0;
                 list.Add(new FileEntry
                 {
                     Name = item.FileName,
                     Type = isDir ? FileEntryTypes.Directory : FileEntryTypes.File,
                     Size = isDir ? null : item.EndOfFile,
                     ModifiedAt = DateTime.SpecifyKind(item.LastWriteTime, DateTimeKind.Utc),
+                    IsReparsePoint = isReparsePoint,
                 });
             }
             return list;
@@ -144,7 +146,8 @@ public class CifsService
                 FileAttributes.Normal,
                 ShareAccess.Read | ShareAccess.Write | ShareAccess.Delete,
                 CreateDisposition.FILE_OPEN,
-                CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
+                CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_OPEN_REPARSE_POINT |
+                    CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
                 null);
             return status == NTStatus.STATUS_SUCCESS ? _session.Store.CloseFile(handle) : status;
         }
@@ -161,6 +164,51 @@ public class CifsService
                 CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
                 null);
             return status == NTStatus.STATUS_SUCCESS ? _session.Store.CloseFile(handle) : status;
+        }
+
+        public NTStatus TryDeleteReparsePoint(string path, bool isDirectory)
+        {
+            var smbPath = isDirectory ? ToSmbDirectory(path) : ToSmbFile(path);
+            var typeOption = isDirectory ? CreateOptions.FILE_DIRECTORY_FILE : CreateOptions.FILE_NON_DIRECTORY_FILE;
+            var status = _session.Store.CreateFile(
+                out object handle, out FileStatus _, smbPath,
+                AccessMask.DELETE | AccessMask.SYNCHRONIZE,
+                isDirectory ? FileAttributes.Directory : FileAttributes.Normal,
+                ShareAccess.Read | ShareAccess.Write | ShareAccess.Delete,
+                CreateDisposition.FILE_OPEN,
+                typeOption | CreateOptions.FILE_OPEN_REPARSE_POINT |
+                    CreateOptions.FILE_DELETE_ON_CLOSE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
+                null);
+            return status == NTStatus.STATUS_SUCCESS ? _session.Store.CloseFile(handle) : status;
+        }
+
+        public bool IsReparsePoint(string path, bool isDirectory)
+        {
+            var smbPath = isDirectory ? ToSmbDirectory(path) : ToSmbFile(path);
+            var typeOption = isDirectory ? CreateOptions.FILE_DIRECTORY_FILE : CreateOptions.FILE_NON_DIRECTORY_FILE;
+            var status = _session.Store.CreateFile(
+                out object handle, out FileStatus _, smbPath,
+                AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE,
+                isDirectory ? FileAttributes.Directory : FileAttributes.Normal,
+                ShareAccess.Read | ShareAccess.Write | ShareAccess.Delete,
+                CreateDisposition.FILE_OPEN,
+                typeOption | CreateOptions.FILE_OPEN_REPARSE_POINT | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
+                null);
+            if (status != NTStatus.STATUS_SUCCESS)
+                throw new IOException($"リパースポイント属性の取得用に開けません: {status}");
+
+            try
+            {
+                var infoStatus = _session.Store.GetFileInformation(
+                    out FileInformation info, handle, FileInformationClass.FileAttributeTagInformation);
+                if (infoStatus != NTStatus.STATUS_SUCCESS || info is not FileAttributeTagInformation attributes)
+                    throw new IOException($"リパースポイント属性の取得エラー: {infoStatus}");
+                return (attributes.FileAttributes & FileAttributes.ReparsePoint) != 0;
+            }
+            finally
+            {
+                try { _session.Store.CloseFile(handle); } catch { }
+            }
         }
 
         public IReadOnlyList<CifsDeleteEntry> ListDirectory(string path)
@@ -188,7 +236,8 @@ public class CifsService
                     .Where(item => item.FileName is not ("." or ".."))
                     .Select(item => new CifsDeleteEntry(
                         item.FileName,
-                        (item.FileAttributes & FileAttributes.Directory) != 0))
+                        (item.FileAttributes & FileAttributes.Directory) != 0,
+                        (item.FileAttributes & FileAttributes.ReparsePoint) != 0))
                     .ToList();
             }
             finally
@@ -198,7 +247,7 @@ public class CifsService
         }
     }
 
-    public void Rename(CifsConnectionInfo info, string oldPath, string newPath)
+    public void Rename(CifsConnectionInfo info, string oldPath, string newPath, bool replaceIfExists = false)
     {
         using var session = Acquire(info);
         var smbOld = ToSmbFile(oldPath);
@@ -215,7 +264,7 @@ public class CifsService
             throw new IOException($"リネーム対象を開けません: {status}");
         try
         {
-            var rename = new FileRenameInformationType2 { ReplaceIfExists = false, FileName = smbNew };
+            var rename = new FileRenameInformationType2 { ReplaceIfExists = replaceIfExists, FileName = smbNew };
             var setStatus = session.Store.SetFileInformation(handle, rename);
             if (setStatus != NTStatus.STATUS_SUCCESS)
                 throw new IOException($"リネームエラー: {setStatus}");

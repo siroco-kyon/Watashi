@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Watashi.Shared.Cifs;
 
 /// <summary>
-/// (HostAddress, Port, Username, ShareName) キーで CifsSession を再利用するプール。
+/// (HostAddress, Port, Username, Password, ShareName) キーで CifsSession を再利用するプール。
 /// 操作毎の TCP/SMB ハンドシェイクコストを大幅に削減する。
 /// </summary>
 public sealed class CifsSessionPool : IDisposable
@@ -11,13 +13,14 @@ public sealed class CifsSessionPool : IDisposable
     private readonly TimeSpan _idleTtl;
     private readonly int _maxPerKey;
     private readonly ConcurrentDictionary<string, ConcurrentBag<CifsSession>> _idle = new();
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new();
     private readonly Timer _evictionTimer;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     public CifsSessionPool(TimeSpan? idleTtl = null, int maxPerKey = 4)
     {
         _idleTtl = idleTtl ?? TimeSpan.FromSeconds(60);
-        _maxPerKey = maxPerKey;
+        _maxPerKey = Math.Max(1, maxPerKey);
         _evictionTimer = new Timer(_ => Evict(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
@@ -27,38 +30,56 @@ public sealed class CifsSessionPool : IDisposable
         // Return 時に DisposeReal されるだけのデッドフロー。明示的に拒否する。
         if (_disposed) throw new ObjectDisposedException(nameof(CifsSessionPool));
         var key = Key(info);
-        if (_idle.TryGetValue(key, out var bag))
+        var gate = _gates.GetOrAdd(key, _ => new SemaphoreSlim(_maxPerKey, _maxPerKey));
+        gate.Wait();
+        if (_disposed)
         {
-            while (bag.TryTake(out var session))
-            {
-                if (session.IsAlive() && (DateTime.UtcNow - session.LastUsedUtc) < _idleTtl)
-                {
-                    session.AttachPool(s => Return(s));
-                    return session;
-                }
-                session.DisposeReal();
-            }
+            gate.Release();
+            throw new ObjectDisposedException(nameof(CifsSessionPool));
         }
-        var fresh = CifsSession.Connect(info);
-        fresh.AttachPool(s => Return(s));
-        return fresh;
+
+        try
+        {
+            if (_idle.TryGetValue(key, out var bag))
+            {
+                while (bag.TryTake(out var session))
+                {
+                    if (session.IsAlive() && (DateTime.UtcNow - session.LastUsedUtc) < _idleTtl)
+                    {
+                        session.AttachPool(s => Return(s, key, gate));
+                        return session;
+                    }
+                    session.DisposeReal();
+                }
+            }
+
+            var fresh = CifsSession.Connect(info);
+            fresh.AttachPool(s => Return(s, key, gate));
+            return fresh;
+        }
+        catch
+        {
+            gate.Release();
+            throw;
+        }
     }
 
-    private void Return(CifsSession session)
+    private void Return(CifsSession session, string key, SemaphoreSlim gate)
     {
-        if (_disposed) { session.DisposeReal(); return; }
-        session.DetachPool();
-        if (!session.IsAlive()) { session.DisposeReal(); return; }
-
-        var key = Key(session.Info);
-        var bag = _idle.GetOrAdd(key, _ => new ConcurrentBag<CifsSession>());
-        if (bag.Count >= _maxPerKey)
+        try
         {
-            session.DisposeReal();
-            return;
+            if (_disposed) { session.DisposeReal(); return; }
+            session.DetachPool();
+            if (!session.IsAlive()) { session.DisposeReal(); return; }
+
+            var bag = _idle.GetOrAdd(key, _ => new ConcurrentBag<CifsSession>());
+            session.LastUsedUtc = DateTime.UtcNow;
+            bag.Add(session);
         }
-        session.LastUsedUtc = DateTime.UtcNow;
-        bag.Add(session);
+        finally
+        {
+            gate.Release();
+        }
     }
 
     private void Evict()
@@ -77,8 +98,11 @@ public sealed class CifsSessionPool : IDisposable
         }
     }
 
-    private static string Key(CifsConnectionInfo info)
-        => $"{info.HostAddress}|{info.Port}|{info.Username}|{info.ShareName}";
+    internal static string Key(CifsConnectionInfo info)
+    {
+        var passwordHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(info.Password ?? string.Empty)));
+        return $"{info.HostAddress}|{info.Port}|{info.Username}|{passwordHash}|{info.ShareName}";
+    }
 
     public void Dispose()
     {
