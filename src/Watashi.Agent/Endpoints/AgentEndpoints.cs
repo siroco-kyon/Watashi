@@ -95,7 +95,7 @@ public static class AgentEndpoints
             var req = await ReadJsonAsync<AgentRenameRequest>(ctx, ct);
             if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
-            await Task.Run(() => cifs.Rename(info, PathHelper.NormalizePath(req.OldPath), PathHelper.NormalizePath(req.NewPath)), ct);
+            await Task.Run(() => cifs.Rename(info, PathHelper.NormalizePath(req.OldPath), PathHelper.NormalizePath(req.NewPath), req.ReplaceIfExists), ct);
             return Results.NoContent();
         });
 
@@ -276,7 +276,12 @@ public record AgentCifsBase
 
 public record AgentListRequest : AgentCifsBase { public string? Path { get; init; } }
 public record AgentPathRequest : AgentCifsBase { public string Path { get; init; } = "/"; }
-public record AgentRenameRequest : AgentCifsBase { public string OldPath { get; init; } = ""; public string NewPath { get; init; } = ""; }
+public record AgentRenameRequest : AgentCifsBase
+{
+    public string OldPath { get; init; } = "";
+    public string NewPath { get; init; } = "";
+    public bool ReplaceIfExists { get; init; }
+}
 public record AgentTestRequest : AgentCifsBase;
 
 /// <summary>

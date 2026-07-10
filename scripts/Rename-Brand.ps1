@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Rename the on-screen application name (default "Watashi") across the WPF
   client in one shot, without touching namespaces / class names.

@@ -1,8 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Watashi.Server.Data;
 using Watashi.Server.Services;
 using Watashi.Shared.Constants;
+using Watashi.Shared.DTOs.Auth;
 using Watashi.Shared.Models;
 using Xunit;
 
@@ -11,6 +14,9 @@ namespace Watashi.Tests;
 public class AuthServiceTests
 {
     private static AuthService Build(TestDb db)
+        => Build(db.Db);
+
+    private static AuthService Build(AppDbContext db)
     {
         var opts = new AuthServiceOptions
         {
@@ -18,7 +24,7 @@ public class AuthServiceTests
             Issuer = "Watashi", Audience = "Watashi",
             AccessTokenMinutes = 15, RefreshTokenDays = 30,
         };
-        return new AuthService(db.Db, opts);
+        return new AuthService(db, opts);
     }
 
     private static async Task<User> SeedUserAsync(TestDb db, string pw = "Admin123!@#", bool admin = false)
@@ -116,6 +122,61 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task Concurrent_failed_logins_are_counted_atomically_and_lock_at_threshold()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"watashi-lockout-{Guid.NewGuid():N}.db");
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = dbPath,
+            DefaultTimeout = 30,
+        }.ToString();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connectionString)
+            .Options;
+
+        try
+        {
+            await using (var setup = new AppDbContext(options))
+            {
+                await setup.Database.EnsureCreatedAsync();
+                setup.Users.Add(new User
+                {
+                    Username = "lockout-user",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!@#"),
+                    PasswordChangedAt = DateTime.UtcNow,
+                    PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
+                    CreatedAt = DateTime.UtcNow,
+                });
+                setup.SystemSettings.Add(new SystemSetting
+                {
+                    Key = SettingKeys.MaxFailedLoginAttempts,
+                    Value = "2",
+                    UpdatedAt = DateTime.UtcNow,
+                });
+                await setup.SaveChangesAsync();
+            }
+
+            await using var firstDb = new AppDbContext(options);
+            await using var secondDb = new AppDbContext(options);
+            await Task.WhenAll(
+                Build(firstDb).LoginAsync("lockout-user", "wrong", null),
+                Build(secondDb).LoginAsync("lockout-user", "wrong", null));
+
+            await using var verify = new AppDbContext(options);
+            var user = await verify.Users.AsNoTracking().SingleAsync();
+            user.FailedLoginCount.Should().Be(2);
+            user.IsLocked.Should().BeTrue();
+            (await verify.AuditLogs.CountAsync(l => l.Operation == AuthOperations.LoginLockedOut))
+                .Should().Be(1);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(dbPath)) File.Delete(dbPath);
+        }
+    }
+
+    [Fact]
     public async Task Failed_login_lockout_and_unknown_user_are_audited()
     {
         using var db = new TestDb();
@@ -171,6 +232,58 @@ public class AuthServiceTests
         err.Should().BeNull();
         res.Should().NotBeNull();
         res!.AccessToken.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task Concurrent_refresh_claims_token_once_and_revokes_the_winning_family()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"watashi-refresh-{Guid.NewGuid():N}.db");
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = dbPath,
+            DefaultTimeout = 30,
+        }.ToString();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connectionString)
+            .Options;
+
+        try
+        {
+            LoginResponse login;
+            await using (var setup = new AppDbContext(options))
+            {
+                await setup.Database.EnsureCreatedAsync();
+                var user = new User
+                {
+                    Username = "concurrent-user",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!@#"),
+                    PasswordChangedAt = DateTime.UtcNow,
+                    PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
+                    CreatedAt = DateTime.UtcNow,
+                };
+                setup.Users.Add(user);
+                await setup.SaveChangesAsync();
+                login = await Build(setup).IssueTokensAsync(user, null, null);
+            }
+
+            await using var firstDb = new AppDbContext(options);
+            await using var secondDb = new AppDbContext(options);
+            var firstTask = Build(firstDb).RefreshAsync(login.RefreshTokenId, login.RefreshToken);
+            var secondTask = Build(secondDb).RefreshAsync(login.RefreshTokenId, login.RefreshToken);
+
+            var results = await Task.WhenAll(firstTask, secondTask);
+
+            results.Count(r => r.response is not null).Should().Be(1);
+            results.Count(r => r.error == "token_reuse_detected").Should().Be(1);
+
+            await using var verify = new AppDbContext(options);
+            (await verify.RefreshTokens.AsNoTracking().CountAsync(t => !t.IsRevoked)).Should().Be(0);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(dbPath)) File.Delete(dbPath);
+        }
     }
 
     [Fact]
@@ -265,6 +378,9 @@ public class AuthServiceTests
         var (refreshed, err) = await svc.RefreshAsync(login.Response!.RefreshTokenId, login.Response.RefreshToken);
         refreshed.Should().BeNull();
         err.Should().Be("password_changed");
+        db.Db.ChangeTracker.Clear();
+        (await db.Db.RefreshTokens.AsNoTracking().SingleAsync(t => t.Id == login.Response.RefreshTokenId))
+            .IsRevoked.Should().BeTrue();
     }
 
     [Fact]

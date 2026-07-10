@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Watashi.Agent を Windows Service として登録する PowerShell スクリプト。
 

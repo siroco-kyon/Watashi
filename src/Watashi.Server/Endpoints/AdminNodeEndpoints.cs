@@ -42,6 +42,9 @@ public static class AdminNodeEndpoints
             var gatewayError = await ValidateGatewayAsync(
                 db, req.NodeType, req.Endpoint, req.GatewayNodeId, currentNodeId: null, ct);
             if (gatewayError is not null) return Results.BadRequest(new { error = gatewayError });
+            var maxConcurrency = req.MaxConcurrency ?? await GetDefaultMaxConcurrencyAsync(db, ct);
+            var concurrencyError = ValidateMaxConcurrency(maxConcurrency);
+            if (concurrencyError is not null) return Results.BadRequest(new { error = concurrencyError });
             var n = new ExecutionNode
             {
                 Name = req.Name.Trim(),
@@ -51,7 +54,7 @@ public static class AdminNodeEndpoints
                 GatewayNodeId = req.GatewayNodeId,
                 IsActive = true,
                 HealthStatus = req.NodeType == NodeTypes.Direct ? HealthStatuses.Healthy : HealthStatuses.Unknown,
-                MaxConcurrency = req.MaxConcurrency,
+                MaxConcurrency = maxConcurrency,
                 CreatedAt = DateTime.UtcNow,
             };
             db.ExecutionNodes.Add(n);
@@ -90,7 +93,12 @@ public static class AdminNodeEndpoints
                 if (gatewayError is not null) return Results.BadRequest(new { error = gatewayError });
             }
             if (req.IsActive.HasValue) n.IsActive = req.IsActive.Value;
-            if (req.MaxConcurrency.HasValue) n.MaxConcurrency = req.MaxConcurrency.Value;
+            if (req.MaxConcurrency.HasValue)
+            {
+                var concurrencyError = ValidateMaxConcurrency(req.MaxConcurrency.Value);
+                if (concurrencyError is not null) return Results.BadRequest(new { error = concurrencyError });
+                n.MaxConcurrency = req.MaxConcurrency.Value;
+            }
             await db.SaveChangesAsync(ct);
             await audit.LogAdminAsync(principal, ctx, AdminOperations.NodeUpdate, $"node:{id}", ct: ct);
             return Results.NoContent();
@@ -183,6 +191,20 @@ public static class AdminNodeEndpoints
             return "経由 Agent の Endpoint は http:// または https:// の URL で指定してください。";
 
         return null;
+    }
+
+    internal static string? ValidateMaxConcurrency(int value) =>
+        value is < 1 or > 100_000
+            ? "MaxConcurrency は 1 以上 100000 以下で指定してください。"
+            : null;
+
+    private static async Task<int> GetDefaultMaxConcurrencyAsync(AppDbContext db, CancellationToken ct)
+    {
+        var setting = await db.SystemSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Key == SettingKeys.AgentMaxConcurrency, ct);
+        return setting is not null && int.TryParse(setting.Value, out var value) && ValidateMaxConcurrency(value) is null
+            ? value
+            : 20;
     }
 
     private static bool IsHttpOrHttpsUrl(string? endpoint) =>

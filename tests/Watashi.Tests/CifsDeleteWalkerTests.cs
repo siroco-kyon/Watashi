@@ -27,6 +27,7 @@ public class CifsDeleteWalkerTests
 
         ops.Calls.Should().Equal(
             "file:/empty",
+            "is-reparse:/empty:dir",
             "list:/empty",
             "dir:/empty");
     }
@@ -49,6 +50,7 @@ public class CifsDeleteWalkerTests
 
         ops.Calls.Should().Equal(
             "file:/root",
+            "is-reparse:/root:dir",
             "list:/root",
             "list:/root/sub",
             "file:/root/sub/b.txt",
@@ -70,6 +72,7 @@ public class CifsDeleteWalkerTests
 
         ops.Calls.Should().Equal(
             "file:/",
+            "is-reparse:/:dir",
             "list:/",
             "file:/child.txt",
             "dir:/");
@@ -91,6 +94,7 @@ public class CifsDeleteWalkerTests
             .WithMessage("*locked.txt*STATUS_ACCESS_DENIED*");
         ops.Calls.Should().Equal(
             "file:/root",
+            "is-reparse:/root:dir",
             "list:/root",
             "file:/root/locked.txt");
     }
@@ -111,9 +115,48 @@ public class CifsDeleteWalkerTests
             .WithMessage("*root*STATUS_DIRECTORY_NOT_EMPTY*");
         ops.Calls.Should().Equal(
             "file:/root",
+            "is-reparse:/root:dir",
             "list:/root",
             "file:/root/child.txt",
             "dir:/root");
+    }
+
+    [Fact]
+    public void Delete_directory_does_not_traverse_reparse_points()
+    {
+        var ops = new FakeDeleteOperations();
+        ops.Directories["/root"] = new()
+        {
+            new("junction", true, true),
+            new("link.txt", false, true),
+        };
+
+        CifsDeleteWalker.Delete("/root", ops);
+
+        ops.Calls.Should().Equal(
+            "file:/root",
+            "is-reparse:/root:dir",
+            "list:/root",
+            "reparse:/root/junction:dir",
+            "reparse:/root/link.txt:file",
+            "dir:/root");
+        ops.Calls.Should().NotContain("list:/root/junction");
+    }
+
+    [Fact]
+    public void Delete_root_reparse_point_does_not_list_its_target()
+    {
+        var ops = new FakeDeleteOperations();
+        ops.Directories["/junction"] = new();
+        ops.ReparsePoints.Add("/junction");
+
+        CifsDeleteWalker.Delete("/junction", ops);
+
+        ops.Calls.Should().Equal(
+            "file:/junction",
+            "is-reparse:/junction:dir",
+            "reparse:/junction:dir");
+        ops.Calls.Should().NotContain("list:/junction");
     }
 
     private sealed class FakeDeleteOperations : ICifsDeleteOperations
@@ -121,6 +164,8 @@ public class CifsDeleteWalkerTests
         public Dictionary<string, List<CifsDeleteEntry>> Directories { get; } = new(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, NTStatus> FileStatuses { get; } = new(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, NTStatus> DirectoryStatuses { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, NTStatus> ReparseStatuses { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public HashSet<string> ReparsePoints { get; } = new(StringComparer.OrdinalIgnoreCase);
         public List<string> Calls { get; } = new();
 
         public NTStatus TryDeleteFile(string path)
@@ -147,6 +192,20 @@ public class CifsDeleteWalkerTests
             return DirectoryStatuses.TryGetValue(path, out var status)
                 ? status
                 : NTStatus.STATUS_SUCCESS;
+        }
+
+        public NTStatus TryDeleteReparsePoint(string path, bool isDirectory)
+        {
+            Calls.Add($"reparse:{path}:{(isDirectory ? "dir" : "file")}");
+            return ReparseStatuses.TryGetValue(path, out var status)
+                ? status
+                : NTStatus.STATUS_SUCCESS;
+        }
+
+        public bool IsReparsePoint(string path, bool isDirectory)
+        {
+            Calls.Add($"is-reparse:{path}:{(isDirectory ? "dir" : "file")}");
+            return ReparsePoints.Contains(path);
         }
     }
 }

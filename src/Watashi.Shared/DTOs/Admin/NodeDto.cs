@@ -23,7 +23,7 @@ public class CreateNodeRequest
     public string? Endpoint { get; set; }
     public string? ClientCertificateThumbprint { get; set; }
     public int? GatewayNodeId { get; set; }
-    public int MaxConcurrency { get; set; } = 20;
+    public int? MaxConcurrency { get; set; }
 }
 
 public class UpdateNodeRequest

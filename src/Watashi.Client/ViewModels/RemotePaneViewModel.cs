@@ -15,6 +15,8 @@ public partial class RemotePaneViewModel : ObservableObject
     private readonly ApiClient _api;
     private readonly Stack<string> _back = new();
     private readonly Stack<string> _forward = new();
+    private CancellationTokenSource? _refreshCts;
+    private long _refreshGeneration;
 
     // サーバから取得した全件 (Parent を除く)。表示用 Entries はここから絞り込んで作る。
     private readonly List<FileEntry> _all = new();
@@ -58,6 +60,7 @@ public partial class RemotePaneViewModel : ObservableObject
 
     partial void OnSelectedLocationChanged(LocationDto? value)
     {
+        CancelCurrentRefresh();
         OnPropertyChanged(nameof(HasLocation));
         OnPropertyChanged(nameof(NeedsLocationSelection));
         OnPropertyChanged(nameof(HasNoFilterMatches));
@@ -72,6 +75,7 @@ public partial class RemotePaneViewModel : ObservableObject
             CanGoUp = false;
             CanGoBack = false;
             CanGoForward = false;
+            IsBusy = false;
             return;
         }
         _back.Clear();
@@ -125,6 +129,7 @@ public partial class RemotePaneViewModel : ObservableObject
         }
         if (!string.IsNullOrEmpty(CurrentPath)) _back.Push(CurrentPath);
         _forward.Clear();
+        Selected = null;
         CurrentPath = target;
         UpdateHistoryFlags();
         await RefreshAsync();
@@ -136,6 +141,7 @@ public partial class RemotePaneViewModel : ObservableObject
         if (_back.Count == 0) return Task.CompletedTask;
         var prev = _back.Pop();
         if (!string.IsNullOrEmpty(CurrentPath)) _forward.Push(CurrentPath);
+        Selected = null;
         CurrentPath = prev;
         UpdateHistoryFlags();
         return RefreshAsync();
@@ -147,6 +153,7 @@ public partial class RemotePaneViewModel : ObservableObject
         if (_forward.Count == 0) return Task.CompletedTask;
         var next = _forward.Pop();
         if (!string.IsNullOrEmpty(CurrentPath)) _back.Push(CurrentPath);
+        Selected = null;
         CurrentPath = next;
         UpdateHistoryFlags();
         return RefreshAsync();
@@ -164,7 +171,14 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public async Task RefreshAsync()
     {
-        if (SelectedLocation is null) return;
+        var location = SelectedLocation;
+        if (location is null) return;
+
+        var path = CurrentPath;
+        var sort = SortKey;
+        var generation = Interlocked.Increment(ref _refreshGeneration);
+        var cts = new CancellationTokenSource();
+        Interlocked.Exchange(ref _refreshCts, cts)?.Cancel();
         try
         {
             IsBusy = true;
@@ -172,23 +186,46 @@ public partial class RemotePaneViewModel : ObservableObject
             // 大きいフォルダでは 1 回で全件取得する方がはるかに速い。
             // 旧サーバは page=0 を page=1 として扱い先頭 200 件を返すので、
             // 足りない場合のみ従来どおり page=2 以降を追加取得する (後方互換)。
-            _all.Clear();
-            _parentEntry = null;
+            var loaded = new List<FileEntry>();
+            FileEntry? parentEntry = null;
             for (var page = 0; ; page = page == 0 ? 2 : page + 1)
             {
-                var res = await _api.ListFilesAsync(SelectedLocation.HostId, SelectedLocation.ShareId, CurrentPath, page, SortKey);
-                _parentEntry ??= res.Entries.FirstOrDefault(x => x.Type == FileEntryTypes.Parent);
+                var res = await _api.ListFilesAsync(location.HostId, location.ShareId, path, page, sort, cts.Token);
+                parentEntry ??= res.Entries.FirstOrDefault(x => x.Type == FileEntryTypes.Parent);
                 var entries = res.Entries.Where(e => e.Type != FileEntryTypes.Parent).ToList();
-                _all.AddRange(entries);
-                if (_all.Count >= res.TotalCount || entries.Count == 0) break;
+                loaded.AddRange(entries);
+                if (loaded.Count >= res.TotalCount || entries.Count == 0) break;
             }
+
+            if (generation != Volatile.Read(ref _refreshGeneration) ||
+                !ReferenceEquals(location, SelectedLocation) ||
+                !string.Equals(path, CurrentPath, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(sort, SortKey, StringComparison.Ordinal))
+                return;
+
+            _all.Clear();
+            _all.AddRange(loaded);
+            _parentEntry = parentEntry;
             // 親へ戻れるかはサーバが parent entry の CanGoUp で示すので、それを採用。
             CanGoUp = _parentEntry?.CanGoUp == true;
             ApplyView();
             StatusMessage = string.Empty;
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
-        finally { IsBusy = false; }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            if (generation == Volatile.Read(ref _refreshGeneration))
+                StatusMessage = ex.Message;
+        }
+        finally
+        {
+            if (generation == Volatile.Read(ref _refreshGeneration))
+            {
+                Interlocked.CompareExchange(ref _refreshCts, null, cts);
+                IsBusy = false;
+            }
+            cts.Dispose();
+        }
     }
 
     /// <summary>_all から絞り込み (FilterText) を適用して表示用 Entries を作り直す。並びはサーバ側で確定済み。</summary>
@@ -227,7 +264,7 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public async Task DeleteSelectedAsync()
     {
-        if (Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
+        if (IsBusy || Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
         if (!SelectedLocation.Permissions.Delete)
         {
             StatusMessage = "削除失敗: 削除権限がありません。";
@@ -250,7 +287,7 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public async Task NewFolderAsync(string? name)
     {
-        if (SelectedLocation is null || string.IsNullOrWhiteSpace(name)) return;
+        if (IsBusy || SelectedLocation is null || string.IsNullOrWhiteSpace(name)) return;
         if (!SelectedLocation.Permissions.Write)
         {
             StatusMessage = "フォルダ作成失敗: 書き込み権限がありません。";
@@ -275,7 +312,7 @@ public partial class RemotePaneViewModel : ObservableObject
     /// </summary>
     public async Task RenameSelectedAsync(string? newName)
     {
-        if (Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
+        if (IsBusy || Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
         if (string.IsNullOrWhiteSpace(newName) || newName == Selected.Name) return;
         if (!SelectedLocation.Permissions.Rename)
         {
@@ -307,6 +344,12 @@ public partial class RemotePaneViewModel : ObservableObject
     {
         CanGoBack = _back.Count > 0;
         CanGoForward = _forward.Count > 0;
+    }
+
+    private void CancelCurrentRefresh()
+    {
+        Interlocked.Increment(ref _refreshGeneration);
+        Interlocked.Exchange(ref _refreshCts, null)?.Cancel();
     }
 
     public static string JoinPath(string parent, string name)

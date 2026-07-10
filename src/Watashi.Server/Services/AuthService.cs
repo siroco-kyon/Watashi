@@ -62,13 +62,21 @@ public class AuthService
         var passwordOk = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
         if (!passwordOk)
         {
-            user.FailedLoginCount += 1;
-            var maxAttempts = await GetSettingIntAsync(Shared.Constants.SettingKeys.MaxFailedLoginAttempts, DefaultMaxFailedAttempts, ct);
+            var maxAttempts = await GetSettingIntAsync(Shared.Constants.SettingKeys.MaxFailedLoginAttempts, DefaultMaxFailedAttempts, 1, 100_000, ct);
+            await _db.Users
+                .Where(u => u.Id == user.Id && !u.IsLocked)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.FailedLoginCount, u => u.FailedLoginCount + 1), ct);
+            var lockedByThisAttempt = await _db.Users
+                .Where(u => u.Id == user.Id && !u.IsLocked && u.FailedLoginCount >= maxAttempts)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.IsLocked, true), ct) == 1;
+            // ExecuteUpdate は ChangeTracker を更新しない。直後の監査と同一スコープ内の次回試行が
+            // 古い FailedLoginCount / IsLocked を参照しないよう、追跡中エンティティを再読込する。
+            await _db.Entry(user).ReloadAsync(ct);
+
             _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
                 user.Id, user.Username, "invalid_password", machineName, clientIp));
-            if (user.FailedLoginCount >= maxAttempts && !user.IsLocked)
+            if (lockedByThisAttempt)
             {
-                user.IsLocked = true;
                 _db.AuditLogs.Add(new AuditLog
                 {
                     Timestamp = DateTime.UtcNow,
@@ -114,8 +122,8 @@ public class AuthService
         _db.RefreshTokens.Add(refreshTokenEntity);
         await _db.SaveChangesAsync(ct);
 
-        var idleMinutes = await GetSettingIntAsync(Shared.Constants.SettingKeys.SessionIdleMinutes, 30, ct);
-        var passwordWarningDays = await GetSettingIntAsync(Shared.Constants.SettingKeys.PasswordWarningDays, 14, ct);
+        var idleMinutes = await GetSettingIntAsync(Shared.Constants.SettingKeys.SessionIdleMinutes, 30, 1, 525_600, ct);
+        var passwordWarningDays = await GetSettingIntAsync(Shared.Constants.SettingKeys.PasswordWarningDays, 14, 0, 36_500, ct);
         return new LoginResponse
         {
             AccessToken = accessToken,
@@ -129,15 +137,16 @@ public class AuthService
         };
     }
 
-    private async Task<int> GetSettingIntAsync(string key, int defaultValue, CancellationToken ct)
+    private async Task<int> GetSettingIntAsync(string key, int defaultValue, int min, int max, CancellationToken ct)
     {
         var s = await _db.SystemSettings.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key, ct);
-        return s is not null && int.TryParse(s.Value, out var v) ? v : defaultValue;
+        return s is not null && int.TryParse(s.Value, out var v) && v >= min && v <= max ? v : defaultValue;
     }
 
     public async Task<(RefreshResponse? response, string? error)> RefreshAsync(string refreshTokenId, string refreshTokenPlain, CancellationToken ct = default)
     {
         var token = await _db.RefreshTokens
+            .AsNoTracking()
             .Include(t => t.User)
             .Include(t => t.Device)
             .FirstOrDefaultAsync(t => t.Id == refreshTokenId, ct);
@@ -155,9 +164,12 @@ public class AuthService
         {
             if (!token.IsRevoked)
             {
-                token.IsRevoked = true;
-                token.LastUsedAt = DateTime.UtcNow;
-                await _db.SaveChangesAsync(ct);
+                var usedAt = DateTime.UtcNow;
+                await _db.RefreshTokens
+                    .Where(t => t.Id == token.Id && !t.IsRevoked)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(t => t.IsRevoked, true)
+                        .SetProperty(t => t.LastUsedAt, usedAt), ct);
             }
             return (null, "password_changed");
         }
@@ -174,10 +186,38 @@ public class AuthService
 
         var now = DateTime.UtcNow;
 
-        // ローテーション: 旧トークンを失効させ、新しい refresh token を発行する。
-        token.IsRevoked = true;
-        token.LastUsedAt = now;
+        await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
 
+        // 同じ refresh token を並行利用されても、失効更新に成功できるのは 1 リクエストだけにする。
+        // エンティティを読み取ってから通常の SaveChanges を行う方式では、双方が未失効を読み取って
+        // 2 本の有効な後継トークンを発行できてしまう。
+        var claimed = await _db.RefreshTokens
+            .Where(t => t.Id == token.Id && !t.IsRevoked && t.ExpiresAt > now)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.IsRevoked, true)
+                .SetProperty(t => t.LastUsedAt, now), ct);
+
+        if (claimed != 1)
+        {
+            var current = await _db.RefreshTokens.AsNoTracking()
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(t => t.Id == token.Id, ct);
+
+            if (current is null || current.ExpiresAt <= now)
+                return (null, "invalid_token");
+
+            if (current.IssuedAt < current.User!.PasswordChangedAt)
+            {
+                await tx.CommitAsync(ct);
+                return (null, "password_changed");
+            }
+
+            await RevokeFamilyAsync(token.UserId, ct);
+            await tx.CommitAsync(ct);
+            return (null, "token_reuse_detected");
+        }
+
+        // ローテーション: 旧トークンを失効させ、新しい refresh token を発行する。
         var (newId, newPlain, newHash) = GenerateRefreshToken();
         var newEntity = new RefreshToken
         {
@@ -195,6 +235,7 @@ public class AuthService
 
         var access = CreateAccessToken(user, now);
         await _db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
 
         return (new RefreshResponse
         {
@@ -423,7 +464,7 @@ public class AuthService
     {
         var setting = await _db.SystemSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.Key == Shared.Constants.SettingKeys.PasswordExpiryDays, ct);
-        if (setting is not null && int.TryParse(setting.Value, out var days))
+        if (setting is not null && int.TryParse(setting.Value, out var days) && days is >= 1 and <= 36_500)
             return days;
         return 90;
     }

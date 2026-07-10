@@ -1,6 +1,7 @@
 using Watashi.Shared.Cifs;
 using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Files;
+using Watashi.Shared.Helpers;
 using Watashi.Shared.Models;
 
 namespace Watashi.Server.Services;
@@ -58,6 +59,23 @@ public class NodeRouter
     public async Task UploadAsync(ExecutionNode node, CifsConnectionInfo info, string path, Stream input, CancellationToken ct)
     {
         EnsureRouteReachable(node);
+        var parent = PathHelper.GetParent(path);
+        var tempPath = PathHelper.NormalizePath($"{parent}/.watashi-upload-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await UploadCoreAsync(node, info, tempPath, input, ct);
+            await RenameCoreAsync(node, info, tempPath, path, replaceIfExists: true, ct);
+        }
+        catch
+        {
+            try { await DeleteCoreAsync(node, info, tempPath, CancellationToken.None); }
+            catch { /* 元の転送エラーを優先する。孤立一時ファイルは後から安全に削除できる。 */ }
+            throw;
+        }
+    }
+
+    private async Task UploadCoreAsync(ExecutionNode node, CifsConnectionInfo info, string path, Stream input, CancellationToken ct)
+    {
         if (node.NodeType == NodeTypes.Direct)
         {
             await using var smb = _direct.OpenWrite(info, path);
@@ -72,6 +90,11 @@ public class NodeRouter
     public async Task DeleteAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
         EnsureRouteReachable(node);
+        await DeleteCoreAsync(node, info, path, ct);
+    }
+
+    private async Task DeleteCoreAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
+    {
         if (node.NodeType == NodeTypes.Direct)
             await Task.Run(() => _direct.Delete(info, path), ct);
         else
@@ -81,10 +104,15 @@ public class NodeRouter
     public async Task RenameAsync(ExecutionNode node, CifsConnectionInfo info, string oldPath, string newPath, CancellationToken ct)
     {
         EnsureRouteReachable(node);
+        await RenameCoreAsync(node, info, oldPath, newPath, replaceIfExists: false, ct);
+    }
+
+    private async Task RenameCoreAsync(ExecutionNode node, CifsConnectionInfo info, string oldPath, string newPath, bool replaceIfExists, CancellationToken ct)
+    {
         if (node.NodeType == NodeTypes.Direct)
-            await Task.Run(() => _direct.Rename(info, oldPath, newPath), ct);
+            await Task.Run(() => _direct.Rename(info, oldPath, newPath, replaceIfExists), ct);
         else
-            await _forwarder.RenameAsync(node, info, oldPath, newPath, ct);
+            await _forwarder.RenameAsync(node, info, oldPath, newPath, ct, replaceIfExists);
     }
 
     public async Task MkdirAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)

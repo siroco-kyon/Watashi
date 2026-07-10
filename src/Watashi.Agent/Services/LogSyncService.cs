@@ -42,7 +42,12 @@ public class LogSyncService : BackgroundService
                 await SendBatchAsync(client, ct);
                 _consecutiveFailures = 0;
             }
-            catch (OperationCanceledException) { break; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
+            catch (OperationCanceledException ex)
+            {
+                _consecutiveFailures++;
+                _log.LogWarning(ex, "LogSync request timed out (consecutive failures: {N})", _consecutiveFailures);
+            }
             catch (Exception ex)
             {
                 _consecutiveFailures++;

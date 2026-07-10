@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Data;
 using Watashi.Server.Services;
@@ -30,6 +31,10 @@ public static class AdminSettingsEndpoints
 
         group.MapPut("/{key}", async (string key, SettingUpdate body, AppDbContext db, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
+            var validationError = ValidateSetting(key, body.Value);
+            if (validationError is not null)
+                return Results.BadRequest(new { error = validationError });
+
             int? uid = principal.GetUserId();
             var s = await db.SystemSettings.FindAsync(new object?[] { key }, ct);
             var now = DateTime.UtcNow;
@@ -52,4 +57,26 @@ public static class AdminSettingsEndpoints
     }
 
     public record SettingUpdate(string? Value);
+
+    internal static string? ValidateSetting(string key, string? value)
+    {
+        var range = key switch
+        {
+            SettingKeys.PasswordExpiryDays => (Min: 1, Max: 36_500),
+            SettingKeys.PasswordWarningDays => (Min: 0, Max: 36_500),
+            SettingKeys.AgentMaxConcurrency => (Min: 1, Max: 100_000),
+            SettingKeys.SessionIdleMinutes => (Min: 1, Max: 525_600),
+            SettingKeys.AuditLogRetentionDays => (Min: 0, Max: 365_000),
+            SettingKeys.MaxFailedLoginAttempts => (Min: 1, Max: 100_000),
+            _ => ((int Min, int Max)?)null,
+        };
+
+        if (range is null)
+            return $"未対応の設定キーです: {key}";
+        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            return $"{key} は整数で指定してください。";
+        if (parsed < range.Value.Min || parsed > range.Value.Max)
+            return $"{key} は {range.Value.Min} 以上 {range.Value.Max} 以下で指定してください。";
+        return null;
+    }
 }

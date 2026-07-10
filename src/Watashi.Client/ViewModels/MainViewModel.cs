@@ -258,6 +258,11 @@ public partial class MainViewModel : ObservableObject
         if (Remote.Selected is null) { StatusMessage = "ダウンロードするリモートファイル/フォルダを選択してください。"; return; }
         if (Remote.SelectedLocation is null) { StatusMessage = "ダウンロード元のリモート場所を選択してください。"; return; }
         if (Remote.Selected.Type == FileEntryTypes.Parent) return;
+        if (Remote.Selected.IsReparsePoint)
+        {
+            StatusMessage = "ダウンロード失敗: リパースポイントは安全のためダウンロードできません。";
+            return;
+        }
         if (!Directory.Exists(Local.CurrentPath)) { StatusMessage = "ダウンロード失敗: ローカルフォルダが見つかりません。"; return; }
         if (!TryBeginTransfer()) return;
 
@@ -400,6 +405,11 @@ public partial class MainViewModel : ObservableObject
         if (targets.Count <= 1) { await DownloadAsync(); return; }
         if (Remote.SelectedLocation is null) { StatusMessage = "ダウンロード元のリモート場所を選択してください。"; return; }
         if (!Directory.Exists(Local.CurrentPath)) { StatusMessage = "ダウンロード失敗: ローカルフォルダが見つかりません。"; return; }
+        if (targets.Any(e => e.IsReparsePoint))
+        {
+            StatusMessage = "ダウンロード失敗: リパースポイントは安全のためダウンロードできません。";
+            return;
+        }
         if (MessageBox.Show(
                 $"{targets.Count} 件をダウンロードします。\nローカルの同名項目は上書きされます。よろしいですか？",
                 "ダウンロード", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
@@ -516,7 +526,11 @@ public partial class MainViewModel : ObservableObject
         Transfer.BytesTransferred = baseTransferred;
         Transfer.IsActive = true;
 
-        var tempPath = destination + ".part";
+        var destinationPath = Path.GetFullPath(destination);
+        var destinationDirectory = Path.GetDirectoryName(destinationPath)
+            ?? throw new IOException("保存先フォルダを特定できません。");
+        var tempPath = Path.Combine(destinationDirectory,
+            $".{Path.GetFileName(destinationPath)}.{Guid.NewGuid():N}.watashi-part");
         bool completed = false;
         try
         {
@@ -524,10 +538,12 @@ public partial class MainViewModel : ObservableObject
             await using (var fs = File.Create(tempPath))
             {
                 await _api.DownloadAsync(hostId, shareId, remotePath, fs, progress, TransferToken);
-                await fs.FlushAsync();
+                await fs.FlushAsync(TransferToken);
             }
-            if (File.Exists(destination)) File.Delete(destination);
-            File.Move(tempPath, destination);
+            if (File.Exists(destinationPath))
+                File.Replace(tempPath, destinationPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            else
+                File.Move(tempPath, destinationPath);
             completed = true;
         }
         finally
@@ -553,6 +569,9 @@ public partial class MainViewModel : ObservableObject
 
         directories.Add(localDir);
         var entries = await ListAllRemoteEntriesAsync(hostId, shareId, normalized);
+        var reparsePoint = entries.FirstOrDefault(e => e.IsReparsePoint);
+        if (reparsePoint is not null)
+            throw new IOException($"リパースポイントは安全のためダウンロードできません: {JoinRemotePath(normalized, reparsePoint.Name)}");
         foreach (var dir in entries.Where(e => e.Type == FileEntryTypes.Directory))
         {
             var childRemote = JoinRemotePath(normalized, dir.Name);

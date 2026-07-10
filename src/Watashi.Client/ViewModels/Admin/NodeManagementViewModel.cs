@@ -79,7 +79,14 @@ public partial class NodeManagementViewModel : AdminViewModelBase
     public Task RefreshAsync() => SafeAsync(async () =>
     {
         var selectedId = Selected?.Id;
-        ReplaceAll(Items, await _api.GetNodesAsync());
+        var nodesTask = _api.GetNodesAsync();
+        var settingsTask = _api.GetSettingsAsync();
+        await Task.WhenAll(nodesTask, settingsTask);
+        ReplaceAll(Items, await nodesTask);
+        var configuredDefault = (await settingsTask)
+            .FirstOrDefault(s => s.Key == SettingKeys.AgentMaxConcurrency)?.Value;
+        if (int.TryParse(configuredDefault, out var defaultConcurrency) && defaultConcurrency is >= 1 and <= 100_000)
+            NewMaxConcurrency = defaultConcurrency;
         if (selectedId.HasValue)
             Selected = Items.FirstOrDefault(n => n.Id == selectedId.Value);
     });
@@ -92,7 +99,7 @@ public partial class NodeManagementViewModel : AdminViewModelBase
         { StatusMessage = "Agent タイプでは Endpoint を入力してください。"; return; }
         if (NewUseGateway && NewGatewayNodeId is null)
         { StatusMessage = "経由 Agent を選択してください。"; return; }
-        if (NewMaxConcurrency < 1) { StatusMessage = "MaxConcurrency は 1 以上で指定してください。"; return; }
+        if (NewMaxConcurrency is < 1 or > 100_000) { StatusMessage = "MaxConcurrency は 1 以上 100000 以下で指定してください。"; return; }
         await _api.CreateNodeAsync(new CreateNodeRequest
         {
             Name = NewName,
@@ -114,7 +121,7 @@ public partial class NodeManagementViewModel : AdminViewModelBase
         { StatusMessage = "Agent タイプでは Endpoint を入力してください。"; return; }
         if (EditUseGateway && EditGatewayNodeId is null)
         { StatusMessage = "経由 Agent を選択してください。"; return; }
-        if (EditMaxConcurrency < 1) { StatusMessage = "MaxConcurrency は 1 以上で指定してください。"; return; }
+        if (EditMaxConcurrency is < 1 or > 100_000) { StatusMessage = "MaxConcurrency は 1 以上 100000 以下で指定してください。"; return; }
 
         await _api.UpdateNodeAsync(Selected.Id, new UpdateNodeRequest
         {

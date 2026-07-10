@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Generate the Watashi Torii brand mark as a multi-size .ico file.
 

@@ -42,7 +42,7 @@ public class AuditLogPurgeService : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var setting = await db.SystemSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.Key == SettingKeys.AuditLogRetentionDays, ct);
-        if (setting is null || !int.TryParse(setting.Value, out var days) || days <= 0)
+        if (setting is null || !int.TryParse(setting.Value, out var days) || days <= 0 || days > 365_000)
         {
             _log.LogDebug("AuditLogPurge: 保管日数が未設定 or 0 以下のためスキップ");
             return;

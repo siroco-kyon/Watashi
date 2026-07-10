@@ -35,4 +35,18 @@ public class CifsSessionPoolTests
         Action act = () => pool.Acquire(new CifsConnectionInfo("127.0.0.1", 8080, "u", "p", "s"));
         act.Should().Throw<IOException>().WithMessage("*ポート*未対応*");
     }
+
+    [Fact]
+    public void Pool_key_changes_when_password_changes_and_does_not_expose_password()
+    {
+        var first = new CifsConnectionInfo("server", 445, "user", "secret-one", "share");
+        var second = first with { Password = "secret-two" };
+
+        var firstKey = CifsSessionPool.Key(first);
+        var secondKey = CifsSessionPool.Key(second);
+
+        firstKey.Should().NotBe(secondKey);
+        firstKey.Should().NotContain("secret-one");
+        secondKey.Should().NotContain("secret-two");
+    }
 }
