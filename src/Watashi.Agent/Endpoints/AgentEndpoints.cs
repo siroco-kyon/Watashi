@@ -29,8 +29,11 @@ public static class AgentEndpoints
             var req = await ReadJsonAsync<AgentListRequest>(ctx, ct);
             if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
-            var list = await Task.Run(() => cifs.List(info, PathHelper.NormalizePath(req.Path)), ct);
-            return Results.Ok(list);
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                var list = await Task.Run(() => cifs.List(info, PathHelper.NormalizePath(req.Path)), ct);
+                return Results.Ok(list);
+            });
         });
 
         group.MapPost("/files/download", async (
@@ -44,14 +47,17 @@ public static class AgentEndpoints
             var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
             if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
-            ctx.Response.ContentType = "application/octet-stream";
-            await using var stream = cifs.OpenRead(info, PathHelper.NormalizePath(req.Path));
-            // Content-Length を返すと、中央サーバ経由でクライアントまでサイズが伝搬し、
-            // 進捗表示と途中切断の検知が確実になる。
-            try { ctx.Response.ContentLength = stream.Length; }
-            catch (NotSupportedException) { /* チャンク転送のままにする */ }
-            await stream.CopyToAsync(ctx.Response.Body, 4 * 1024 * 1024, ct);
-            return Results.Empty;
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                ctx.Response.ContentType = "application/octet-stream";
+                await using var stream = cifs.OpenRead(info, PathHelper.NormalizePath(req.Path));
+                // Content-Length を返すと、中央サーバ経由でクライアントまでサイズが伝搬し、
+                // 進捗表示と途中切断の検知が確実になる。
+                try { ctx.Response.ContentLength = stream.Length; }
+                catch (NotSupportedException) { /* チャンク転送のままにする */ }
+                await stream.CopyToAsync(ctx.Response.Body, 4 * 1024 * 1024, ct);
+                return Results.Empty;
+            });
         });
 
         group.MapPost("/files/upload", async (
@@ -64,9 +70,12 @@ public static class AgentEndpoints
             var meta = AgentUploadHeader.Extract(ctx);
             if (meta is null) return Results.BadRequest(new { error = "X-Watashi-Cifs ヘッダが必要です。" });
             var info = meta.ToInfo();
-            await using var smb = cifs.OpenWrite(info, PathHelper.NormalizePath(meta.Path));
-            await ctx.Request.Body.CopyToAsync(smb, 4 * 1024 * 1024, ct);
-            return Results.NoContent();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                await using var smb = cifs.OpenWrite(info, PathHelper.NormalizePath(meta.Path));
+                await ctx.Request.Body.CopyToAsync(smb, 4 * 1024 * 1024, ct);
+                return Results.NoContent();
+            });
         });
 
         group.MapPost("/files/delete", async (
@@ -80,8 +89,11 @@ public static class AgentEndpoints
             var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
             if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
-            await Task.Run(() => cifs.Delete(info, PathHelper.NormalizePath(req.Path)), ct);
-            return Results.NoContent();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                await Task.Run(() => cifs.Delete(info, PathHelper.NormalizePath(req.Path)), ct);
+                return Results.NoContent();
+            });
         });
 
         group.MapPost("/files/rename", async (
@@ -95,8 +107,11 @@ public static class AgentEndpoints
             var req = await ReadJsonAsync<AgentRenameRequest>(ctx, ct);
             if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
-            await Task.Run(() => cifs.Rename(info, PathHelper.NormalizePath(req.OldPath), PathHelper.NormalizePath(req.NewPath), req.ReplaceIfExists), ct);
-            return Results.NoContent();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                await Task.Run(() => cifs.Rename(info, PathHelper.NormalizePath(req.OldPath), PathHelper.NormalizePath(req.NewPath), req.ReplaceIfExists), ct);
+                return Results.NoContent();
+            });
         });
 
         group.MapPost("/files/mkdir", async (
@@ -110,8 +125,11 @@ public static class AgentEndpoints
             var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
             if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
             var info = req.ToInfo();
-            await Task.Run(() => cifs.Mkdir(info, PathHelper.NormalizePath(req.Path)), ct);
-            return Results.NoContent();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                await Task.Run(() => cifs.Mkdir(info, PathHelper.NormalizePath(req.Path)), ct);
+                return Results.NoContent();
+            });
         });
 
         group.MapPost("/test-connection", async (
@@ -121,7 +139,7 @@ public static class AgentEndpoints
             if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
             if (TryGetForwardTarget(ctx, out var target))
                 return await ForwardToNextAgentAsync(ctx, http, target, ct);
-            return await TestConnectionAsync(ctx, cifs, ct);
+            return await ExecuteCifsAsync(ctx, () => TestConnectionAsync(ctx, cifs, ct));
         });
 
         // 中央サーバ到達不能時に Agent ローカルに監査ログをバッファするためのエンドポイント。
@@ -142,6 +160,35 @@ public static class AgentEndpoints
 
     private const string ForwardToHeader = "X-Watashi-Forward-To";
     private static readonly TimeSpan DefaultHttpTimeout = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// CIFS 操作を実行し、Watashi.Server.Endpoints.FileEndpoints.MapExecutionError と同じ方針で
+    /// 例外を安全な IResult にマッピングする。CIFS 由来の IOException / UnauthorizedAccessException
+    /// はメッセージが安全なため 502 として具体的に返し、中央サーバ (AgentForwarder) がそのまま
+    /// クライアントへ中継できるようにする。想定外の例外は汎用メッセージでマスクする。
+    /// レスポンス送信を開始済みの場合はステータスコードを変更できないため接続を切る。
+    /// </summary>
+    private static async Task<IResult> ExecuteCifsAsync(HttpContext ctx, Func<Task<IResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            if (ctx.Response.HasStarted) { ctx.Abort(); return Results.Empty; }
+            return ex switch
+            {
+                UnauthorizedAccessException or IOException =>
+                    Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
+                _ => Results.Problem(detail: "内部エラーが発生しました。", statusCode: StatusCodes.Status500InternalServerError),
+            };
+        }
+    }
 
     private static async Task<T?> ReadJsonAsync<T>(HttpContext ctx, CancellationToken ct)
     {

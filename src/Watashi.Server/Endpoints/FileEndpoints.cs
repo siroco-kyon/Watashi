@@ -226,14 +226,36 @@ public static class FileEndpoints
     /// 実行系の例外を安全な IResult にマッピングする。
     /// CIFS 由来の IOException / UnauthorizedAccessException はメッセージが安全なため
     /// クライアントへ具体的に返し、想定外の例外のみ汎用メッセージでマスクする。
+    /// Agent 経由 (AgentRelayException) の場合も、Direct 経路と同じ意味のステータスコードに
+    /// なるようマッピングする (Agent 自身が返した 503/502 等をそのまま伝える。汎用 500 に
+    /// 丸めてしまうと呼び出し元がリトライ判断やユーザー向けメッセージを出し分けられない)。
     /// </summary>
     internal static IResult MapExecutionError(Exception ex) => ex switch
     {
         NodeUnreachableException => Results.StatusCode(StatusCodes.Status503ServiceUnavailable),
+        AgentRelayException { StatusCode: StatusCodes.Status503ServiceUnavailable } are => WithRetryAfter(are.RetryAfter),
+        AgentRelayException are => Results.Problem(detail: are.Message, statusCode: are.StatusCode),
         UnauthorizedAccessException => Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
         IOException => Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
         _ => Results.Problem(detail: "内部エラーが発生しました。", statusCode: StatusCodes.Status500InternalServerError),
     };
+
+    private static IResult WithRetryAfter(string? retryAfter) => new RetryAfterResult(retryAfter);
+
+    /// <summary>503 応答に Retry-After ヘッダーを付与する。Agent 自身が返した Retry-After を
+    /// そのまま中継できるよう、Results.StatusCode では届かないヘッダー設定をここで行う。</summary>
+    private sealed class RetryAfterResult : IResult
+    {
+        private readonly string? _retryAfter;
+        public RetryAfterResult(string? retryAfter) => _retryAfter = retryAfter;
+        public Task ExecuteAsync(HttpContext httpContext)
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            if (!string.IsNullOrEmpty(_retryAfter))
+                httpContext.Response.Headers.RetryAfter = _retryAfter;
+            return Task.CompletedTask;
+        }
+    }
 
     internal static async Task<AuthCheck> ResolveAuthAsync(
         ClaimsPrincipal principal, int hostId, int shareId, string path, string operation,
