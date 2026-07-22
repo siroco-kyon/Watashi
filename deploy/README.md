@@ -186,12 +186,12 @@ schtasks.exe /Create /SC DAILY /TN "Watashi DB Backup" `
 DB・バックアップ先・Server 配置先が既定と異なる場合は `-DatabasePath`、
 `-BackupDirectory`、`-ServerInstallDir` を指定する。
 
-## 5. ログ削除バッチ
+## 5. 監査ログの保管期間
 
-```powershell
-schtasks.exe /Create /SC DAILY /TN "Watashi Log Cleanup" `
-    /TR "sqlite3 C:\ProgramData\Watashi\watashi.db \"DELETE FROM AuditLogs WHERE Timestamp < datetime('now', '-1 year');\"" /ST 03:00
-```
+監査ログ (`AuditLogs`) の削除は Watashi.Server 内蔵の `AuditLogPurgeService` が自動で行う (起動 30 秒後 + 以降 24 時間毎)。
+保管日数は appsettings.json ではなく、管理画面の「システム設定」(または `PUT /api/admin/settings/AuditLogRetentionDays`) で変更する DB 格納の設定値で、変更にサーバー再起動は不要。`0` を設定すると永久保管になる。
+
+> ⚠️ 外部の `schtasks`/`sqlite3.exe` で `DELETE FROM AuditLogs ...` を別途スケジュールしないこと。内蔵パージと二重に動作し、`AuditLogRetentionDays=0` (永久保管) を設定していても外部タスク側が無条件に古いログを消してしまう。
 
 ## 6. サービスの操作
 

@@ -462,12 +462,10 @@ public static void Backup(string srcConnStr, string destPath)
 ```
 日次タスクスケジューラで実行、7日+月次4世代保持。
 
-## 5.8 ログ削除（1年経過分）
-日次バッチ:
-```sql
-DELETE FROM AuditLogs WHERE Timestamp < datetime('now', '-1 year');
-```
-月次で `VACUUM;` を実行しファイルサイズ縮小。
+## 5.8 ログ削除
+
+監査ログの保管日数管理は外部バッチではなくサーバー内蔵の `AuditLogPurgeService` (起動30秒後+以降24時間毎に自動実行) が担う。保管日数は管理画面の「システム設定」(`AuditLogRetentionDays`、既定365日、0=永久保管) で変更し、サーバー再起動は不要。外部の日次バッチで無条件に `DELETE FROM AuditLogs WHERE Timestamp < ...` を実行すると、`AuditLogRetentionDays=0`(永久保管)設定と矛盾するため行わないこと。
+月次で `VACUUM;` を実行しファイルサイズ縮小するのは任意で問題ない。
 
 ---
 
