@@ -23,6 +23,20 @@ public partial class MainWindow : Window
         DataContext = vm;
         InitializeDragDrop(settings);
         Loaded += OnLoaded;
+        StateChanged += OnWindowStateChanged;
+    }
+
+    // 特定のマルチモニター環境で WindowState=Maximized にすると、ネイティブの
+    // ウィンドウ自体はモニターの解像度まで正しくリサイズされるものの、WPF 側の
+    // コンテンツは追従せず左上に小さいまま残る現象を確認した(InvalidateMeasure/
+    // Arrange/UpdateLayout の強制実行では解消しなかった)。ネイティブの最大化を
+    // 使わず、現在のモニタの作業領域に合わせてウィンドウを手動でリサイズすることで
+    // 回避する。
+    private void OnWindowStateChanged(object? sender, System.EventArgs e)
+    {
+        if (WindowState != WindowState.Maximized) return;
+        WindowState = WindowState.Normal;
+        MonitorHelper.ApplyWorkAreaBounds(this);
     }
 
     // ドラッグ＆ドロップの実装は MainWindow.DragDrop.cs に隔離している。
