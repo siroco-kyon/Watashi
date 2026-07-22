@@ -18,15 +18,20 @@ public partial class PromptDialog : Window
             InputBox.Visibility = Visibility.Collapsed;
             PasswordInput.Visibility = Visibility.Visible;
             PasswordInput.Password = defaultValue;
-            PasswordInput.Focus();
         }
         else
         {
             InputBox.Text = defaultValue;
-            InputBox.SelectAll();
-            InputBox.Focus();
         }
         if (owner is not null) Owner = owner;
+
+        // Loaded 前に Focus()/SelectAll() を呼んでもビジュアルツリー未構築のため効かないことがある
+        // (ウィンドウ表示時に既定のフォーカス処理で上書きされる場合がある)。Loaded 後に実行する。
+        Loaded += (_, _) =>
+        {
+            if (_isPassword) PasswordInput.Focus();
+            else { InputBox.Focus(); InputBox.SelectAll(); }
+        };
     }
 
     private void OnOk(object sender, RoutedEventArgs e)

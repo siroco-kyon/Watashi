@@ -554,12 +554,13 @@ Start-Service Watashi.Server
 
 ### ストレージ容量逼迫
 - AuditLogs テーブルが肥大化している可能性
-- 即時実行:
+- まず確認: システム設定の `AuditLogRetentionDays` が意図通りか (0 だと永久保管でテーブルが増え続ける仕様)。サーバー内蔵の `AuditLogPurgeService` が起動30秒後+以降24時間毎に、この設定日数を超えたログを自動削除する (appsettings.json ではなく管理画面/`PUT /api/admin/settings/AuditLogRetentionDays` で変更、再起動不要)
+- 保管日数を短くしても即座に空き容量を確保したい場合のみ、手動で以下を実行 (自動パージを待てない緊急時向け):
   ```sql
   DELETE FROM AuditLogs WHERE Timestamp < datetime('now', '-180 days');
   VACUUM;
   ```
-- 日次削除タスクが回っているか確認
+- これを日次の外部タスクとして恒常的に回すことは避ける。`AuditLogRetentionDays` の設定と食い違う保管期間になり、特に永久保管(0)設定時に矛盾する
 
 ### Agent が「503 Service Unavailable」を頻発
 - `MaxConcurrency` を超えている → Admin → ノードタブで値を上げる

@@ -179,6 +179,28 @@ await using (var scope = app.Services.CreateAsyncScope())
     await DataSeeder.SeedAsync(db);
 }
 
+// File 系エンドポイント (FileEndpoints.MapExecutionError) は個別の try/catch で例外を
+// 安全な JSON に整形するが、Admin/Auth/Hosts 系にはその仕組みが無く、素の 500 (Production では
+// 本文が空、Development では既定の DeveloperExceptionPage でスタックトレースが見える) になっていた。
+// ここで全エンドポイント共通の最終防波堤として、未処理例外を同じ形式の安全な JSON に統一する。
+// Development では framework が自動挿入する DeveloperExceptionPage が先に処理するため、
+// このハンドラーは実質 Production 以降の環境でのみ効く (デバッグ時の詳細表示は妨げない)。
+app.UseExceptionHandler(errApp =>
+{
+    errApp.Run(async ctx =>
+    {
+        ctx.Response.ContentType = "application/problem+json";
+        ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await ctx.Response.WriteAsJsonAsync(new
+        {
+            type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+            title = "An error occurred while processing your request.",
+            status = StatusCodes.Status500InternalServerError,
+            detail = "内部エラーが発生しました。",
+        });
+    });
+});
+
 app.UseSerilogRequestLogging();
 app.UseRateLimiter();
 app.UseAuthentication();

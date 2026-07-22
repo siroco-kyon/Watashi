@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Watashi.Client.Services;
 using Watashi.Client.ViewModels.Admin;
 
 namespace Watashi.Client.Views.Admin;
@@ -13,6 +14,7 @@ public partial class AdminWindow : Window
         InitializeComponent();
         DataContext = vm;
         Loaded += OnLoaded;
+        StateChanged += OnWindowStateChanged;
         async void OnLoaded(object? _, RoutedEventArgs __)
         {
             Loaded -= OnLoaded;
@@ -29,6 +31,18 @@ public partial class AdminWindow : Window
                 vm.Settings.RefreshAsync());
             _initialLoadCompleted = true;
         }
+    }
+
+    // 特定のマルチモニター環境で WindowState=Maximized にすると、ネイティブの
+    // ウィンドウ自体はモニターの解像度まで正しくリサイズされるものの、WPF 側の
+    // コンテンツは追従せず左上に小さいまま残る現象を確認した。ネイティブの最大化を
+    // 使わず、現在のモニタの作業領域に合わせてウィンドウを手動でリサイズすることで
+    // 回避する。
+    private void OnWindowStateChanged(object? sender, System.EventArgs e)
+    {
+        if (WindowState != WindowState.Maximized) return;
+        WindowState = WindowState.Normal;
+        MonitorHelper.ApplyWorkAreaBounds(this);
     }
 
     private async void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)

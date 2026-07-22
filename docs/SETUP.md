@@ -784,7 +784,7 @@ HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いま
 | ☐ | `install-server-service.ps1` でサービス登録、自動再起動の確認 |
 | ☐ | `install-agent-service.ps1` で各踏み台にサービス登録 |
 | ☐ | 日次 DB バックアップタスク登録 (`SqliteConnection.BackupDatabase` ベース) |
-| ☐ | 日次 AuditLogs 削除タスク登録 (1 年経過分) |
+| ☐ | 管理画面 (システム設定) で `AuditLogRetentionDays` を運用ポリシーに合わせて設定 (既定 365 日、0 = 永久保管)。監査ログの削除はサーバー内蔵の `AuditLogPurgeService` が自動で行うため、別途タスクスケジューラでの削除は不要 (むしろ設定した保管ポリシーと食い違うため行わないこと) |
 | ☐ | Server / Agent のログファイルローテーション (Serilog `rollingInterval=Day`) |
 | ☐ | 監視 (Server / Agent の `/health` を死活監視) |
 | ☐ | ファイアウォール: 必要な経路のみ開放 |
@@ -817,13 +817,22 @@ schtasks.exe /Create /SC DAILY /TN "Watashi DB Backup" `
     /TR "powershell.exe -File C:\Apps\Watashi\backup.ps1" /ST 02:00 /RL HIGHEST
 ```
 
-### ログ削除 (日次)
+### 監査ログの保管期間
+
+監査ログ (`AuditLogs`) の削除はサーバー内蔵の `AuditLogPurgeService` が自動で行う (起動 30 秒後 + 以降 24 時間毎)。
+保管日数は `appsettings.json` ではなく管理画面の「システム設定」(または `PUT /api/admin/settings/AuditLogRetentionDays`) で変更する、DB 格納の設定値。
 
 ```powershell
-schtasks.exe /Create /SC DAILY /TN "Watashi Log Cleanup" `
-    /TR "sqlite3.exe C:\ProgramData\Watashi\watashi.db \"DELETE FROM AuditLogs WHERE Timestamp < datetime('now', '-1 year');\"" `
-    /ST 03:00
+# 例: 管理者トークン取得後、保管日数を 180 日に変更 (サーバー再起動は不要)
+Invoke-RestMethod -Method Put -Uri "$u/api/admin/settings/AuditLogRetentionDays" `
+    -ContentType 'application/json' -Body (@{Value='180'} | ConvertTo-Json) -Headers $adminHeaders
 ```
+
+`0` を設定すると自動削除が止まり永久保管になる。
+
+> ⚠️ **外部の `schtasks`/`sqlite3.exe` で `DELETE FROM AuditLogs ...` を別途スケジュールしないこと。**
+> 上記の内蔵パージと二重に動作し、特に `AuditLogRetentionDays=0` (永久保管) を設定していても
+> 外部タスク側が無条件に古いログを消してしまうと、保管ポリシーの保証が崩れる。
 
 月次で VACUUM:
 ```powershell

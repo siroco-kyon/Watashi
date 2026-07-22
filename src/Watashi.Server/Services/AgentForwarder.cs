@@ -11,6 +11,24 @@ using Watashi.Shared.Models;
 namespace Watashi.Server.Services;
 
 /// <summary>
+/// Agent が非成功ステータスで応答したことを表す。FileEndpoints.MapExecutionError が
+/// StatusCode に応じて (503 は Retry-After 付きで、それ以外は同じコード+メッセージで)
+/// 呼び出し元へそのまま伝播させる。
+/// </summary>
+public class AgentRelayException : Exception
+{
+    public int StatusCode { get; }
+    public string? RetryAfter { get; }
+
+    public AgentRelayException(int statusCode, string message, string? retryAfter)
+        : base(message)
+    {
+        StatusCode = statusCode;
+        RetryAfter = retryAfter;
+    }
+}
+
+/// <summary>
 /// 中央サーバから Agent への HTTP 転送。
 /// 認証情報は URL ではなく JSON body または X-Watashi-Cifs ヘッダで送る。
 /// </summary>
@@ -58,6 +76,62 @@ public class AgentForwarder
         req.Headers.Add(ForwardToHeader, node.Endpoint);
     }
 
+    /// <summary>
+    /// Agent へ送信し、応答を検証する共通経路。
+    /// 接続自体に失敗した場合 (タイムアウト/接続拒否/DNS失敗) は Direct 経路の到達不能判定と
+    /// 意味を揃えるため NodeUnreachableException にする。Agent が応答したが非成功ステータス
+    /// だった場合は AgentRelayException にステータスコード・メッセージ・Retry-After を保持して
+    /// 呼び出し元 (FileEndpoints.MapExecutionError) でそのまま再現できるようにする。
+    /// </summary>
+    private static async Task<HttpResponseMessage> SendAndEnsureSuccessAsync(
+        HttpClient client, HttpRequestMessage req, ExecutionNode node, CancellationToken ct,
+        HttpCompletionOption completion = HttpCompletionOption.ResponseContentRead)
+    {
+        HttpResponseMessage res;
+        try
+        {
+            res = await client.SendAsync(req, completion, ct);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new NodeUnreachableException(node);
+        }
+        catch (HttpRequestException)
+        {
+            throw new NodeUnreachableException(node);
+        }
+        if (!res.IsSuccessStatusCode)
+            await ThrowAgentErrorAsync(res, ct);
+        return res;
+    }
+
+    private static async Task ThrowAgentErrorAsync(HttpResponseMessage res, CancellationToken ct)
+    {
+        string? detail = null;
+        try
+        {
+            var body = await res.Content.ReadAsStringAsync(ct);
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("detail", out var d) && d.ValueKind == JsonValueKind.String)
+                    detail = d.GetString();
+                else if (doc.RootElement.TryGetProperty("error", out var e) && e.ValueKind == JsonValueKind.String)
+                    detail = e.GetString();
+            }
+        }
+        catch (JsonException) { /* 本文が JSON でなくても既定メッセージにフォールバックする */ }
+
+        string? retryAfter = null;
+        if (res.Headers.RetryAfter is { } ra)
+            retryAfter = ra.Delta.HasValue ? ((int)ra.Delta.Value.TotalSeconds).ToString() : ra.Date?.ToString("R");
+
+        throw new AgentRelayException(
+            (int)res.StatusCode,
+            detail ?? $"Agent がエラーを返しました (HTTP {(int)res.StatusCode})。",
+            retryAfter);
+    }
+
     private static object BuildBody(CifsConnectionInfo info, object? extra = null)
     {
         var body = new Dictionary<string, object?>
@@ -89,8 +163,7 @@ public class AgentForwarder
             Content = JsonContent.Create(body),
         };
         ApplyGatewayHeader(req, node);
-        using var res = await c.SendAsync(req, ct);
-        res.EnsureSuccessStatusCode();
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
         var list = await res.Content.ReadFromJsonAsync<List<FileEntry>>(cancellationToken: ct);
         return list ?? new List<FileEntry>();
     }
@@ -104,12 +177,7 @@ public class AgentForwarder
             Content = JsonContent.Create(body),
         };
         ApplyGatewayHeader(req, node);
-        var res = await c.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (!res.IsSuccessStatusCode)
-        {
-            res.Dispose();
-            throw new IOException($"Agent ダウンロード失敗: HTTP {(int)res.StatusCode}");
-        }
+        var res = await SendAndEnsureSuccessAsync(c, req, node, ct, HttpCompletionOption.ResponseHeadersRead);
         var stream = await res.Content.ReadAsStreamAsync(ct);
         return new ForwardingReadStream(stream, res);
     }
@@ -127,8 +195,7 @@ public class AgentForwarder
         };
         req.Headers.Add("X-Watashi-Cifs", header);
         ApplyGatewayHeader(req, node);
-        using var res = await c.SendAsync(req, ct);
-        res.EnsureSuccessStatusCode();
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
     }
 
     public async Task DeleteAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
@@ -140,8 +207,7 @@ public class AgentForwarder
             Content = JsonContent.Create(body),
         };
         ApplyGatewayHeader(req, node);
-        using var res = await c.SendAsync(req, ct);
-        res.EnsureSuccessStatusCode();
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
     }
 
     public async Task RenameAsync(ExecutionNode node, CifsConnectionInfo info, string oldPath, string newPath, CancellationToken ct, bool replaceIfExists = false)
@@ -153,8 +219,7 @@ public class AgentForwarder
             Content = JsonContent.Create(body),
         };
         ApplyGatewayHeader(req, node);
-        using var res = await c.SendAsync(req, ct);
-        res.EnsureSuccessStatusCode();
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
     }
 
     public async Task MkdirAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
@@ -166,8 +231,7 @@ public class AgentForwarder
             Content = JsonContent.Create(body),
         };
         ApplyGatewayHeader(req, node);
-        using var res = await c.SendAsync(req, ct);
-        res.EnsureSuccessStatusCode();
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
     }
 
     public async Task<bool> TestAsync(ExecutionNode node, CifsConnectionInfo info, CancellationToken ct)
