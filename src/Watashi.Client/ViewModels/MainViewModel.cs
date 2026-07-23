@@ -342,8 +342,14 @@ public partial class MainViewModel : ObservableObject
         if (!Remote.SelectedLocation.Permissions.Write) { StatusMessage = "アップロード失敗: この場所には書き込み権限がありません。"; return; }
         var paths = (localPaths ?? Array.Empty<string>()).Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
         if (paths.Count == 0) { StatusMessage = "アップロード対象がありません。"; return; }
-        if (!string.IsNullOrEmpty(confirmMessage) &&
-            MessageBox.Show(confirmMessage, "アップロード", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (!string.IsNullOrEmpty(confirmMessage))
+        {
+            var owner = Application.Current?.MainWindow;
+            var result = owner is null
+                ? MessageBox.Show(confirmMessage, "アップロード", MessageBoxButton.YesNo, MessageBoxImage.Question)
+                : MessageBox.Show(owner, confirmMessage, "アップロード", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes) return;
+        }
         if (!TryBeginTransfer()) return;
 
         var location = Remote.SelectedLocation;

@@ -90,10 +90,17 @@ public partial class MainWindow
         }
         else if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0)
         {
-            _ = _vm.UploadLocalPathsAsync(
-                paths,
-                confirmMessage: $"{paths.Length} 件をアップロードします。\nリモートの同名項目は上書きされます。よろしいですか？",
-                completedMessage: $"アップロード完了: {paths.Length} 件");
+            // 外部プロセスのドラッグ処理が完了してから確認ダイアログを表示する。
+            // Drop イベント内で同期的に表示すると、ドラッグ元が前面のままになり
+            // ダイアログが Watashi の背面に隠れることがある。
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                Activate();
+                _ = _vm.UploadLocalPathsAsync(
+                    paths,
+                    confirmMessage: $"{paths.Length} 件をアップロードします。\nリモートの同名項目は上書きされます。よろしいですか？",
+                    completedMessage: $"アップロード完了: {paths.Length} 件");
+            }));
         }
         e.Handled = true;
     }
