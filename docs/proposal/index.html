@@ -578,7 +578,7 @@
         <text x="392" y="198" text-anchor="middle" font-size="11.5" fill="#1F6B3A">🔑 誰が何に触れるかを判定</text>
         <text x="392" y="220" text-anchor="middle" font-size="11.5" fill="#1F6B3A">📝 すべての操作を記録</text>
         <text x="392" y="242" text-anchor="middle" font-size="11.5" fill="#1F6B3A">🔀 行き先へ中継</text>
-        <text x="392" y="264" text-anchor="middle" font-size="11" fill="#6B7280">内蔵データベース（別サーバー不要）</text>
+        <text x="392" y="264" text-anchor="middle" font-size="11" fill="#6B7280">データベース機能を内蔵</text>
 
         <!-- 同一ネットワークのファイルサーバー -->
         <rect x="646" y="86" width="212" height="66" rx="10" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.6"/>
@@ -648,7 +648,7 @@
         <tr><td>通信の経路</td><td><span class="pill new">作り直す</span>暗号化（HTTPS）に対応。別ネットワークへの中継にも対応</td></tr>
         <tr><td>権限のしくみ</td><td><span class="pill new">作り直す</span>人ごと・フォルダごと・操作ごとに設定</td></tr>
         <tr><td>記録の使い方</td><td><span class="pill new">作り直す</span>管理画面で検索・CSV 出力</td></tr>
-        <tr><td>サーバー構成</td><td><span class="pill new">作り直す</span>専用のデータベースサーバーは不要。IIS も必須ではありません</td></tr>
+        <tr><td>サーバー構成</td><td><span class="pill new">作り直す</span>データベース製品（MySQL）を別途立てる必要がなく、IIS も必須ではありません</td></tr>
       </tbody>
     </table>
     </div>
@@ -977,7 +977,7 @@
         <tr><td>「誰が消した？」の調査</td><td>データベースを調べる必要があり、実質的に対応できない</td><td><b>管理画面で検索 → CSV 出力</b>して提出</td></tr>
         <tr><td>設定の変更</td><td>作業コストが高く属人的</td><td>パスワード有効期限・自動ログアウト時間・ロック回数なども<b>管理画面から変更</b></td></tr>
         <tr><td>アプリの配布・更新</td><td>1 台ずつ手作業</td><td>利用者がアプリを起動するたびに<b>自動で最新版に更新</b>。配り直し不要</td></tr>
-        <tr><td>データベースの保守</td><td>MySQL の監視・パッチ当てが恒常的な負担</td><td><b>専用のデータベースサーバーが不要</b>。初回起動時に自動生成され、日次でバックアップも自動取得</td></tr>
+        <tr><td>データベースの保守</td><td>MySQL の監視・パッチ当てが恒常的な負担</td><td><b>データベース製品の導入・監視・パッチ当てが不要</b>（機能をアプリに内蔵）。初回起動時に自動生成され、日次でバックアップも自動取得</td></tr>
         <tr><td>サーバーの障害対応</td><td>気づいた人が手動で再起動</td><td>常駐サービスとして動作し、<b>異常終了時は自動で再起動</b>。中継役の異常も自動検知</td></tr>
         <tr><td>ログの肥大化</td><td>手作業で整理</td><td>保管期間を過ぎた記録は<b>自動削除</b></td></tr>
       </tbody>
@@ -1015,7 +1015,7 @@
         <tr>
           <td>④ データベース保守</td>
           <td><span class="x">✗</span>MySQL の脆弱性対応が負担（<b>Web アプリと同一サーバーに同居</b>）</td>
-          <td><span class="o">✓</span><b>専用のデータベースサーバーが不要</b>（軽量な内蔵型）。監視・パッチ対象が減り、同居によるリスクも解消</td>
+          <td><span class="o">✓</span><b>MySQL のようなデータベース製品そのものが不要</b>。データベース機能はアプリに内蔵されており、<b>単体での導入・起動・パッチ当てが発生しません</b>（同じサーバー上にある点は変わりませんが、「DB を保守するたびに Web アプリ側も止まる」という問題自体がなくなります）</td>
         </tr>
         <tr>
           <td>⑤ ログ確認</td>
@@ -1057,58 +1057,66 @@
 
     <!-- ===== 11章 ===== -->
     <h2 id="ch11"><span class="n">11</span>システム構成の比較</h2>
-    <p>専門的な部分は割愛しますので、<b>構成がシンプルになる</b>点だけ図でご確認ください。<b>守るべきもの（脆弱性対応の対象）が減る</b>ことが、保守負担の軽減に直結します。</p>
+    <p>専門的な部分は割愛しますので、<b>守り続ける対象が減る</b>という一点だけ図でご確認ください。サーバーの<b>台数</b>が減るという話ではなく、<b>1 台のサーバーの中に置く「別建ての製品」が減る</b>という話です。脆弱性対応・監視の対象が少ないほど、保守の負担は軽くなります。</p>
 
     <figure>
-      <svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="現行ツールとWatashiのシステム構成比較">
+      <svg viewBox="0 0 880 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="現行ツールとWatashiで、保守が必要な製品の数を比較した図">
         <text x="220" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#7a2438">現行ツール</text>
         <text x="660" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1F6B3A">Watashi（後継）</text>
-        <line x1="440" y1="42" x2="440" y2="356" stroke="#D5D9DE" stroke-dasharray="5 5"/>
+        <line x1="440" y1="42" x2="440" y2="352" stroke="#D5D9DE" stroke-dasharray="5 5"/>
 
-        <!-- 現行 -->
-        <rect x="125" y="54" width="190" height="42" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
-        <text x="220" y="80" text-anchor="middle" font-size="12.5" fill="#1F2328">利用者の PC</text>
-        <line x1="220" y1="96" x2="220" y2="134" stroke="#CF222E" stroke-width="2.2"/>
-        <text x="232" y="119" font-size="11" fill="#CF222E">HTTP（平文）⚠</text>
+        <!-- ===== 現行 ===== -->
+        <rect x="118" y="48" width="204" height="40" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="220" y="73" text-anchor="middle" font-size="12.5" fill="#1F2328">利用者の PC</text>
+        <line x1="220" y1="88" x2="220" y2="126" stroke="#CF222E" stroke-width="2.2"/>
+        <text x="232" y="112" font-size="11" fill="#CF222E">HTTP（平文）⚠</text>
 
-        <rect x="112" y="136" width="216" height="140" rx="10" fill="#fff5f5" stroke="#7a2438" stroke-width="2"/>
-        <text x="220" y="156" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7a2438">サーバー（1 台）</text>
-        <rect x="128" y="164" width="184" height="46" rx="6" fill="#fff" stroke="#c99"/>
-        <text x="220" y="184" text-anchor="middle" font-size="12.5" fill="#1F2328">IIS 上の Web アプリ</text>
-        <text x="220" y="201" text-anchor="middle" font-size="10.5" fill="#7a2438">※ IIS が必須</text>
-        <rect x="128" y="218" width="184" height="46" rx="6" fill="#fff" stroke="#c99"/>
-        <text x="220" y="238" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">MySQL（別途構築）</text>
-        <text x="220" y="255" text-anchor="middle" font-size="10.5" fill="#7a2438">※ 同じサーバーに同居</text>
+        <rect x="106" y="128" width="228" height="186" rx="10" fill="#fff5f5" stroke="#7a2438" stroke-width="2"/>
+        <text x="220" y="148" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7a2438">サーバー 1 台</text>
 
-        <line x1="220" y1="276" x2="220" y2="298" stroke="#7a2438" stroke-width="2"/>
-        <rect x="125" y="300" width="190" height="42" rx="8" fill="#fff" stroke="#9CA3AF"/>
-        <text x="220" y="326" text-anchor="middle" font-size="12.5" fill="#1F2328">ファイルサーバー</text>
+        <rect x="120" y="156" width="200" height="48" rx="6" fill="#fff" stroke="#c99"/>
+        <text x="220" y="176" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">IIS（Web サーバー製品）</text>
+        <text x="220" y="194" text-anchor="middle" font-size="10" fill="#7a2438">⚠ 別途インストール・パッチ当て</text>
 
-        <text x="220" y="366" text-anchor="middle" font-size="11.5" fill="#7a2438">Web と DB が 1 台に同居 → 障害・脆弱性の影響範囲が大きい</text>
+        <rect x="120" y="208" width="200" height="48" rx="6" fill="#fff" stroke="#c99"/>
+        <text x="220" y="228" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">MySQL（データベース製品）</text>
+        <text x="220" y="246" text-anchor="middle" font-size="10" fill="#7a2438">⚠ 別途インストール・パッチ当て</text>
 
-        <!-- Watashi -->
-        <rect x="565" y="54" width="190" height="42" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
-        <text x="660" y="80" text-anchor="middle" font-size="12.5" fill="#1F2328">利用者の PC（専用アプリ）</text>
-        <line x1="660" y1="96" x2="660" y2="134" stroke="#1F883D" stroke-width="2.2"/>
-        <text x="672" y="119" font-size="11" fill="#1F883D">HTTPS（暗号化）🔒</text>
+        <rect x="120" y="260" width="200" height="44" rx="6" fill="#fff" stroke="#c99"/>
+        <text x="220" y="280" text-anchor="middle" font-size="12.5" fill="#1F2328">Web アプリ</text>
+        <text x="220" y="297" text-anchor="middle" font-size="10" fill="#7a2438">※ IIS の上でしか動かない</text>
 
-        <rect x="552" y="136" width="216" height="140" rx="10" fill="#f2fbf5" stroke="#1F6B3A" stroke-width="2"/>
-        <text x="660" y="156" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F6B3A">サーバー（1 台）</text>
-        <rect x="568" y="164" width="184" height="46" rx="6" fill="#fff" stroke="#9c9"/>
-        <text x="660" y="184" text-anchor="middle" font-size="12.5" fill="#1F2328">常駐サービス</text>
-        <text x="660" y="201" text-anchor="middle" font-size="10.5" fill="#1F6B3A">※ IIS 不要</text>
-        <rect x="568" y="218" width="184" height="46" rx="6" fill="#fff" stroke="#9c9"/>
-        <text x="660" y="238" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">内蔵データベース</text>
-        <text x="660" y="255" text-anchor="middle" font-size="10.5" fill="#1F6B3A">※ 初回起動で自動生成</text>
+        <rect x="122" y="324" width="196" height="30" rx="15" fill="#7a2438"/>
+        <text x="220" y="344" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">守り続ける対象：3 つ</text>
 
-        <line x1="660" y1="276" x2="660" y2="298" stroke="#1F6B3A" stroke-width="2"/>
-        <rect x="565" y="300" width="190" height="42" rx="8" fill="#fff" stroke="#9CA3AF"/>
-        <text x="660" y="320" text-anchor="middle" font-size="12.5" fill="#1F2328">ファイルサーバー</text>
-        <text x="660" y="336" text-anchor="middle" font-size="10" fill="#6B7280">別ネットワークへは中継役を経由</text>
+        <!-- ===== Watashi ===== -->
+        <rect x="558" y="48" width="204" height="40" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="660" y="73" text-anchor="middle" font-size="12.5" fill="#1F2328">利用者の PC（専用アプリ）</text>
+        <line x1="660" y1="88" x2="660" y2="126" stroke="#1F883D" stroke-width="2.2"/>
+        <text x="672" y="112" font-size="11" fill="#1F883D">HTTPS（暗号化）🔒</text>
 
-        <text x="660" y="366" text-anchor="middle" font-size="11.5" fill="#1F6B3A">構成がシンプルで、安全かつ運用が軽い</text>
+        <rect x="546" y="128" width="228" height="186" rx="10" fill="#f2fbf5" stroke="#1F6B3A" stroke-width="2"/>
+        <text x="660" y="148" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F6B3A">サーバー 1 台</text>
+
+        <rect x="560" y="156" width="200" height="148" rx="6" fill="#fff" stroke="#9c9"/>
+        <text x="660" y="178" text-anchor="middle" font-size="13" font-weight="700" fill="#1F2328">Watashi サーバー</text>
+        <text x="660" y="196" text-anchor="middle" font-size="10.5" fill="#1F6B3A">常駐サービス（IIS 不要）</text>
+
+        <rect x="576" y="206" width="168" height="88" rx="6" fill="#f2fbf5" stroke="#1F6B3A" stroke-dasharray="4 3"/>
+        <text x="660" y="228" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F6B3A">データベース機能を内蔵</text>
+        <text x="660" y="246" text-anchor="middle" font-size="10.5" fill="#4A535C">実体はファイル 1 つ</text>
+        <text x="660" y="268" text-anchor="middle" font-size="10" fill="#1F6B3A">✔ 単体での起動や監視、</text>
+        <text x="660" y="283" text-anchor="middle" font-size="10" fill="#1F6B3A">　パッチ当ては発生しない</text>
+
+        <rect x="562" y="324" width="196" height="30" rx="15" fill="#1F6B3A"/>
+        <text x="660" y="344" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">守り続ける対象：1 つ</text>
+
+        <!-- ===== 注記 ===== -->
+        <rect x="40" y="368" width="800" height="44" rx="8" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.4"/>
+        <text x="440" y="388" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b4a8f">※ どちらもサーバーは 1 台、データベースも同じサーバー上にあります。違いは「置き場所」ではありません。</text>
+        <text x="440" y="405" text-anchor="middle" font-size="11" fill="#0b4a8f">「別建ての製品を導入して守り続けるか」「アプリに内蔵してしまうか」— そこが違います。</text>
       </svg>
-      <figcaption>図11：現行ツールと Watashi の構成比較。現行は 1 台のサーバーに Web アプリ（IIS）とデータベース（MySQL）が同居していますが、Watashi はどちらも前提にしないため、構成がシンプルになります。</figcaption>
+      <figcaption>図11：保守の観点で見た構成比較。<b>サーバーが 1 台である点も、データベースが同じサーバー上にある点も、現行と Watashi で変わりません。</b>違うのは、IIS・MySQL という<b>別建ての製品を導入して守り続ける必要があるかどうか</b>です。Watashi はデータベース機能をアプリに内蔵しているため、脆弱性対応・監視の対象が 3 つから 1 つに減ります。</figcaption>
     </figure>
 
     <!-- ============================================================
@@ -1130,7 +1138,7 @@
       <div class="stat">
         <div class="ico">🖥️</div>
         <div class="big">中央サーバー 1 台</div>
-        <div class="desc">Windows サーバー。専用のデータベースサーバーは不要です</div>
+        <div class="desc">Windows サーバー。データベース製品を別途用意する必要はありません</div>
       </div>
       <div class="stat">
         <div class="ico">🔁</div>
