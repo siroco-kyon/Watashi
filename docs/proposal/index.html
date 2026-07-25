@@ -40,7 +40,7 @@
   code,.mono{font-family:"Consolas","SFMono-Regular",Menlo,monospace;}
   .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px;}
 
-  /* 表紙 */
+  /* ===== 表紙 ===== */
   .cover{
     background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
     color:#fff; padding:64px 28px 56px; position:relative; overflow:hidden; text-align:center;
@@ -48,18 +48,32 @@
   .cover::after{content:""; position:absolute; left:0; right:0; bottom:0; height:6px; background:var(--accent);}
   .cover .torii{margin:0 auto 16px; display:block;}
   .cover .doctype{display:inline-block; font-size:13px; letter-spacing:3px; color:#9fb0c9; border:1px solid #3a4f70; border-radius:20px; padding:4px 16px; margin-bottom:18px;}
-  .cover h1{font-size:40px; margin:0 0 10px; font-weight:800; letter-spacing:1px;}
-  .cover .tag{font-size:18px; color:#c8d3e3; margin:0;}
+  .cover h1{font-size:38px; margin:0 0 12px; font-weight:800; letter-spacing:1px; line-height:1.35;}
+  .cover .tag{font-size:17px; color:#c8d3e3; margin:0;}
   .cover .meta{margin-top:26px; font-size:13px; color:#8294b0;}
 
-  h2{font-size:26px; margin:56px 0 16px; padding-bottom:10px; border-bottom:3px solid var(--accent); display:flex; align-items:center; gap:12px; scroll-margin-top:14px;}
-  h2 .n{background:var(--accent); color:#fff; font-size:16px; font-weight:700; min-width:38px; height:38px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center;}
-  h3{font-size:19px; margin:30px 0 10px; color:var(--accent-deep);}
+  /* ===== 見出し ===== */
+  h2{font-size:25px; margin:52px 0 16px; padding-bottom:10px; border-bottom:3px solid var(--accent); display:flex; align-items:center; gap:12px; scroll-margin-top:14px; line-height:1.4;}
+  h2 .n{background:var(--accent); color:#fff; font-size:15px; font-weight:700; min-width:38px; height:38px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;}
+  h3{font-size:18.5px; margin:30px 0 10px; color:var(--accent-deep);}
+  h4{font-size:16px; margin:20px 0 6px; color:var(--header);}
   p{margin:10px 0;}
   ul,ol{margin:10px 0; padding-left:24px;} li{margin:6px 0;}
   a{color:var(--accent);}
+  b{color:inherit;}
 
-  /* 結論ボックス */
+  /* ===== 部（パート）区切り ===== */
+  .part{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; border-radius:14px; padding:20px 26px; margin:60px 0 6px;
+    display:flex; align-items:center; gap:18px; box-shadow:var(--shadow);
+  }
+  .part .pnum{font-size:12px; letter-spacing:2px; color:#9fb0c9; border:1px solid #3a4f70; border-radius:16px; padding:3px 14px; white-space:nowrap;}
+  .part .ptitle{font-size:21px; font-weight:800; margin:0;}
+  .part .psub{font-size:13px; color:#c8d3e3; margin:2px 0 0;}
+  .part + h2{margin-top:26px;}
+
+  /* ===== 要点ボックス / 結論ボックス ===== */
   .conclusion{
     background:var(--accent-soft); border:1px solid #e7c3ba; border-left:6px solid var(--accent);
     border-radius:12px; padding:22px 26px; margin:26px 0; box-shadow:var(--shadow);
@@ -67,45 +81,78 @@
   .conclusion h3{margin:0 0 8px; color:var(--accent-deep); font-size:18px;}
   .conclusion p{margin:6px 0; font-size:16px;}
   .conclusion b{color:var(--accent-deep);}
+  .conclusion ol{margin:8px 0 4px;}
+  .conclusion li{font-size:15.5px;}
 
-  /* サマリーカード */
+  /* ===== 目次 ===== */
+  .toc{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 24px; margin:26px 0; box-shadow:var(--shadow);}
+  .toc h3{margin:0 0 10px; font-size:16px; color:var(--header);}
+  .toc ol{list-style:none; padding:0; margin:0; display:grid; grid-template-columns:1fr 1fr; gap:2px 26px;}
+  @media(max-width:760px){.toc ol{grid-template-columns:1fr;}}
+  .toc li{margin:3px 0; font-size:14px;}
+  .toc li a{text-decoration:none; color:var(--text-2);}
+  .toc li a:hover{color:var(--accent); text-decoration:underline;}
+  .toc li .no{display:inline-block; min-width:24px; color:var(--accent); font-weight:700;}
+  .toc .grp{grid-column:1 / -1; font-size:12px; font-weight:700; color:var(--muted); letter-spacing:1px; margin-top:10px; border-top:1px dashed var(--border); padding-top:8px;}
+
+  /* ===== サマリーカード ===== */
   .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:24px 0;}
-  @media(max-width:760px){.stats{grid-template-columns:1fr;}}
-  .stat{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; box-shadow:var(--shadow); text-align:center;}
-  .stat .ico{font-size:30px;}
-  .stat .big{font-size:20px; font-weight:800; color:var(--header); margin:6px 0 2px;}
-  .stat .desc{font-size:13px; color:var(--text-2);}
+  .stats.c4{grid-template-columns:repeat(4,1fr);}
+  .stats.c2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:860px){.stats,.stats.c4,.stats.c2{grid-template-columns:1fr;}}
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px 18px; box-shadow:var(--shadow); text-align:center;}
+  .stat .ico{font-size:28px; line-height:1.3;}
+  .stat .big{font-size:17px; font-weight:800; color:var(--header); margin:6px 0 4px; line-height:1.5;}
+  .stat .desc{font-size:13px; color:var(--text-2); line-height:1.7;}
 
-  /* コールアウト */
-  .note,.tip,.warn{border-radius:10px; padding:14px 18px; margin:18px 0; border:1px solid var(--border); position:relative; padding-left:50px;}
+  /* ===== ねらいカード ===== */
+  .aims{display:grid; grid-template-columns:repeat(2,1fr); gap:18px; margin:24px 0;}
+  @media(max-width:860px){.aims{grid-template-columns:1fr;}}
+  .aim{background:var(--surface); border:1px solid var(--border); border-top:4px solid var(--accent); border-radius:14px; padding:18px 22px; box-shadow:var(--shadow);}
+  .aim .no{display:inline-block; background:var(--accent); color:#fff; font-size:12.5px; font-weight:700; border-radius:14px; padding:1px 12px; margin-bottom:8px;}
+  .aim h4{margin:2px 0 6px; font-size:17px; color:var(--header);}
+  .aim p{margin:4px 0; font-size:14px; color:var(--text-2); line-height:1.8;}
+  .aim .to{font-size:13px; color:var(--muted); margin-top:8px;}
+  .aim .to a{color:var(--accent); text-decoration:none;} .aim .to a:hover{text-decoration:underline;}
+
+  /* ===== コールアウト ===== */
+  .note,.tip,.warn{border-radius:10px; padding:14px 18px; margin:18px 0; border:1px solid var(--border); position:relative; padding-left:50px; font-size:15px;}
   .note::before,.tip::before,.warn::before{position:absolute; left:16px; top:13px; font-size:19px;}
   .note{background:var(--info-soft); border-color:#bcd6f5;} .note::before{content:"ℹ️";}
   .tip{background:var(--success-soft); border-color:#bfe3cb;} .tip::before{content:"💡";}
   .warn{background:var(--warning-soft); border-color:#f0dca0;} .warn::before{content:"⚠️";}
 
-  /* テーブル */
+  /* ===== テーブル ===== */
   table{border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px; background:var(--surface); box-shadow:var(--shadow); border-radius:8px; overflow:hidden;}
   th,td{border:1px solid var(--border); padding:11px 13px; text-align:left; vertical-align:top;}
   th{background:var(--header); color:#fff; font-weight:700;}
   tbody tr:nth-child(even){background:#fafbfc;}
+  .tblwrap{overflow-x:auto;}
+
+  /* グループ見出し行つきテーブル */
+  .grouped tr.gh td{background:var(--surface-alt); font-weight:700; color:var(--header); font-size:14px; letter-spacing:.5px;}
+  .grouped tr.gh td .badge{display:inline-block; background:var(--header); color:#fff; border-radius:10px; font-size:11.5px; padding:1px 10px; margin-right:8px; font-weight:700;}
 
   /* Before / After 比較表 */
   .cmp th:nth-child(2){background:#7a2438;}   /* 現行=くすんだ赤 */
   .cmp th:nth-child(3){background:#1f6b3a;}   /* Watashi=緑 */
   .cmp td:nth-child(2){background:#fff5f5;}
   .cmp td:nth-child(3){background:#f2fbf5;}
-  .cmp td:nth-child(1){font-weight:700; color:var(--header); width:23%;}
+  .cmp td:nth-child(1){font-weight:700; color:var(--header); width:22%;}
   .cmp .x{color:var(--danger); font-weight:700; margin-right:4px;}
   .cmp .o{color:var(--success); font-weight:700; margin-right:4px;}
 
   .pill{display:inline-block; background:var(--accent-soft); color:var(--accent-deep); border-radius:12px; padding:1px 10px; font-size:12.5px; font-weight:700; margin-right:4px;}
+  .pill.keep{background:var(--success-soft); color:#155e2e;}
+  .pill.new{background:var(--info-soft); color:#0b4a8f;}
   .lead{font-size:17px; color:var(--text-2);}
-  figure{margin:24px 0; text-align:center;}
+  figure{margin:26px 0; text-align:center;}
   figure svg{max-width:100%; height:auto; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow);}
-  figcaption{font-size:13px; color:var(--muted); margin-top:8px;}
-  hr.sec{border:none; border-top:1px dashed var(--border); margin:40px 0;}
+  figcaption{font-size:13px; color:var(--muted); margin-top:8px; line-height:1.75; text-align:left; max-width:840px; margin-left:auto; margin-right:auto;}
+  hr.sec{border:none; border-top:1px dashed var(--border); margin:44px 0;}
+  .fn{color:var(--muted); font-size:13px; line-height:1.8;}
 
-  /* スクリーンショット差し替え用プレースホルダー（画像を配置すると自動で切り替わる） */
+  /* ===== スクリーンショット差し替え枠（画像を配置すると自動で切り替わる） ===== */
   .shot{margin:22px 0;}
   .shot img{width:100%; display:none; border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow);}
   .shot-fallback{
@@ -117,12 +164,9 @@
   .shot-fallback .label{font-weight:700; color:var(--text-2); font-size:13.5px;}
   .shot-fallback .desc{font-size:12px; color:var(--muted);}
   .shot-fallback code{background:#fff; border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:11.5px;}
-  figcaption.shot-caption{margin-top:6px;}
-  @media print{
-    .shot-fallback{background:var(--surface-alt); padding:22px 10px;}
-  }
+  figcaption.shot-caption{margin-top:6px; text-align:center;}
 
-  /* 印刷ボタン */
+  /* ===== 印刷ボタン ===== */
   .printbtn{position:fixed; right:22px; bottom:22px; background:var(--accent); color:#fff; border:none; border-radius:30px; padding:12px 22px; font-size:14px; font-weight:700; box-shadow:var(--shadow); cursor:pointer; z-index:50; display:flex; align-items:center; gap:8px;}
   .printbtn:hover{background:var(--accent-hover);}
 
@@ -132,17 +176,22 @@
     .printbtn{display:none;}
     body{background:#fff; font-size:12px; line-height:1.6;}
     .cover{padding:40px 20px;}
-    .cover h1{font-size:30px;}
-    h2{margin:26px 0 10px; font-size:19px; break-after:avoid;}
-    table,figure,.conclusion,.stats,.stat{break-inside:avoid;}
+    .cover h1{font-size:28px;}
+    h2{margin:24px 0 10px; font-size:18px; break-after:avoid;}
+    .part{break-inside:avoid; break-before:page; margin:20px 0 6px; padding:14px 18px;}
+    .part .ptitle{font-size:17px;}
+    table,figure,.conclusion,.stats,.stat,.aim,.toc{break-inside:avoid;}
     .stats{gap:10px;}
     a{color:var(--text); text-decoration:none;}
+    .shot-fallback{background:var(--surface-alt); padding:22px 10px;}
   }
 </style>
 </head>
 <body>
 
-  <!-- ===== 表紙 ===== -->
+  <!-- ============================================================
+       表紙
+       ============================================================ -->
   <header class="cover">
     <svg class="torii" width="76" height="76" viewBox="0 0 100 100" aria-hidden="true">
       <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
@@ -151,48 +200,430 @@
       <rect x="16" y="40" width="68" height="8" fill="#fff"/>
     </svg>
     <div class="doctype">導入提案資料</div>
-    <h1>社内ファイル共有ツールの刷新提案</h1>
-    <p class="tag">現行ツールの課題を解決する後継ツール「Watashi（わたし）」のご提案</p>
-    <p class="meta">— 安全性・運用性・保守性を一段引き上げる —</p>
+    <h1>ネットワークをまたぐファイル受け渡しを、<br>安全に・記録を残して</h1>
+    <p class="tag">社内ファイル受け渡しツールの刷新提案 — 後継ツール「Watashi（わたし）」</p>
+    <p class="meta">— 目的はそのまま、経路の安全性・記録・運用のしやすさを作り直す —</p>
   </header>
 
   <div class="wrap">
 
-    <!-- ===== 概要：Watashiとは ===== -->
-    <h2><span class="n">1</span>Watashi とは（全体像）</h2>
-    <p class="lead">Watashi は、社内のファイルサーバーへ<b>安全に・記録を残しながら</b>アクセスするための社内専用ツールです。長年使われてきた現行ツール（仮称：<b>PANDA</b>）の後継として、同じ「2画面でファイルをやり取りする」使用感はそのままに、<b>中身をまるごと作り直した</b>ものです。</p>
+    <!-- ============================================================
+         要点 + 目次
+         ============================================================ -->
+    <h2><span class="n">要点</span>この資料でお伝えしたいこと</h2>
+
+    <div class="conclusion">
+      <h3>3行でいうと</h3>
+      <ol>
+        <li>社内のネットワークやサーバーは安全のために分かれています。そのため<b>「向こう側にファイルを置く／取り出す」が毎回ひと苦労</b>で、しかも<b>誰が何を運んだのか記録が残りません</b>。</li>
+        <li>これを解決するために作られたのが、現在使っているファイル受け渡しツールです。<b>ねらいは今も正しい</b>のですが、<b>通信が暗号化されていない・記録が取り出しにくい・管理が手作業</b>という限界を抱えています。</li>
+        <li>後継ツール <b>「Watashi」</b> は、<b>目的はそのままに中身を作り直した</b>ものです。まずは小規模な<b>試験導入（PoC）</b>からの着手をご提案します。</li>
+      </ol>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="ico">🔀</div>
+        <div class="big">またいで運ぶ</div>
+        <div class="desc">分かれたネットワーク・サーバーの向こう側へも、<b>いつもと同じ1つの画面</b>から置く／取り出す</div>
+      </div>
+      <div class="stat">
+        <div class="ico">📝</div>
+        <div class="big">記録が残る</div>
+        <div class="desc">「いつ・誰が・どのファイルを・どこへ」を<b>自動で記録</b>。管理画面で検索、CSV 出力も可能</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🔒</div>
+        <div class="big">経路が安全</div>
+        <div class="desc">通信は<b>暗号化（HTTPS）</b>、触れる範囲は<b>人ごと・フォルダごと</b>に限定</div>
+      </div>
+    </div>
+
+    <div class="toc">
+      <h3>目次</h3>
+      <ol>
+        <li class="grp">第1部　なぜ、この道具が必要なのか</li>
+        <li><a href="#ch1"><span class="no">1</span>解きたい問題 — ネットワークが分かれていると、ファイルが運べない</a></li>
+        <li><a href="#ch2"><span class="no">2</span>そこで作られた「受け渡し口」 — 元々やりたかった2つのこと</a></li>
+        <li><a href="#ch3"><span class="no">3</span>現行ツールの到達点と、いま抱えている限界</a></li>
+        <li class="grp">第2部　これから、どう良くしたいのか</li>
+        <li><a href="#ch4"><span class="no">4</span>改善の4つのねらい</a></li>
+        <li><a href="#ch5"><span class="no">5</span>後継ツール「Watashi」の全体像</a></li>
+        <li class="grp">第3部　具体的に、何が変わるのか</li>
+        <li><a href="#ch6"><span class="no">6</span>ねらい① どのネットワークのサーバーへも、同じ画面から</a></li>
+        <li><a href="#ch7"><span class="no">7</span>ねらい② 記録を「すぐ使える」ものにする</a></li>
+        <li><a href="#ch8"><span class="no">8</span>ねらい③ 経路と権限を安全にする</a></li>
+        <li><a href="#ch9"><span class="no">9</span>ねらい④ 管理の手間を減らす</a></li>
+        <li><a href="#ch10"><span class="no">10</span>現行ツールの課題への対応（一覧）</a></li>
+        <li><a href="#ch11"><span class="no">11</span>システム構成の比較</a></li>
+        <li class="grp">第4部　導入について</li>
+        <li><a href="#ch12"><span class="no">12</span>導入のしやすさと、進め方</a></li>
+        <li><a href="#ch13"><span class="no">13</span>導入スケジュール（想定）</a></li>
+        <li><a href="#appendix"><span class="no">付</span>用語集・関連資料</a></li>
+      </ol>
+    </div>
+
+    <!-- ============================================================
+         第1部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 1 部</span>
+      <div>
+        <p class="ptitle">なぜ、この道具が必要なのか</p>
+        <p class="psub">現行ツールをご存じない方も、ここから読めば話が繋がります</p>
+      </div>
+    </div>
+
+    <!-- ===== 1章 ===== -->
+    <h2 id="ch1"><span class="n">1</span>解きたい問題 — ネットワークが分かれていると、ファイルが運べない</h2>
+
+    <p class="lead">社内のネットワークやサーバーは、<b>安全のために「あえて」分けられています</b>。部署ごと、拠点ごと、業務システムごと、外部接続用……。分けることで守れる一方で、その代償として <b>ファイルが行き来できなくなります</b>。</p>
+
+    <p>ところが、<b>仕事のほうは分断されていません</b>。見積書、図面、検査データ、システムへの取り込みファイル、受領した資料——「向こう側のサーバーに置きたい」「向こう側から取り出したい」は日常的に発生します。</p>
 
     <figure>
-      <svg viewBox="0 0 860 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Watashiの全体構成（簡易図）">
-        <rect x="40" y="70" width="190" height="64" rx="10" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.5"/>
-        <text x="135" y="97" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1F2328">利用者の PC</text>
-        <text x="135" y="116" text-anchor="middle" font-size="11.5" fill="#4A535C">専用アプリ（Watashi Client）</text>
-
-        <rect x="335" y="58" width="200" height="88" rx="10" fill="#f2fbf5" stroke="#1f6b3a" stroke-width="1.5"/>
-        <text x="435" y="86" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1F2328">Watashi サーバー</text>
-        <text x="435" y="105" text-anchor="middle" font-size="11.5" fill="#1f6b3a">社内に 1 台（常駐サービス）</text>
-        <text x="435" y="122" text-anchor="middle" font-size="11" fill="#1f6b3a">ユーザー・権限・記録を一括管理</text>
-
-        <rect x="640" y="70" width="190" height="64" rx="10" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.5"/>
-        <text x="735" y="97" text-anchor="middle" font-size="13.5" font-weight="700" fill="#5C1A0B">社内ファイルサーバー</text>
-        <text x="735" y="116" text-anchor="middle" font-size="11.5" fill="#5C1A0B">既存の共有フォルダ（そのまま）</text>
-
-        <line x1="230" y1="102" x2="333" y2="102" stroke="#1f883d" stroke-width="2.4" marker-end="url(#arrowG)"/>
-        <text x="281" y="86" text-anchor="middle" font-size="11.5" fill="#1f883d">HTTPS 🔒</text>
-        <text x="281" y="130" text-anchor="middle" font-size="10.5" fill="#6B7280">暗号化された通信</text>
-
-        <line x1="535" y1="102" x2="638" y2="102" stroke="#1f883d" stroke-width="2.4" marker-end="url(#arrowG)"/>
-        <text x="586" y="86" text-anchor="middle" font-size="11.5" fill="#1f883d">社内網</text>
-        <text x="586" y="130" text-anchor="middle" font-size="10.5" fill="#6B7280">（必要な拠点は中継対応）</text>
-
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ネットワークが分かれているためにファイルを運べない状況の図">
         <defs>
-          <marker id="arrowG" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#1f883d"/></marker>
+          <marker id="arwRed" markerWidth="10" markerHeight="10" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#CF222E"/></marker>
         </defs>
 
-        <text x="435" y="186" text-anchor="middle" font-size="12" fill="#4A535C">左に自分の PC、右に社内サーバー — マウス操作でアップロード / ダウンロードするだけ</text>
-        <text x="435" y="208" text-anchor="middle" font-size="11" fill="#9CA3AF">昔ながらのファイル転送ソフトを、より安全・管理しやすくした後継とお考えください</text>
+        <!-- ゾーン1 -->
+        <rect x="24" y="52" width="216" height="150" rx="12" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="132" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#1B2A41">ネットワーク A</text>
+        <text x="132" y="94" text-anchor="middle" font-size="11" fill="#6B7280">事務・執務エリア</text>
+        <rect x="66" y="110" width="132" height="66" rx="9" fill="#fff" stroke="#9CA3AF"/>
+        <text x="132" y="136" text-anchor="middle" font-size="12.5" fill="#1F2328">利用者の PC</text>
+        <text x="132" y="156" text-anchor="middle" font-size="11" fill="#6B7280">📄 送りたいファイル</text>
+
+        <!-- ゾーン2 -->
+        <rect x="332" y="52" width="216" height="150" rx="12" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="440" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#1B2A41">ネットワーク B</text>
+        <text x="440" y="94" text-anchor="middle" font-size="11" fill="#6B7280">業務システム系</text>
+        <rect x="374" y="110" width="132" height="66" rx="9" fill="#fff" stroke="#9CA3AF"/>
+        <text x="440" y="136" text-anchor="middle" font-size="12.5" fill="#1F2328">ファイルサーバー</text>
+        <text x="440" y="156" text-anchor="middle" font-size="11" fill="#6B7280">共有フォルダ</text>
+
+        <!-- ゾーン3 -->
+        <rect x="640" y="52" width="216" height="150" rx="12" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="748" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#1B2A41">ネットワーク C</text>
+        <text x="748" y="94" text-anchor="middle" font-size="11" fill="#6B7280">拠点・閉じた環境</text>
+        <rect x="682" y="110" width="132" height="66" rx="9" fill="#fff" stroke="#9CA3AF"/>
+        <text x="748" y="136" text-anchor="middle" font-size="12.5" fill="#1F2328">ファイルサーバー</text>
+        <text x="748" y="156" text-anchor="middle" font-size="11" fill="#6B7280">共有フォルダ</text>
+
+        <!-- 壁 -->
+        <g>
+          <rect x="278" y="40" width="8" height="176" rx="3" fill="#CF222E" opacity=".22"/>
+          <line x1="282" y1="40" x2="282" y2="216" stroke="#CF222E" stroke-width="2.4" stroke-dasharray="7 6"/>
+          <text x="282" y="234" text-anchor="middle" font-size="11" fill="#CF222E">分離</text>
+        </g>
+        <g>
+          <rect x="586" y="40" width="8" height="176" rx="3" fill="#CF222E" opacity=".22"/>
+          <line x1="590" y1="40" x2="590" y2="216" stroke="#CF222E" stroke-width="2.4" stroke-dasharray="7 6"/>
+          <text x="590" y="234" text-anchor="middle" font-size="11" fill="#CF222E">分離</text>
+        </g>
+
+        <!-- 届かない矢印 -->
+        <line x1="200" y1="143" x2="266" y2="143" stroke="#CF222E" stroke-width="2.2" marker-end="url(#arwRed)"/>
+        <text x="282" y="148" text-anchor="middle" font-size="19" font-weight="700" fill="#CF222E">✕</text>
+        <line x1="508" y1="143" x2="574" y2="143" stroke="#CF222E" stroke-width="2.2" marker-end="url(#arwRed)"/>
+        <text x="590" y="148" text-anchor="middle" font-size="19" font-weight="700" fill="#CF222E">✕</text>
+
+        <!-- 回避策 -->
+        <text x="440" y="278" text-anchor="middle" font-size="13" font-weight="700" fill="#7a2438">公式な手段がないと、現場は「自分でなんとか」してしまう</text>
+        <g>
+          <rect x="60" y="294" width="180" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
+          <text x="150" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">USB メモリで持ち運ぶ</text>
+          <text x="150" y="334" text-anchor="middle" font-size="11" fill="#CF222E">紛失・持ち出しのリスク</text>
+
+          <rect x="260" y="294" width="180" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
+          <text x="350" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">メール添付で送る</text>
+          <text x="350" y="334" text-anchor="middle" font-size="11" fill="#CF222E">誤送信・容量制限</text>
+
+          <rect x="460" y="294" width="180" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
+          <text x="550" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">私物のクラウドに置く</text>
+          <text x="550" y="334" text-anchor="middle" font-size="11" fill="#CF222E">社外にデータが出る</text>
+
+          <rect x="660" y="294" width="180" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
+          <text x="750" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">担当者が手作業でコピー</text>
+          <text x="750" y="334" text-anchor="middle" font-size="11" fill="#CF222E">都度の依頼・待ち時間</text>
+        </g>
+        <text x="440" y="376" text-anchor="middle" font-size="12" fill="#6B7280">いずれも「危ない・面倒・記録が残らない」— これが出発点の問題です</text>
       </svg>
-      <figcaption>図：Watashi の全体像（簡易構成図）。難しい設定は管理者側で行い、利用者はアプリを開くだけです。</figcaption>
+      <figcaption>図1：ネットワークが分離されているために、正規の受け渡し手段がない状態。抜け道が常態化すると、情報漏えいリスクと「誰が何を運んだか分からない」状態が同時に生まれます。</figcaption>
+    </figure>
+
+    <h3>この状態で起きている3つの困りごと</h3>
+    <table>
+      <thead><tr><th style="width:150px">困りごと</th><th>具体的には</th></tr></thead>
+      <tbody>
+        <tr><td>🚨 <b>危ない</b></td><td>USB メモリ・メール添付・私物クラウドなど、<b>管理の外にある経路</b>を通ってしまう。紛失や誤送信が起きても止められない</td></tr>
+        <tr><td>🐌 <b>面倒</b></td><td>受け渡しのたびに担当者へ依頼、手作業でのコピー、待ち時間。<b>本来の仕事ではない作業</b>に時間が取られる</td></tr>
+        <tr><td>❓ <b>分からない</b></td><td>誰が・いつ・どのファイルを持ち出したのか<b>記録が残らない</b>。「あのファイル、誰が消した？」に答えられず、監査でも証跡を示せない</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===== 2章 ===== -->
+    <h2 id="ch2"><span class="n">2</span>そこで作られた「受け渡し口」 — 元々やりたかった2つのこと</h2>
+
+    <p class="lead">この問題への答えは、<b>抜け道を塞ぐことではなく、「安全な正面玄関」を1つ用意すること</b>でした。そのために社内で用意されたのが、現在使われているファイル受け渡しツールです。</p>
+
+    <p>やりたかったことは、突き詰めると次の<b>2つだけ</b>です。</p>
+
+    <div class="stats c2">
+      <div class="stat" style="border-top:4px solid var(--accent);">
+        <div class="ico">🔀</div>
+        <div class="big">① またいで運ぶのを、簡単にする</div>
+        <div class="desc">利用者はネットワークの構造を意識しない。<b>いつもの1つの画面</b>を開けば、向こう側のサーバーのフォルダがそこにあり、マウス操作で置く／取り出せる。</div>
+      </div>
+      <div class="stat" style="border-top:4px solid var(--accent);">
+        <div class="ico">📝</div>
+        <div class="big">② 運んだ記録を、残す</div>
+        <div class="desc">通り道を1本に絞れば、<b>そこを通ったものは全部記録できる</b>。「いつ・誰が・どのファイルを・どちらへ動かしたか」が後から必ず追える。</div>
+      </div>
+    </div>
+
+    <figure>
+      <svg viewBox="0 0 880 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="受け渡し口を1つにまとめ、そこで記録を取る考え方の図">
+        <defs>
+          <marker id="arwG2" markerWidth="10" markerHeight="10" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1F883D"/></marker>
+          <marker id="arwGray" markerWidth="10" markerHeight="10" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#9CA3AF"/></marker>
+        </defs>
+
+        <!-- 利用者 -->
+        <rect x="26" y="86" width="164" height="96" rx="11" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="108" y="114" text-anchor="middle" font-size="13" font-weight="700" fill="#1B2A41">利用者</text>
+        <text x="108" y="136" text-anchor="middle" font-size="11.5" fill="#4A535C">いつもの1画面を</text>
+        <text x="108" y="154" text-anchor="middle" font-size="11.5" fill="#4A535C">開くだけ</text>
+        <text x="108" y="172" text-anchor="middle" font-size="11" fill="#6B7280">経路は意識しない</text>
+
+        <!-- 受け渡し口 -->
+        <rect x="290" y="60" width="228" height="150" rx="13" fill="#F9E5E0" stroke="#C73E1D" stroke-width="2.2"/>
+        <g transform="translate(378,74) scale(0.30)">
+          <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#C73E1D"/>
+          <rect x="22" y="34" width="9" height="54" fill="#C73E1D"/>
+          <rect x="69" y="34" width="9" height="54" fill="#C73E1D"/>
+          <rect x="16" y="40" width="68" height="8" fill="#C73E1D"/>
+        </g>
+        <text x="404" y="130" text-anchor="middle" font-size="14" font-weight="700" fill="#5C1A0B">唯一の受け渡し口</text>
+        <text x="404" y="150" text-anchor="middle" font-size="11.5" fill="#5C1A0B">（＝このツール）</text>
+        <rect x="306" y="162" width="90" height="26" rx="13" fill="#fff" stroke="#C73E1D"/>
+        <text x="351" y="179" text-anchor="middle" font-size="11" font-weight="700" fill="#5C1A0B">① 運ぶ</text>
+        <rect x="412" y="162" width="90" height="26" rx="13" fill="#fff" stroke="#C73E1D"/>
+        <text x="457" y="179" text-anchor="middle" font-size="11" font-weight="700" fill="#5C1A0B">② 記録する</text>
+
+        <!-- 右：各ネットワークのサーバー -->
+        <rect x="628" y="46" width="226" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.4"/>
+        <text x="741" y="68" text-anchor="middle" font-size="12.5" fill="#1F2328">ネットワーク A のサーバー</text>
+        <text x="741" y="86" text-anchor="middle" font-size="10.5" fill="#6B7280">既存の共有フォルダ（そのまま）</text>
+
+        <rect x="628" y="110" width="226" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.4"/>
+        <text x="741" y="132" text-anchor="middle" font-size="12.5" fill="#1F2328">ネットワーク B のサーバー</text>
+        <text x="741" y="150" text-anchor="middle" font-size="10.5" fill="#6B7280">既存の共有フォルダ（そのまま）</text>
+
+        <rect x="628" y="174" width="226" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.4"/>
+        <text x="741" y="196" text-anchor="middle" font-size="12.5" fill="#1F2328">ネットワーク C のサーバー</text>
+        <text x="741" y="214" text-anchor="middle" font-size="10.5" fill="#6B7280">既存の共有フォルダ（そのまま）</text>
+
+        <!-- 矢印 -->
+        <line x1="190" y1="134" x2="286" y2="134" stroke="#1F883D" stroke-width="2.6" marker-end="url(#arwG2)"/>
+        <line x1="522" y1="120" x2="624" y2="76" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arwGray)"/>
+        <line x1="522" y1="136" x2="624" y2="136" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arwGray)"/>
+        <line x1="522" y1="152" x2="624" y2="196" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arwGray)"/>
+
+        <!-- 記録 -->
+        <line x1="404" y1="210" x2="404" y2="248" stroke="#C73E1D" stroke-width="2.2" stroke-dasharray="5 4"/>
+        <rect x="268" y="250" width="272" height="52" rx="9" fill="#fff" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="404" y="272" text-anchor="middle" font-size="12.5" font-weight="700" fill="#5C1A0B">📝 通ったものは、すべて記録に残る</text>
+        <text x="404" y="290" text-anchor="middle" font-size="11" fill="#5C1A0B">いつ ／ 誰が ／ どのファイルを ／ どちらへ</text>
+
+        <text x="440" y="326" text-anchor="middle" font-size="12" fill="#6B7280">通り道を 1 本にまとめることが、「簡単にする」と「記録を取る」の両方の前提になります</text>
+      </svg>
+      <figcaption>図2：ツールの原点となる考え方。抜け道を個別に禁止するのではなく、<b>通りやすい正規の道を1本用意して、そこに集める</b>。集まるからこそ、記録も権限管理もまとめて成立します。</figcaption>
+    </figure>
+
+    <p class="fn">※ 本資料では、現在利用中のファイル受け渡しツールを <b>「現行ツール」</b> と表記します（社内では固有の呼び名がありますが、その名前を知らなくても読み進められるようにしています）。</p>
+
+    <!-- ===== 3章 ===== -->
+    <h2 id="ch3"><span class="n">3</span>現行ツールの到達点と、いま抱えている限界</h2>
+
+    <h3>うまくいっていること（＝後継ツールでも引き継ぎたい価値）</h3>
+    <p>現行ツールは、上記の「①運ぶ／②記録する」という考え方自体は正しく実現しています。次の3点は、<b>後継ツールでもそのまま引き継ぎます</b>。</p>
+    <div class="stats">
+      <div class="stat">
+        <div class="ico">🪟</div>
+        <div><span class="pill keep">引き継ぐ</span></div>
+        <div class="big">分かりやすい2画面</div>
+        <div class="desc">左に自分の PC、右に社内サーバー。マウス操作で上げ下げするだけ。教育コストが低い</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🏠</div>
+        <div><span class="pill keep">引き継ぐ</span></div>
+        <div class="big">社内で完結</div>
+        <div class="desc">外部のクラウドサービスを経由しない。データが社外に出ない</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🗄️</div>
+        <div><span class="pill keep">引き継ぐ</span></div>
+        <div class="big">既存サーバーはそのまま</div>
+        <div class="desc">今のファイルサーバー・共有フォルダを置き換えず、そこへの「安全な入口」を足すだけ</div>
+      </div>
+    </div>
+
+    <h3>限界（＝今回の改善対象）</h3>
+    <p>一方で、運用を続ける中で <b>10 個の課題</b> が挙がっています。単なる「使いにくさ」ではなく、<b>情報漏えいリスク</b>と<b>運用コスト</b>に直結するものが含まれます。ここでは、先ほどの「①運ぶ／②記録する」という軸に沿って整理しました。</p>
+
+    <div class="tblwrap">
+    <table class="grouped">
+      <thead><tr><th style="width:44px">#</th><th style="width:38%">現行ツールの課題</th><th>これが招くリスク・コスト</th></tr></thead>
+      <tbody>
+        <tr class="gh"><td colspan="3"><span class="badge">A</span>「運ぶ」経路そのものが安全でない</td></tr>
+        <tr><td>1</td><td>通信が <b>HTTP のみ</b>（暗号化なし・平文）</td><td>パスワードやファイルの中身が、通信の途中で盗み見られる恐れ。外部監査でも指摘対象になる</td></tr>
+        <tr><td>3</td><td><b>ユーザーごとに触れる範囲を分けられない</b></td><td>使える人は全員が同じ範囲にアクセスできてしまう。「必要な人に必要な範囲だけ」という最小権限の原則を満たせない</td></tr>
+
+        <tr class="gh"><td colspan="3"><span class="badge">B</span>「記録」は取れているが、使えない</td></tr>
+        <tr><td>5</td><td>ログを見るには <b>データベースを直接参照</b>するしかない</td><td>「誰が何をしたか」の確認に手間と専門知識が必要。監査や事故調査のときに、すぐ提示できない</td></tr>
+
+        <tr class="gh"><td colspan="3"><span class="badge">C</span>日々の運用が手作業</td></tr>
+        <tr><td>6</td><td><b>ユーザー追加が大変</b></td><td>異動・入退社のたびに手作業。管理者の定常負荷になり、対応も遅れがち</td></tr>
+        <tr><td>7</td><td>許可するフォルダを <b>1 つずつ手入力</b></td><td>権限付与に時間がかかるうえ、打ち間違い・過剰付与などの設定ミスが起きやすい</td></tr>
+        <tr><td>8</td><td><b>設定変更が大変</b></td><td>ちょっとした変更にも作業コストがかかり、担当者以外には触れない（属人化）</td></tr>
+
+        <tr class="gh"><td colspan="3"><span class="badge">D</span>サーバーの保守が重い</td></tr>
+        <tr><td>4</td><td><b>MySQL</b> の脆弱性対応が大変（<b>Web アプリと同一サーバーに同居</b>）</td><td>データベースの監視・パッチ当てが恒常的な負担。同居しているため、片方の対応がもう片方にも影響しやすい</td></tr>
+        <tr><td>10</td><td><b>MySQL の立ち上げ</b>が大変</td><td>初期構築・移設に専門作業が必要。Web と DB が 1 台に同居しているため、検証環境を増やす・切り分けるのも大変</td></tr>
+        <tr><td>9</td><td><b>IIS を使う構成でしか</b>構築できない</td><td>サーバー構成の自由度が低く、移設・冗長化がしにくい</td></tr>
+
+        <tr class="gh"><td colspan="3"><span class="badge">E</span>その他</td></tr>
+        <tr><td>2</td><td>ツール名が <b>他製品と重複</b>している</td><td>検索・問い合わせ・社内周知で混乱する。関連情報を探しても別製品の情報しか出てこない</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="warn">
+      <b>まとめると：</b>「①またいで運ぶ」「②記録を残す」という<b>ねらいは今も正しい</b>のに、<b>経路が安全でなく（A）、記録が使えず（B）、維持するのに人手がかかりすぎている（C・D）</b>というのが現状です。だからこそ、ねらいは変えずに<b>中身を作り直す</b>ことをご提案します。
+    </div>
+
+    <!-- ============================================================
+         第2部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 2 部</span>
+      <div>
+        <p class="ptitle">これから、どう良くしたいのか</p>
+        <p class="psub">改善の方向性と、後継ツールの全体像</p>
+      </div>
+    </div>
+
+    <!-- ===== 4章 ===== -->
+    <h2 id="ch4"><span class="n">4</span>改善の4つのねらい</h2>
+
+    <p class="lead">目的（またいで運ぶ／記録を残す）はそのままに、<b>次の4点を作り直します</b>。以降の第3部で、それぞれを1章ずつご説明します。</p>
+
+    <div class="aims">
+      <div class="aim">
+        <span class="no">ねらい ①</span>
+        <h4>どのネットワークのサーバーへも、同じ画面から</h4>
+        <p>直接つながらない拠点・閉じたネットワークの先にあるファイルサーバーにも、<b>中継（エージェント）方式</b>で到達できるようにします。利用者から見れば、どのサーバーも同じ一覧に並ぶだけです。</p>
+        <p class="to">→ 詳細は <a href="#ch6">第6章</a></p>
+      </div>
+      <div class="aim">
+        <span class="no">ねらい ②</span>
+        <h4>記録を「すぐ使える」ものにする</h4>
+        <p>記録は取るだけでは意味がありません。<b>管理画面から検索・絞り込み・CSV 出力</b>ができ、聞かれたその場で答えられる状態にします。データベースを直接見る必要はなくなります。</p>
+        <p class="to">→ 詳細は <a href="#ch7">第7章</a></p>
+      </div>
+      <div class="aim">
+        <span class="no">ねらい ③</span>
+        <h4>経路と権限を安全にする</h4>
+        <p>通信を<b>暗号化（HTTPS）</b>し、触れる範囲を<b>人ごと・フォルダごと・操作ごと</b>に限定します。「便利だが危ない道」ではなく「便利で安全な道」にします。</p>
+        <p class="to">→ 詳細は <a href="#ch8">第8章</a></p>
+      </div>
+      <div class="aim">
+        <span class="no">ねらい ④</span>
+        <h4>管理の手間を減らす</h4>
+        <p>ユーザー追加・権限設定・ログ抽出・サーバー保守を、<b>画面操作と自動化</b>に置き換えます。安全にした結果として管理が重くなっては、続きません。</p>
+        <p class="to">→ 詳細は <a href="#ch9">第9章</a></p>
+      </div>
+    </div>
+
+    <div class="tip">
+      <b>設計の考え方：</b>これらは後から機能を継ぎ足したものではありません。「<b>安全であること・運用が簡単であること・保守が軽いこと</b>」を最初の前提として作り直しています。
+    </div>
+
+    <!-- ===== 5章 ===== -->
+    <h2 id="ch5"><span class="n">5</span>後継ツール「Watashi」の全体像</h2>
+
+    <p class="lead"><b>Watashi（わたし）</b> は、上記のねらいを実現する後継ツールです。使用感は現行と同じ「2画面でファイルをやり取りする」ままに、<b>中身をまるごと作り直した</b>ものです。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Watashi の全体構成図">
+        <defs>
+          <marker id="arwG3" markerWidth="10" markerHeight="10" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1F883D"/></marker>
+          <marker id="arwB3" markerWidth="10" markerHeight="10" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0969DA"/></marker>
+        </defs>
+
+        <!-- 利用者PC -->
+        <rect x="22" y="150" width="176" height="96" rx="11" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.6"/>
+        <text x="110" y="180" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1B2A41">利用者の PC</text>
+        <text x="110" y="202" text-anchor="middle" font-size="11.5" fill="#4A535C">専用アプリ（2画面）</text>
+        <text x="110" y="222" text-anchor="middle" font-size="11" fill="#6B7280">起動するたび</text>
+        <text x="110" y="238" text-anchor="middle" font-size="11" fill="#6B7280">自動で最新版に更新</text>
+
+        <!-- 中央サーバー -->
+        <rect x="286" y="120" width="212" height="156" rx="12" fill="#f2fbf5" stroke="#1F6B3A" stroke-width="2.2"/>
+        <text x="392" y="148" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">Watashi サーバー</text>
+        <text x="392" y="167" text-anchor="middle" font-size="11" fill="#1F6B3A">社内に 1 台（常駐サービス）</text>
+        <line x1="302" y1="178" x2="482" y2="178" stroke="#bfe3cb"/>
+        <text x="392" y="198" text-anchor="middle" font-size="11.5" fill="#1F6B3A">🔑 誰が何に触れるかを判定</text>
+        <text x="392" y="220" text-anchor="middle" font-size="11.5" fill="#1F6B3A">📝 すべての操作を記録</text>
+        <text x="392" y="242" text-anchor="middle" font-size="11.5" fill="#1F6B3A">🔀 行き先へ中継</text>
+        <text x="392" y="264" text-anchor="middle" font-size="11" fill="#6B7280">内蔵 DB（別サーバー不要）</text>
+
+        <!-- 同一ネットワークのファイルサーバー -->
+        <rect x="646" y="86" width="212" height="66" rx="10" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="752" y="112" text-anchor="middle" font-size="13" font-weight="700" fill="#5C1A0B">ファイルサーバー</text>
+        <text x="752" y="132" text-anchor="middle" font-size="11" fill="#5C1A0B">同じネットワーク内 → 直接</text>
+
+        <!-- 中継エージェント -->
+        <rect x="576" y="212" width="128" height="72" rx="10" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.8"/>
+        <text x="640" y="238" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0b4a8f">中継役</text>
+        <text x="640" y="256" text-anchor="middle" font-size="11" fill="#0b4a8f">（エージェント）</text>
+        <text x="640" y="273" text-anchor="middle" font-size="10.5" fill="#6B7280">踏み台に常駐</text>
+
+        <!-- 別ネットワークのファイルサーバー -->
+        <rect x="742" y="212" width="116" height="72" rx="10" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="800" y="240" text-anchor="middle" font-size="12" font-weight="700" fill="#5C1A0B">ファイル</text>
+        <text x="800" y="258" text-anchor="middle" font-size="12" font-weight="700" fill="#5C1A0B">サーバー</text>
+        <text x="800" y="275" text-anchor="middle" font-size="10.5" fill="#5C1A0B">別ネットワーク</text>
+
+        <!-- ネットワーク境界 -->
+        <text x="570" y="176" text-anchor="middle" font-size="11" fill="#CF222E" opacity=".85">ネットワークの境界</text>
+        <line x1="548" y1="184" x2="548" y2="306" stroke="#CF222E" stroke-width="2" stroke-dasharray="7 6" opacity=".55"/>
+
+        <!-- 矢印 -->
+        <line x1="198" y1="196" x2="282" y2="196" stroke="#1F883D" stroke-width="2.6" marker-end="url(#arwG3)"/>
+        <text x="240" y="182" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F883D">HTTPS 🔒</text>
+        <text x="240" y="216" text-anchor="middle" font-size="10.5" fill="#6B7280">暗号化通信</text>
+
+        <line x1="498" y1="160" x2="642" y2="120" stroke="#1F883D" stroke-width="2.4" marker-end="url(#arwG3)"/>
+        <text x="580" y="132" text-anchor="middle" font-size="10.5" fill="#1F883D">直接</text>
+
+        <line x1="498" y1="248" x2="572" y2="248" stroke="#0969DA" stroke-width="2.4" marker-end="url(#arwB3)"/>
+        <text x="530" y="238" text-anchor="middle" font-size="12" fill="#0969DA">🔒</text>
+
+        <line x1="704" y1="248" x2="738" y2="248" stroke="#0969DA" stroke-width="2.4" marker-end="url(#arwB3)"/>
+
+        <!-- 記録 -->
+        <line x1="392" y1="276" x2="392" y2="312" stroke="#C73E1D" stroke-width="2.2" stroke-dasharray="5 4"/>
+        <rect x="222" y="314" width="340" height="54" rx="10" fill="#fff" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="392" y="336" text-anchor="middle" font-size="12.5" font-weight="700" fill="#5C1A0B">📝 操作ログ（監査ログ）</text>
+        <text x="392" y="356" text-anchor="middle" font-size="11" fill="#5C1A0B">管理画面で検索 ／ CSV 出力 ／ 古い分は自動削除</text>
+
+        <text x="440" y="400" text-anchor="middle" font-size="12" fill="#4A535C">利用者は「左が自分の PC、右が社内サーバー」の画面を操作するだけ。経路の違いは見えません</text>
+        <text x="440" y="420" text-anchor="middle" font-size="11" fill="#9CA3AF">難しい設定はすべて管理者側で行います</text>
+      </svg>
+      <figcaption>図3：Watashi の全体構成。中央のサーバーが「権限の判定」「記録」「行き先への中継」を一手に引き受けます。別ネットワークのファイルサーバーへは、踏み台に置いた<b>中継役（エージェント）</b>を経由して到達します（🔒 の区間は、お互いに証明書を確認したうえで通信します）。</figcaption>
     </figure>
 
     <figure class="shot">
@@ -200,201 +631,308 @@
            onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
       <div class="shot-fallback">
         <div class="ico">🖼️</div>
-        <div class="label">スクリーンショット挿入予定：メイン画面（2ペイン）</div>
+        <div class="label">スクリーンショット挿入予定：メイン画面（2画面）</div>
         <div class="desc"><code>docs/proposal/images/shot-main.png</code> を配置すると、この枠に自動で表示されます</div>
       </div>
-      <figcaption class="shot-caption">図：実際の操作画面イメージ（差し替え用プレースホルダー）</figcaption>
+      <figcaption class="shot-caption">図4：実際の操作画面イメージ（差し替え用の枠）</figcaption>
     </figure>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="ico">🔒</div>
-        <div class="big">見られない・改ざんされない</div>
-        <div class="desc">通信を暗号化（HTTPS）し、社外への持ち出しもなし</div>
-      </div>
-      <div class="stat">
-        <div class="ico">🔑</div>
-        <div class="big">人ごとに触れる範囲を制御</div>
-        <div class="desc">フォルダ単位で「見る／書く／消す」を個別に設定</div>
-      </div>
-      <div class="stat">
-        <div class="ico">🧭</div>
-        <div class="big">誰が何をしたか全部記録</div>
-        <div class="desc">操作ログを自動記録、管理画面から確認・CSV出力</div>
-      </div>
-    </div>
-
-    <!-- ===== エグゼクティブサマリー ===== -->
-    <h2><span class="n">2</span>ご提案の要旨</h2>
-    <p class="lead">現在、社内のファイル受け渡しに利用している既存ツール（仮称：<b>PANDA</b>）には、<b>セキュリティ・運用・保守</b>の面で見過ごせない課題があります。本資料では、それらをまとめて解決する後継ツール <b>「Watashi」</b> への移行をご提案します。</p>
-
-    <div class="stats">
-      <div class="stat">
-        <div class="ico">🔒</div>
-        <div class="big">安全性を強化</div>
-        <div class="desc">平文HTTP通信 → HTTPS＋暗号化＋ユーザー別の最小権限へ</div>
-      </div>
-      <div class="stat">
-        <div class="ico">🛠️</div>
-        <div class="big">運用工数を削減</div>
-        <div class="desc">ユーザー追加・権限設定・ログ確認を、すべて管理画面（GUI）で完結</div>
-      </div>
-      <div class="stat">
-        <div class="ico">🧩</div>
-        <div class="big">保守負担を軽減</div>
-        <div class="desc">専用DB（MySQL）不要・IIS必須でない、シンプルな構成</div>
-      </div>
-    </div>
-
-    <div class="conclusion">
-      <h3>結論</h3>
-      <p>Watashi は、現行ツールで挙がっている <b>10 個の課題すべてに対応</b>しています。とくに<b>「通信の暗号化」と「ユーザーごとの権限分離」</b>はセキュリティ・内部統制の観点で効果が大きく、あわせて<b>日々の運用・保守の手間も大幅に減らせます</b>。</p>
-      <p>まずは小規模な<b>試験導入（PoC）</b>から始めることを提案します（→ <a href="#schedule">第8章</a> / <a href="#next">第9章</a>）。</p>
-    </div>
-
-    <!-- ===== 現状の課題 ===== -->
-    <h2><span class="n">3</span>現行ツール（PANDA）の課題</h2>
-    <p>現場・情シスから挙がっている主な課題は次のとおりです。単なる「使いにくさ」にとどまらず、<b>情報漏えいリスク</b>や<b>運用コスト</b>に直結するものが含まれます。</p>
-
+    <h3>引き継ぐもの／新しくするもの</h3>
+    <div class="tblwrap">
     <table>
-      <thead><tr><th style="width:46px">#</th><th>現行ツールの課題</th><th>これが招くリスク・コスト</th></tr></thead>
+      <thead><tr><th style="width:180px">観点</th><th>後継ツールでの扱い</th></tr></thead>
       <tbody>
-        <tr><td>1</td><td>通信が <b>HTTP のみ</b>（暗号化なし・平文）</td><td>パスワードやファイルが盗聴される恐れ。社外監査でも指摘対象</td></tr>
-        <tr><td>2</td><td>ツール名が他製品と重複（<b>PANDA</b>）</td><td>検索・問い合わせ・社内周知で混乱。サポート情報が見つけにくい</td></tr>
-        <tr><td>3</td><td><b>ユーザーごとに権限を分けられない</b></td><td>全員が同じ範囲にアクセス。最小権限の原則を満たせない</td></tr>
-        <tr><td>4</td><td><b>MySQL</b> の脆弱性対応が大変（<b>Web アプリと同一サーバに同居</b>）</td><td>DBの監視・パッチ当てが恒常的な負担。Webアプリと同居しているため、片方の対応がもう片方にも影響しやすい</td></tr>
-        <tr><td>5</td><td>ログは <b>DB を直接見る</b>しかない</td><td>「誰が何をしたか」の確認に手間と専門知識が必要。監査対応が困難</td></tr>
-        <tr><td>6</td><td><b>ユーザー追加が大変</b></td><td>異動・入退社のたびに手作業。情シスの定常負荷</td></tr>
-        <tr><td>7</td><td>許可パスを <b>1 つずつ入力</b></td><td>権限付与に時間がかかり、設定ミス（過剰付与）も起きやすい</td></tr>
-        <tr><td>8</td><td><b>設定変更が大変</b></td><td>ちょっとした変更にも作業コスト。属人化しやすい</td></tr>
-        <tr><td>9</td><td><b>IIS を使う構成でしか</b>構築できない</td><td>サーバ構成の自由度が低く、移設・冗長化がしにくい</td></tr>
-        <tr><td>10</td><td><b>MySQL の立ち上げ</b>が大変</td><td>初期構築・移設に専門作業が必要。<b>Web(IIS)とDBが1台に同居</b>しているため、環境を増やす・切り分けるのも大変</td></tr>
+        <tr><td>目的（またいで運ぶ／記録を残す）</td><td><span class="pill keep">引き継ぐ</span>変えません。この資料でご説明している改善は、すべてこの目的をより良く果たすためのものです</td></tr>
+        <tr><td>2画面の操作感</td><td><span class="pill keep">引き継ぐ</span>左が自分の PC、右が社内サーバー。現行を使っている方は、ほぼそのまま使えます</td></tr>
+        <tr><td>既存のファイルサーバー</td><td><span class="pill keep">引き継ぐ</span>置き換えません。今の共有フォルダをそのまま使います</td></tr>
+        <tr><td>通信の経路</td><td><span class="pill new">作り直す</span>暗号化（HTTPS）に対応。別ネットワークへの中継にも対応</td></tr>
+        <tr><td>権限のしくみ</td><td><span class="pill new">作り直す</span>人ごと・フォルダごと・操作ごとに設定</td></tr>
+        <tr><td>記録の使い方</td><td><span class="pill new">作り直す</span>管理画面で検索・CSV 出力</td></tr>
+        <tr><td>サーバー構成</td><td><span class="pill new">作り直す</span>専用データベースサーバー不要、IIS も必須ではない</td></tr>
       </tbody>
     </table>
-
-    <!-- ===== Watashiで何が変わるか（中核） ===== -->
-    <h2><span class="n">4</span>Watashi で何が変わるか（課題別の対応）</h2>
-    <p class="lead">上記 10 個の課題が、Watashi ではどう解決されるかを一覧にしました。<b>本資料の中核</b>です。</p>
-
-    <table class="cmp">
-      <thead><tr><th>観点</th><th>現行ツール（PANDA）</th><th>Watashi（後継）</th></tr></thead>
-      <tbody>
-        <tr>
-          <td>① 通信の安全性</td>
-          <td><span class="x">✗</span>HTTP のみ（平文）</td>
-          <td><span class="o">✓</span><b>HTTPS 対応</b>。通信もパスワードも暗号化。サーバ間も相互認証（mTLS）</td>
-        </tr>
-        <tr>
-          <td>② 名称</td>
-          <td><span class="x">✗</span>他製品と重複（PANDA）</td>
-          <td><span class="o">✓</span>固有名「<b>Watashi</b>」＋鳥居ブランド。社内名称への<b>改称も容易</b></td>
-        </tr>
-        <tr>
-          <td>③ 権限管理</td>
-          <td><span class="x">✗</span>ユーザー別に分けられない</td>
-          <td><span class="o">✓</span><b>ユーザー × 共有 × フォルダ単位</b>で、閲覧/書込/削除/改名を個別に付与</td>
-        </tr>
-        <tr>
-          <td>④ データベース保守</td>
-          <td><span class="x">✗</span>MySQL の脆弱性対応が負担（<b>Webアプリと同一サーバに同居</b>）</td>
-          <td><span class="o">✓</span><b>専用DBサーバ不要</b>（軽量な内蔵DB）。監視・パッチ対象が減り、Webアプリとの同居リスクも解消</td>
-        </tr>
-        <tr>
-          <td>⑤ ログ確認</td>
-          <td><span class="x">✗</span>DBを直接見るしかない</td>
-          <td><span class="o">✓</span><b>管理画面でログ閲覧・絞り込み・CSV出力</b>。「誰が・いつ・何を」が一目で分かる</td>
-        </tr>
-        <tr>
-          <td>⑥ ユーザー追加</td>
-          <td><span class="x">✗</span>1人ずつ手作業で大変</td>
-          <td><span class="o">✓</span>管理画面で作成。さらに <b>CSV で一括登録</b>（入退社・異動も一気に反映）</td>
-        </tr>
-        <tr>
-          <td>⑦ 許可パスの設定</td>
-          <td><span class="x">✗</span>1つずつ入力</td>
-          <td><span class="o">✓</span>フォルダを<b>一覧から選んで指定</b>。「権限セット」で<b>まとめて一括付与</b>、他ユーザーから<b>コピー</b>も可</td>
-        </tr>
-        <tr>
-          <td>⑧ 設定変更</td>
-          <td><span class="x">✗</span>作業が大変・属人的</td>
-          <td><span class="o">✓</span>パスワード期限・タイムアウト等も<b>管理画面（GUI）から変更</b></td>
-        </tr>
-        <tr>
-          <td>⑨ サーバ構成</td>
-          <td><span class="x">✗</span>IIS を使う構成必須</td>
-          <td><span class="o">✓</span><b>Windowsサービス単体で稼働</b>。IIS は必須ではなく、使いたければ前段に置くことも可</td>
-        </tr>
-        <tr>
-          <td>⑩ 初期構築</td>
-          <td><span class="x">✗</span>MySQL の立ち上げが大変</td>
-          <td><span class="o">✓</span>初回起動で<b>DBが自動生成</b>。DB構築作業ゼロで、検証環境も簡単に増やせる</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="tip">
-      <b>ポイント：</b>挙げていただいた 10 個の課題は、<b>すべて Watashi で解決済み</b>です。後付けの対策ではなく、設計の段階から「安全・簡単な運用・軽い保守」を前提に作られています。
     </div>
 
-    <!-- ===== 構成の比較図 ===== -->
-    <h2><span class="n">5</span>システム構成の比較（イメージ）</h2>
-    <p>専門的な部分は割愛し、<b>構成がシンプルになる</b>ことだけ図でご覧ください。</p>
+    <!-- ============================================================
+         第3部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 3 部</span>
+      <div>
+        <p class="ptitle">具体的に、何が変わるのか</p>
+        <p class="psub">4つのねらいを、1章ずつ</p>
+      </div>
+    </div>
+
+    <!-- ===== 6章 ===== -->
+    <h2 id="ch6"><span class="n">6</span>ねらい① どのネットワークのサーバーへも、同じ画面から</h2>
+
+    <p class="lead">第1章でご説明したとおり、そもそもの問題は<b>「ネットワークが分かれていて届かない」</b>ことでした。Watashi は、<b>行き先ごとに最適な経路を自動で選び</b>、利用者にはその違いを見せません。</p>
 
     <figure>
-      <svg viewBox="0 0 860 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="現行ツールとWatashiの構成比較">
-        <!-- 見出し -->
-        <text x="215" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#7a2438">現行（PANDA）</text>
-        <text x="645" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#1f6b3a">Watashi</text>
-        <line x1="430" y1="44" x2="430" y2="340" stroke="#D5D9DE" stroke-dasharray="5 5"/>
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="行き先に応じた3つの経路パターン">
+        <defs>
+          <marker id="arwP" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#4A535C"/></marker>
+        </defs>
 
-        <!-- 現行 -->
-        <rect x="120" y="56" width="190" height="44" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
-        <text x="215" y="83" text-anchor="middle" font-size="13" fill="#1F2328">利用者の PC</text>
-        <!-- 矢印 現行 -->
-        <line x1="215" y1="100" x2="215" y2="138" stroke="#CF222E" stroke-width="2"/>
-        <text x="225" y="124" font-size="11" fill="#CF222E">HTTP（平文）⚠</text>
-        <!-- 現行サーバー（1台にIIS+MySQLが同居） -->
-        <rect x="110" y="140" width="210" height="136" rx="10" fill="#fff5f5" stroke="#7a2438" stroke-width="2"/>
-        <text x="215" y="156" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7a2438">現行サーバー（1 台）</text>
-        <rect x="125" y="163" width="180" height="44" rx="6" fill="#fff" stroke="#c98"/>
-        <text x="215" y="182" text-anchor="middle" font-size="12.5" fill="#1F2328">IIS 上の Web アプリ</text>
-        <text x="215" y="198" text-anchor="middle" font-size="10.5" fill="#7a2438">※ IIS が必須</text>
-        <rect x="125" y="215" width="180" height="44" rx="6" fill="#fff" stroke="#c98"/>
-        <text x="215" y="234" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">MySQL</text>
-        <text x="215" y="250" text-anchor="middle" font-size="10.5" fill="#7a2438">※ 同一サーバに同居</text>
-        <text x="225" y="316" font-size="11.5" fill="#7a2438" text-anchor="middle" x="215">1台にWebとDBが同居 → 障害・脆弱性の影響範囲が大きい</text>
+        <!-- パターンA -->
+        <rect x="18" y="26" width="844" height="98" rx="11" fill="#fafbfc" stroke="#D5D9DE"/>
+        <rect x="34" y="42" width="70" height="24" rx="12" fill="#1F6B3A"/>
+        <text x="69" y="59" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">経路 A</text>
+        <text x="118" y="59" font-size="13" font-weight="700" fill="#1B2A41">同じネットワーク内 — そのまま直接つなぐ</text>
+        <text x="118" y="78" font-size="11.5" fill="#6B7280">中央サーバーからファイルサーバーへ直接。中継は不要です</text>
 
-        <!-- Watashi -->
-        <rect x="550" y="56" width="190" height="44" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
-        <text x="645" y="83" text-anchor="middle" font-size="13" fill="#1F2328">利用者の PC（専用アプリ）</text>
-        <rect x="550" y="150" width="190" height="64" rx="8" fill="#f2fbf5" stroke="#1f6b3a"/>
-        <text x="645" y="176" text-anchor="middle" font-size="13" fill="#1F2328">Watashi サーバー</text>
-        <text x="645" y="195" text-anchor="middle" font-size="11" fill="#1f6b3a">Windowsサービス＋内蔵DB</text>
-        <text x="645" y="208" text-anchor="middle" font-size="10.5" fill="#1f6b3a">IIS不要 / DB自動生成</text>
-        <rect x="550" y="256" width="190" height="44" rx="8" fill="#F9E5E0" stroke="#C73E1D"/>
-        <text x="645" y="283" text-anchor="middle" font-size="13" fill="#5C1A0B">社内ファイルサーバー</text>
-        <!-- 矢印 Watashi -->
-        <line x1="645" y1="100" x2="645" y2="148" stroke="#1f883d" stroke-width="2"/>
-        <text x="655" y="128" font-size="11" fill="#1f883d">HTTPS（暗号化）🔒</text>
-        <line x1="645" y1="214" x2="645" y2="254" stroke="#1f883d" stroke-width="2"/>
-        <text x="645" y="330" font-size="11.5" fill="#1f6b3a" text-anchor="middle">構成がシンプルで、安全かつ運用が軽い</text>
+        <rect x="120" y="86" width="126" height="28" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="183" y="105" text-anchor="middle" font-size="11.5" fill="#1F2328">利用者の PC</text>
+        <line x1="246" y1="100" x2="292" y2="100" stroke="#4A535C" stroke-width="1.8" marker-end="url(#arwP)"/>
+        <text x="269" y="94" text-anchor="middle" font-size="9.5" fill="#1F883D">HTTPS</text>
+        <rect x="296" y="86" width="150" height="28" rx="8" fill="#f2fbf5" stroke="#1F6B3A"/>
+        <text x="371" y="105" text-anchor="middle" font-size="11.5" fill="#1F2328">Watashi サーバー</text>
+        <line x1="446" y1="100" x2="492" y2="100" stroke="#4A535C" stroke-width="1.8" marker-end="url(#arwP)"/>
+        <rect x="496" y="86" width="150" height="28" rx="8" fill="#F9E5E0" stroke="#C73E1D"/>
+        <text x="571" y="105" text-anchor="middle" font-size="11.5" fill="#5C1A0B">ファイルサーバー</text>
+
+        <!-- パターンB -->
+        <rect x="18" y="138" width="844" height="98" rx="11" fill="#fafbfc" stroke="#D5D9DE"/>
+        <rect x="34" y="154" width="70" height="24" rx="12" fill="#0969DA"/>
+        <text x="69" y="171" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">経路 B</text>
+        <text x="118" y="171" font-size="13" font-weight="700" fill="#1B2A41">別ネットワーク — 踏み台に置いた「中継役」を経由</text>
+        <text x="118" y="190" font-size="11.5" fill="#6B7280">直接つなげない先へも到達できます。中継役との通信もお互いに証明書で確認します</text>
+
+        <rect x="120" y="198" width="126" height="28" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="183" y="217" text-anchor="middle" font-size="11.5" fill="#1F2328">利用者の PC</text>
+        <line x1="246" y1="212" x2="292" y2="212" stroke="#4A535C" stroke-width="1.8" marker-end="url(#arwP)"/>
+        <rect x="296" y="198" width="150" height="28" rx="8" fill="#f2fbf5" stroke="#1F6B3A"/>
+        <text x="371" y="217" text-anchor="middle" font-size="11.5" fill="#1F2328">Watashi サーバー</text>
+        <line x1="446" y1="212" x2="492" y2="212" stroke="#4A535C" stroke-width="1.8" marker-end="url(#arwP)"/>
+        <text x="469" y="206" text-anchor="middle" font-size="9.5" fill="#0969DA">🔒</text>
+        <rect x="496" y="198" width="126" height="28" rx="8" fill="#E6F0FB" stroke="#0969DA"/>
+        <text x="559" y="217" text-anchor="middle" font-size="11.5" fill="#0b4a8f">中継役（踏み台）</text>
+        <line x1="622" y1="212" x2="668" y2="212" stroke="#4A535C" stroke-width="1.8" marker-end="url(#arwP)"/>
+        <rect x="672" y="198" width="150" height="28" rx="8" fill="#F9E5E0" stroke="#C73E1D"/>
+        <text x="747" y="217" text-anchor="middle" font-size="11.5" fill="#5C1A0B">ファイルサーバー</text>
+
+        <!-- パターンC -->
+        <rect x="18" y="250" width="844" height="98" rx="11" fill="#fafbfc" stroke="#D5D9DE"/>
+        <rect x="34" y="266" width="70" height="24" rx="12" fill="#5C1A0B"/>
+        <text x="69" y="283" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">経路 C</text>
+        <text x="118" y="283" font-size="13" font-weight="700" fill="#1B2A41">さらに奥のネットワーク — 中継役を2段つなぐ</text>
+        <text x="118" y="302" font-size="11.5" fill="#6B7280">踏み台の先にさらに踏み台がある構成にも対応します</text>
+
+        <rect x="120" y="310" width="112" height="28" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="176" y="329" text-anchor="middle" font-size="11.5" fill="#1F2328">利用者の PC</text>
+        <line x1="232" y1="324" x2="272" y2="324" stroke="#4A535C" stroke-width="1.8" marker-end="url(#arwP)"/>
+        <rect x="276" y="310" width="140" height="28" rx="8" fill="#f2fbf5" stroke="#1F6B3A"/>
+        <text x="346" y="329" text-anchor="middle" font-size="11.5" fill="#1F2328">Watashi サーバー</text>
+        <line x1="416" y1="324" x2="456" y2="324" stroke="#4A535C" stroke-width="1.8" marker-end="url(#arwP)"/>
+        <rect x="460" y="310" width="110" height="28" rx="8" fill="#E6F0FB" stroke="#0969DA"/>
+        <text x="515" y="329" text-anchor="middle" font-size="11.5" fill="#0b4a8f">中継役 ①</text>
+        <line x1="570" y1="324" x2="610" y2="324" stroke="#4A535C" stroke-width="1.8" marker-end="url(#arwP)"/>
+        <rect x="614" y="310" width="110" height="28" rx="8" fill="#E6F0FB" stroke="#0969DA"/>
+        <text x="669" y="329" text-anchor="middle" font-size="11.5" fill="#0b4a8f">中継役 ②</text>
+        <line x1="724" y1="324" x2="754" y2="324" stroke="#4A535C" stroke-width="1.8" marker-end="url(#arwP)"/>
+        <rect x="758" y="310" width="104" height="28" rx="8" fill="#F9E5E0" stroke="#C73E1D"/>
+        <text x="810" y="329" text-anchor="middle" font-size="10.5" fill="#5C1A0B">ファイルサーバー</text>
+
+        <text x="440" y="376" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1B2A41">どの経路を通るかは管理者が設定します。利用者の画面には、行き先が同じ一覧に並ぶだけです</text>
       </svg>
-      <figcaption>図：現行ツールと Watashi の構成比較（イメージ）。現行は 1 台のサーバーに Web アプリ（IIS）と DB（MySQL）が同居する構成ですが、Watashi は IIS・別DBサーバのいずれも前提にせず、構成がシンプルになります。</figcaption>
+      <figcaption>図5：行き先に応じた3つの経路。ネットワークセグメントごとに中継役を配置でき、拠点や閉じた環境のファイルサーバーも同じ仕組みで扱えます。</figcaption>
     </figure>
 
-    <!-- ===== セキュリティ ===== -->
-    <h2><span class="n">6</span>セキュリティ面の強化（重点）</h2>
-    <p>情報漏えい対策・内部統制の観点で、現行からの改善が特に大きい点です。</p>
+    <h3>利用者から見ると、どうなるか</h3>
     <ul>
-      <li><b>通信の暗号化</b>：HTTPS に対応。パスワードやファイルが平文で流れません。</li>
-      <li><b>最小権限の徹底</b>：ユーザーごと・フォルダごとに「閲覧だけ／書き込みまで／削除まで」を細かく設定。<b>必要な人に必要な範囲だけ</b>を渡せます。</li>
-      <li><b>パスワードの安全な管理</b>：強度ルール（12文字以上＋英大小・数字・記号）、有効期限、一定回数の失敗で自動ロック。</li>
-      <li><b>全操作の記録（監査ログ）</b>：ファイル操作も管理操作も自動で記録。<b>管理画面で確認・CSV出力</b>でき、監査・調査にすぐ使えます。</li>
-      <li><b>機微情報の保護</b>：サーバ間も相互認証（mTLS）、保存する接続情報も暗号化。</li>
+      <li>アプリを開くと、<b>自分が許可された場所だけ</b>が一覧に並びます。どのネットワークにあるかは意識しません。</li>
+      <li>フォルダをたどって、<b>ドラッグやボタンでアップロード／ダウンロード</b>するだけです。</li>
+      <li><b>大きなファイルも扱えます</b>（分割して少しずつ送るため、サイズの上限がありません）。ダウンロードが途中で失敗しても、中途半端なファイルは残りません。</li>
+      <li>接続先は<b>管理者が配布時に固定</b>します。利用者側では変更できないため、誤った接続先につながる心配がありません。</li>
     </ul>
-    <div class="note">
-      <b>内部統制・監査の観点：</b>「誰が・いつ・どのファイルに・何をしたか」がすべて残り、管理画面からすぐ提示できます。現行のように「DBを直接調べる」必要はありません。
+
+    <div class="tip">
+      <b>「経路を増やしても、利用者の学習コストは増えない」</b>のがポイントです。中継が1段でも2段でも、利用者の操作はまったく同じです。
     </div>
+
+    <!-- ===== 7章 ===== -->
+    <h2 id="ch7"><span class="n">7</span>ねらい② 記録を「すぐ使える」ものにする</h2>
+
+    <p class="lead">現行ツールでも記録自体は取れています。問題は<b>「取り出せない」</b>ことでした。データベースを直接調べる必要があり、専門知識のある担当者しか答えられません。Watashi は、<b>聞かれたその場で答えられる状態</b>を目指します。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="操作から記録・活用までの流れ">
+        <defs>
+          <marker id="arwA" markerWidth="10" markerHeight="10" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#C73E1D"/></marker>
+        </defs>
+
+        <!-- 1. 操作 -->
+        <rect x="24" y="70" width="176" height="120" rx="11" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="112" y="96" text-anchor="middle" font-size="13" font-weight="700" fill="#1B2A41">① 操作する</text>
+        <text x="112" y="122" text-anchor="middle" font-size="11.5" fill="#4A535C">アップロード</text>
+        <text x="112" y="142" text-anchor="middle" font-size="11.5" fill="#4A535C">ダウンロード・削除</text>
+        <text x="112" y="162" text-anchor="middle" font-size="11.5" fill="#4A535C">名前の変更</text>
+        <text x="112" y="181" text-anchor="middle" font-size="10.5" fill="#6B7280">管理者の設定変更も対象</text>
+
+        <line x1="200" y1="130" x2="248" y2="130" stroke="#C73E1D" stroke-width="2.4" marker-end="url(#arwA)"/>
+
+        <!-- 2. 記録 -->
+        <rect x="252" y="46" width="256" height="200" rx="12" fill="#F9E5E0" stroke="#C73E1D" stroke-width="2"/>
+        <text x="380" y="72" text-anchor="middle" font-size="13" font-weight="700" fill="#5C1A0B">② 自動で記録される</text>
+        <text x="380" y="92" text-anchor="middle" font-size="10.5" fill="#5C1A0B">利用者が意識する必要はありません</text>
+        <g font-size="11.5" fill="#5C1A0B">
+          <text x="272" y="118">🕐　いつ（日時）</text>
+          <text x="272" y="140">👤　誰が（ユーザー名）</text>
+          <text x="272" y="162">📄　どのファイルを（場所とパス）</text>
+          <text x="272" y="184">🔀　何をしたか（取得／書込／削除／改名）</text>
+          <text x="272" y="206">✅　成功したか失敗したか</text>
+          <text x="272" y="228">💻　どの端末から（IP アドレス）</text>
+        </g>
+
+        <line x1="508" y1="130" x2="556" y2="130" stroke="#C73E1D" stroke-width="2.4" marker-end="url(#arwA)"/>
+
+        <!-- 3. 活用 -->
+        <rect x="560" y="60" width="296" height="76" rx="11" fill="#fff" stroke="#1F6B3A" stroke-width="1.8"/>
+        <text x="708" y="86" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F6B3A">③-1 管理画面で探す</text>
+        <text x="708" y="106" text-anchor="middle" font-size="11" fill="#4A535C">ユーザー名・操作の種類・期間で絞り込み</text>
+        <text x="708" y="124" text-anchor="middle" font-size="11" fill="#6B7280">「先週、誰がこのファイルを消したか」がすぐ分かる</text>
+
+        <rect x="560" y="150" width="296" height="76" rx="11" fill="#fff" stroke="#1F6B3A" stroke-width="1.8"/>
+        <text x="708" y="176" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F6B3A">③-2 CSV で出す</text>
+        <text x="708" y="196" text-anchor="middle" font-size="11" fill="#4A535C">表計算ソフトでそのまま開ける形式</text>
+        <text x="708" y="214" text-anchor="middle" font-size="11" fill="#6B7280">監査・報告資料にそのまま添付できる</text>
+
+        <!-- 自動削除 -->
+        <rect x="252" y="266" width="604" height="52" rx="10" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.5"/>
+        <text x="554" y="288" text-anchor="middle" font-size="12" font-weight="700" fill="#0b4a8f">🗓 保管期間を過ぎた記録は、自動で削除されます（既定は 1 年・設定変更可）</text>
+        <text x="554" y="307" text-anchor="middle" font-size="10.5" fill="#0b4a8f">記録が際限なく増え続けてサーバーを圧迫することがありません</text>
+
+        <text x="440" y="344" text-anchor="middle" font-size="12" fill="#6B7280">データベースを直接調べる作業は不要になります</text>
+      </svg>
+      <figcaption>図6：操作から記録、活用までの流れ。ファイル操作だけでなく、<b>管理者による設定変更（ユーザー追加・権限変更など）も同じ仕組みで記録</b>されます。</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <img src="images/shot-audit-log.png" alt="監査ログ画面のスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：操作ログ（監査ログ）画面</div>
+        <div class="desc"><code>docs/proposal/images/shot-audit-log.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図7：「いつ・誰が・何をしたか」を一覧表示する画面（差し替え用の枠）</figcaption>
+    </figure>
+
+    <div class="tblwrap">
+    <table class="cmp">
+      <thead><tr><th>観点</th><th>現行ツール</th><th>Watashi（後継）</th></tr></thead>
+      <tbody>
+        <tr><td>記録の見かた</td><td><span class="x">✗</span>データベースを直接参照するしかない</td><td><span class="o">✓</span><b>管理画面から一覧・絞り込み</b>。専門知識は不要</td></tr>
+        <tr><td>記録の取り出し</td><td><span class="x">✗</span>担当者が都度抽出</td><td><span class="o">✓</span><b>CSV 出力</b>。表計算ソフトでそのまま開ける</td></tr>
+        <tr><td>記録の読みやすさ</td><td><span class="x">✗</span>内部の番号で記録されており、人が読んで分からない</td><td><span class="o">✓</span><b>「サーバー名 / 共有名 :: パス」</b>の形で記録。そのまま読める</td></tr>
+        <tr><td>管理者の操作</td><td><span class="x">✗</span>記録対象が限定的</td><td><span class="o">✓</span>ユーザー追加・権限変更なども<b>すべて記録</b></td></tr>
+        <tr><td>古い記録の扱い</td><td><span class="x">✗</span>手作業での整理が必要</td><td><span class="o">✓</span>保管期間を設定すれば<b>自動で削除</b></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="note">
+      <b>内部統制・監査の観点：</b>「誰が・いつ・どのファイルに・何をしたか」がすべて残り、管理画面からその場で提示できます。<b>証跡を出すまでのリードタイムが、数日から数分になります。</b>
+    </div>
+
+    <!-- ===== 8章 ===== -->
+    <h2 id="ch8"><span class="n">8</span>ねらい③ 経路と権限を安全にする</h2>
+
+    <p class="lead">受け渡し口を1本にまとめても、その道が危なければ意味がありません。<b>通信の暗号化</b>と<b>触れる範囲の限定</b>の2つが、今回の改善でもっとも効果の大きい部分です。</p>
+
+    <h3>8-1. 通信の暗号化（HTTPS）</h3>
+    <p>現行ツールの通信は<b>平文（HTTP）</b>です。同じネットワーク上にいる誰かが通信を覗けば、<b>パスワードもファイルの中身もそのまま読めてしまいます</b>。Watashi では通信を暗号化するため、途中で覗かれても意味不明な文字列にしか見えません。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="平文通信と暗号化通信の違い">
+        <defs>
+          <marker id="arwR2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#CF222E"/></marker>
+          <marker id="arwG4" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#1F883D"/></marker>
+        </defs>
+
+        <!-- 現行 -->
+        <rect x="20" y="20" width="840" height="96" rx="11" fill="#fff5f5" stroke="#7a2438" stroke-width="1.6"/>
+        <text x="40" y="46" font-size="13" font-weight="700" fill="#7a2438">現行：HTTP（平文）</text>
+        <rect x="40" y="58" width="110" height="34" rx="8" fill="#fff" stroke="#9CA3AF"/>
+        <text x="95" y="80" text-anchor="middle" font-size="11.5" fill="#1F2328">利用者の PC</text>
+        <line x1="150" y1="75" x2="252" y2="75" stroke="#CF222E" stroke-width="2" marker-end="url(#arwR2)"/>
+        <rect x="258" y="58" width="380" height="34" rx="8" fill="#fff" stroke="#CF222E"/>
+        <text x="448" y="80" text-anchor="middle" font-size="12" font-family="Consolas,monospace" fill="#7a2438">見積書_2026.xlsx ／ password: himitsu123</text>
+        <line x1="638" y1="75" x2="700" y2="75" stroke="#CF222E" stroke-width="2" marker-end="url(#arwR2)"/>
+        <rect x="706" y="58" width="120" height="34" rx="8" fill="#fff" stroke="#9CA3AF"/>
+        <text x="766" y="80" text-anchor="middle" font-size="11.5" fill="#1F2328">サーバー</text>
+        <text x="448" y="108" text-anchor="middle" font-size="11" fill="#CF222E">👁 通信を覗ける人には、そのまま読めてしまう</text>
+
+        <!-- Watashi -->
+        <rect x="20" y="128" width="840" height="96" rx="11" fill="#f2fbf5" stroke="#1F6B3A" stroke-width="1.6"/>
+        <text x="40" y="154" font-size="13" font-weight="700" fill="#1F6B3A">Watashi：HTTPS（暗号化）</text>
+        <rect x="40" y="166" width="110" height="34" rx="8" fill="#fff" stroke="#9CA3AF"/>
+        <text x="95" y="188" text-anchor="middle" font-size="11.5" fill="#1F2328">利用者の PC</text>
+        <line x1="150" y1="183" x2="252" y2="183" stroke="#1F883D" stroke-width="2" marker-end="url(#arwG4)"/>
+        <rect x="258" y="166" width="380" height="34" rx="8" fill="#fff" stroke="#1F6B3A"/>
+        <text x="448" y="188" text-anchor="middle" font-size="12" font-family="Consolas,monospace" fill="#1F6B3A">x8#kQ9!vR2$mW7pL…（暗号文）🔒</text>
+        <line x1="638" y1="183" x2="700" y2="183" stroke="#1F883D" stroke-width="2" marker-end="url(#arwG4)"/>
+        <rect x="706" y="166" width="120" height="34" rx="8" fill="#fff" stroke="#9CA3AF"/>
+        <text x="766" y="188" text-anchor="middle" font-size="11.5" fill="#1F2328">サーバー</text>
+        <text x="448" y="216" text-anchor="middle" font-size="11" fill="#1F6B3A">✔ 中身を守る ／ ✔ 改ざんを検知 ／ ✔ 接続先が本物か確認できる</text>
+      </svg>
+      <figcaption>図8：平文通信と暗号化通信の違い。暗号化されていれば、通信を傍受されても内容を読み取られません。</figcaption>
+    </figure>
+
+    <h3>8-2. 触れる範囲を、人ごとに限定する</h3>
+    <p>現行ツールでは、利用できる人は<b>全員が同じ範囲</b>にアクセスできます。Watashi では <b>「人 × フォルダ × 操作の種類」</b> の組み合わせで許可します。許可されていないフォルダは、そもそも<b>一覧に表示されません</b>（「見えるけれど開けない」ではありません）。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="人ごと・フォルダごとの権限設定のイメージ">
+        <!-- ヘッダ -->
+        <rect x="24" y="30" width="240" height="42" fill="#1B2A41"/>
+        <text x="44" y="57" font-size="12.5" font-weight="700" fill="#fff">利用者 × フォルダ</text>
+        <rect x="264" y="30" width="146" height="42" fill="#1B2A41"/>
+        <text x="337" y="57" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">見る</text>
+        <rect x="410" y="30" width="146" height="42" fill="#1B2A41"/>
+        <text x="483" y="57" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">書き込む</text>
+        <rect x="556" y="30" width="146" height="42" fill="#1B2A41"/>
+        <text x="629" y="57" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">削除する</text>
+        <rect x="702" y="30" width="146" height="42" fill="#1B2A41"/>
+        <text x="775" y="57" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">名前を変える</text>
+
+        <!-- 行1 -->
+        <rect x="24" y="72" width="824" height="46" fill="#fff" stroke="#D5D9DE"/>
+        <text x="44" y="100" font-size="12.5" fill="#1F2328">営業部 A さん × 営業\見積</text>
+        <text x="337" y="102" text-anchor="middle" font-size="17" font-weight="700" fill="#1F883D">✓</text>
+        <text x="483" y="102" text-anchor="middle" font-size="17" font-weight="700" fill="#1F883D">✓</text>
+        <text x="629" y="102" text-anchor="middle" font-size="17" font-weight="700" fill="#1F883D">✓</text>
+        <text x="775" y="102" text-anchor="middle" font-size="17" font-weight="700" fill="#1F883D">✓</text>
+
+        <!-- 行2 -->
+        <rect x="24" y="118" width="824" height="46" fill="#fafbfc" stroke="#D5D9DE"/>
+        <text x="44" y="146" font-size="12.5" fill="#1F2328">営業部 A さん × 経理\決算</text>
+        <text x="337" y="148" text-anchor="middle" font-size="15" fill="#9CA3AF">—</text>
+        <text x="483" y="148" text-anchor="middle" font-size="15" fill="#9CA3AF">—</text>
+        <text x="629" y="148" text-anchor="middle" font-size="15" fill="#9CA3AF">—</text>
+        <text x="775" y="148" text-anchor="middle" font-size="15" fill="#9CA3AF">—</text>
+
+        <!-- 行3 -->
+        <rect x="24" y="164" width="824" height="46" fill="#fff" stroke="#D5D9DE"/>
+        <text x="44" y="192" font-size="12.5" fill="#1F2328">監査担当 C さん × 経理 全体</text>
+        <text x="337" y="194" text-anchor="middle" font-size="17" font-weight="700" fill="#1F883D">✓</text>
+        <text x="483" y="194" text-anchor="middle" font-size="15" fill="#9CA3AF">—</text>
+        <text x="629" y="194" text-anchor="middle" font-size="15" fill="#9CA3AF">—</text>
+        <text x="775" y="194" text-anchor="middle" font-size="15" fill="#9CA3AF">—</text>
+
+        <!-- 行4 -->
+        <rect x="24" y="210" width="824" height="46" fill="#fafbfc" stroke="#D5D9DE"/>
+        <text x="44" y="238" font-size="12.5" fill="#1F2328">協力会社 D さん × 受渡\D社</text>
+        <text x="337" y="240" text-anchor="middle" font-size="17" font-weight="700" fill="#1F883D">✓</text>
+        <text x="483" y="240" text-anchor="middle" font-size="17" font-weight="700" fill="#1F883D">✓</text>
+        <text x="629" y="240" text-anchor="middle" font-size="15" fill="#9CA3AF">—</text>
+        <text x="775" y="240" text-anchor="middle" font-size="15" fill="#9CA3AF">—</text>
+
+        <text x="440" y="284" text-anchor="middle" font-size="12" fill="#6B7280">「—」のフォルダは、その人の画面には最初から表示されません</text>
+      </svg>
+      <figcaption>図9：権限設定のイメージ。「読むだけ」「書き込みまで」「削除まで」を、人ごと・フォルダごとに指定できます。</figcaption>
+    </figure>
 
     <figure class="shot">
       <img src="images/shot-permission.png" alt="ユーザー権限設定画面のスクリーンショット"
@@ -404,131 +942,303 @@
         <div class="label">スクリーンショット挿入予定：権限設定画面</div>
         <div class="desc"><code>docs/proposal/images/shot-permission.png</code> を配置すると、この枠に自動で表示されます</div>
       </div>
-      <figcaption class="shot-caption">図：ユーザー × フォルダ単位で権限を設定する管理画面（差し替え用プレースホルダー）</figcaption>
+      <figcaption class="shot-caption">図10：人 × フォルダ単位で権限を設定する管理画面（差し替え用の枠）</figcaption>
     </figure>
 
-    <!-- ===== 運用・保守 ===== -->
-    <h2><span class="n">7</span>運用・保守の負担軽減</h2>
+    <h3>8-3. そのほかの安全対策</h3>
+    <div class="tblwrap">
     <table>
-      <thead><tr><th>項目</th><th>Watashi での改善</th></tr></thead>
+      <thead><tr><th style="width:210px">守るもの</th><th>しくみ</th></tr></thead>
       <tbody>
-        <tr><td>ユーザー管理</td><td>管理画面で追加・削除・ロック解除・パスワード再設定。<b>CSV一括登録</b>で入退社・異動も一気に反映</td></tr>
-        <tr><td>権限付与</td><td>フォルダを一覧から選択。<b>「権限セット」</b>（部署の標準権限）を作っておけば<b>1クリックで一括付与</b>。他ユーザーからのコピーも可</td></tr>
-        <tr><td>ログ確認</td><td>管理画面で絞り込み表示・<b>CSV出力</b>（Excelでそのまま開ける）</td></tr>
-        <tr><td>設定変更</td><td>パスワード期限・タイムアウト・ロック回数なども管理画面から変更</td></tr>
-        <tr><td>DB保守</td><td>専用DBサーバ（MySQL）が不要。<b>監視・パッチ対象が減り、立ち上げ作業もゼロ</b></td></tr>
-        <tr><td>サーバ構成</td><td>Windowsサービスとして常駐。<b>異常終了時は自動再起動</b>、DBの<b>自動バックアップ</b>、古いログの<b>自動削除</b></td></tr>
-        <tr><td>アプリ更新</td><td>クライアントは<b>起動するたびに自動で最新版に更新</b>。配り直し不要</td></tr>
+        <tr><td>ログインパスワード</td><td>元に戻せない形で保存（<b>管理者でも中身は分かりません</b>）。強度ルール（12 文字以上＋英大文字・小文字・数字・記号）と有効期限を全社で強制</td></tr>
+        <tr><td>不正なログイン試行</td><td>連続して失敗するとアカウントを<b>自動ロック</b>。さらに、短時間に何度も試す行為も自動でブロック</td></tr>
+        <tr><td>サーバーが預かる接続情報</td><td>ファイルサーバーへの接続情報は<b>暗号化して保管</b></td></tr>
+        <tr><td>サーバー間の通信</td><td>中央サーバーと中継役は<b>お互いに証明書を確認</b>（なりすまし防止）</td></tr>
+        <tr><td>誤った場所への接続</td><td>接続先は<b>アプリ配布時に管理者が固定</b>。利用者側では変更できません</td></tr>
+        <tr><td>退職者・異動者</td><td>アカウントの無効化と、自動ログイン端末の失効を<b>管理画面からワンクリック</b></td></tr>
+        <tr><td>管理機能の露出</td><td>管理者以外には<b>管理メニュー自体が表示されません</b></td></tr>
+        <tr><td>データの社外流出</td><td>すべて社内で完結。<b>外部のクラウドサービスは経由しません</b></td></tr>
       </tbody>
     </table>
-    <div class="tip">
-      <b>情シスの定常負荷が下がります：</b>これまで手作業だった「ユーザー追加・権限設定・ログ抽出・DB保守」が、画面操作や自動化に置き換わります。
     </div>
 
-    <figure class="shot">
-      <img src="images/shot-audit-log.png" alt="監査ログ画面のスクリーンショット"
-           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
-      <div class="shot-fallback">
-        <div class="ico">🖼️</div>
-        <div class="label">スクリーンショット挿入予定：監査ログ画面</div>
-        <div class="desc"><code>docs/proposal/images/shot-audit-log.png</code> を配置すると、この枠に自動で表示されます</div>
-      </div>
-      <figcaption class="shot-caption">図：「いつ・誰が・何をしたか」を一覧表示する監査ログ画面（差し替え用プレースホルダー）</figcaption>
-    </figure>
+    <!-- ===== 9章 ===== -->
+    <h2 id="ch9"><span class="n">9</span>ねらい④ 管理の手間を減らす</h2>
 
-    <!-- ===== 導入スケジュール ===== -->
-    <h2 id="schedule"><span class="n">8</span>導入スケジュール（想定）</h2>
-    <p>本格導入の前に、まず<b>小規模な試験導入（PoC）</b>で効果を確認する進め方を想定しています。<b id="sched-total-start">2026年8月1日</b> 開始の場合、<b id="sched-total-end">2026年10月23日</b> 頃までの<b>約3ヶ月</b>で本番展開の判断まで到達できる見込みです。</p>
+    <p class="lead">安全にした結果、管理の手間が増えては続きません。Watashi では、これまで手作業だった作業を<b>画面操作と自動化</b>に置き換えます。</p>
 
-    <figure>
-      <svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="導入スケジュールの想定（ガントチャート）">
-        <!-- 月の背景帯 -->
-        <rect x="210" y="34" width="200" height="220" fill="#fafbfc"/>
-        <rect x="410" y="34" width="200" height="220" fill="#f3f4f6"/>
-        <rect x="610" y="34" width="200" height="220" fill="#fafbfc"/>
-        <text data-month-offset="0" x="310" y="24" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4A535C">2026年8月</text>
-        <text data-month-offset="1" x="510" y="24" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4A535C">2026年9月</text>
-        <text data-month-offset="2" x="710" y="24" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4A535C">2026年10月</text>
-        <line x1="210" y1="34" x2="210" y2="254" stroke="#D5D9DE"/>
-        <line x1="410" y1="34" x2="410" y2="254" stroke="#D5D9DE"/>
-        <line x1="610" y1="34" x2="610" y2="254" stroke="#D5D9DE"/>
-        <line x1="810" y1="34" x2="810" y2="254" stroke="#D5D9DE"/>
-
-        <!-- 行ラベル -->
-        <text x="20" y="63" font-size="13" font-weight="700" fill="#1F2328">① 準備</text>
-        <text x="20" y="113" font-size="13" font-weight="700" fill="#1F2328">② 試験導入</text>
-        <text x="20" y="121" font-size="11" fill="#6B7280">（PoC・1部署）</text>
-        <text x="20" y="163" font-size="13" font-weight="700" fill="#1F2328">③ 評価</text>
-        <text x="20" y="213" font-size="13" font-weight="700" fill="#1F2328">④ 本番展開</text>
-        <text x="20" y="221" font-size="11" fill="#6B7280">（順次切替）</text>
-
-        <!-- バー -->
-        <rect x="210" y="46" width="100" height="26" rx="6" fill="#9CA3AF"/>
-        <text x="260" y="63" text-anchor="middle" font-size="11" fill="#fff">環境準備</text>
-        <text id="sched-short-prep" x="260" y="84" text-anchor="middle" font-size="10.5" fill="#6B7280">8/1〜8/14</text>
-
-        <rect x="310" y="96" width="200" height="26" rx="6" fill="#C73E1D"/>
-        <text x="410" y="113" text-anchor="middle" font-size="11" fill="#fff">PoC 実施（1部署・少人数）</text>
-        <text id="sched-short-poc" x="410" y="134" text-anchor="middle" font-size="10.5" fill="#6B7280">8/15〜9/11</text>
-
-        <rect x="510" y="146" width="100" height="26" rx="6" fill="#BF8700"/>
-        <text x="560" y="163" text-anchor="middle" font-size="11" fill="#fff">効果測定・評価</text>
-        <text id="sched-short-eval" x="560" y="184" text-anchor="middle" font-size="10.5" fill="#6B7280">9/12〜9/25</text>
-
-        <rect x="610" y="196" width="200" height="26" rx="6" fill="#1f6b3a"/>
-        <text x="710" y="213" text-anchor="middle" font-size="11" fill="#fff">対象拡大・本番切替</text>
-        <text id="sched-short-deploy" x="710" y="234" text-anchor="middle" font-size="10.5" fill="#6B7280">9/26〜10/23</text>
-
-        <text x="435" y="278" text-anchor="middle" font-size="11.5" fill="#9CA3AF">※ 開始日はこのページ下部の設定（SCHEDULE_START）を書き換えるだけで、全ての日付が自動的に再計算されます。</text>
-      </svg>
-      <figcaption>図：導入スケジュールの想定（ガントチャート）。まず①準備・②PoCから着手し、③評価を経て④本番展開へ進みます。</figcaption>
-    </figure>
-
+    <div class="tblwrap">
     <table>
-      <thead><tr><th style="width:150px">フェーズ</th><th>内容</th><th style="width:260px">期間</th></tr></thead>
+      <thead><tr><th style="width:170px">作業</th><th>これまで</th><th>Watashi</th></tr></thead>
       <tbody>
-        <tr><td>① 準備</td><td>環境準備・実施体制の確認</td><td id="sched-range-prep">2026年8月1日 〜 2026年8月14日</td></tr>
-        <tr><td>② 試験導入（PoC）</td><td>1部署・少人数で、実運用に近い形で試行</td><td id="sched-range-poc">2026年8月15日 〜 2026年9月11日</td></tr>
-        <tr><td>③ 評価</td><td>安全性・運用性・保守性を現行ツールと比較</td><td id="sched-range-eval">2026年9月12日 〜 2026年9月25日</td></tr>
-        <tr><td>④ 本番展開</td><td>問題なければ対象部署を拡大し、順次切替</td><td id="sched-range-deploy">2026年9月26日 〜 2026年10月23日</td></tr>
+        <tr><td>ユーザーの追加</td><td>1 人ずつ手作業</td><td>管理画面で追加。<b>CSV で一括登録</b>できるので、入社・異動シーズンも一気に反映</td></tr>
+        <tr><td>権限の付与</td><td>許可するフォルダを 1 つずつ手入力</td><td>フォルダを<b>一覧から選ぶだけ</b>。「経理部の標準権限」のような<b>権限セット</b>を作っておけば1クリックで一括付与。他の人からまるごとコピーも可能</td></tr>
+        <tr><td>退職者の処理</td><td>漏れやすい</td><td>アカウント削除と自動ログイン端末の失効を<b>ワンクリック</b></td></tr>
+        <tr><td>「誰が消した？」の調査</td><td>データベースを調べる必要があり、ほぼ実施できない</td><td><b>管理画面で検索 → CSV 出力</b>して提出</td></tr>
+        <tr><td>設定の変更</td><td>作業コストが高く属人的</td><td>パスワード有効期限・自動ログアウト時間・ロック回数なども<b>管理画面から変更</b></td></tr>
+        <tr><td>アプリの配布・更新</td><td>1 台ずつ手作業</td><td>利用者がアプリを起動するたびに<b>自動で最新版に更新</b>。配り直し不要</td></tr>
+        <tr><td>データベースの保守</td><td>MySQL の監視・パッチ当てが恒常的な負担</td><td><b>専用のデータベースサーバーが不要</b>。初回起動時に自動生成され、日次でバックアップも自動取得</td></tr>
+        <tr><td>サーバーの障害対応</td><td>気づいたら手動で再起動</td><td>常駐サービスとして動作し、<b>異常終了時は自動で再起動</b>。中継役の異常も自動検知</td></tr>
+        <tr><td>ログの肥大化</td><td>手作業で整理</td><td>保管期間を過ぎた記録は<b>自動削除</b></td></tr>
       </tbody>
     </table>
-    <p style="color:var(--muted); font-size:13px;">※ 上表・上図の日付は、本ファイル末尾の <code>SCHEDULE_START</code>（起点日）を書き換えるだけで自動的に再計算されます。日付が確定したら情シス担当にこの1箇所の変更を依頼してください。</p>
+    </div>
 
-    <!-- ===== 導入のしやすさ / 次のステップ ===== -->
-    <h2 id="next"><span class="n">9</span>導入のしやすさと、次のステップ</h2>
+    <div class="tip">
+      <b>管理者の定常負荷が下がります：</b>これまで手作業だった「ユーザー追加・権限設定・ログ抽出・データベース保守」が、画面操作か自動処理に置き換わります。<b>権限を細かくしても、設定の手間はむしろ減ります。</b>
+    </div>
 
-    <h3>導入・移行のしやすさ</h3>
+    <!-- ===== 10章 ===== -->
+    <h2 id="ch10"><span class="n">10</span>現行ツールの課題への対応（一覧）</h2>
+
+    <p class="lead">第3章で挙げた <b>10 個の課題</b> が、Watashi ではどう解決されるかの一覧です。<b>すべてに対応済み</b>です。</p>
+
+    <div class="tblwrap">
+    <table class="cmp">
+      <thead><tr><th>観点</th><th>現行ツール</th><th>Watashi（後継）</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>① 通信の安全性</td>
+          <td><span class="x">✗</span>HTTP のみ（平文）</td>
+          <td><span class="o">✓</span><b>HTTPS 対応</b>。通信もパスワードも暗号化。サーバー間もお互いに証明書を確認</td>
+        </tr>
+        <tr>
+          <td>② 名称</td>
+          <td><span class="x">✗</span>他製品と名前が重複</td>
+          <td><span class="o">✓</span>固有名「<b>Watashi</b>」＋鳥居のマーク。社内名称への<b>改称も容易</b>（変更箇所を文書化済み）</td>
+        </tr>
+        <tr>
+          <td>③ 権限管理</td>
+          <td><span class="x">✗</span>人ごとに分けられない</td>
+          <td><span class="o">✓</span><b>人 × フォルダ × 操作</b>の単位で、見る／書く／消す／名前を変えるを個別に許可</td>
+        </tr>
+        <tr>
+          <td>④ データベース保守</td>
+          <td><span class="x">✗</span>MySQL の脆弱性対応が負担（<b>Web アプリと同一サーバーに同居</b>）</td>
+          <td><span class="o">✓</span><b>専用のデータベースサーバーが不要</b>（軽量な内蔵型）。監視・パッチ対象が減り、同居によるリスクも解消</td>
+        </tr>
+        <tr>
+          <td>⑤ ログ確認</td>
+          <td><span class="x">✗</span>データベースを直接見るしかない</td>
+          <td><span class="o">✓</span><b>管理画面で閲覧・絞り込み・CSV 出力</b>。「誰が・いつ・何を」が一目で分かる</td>
+        </tr>
+        <tr>
+          <td>⑥ ユーザー追加</td>
+          <td><span class="x">✗</span>1 人ずつ手作業</td>
+          <td><span class="o">✓</span>管理画面で作成。さらに <b>CSV で一括登録</b>（入退社・異動も一気に反映）</td>
+        </tr>
+        <tr>
+          <td>⑦ 許可フォルダの設定</td>
+          <td><span class="x">✗</span>1 つずつ手入力</td>
+          <td><span class="o">✓</span><b>一覧から選ぶだけ</b>。「権限セット」で<b>まとめて一括付与</b>、他の人から<b>コピー</b>も可能</td>
+        </tr>
+        <tr>
+          <td>⑧ 設定変更</td>
+          <td><span class="x">✗</span>作業が大変・属人的</td>
+          <td><span class="o">✓</span>パスワード有効期限・自動ログアウト時間なども<b>管理画面から変更</b></td>
+        </tr>
+        <tr>
+          <td>⑨ サーバー構成</td>
+          <td><span class="x">✗</span>IIS を使う構成が必須</td>
+          <td><span class="o">✓</span><b>常駐サービス単体で稼働</b>。IIS は必須ではなく、使いたければ前段に置くことも可能</td>
+        </tr>
+        <tr>
+          <td>⑩ 初期構築</td>
+          <td><span class="x">✗</span>MySQL の立ち上げが大変</td>
+          <td><span class="o">✓</span>初回起動で<b>データベースが自動生成</b>。構築作業ゼロで、検証環境も簡単に増やせる</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="tip">
+      <b>ポイント：</b>挙げていただいた 10 個の課題は、<b>すべて対応済み</b>です。後付けの対策ではなく、設計の段階から「安全・簡単な運用・軽い保守」を前提に作られています。
+    </div>
+
+    <!-- ===== 11章 ===== -->
+    <h2 id="ch11"><span class="n">11</span>システム構成の比較</h2>
+    <p>専門的な部分は割愛し、<b>構成がシンプルになる</b>ことだけ図でご覧ください。<b>守るべきもの（脆弱性対応の対象）が減る</b>ことが、保守負担の軽減に直結します。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="現行ツールとWatashiのシステム構成比較">
+        <text x="220" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#7a2438">現行ツール</text>
+        <text x="660" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1F6B3A">Watashi（後継）</text>
+        <line x1="440" y1="42" x2="440" y2="356" stroke="#D5D9DE" stroke-dasharray="5 5"/>
+
+        <!-- 現行 -->
+        <rect x="125" y="54" width="190" height="42" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="220" y="80" text-anchor="middle" font-size="12.5" fill="#1F2328">利用者の PC</text>
+        <line x1="220" y1="96" x2="220" y2="134" stroke="#CF222E" stroke-width="2.2"/>
+        <text x="232" y="119" font-size="11" fill="#CF222E">HTTP（平文）⚠</text>
+
+        <rect x="112" y="136" width="216" height="140" rx="10" fill="#fff5f5" stroke="#7a2438" stroke-width="2"/>
+        <text x="220" y="156" text-anchor="middle" font-size="11.5" font-weight="700" fill="#7a2438">サーバー（1 台に同居）</text>
+        <rect x="128" y="164" width="184" height="46" rx="6" fill="#fff" stroke="#c99"/>
+        <text x="220" y="184" text-anchor="middle" font-size="12.5" fill="#1F2328">IIS 上の Web アプリ</text>
+        <text x="220" y="201" text-anchor="middle" font-size="10.5" fill="#7a2438">※ IIS が必須</text>
+        <rect x="128" y="218" width="184" height="46" rx="6" fill="#fff" stroke="#c99"/>
+        <text x="220" y="238" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">MySQL（別途構築）</text>
+        <text x="220" y="255" text-anchor="middle" font-size="10.5" fill="#7a2438">※ 同じサーバーに同居</text>
+
+        <line x1="220" y1="276" x2="220" y2="298" stroke="#7a2438" stroke-width="2"/>
+        <rect x="125" y="300" width="190" height="42" rx="8" fill="#fff" stroke="#9CA3AF"/>
+        <text x="220" y="326" text-anchor="middle" font-size="12.5" fill="#1F2328">ファイルサーバー</text>
+
+        <text x="220" y="366" text-anchor="middle" font-size="11.5" fill="#7a2438">Web と DB が 1 台に同居 → 障害・脆弱性の影響範囲が大きい</text>
+
+        <!-- Watashi -->
+        <rect x="565" y="54" width="190" height="42" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="660" y="80" text-anchor="middle" font-size="12.5" fill="#1F2328">利用者の PC（専用アプリ）</text>
+        <line x1="660" y1="96" x2="660" y2="134" stroke="#1F883D" stroke-width="2.2"/>
+        <text x="672" y="119" font-size="11" fill="#1F883D">HTTPS（暗号化）🔒</text>
+
+        <rect x="552" y="136" width="216" height="140" rx="10" fill="#f2fbf5" stroke="#1F6B3A" stroke-width="2"/>
+        <text x="660" y="156" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F6B3A">サーバー（1 台）</text>
+        <rect x="568" y="164" width="184" height="46" rx="6" fill="#fff" stroke="#9c9"/>
+        <text x="660" y="184" text-anchor="middle" font-size="12.5" fill="#1F2328">常駐サービス</text>
+        <text x="660" y="201" text-anchor="middle" font-size="10.5" fill="#1F6B3A">※ IIS 不要</text>
+        <rect x="568" y="218" width="184" height="46" rx="6" fill="#fff" stroke="#9c9"/>
+        <text x="660" y="238" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">内蔵データベース</text>
+        <text x="660" y="255" text-anchor="middle" font-size="10.5" fill="#1F6B3A">※ 初回起動で自動生成</text>
+
+        <line x1="660" y1="276" x2="660" y2="298" stroke="#1F6B3A" stroke-width="2"/>
+        <rect x="565" y="300" width="190" height="42" rx="8" fill="#fff" stroke="#9CA3AF"/>
+        <text x="660" y="320" text-anchor="middle" font-size="12.5" fill="#1F2328">ファイルサーバー</text>
+        <text x="660" y="336" text-anchor="middle" font-size="10" fill="#6B7280">別ネットワークへは中継役を経由</text>
+
+        <text x="660" y="366" text-anchor="middle" font-size="11.5" fill="#1F6B3A">構成がシンプルで、安全かつ運用が軽い</text>
+      </svg>
+      <figcaption>図11：現行ツールと Watashi の構成比較。現行は 1 台のサーバーに Web アプリ（IIS）とデータベース（MySQL）が同居していますが、Watashi はどちらも前提にしないため、構成がシンプルになります。</figcaption>
+    </figure>
+
+    <!-- ============================================================
+         第4部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 4 部</span>
+      <div>
+        <p class="ptitle">導入について</p>
+        <p class="psub">進め方と、想定スケジュール</p>
+      </div>
+    </div>
+
+    <!-- ===== 12章 ===== -->
+    <h2 id="ch12"><span class="n">12</span>導入のしやすさと、進め方</h2>
+
+    <h3>導入に必要なもの</h3>
+    <div class="stats">
+      <div class="stat">
+        <div class="ico">🖥️</div>
+        <div class="big">中央サーバー 1 台</div>
+        <div class="desc">Windows サーバー。専用のデータベースサーバーは不要です</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🔁</div>
+        <div class="big">中継役（必要な場合のみ）</div>
+        <div class="desc">別ネットワークのファイルサーバーへ届けたい場合に、踏み台へ設置します</div>
+      </div>
+      <div class="stat">
+        <div class="ico">💻</div>
+        <div class="big">利用者の PC</div>
+        <div class="desc">URL を開くだけで導入完了。追加ソフトは不要で、更新も自動です</div>
+      </div>
+    </div>
+
+    <h3>移行がしやすい理由</h3>
     <ul>
-      <li><b>サーバは1本</b>から：別DBの構築が不要なため、検証環境もすぐ用意できます。</li>
-      <li><b>利用者の移行も簡単</b>：ユーザーは<b>CSVで一括登録</b>。利用者はインストール用URLを開くだけで導入完了（追加ソフト不要）。</li>
-      <li><b>踏み台ごしのアクセスにも対応</b>：拠点や閉じたネットワークの先のファイルサーバーにも、中継（エージェント）方式で対応できます。</li>
-      <li><b>マニュアル完備</b>：<b>利用者向け・管理者向けの説明書</b>を用意済み。導入時の教育コストを抑えられます。</li>
+      <li><b>既存のファイルサーバーはそのまま</b>：置き換えではなく「安全な入口を足す」形なので、既存データの移行作業がありません。</li>
+      <li><b>サーバーは 1 台から</b>：別のデータベース構築が不要なため、検証環境もすぐ用意できます。</li>
+      <li><b>利用者の登録は一括</b>：CSV でまとめて登録でき、権限も「権限セット」で一括付与できます。</li>
+      <li><b>操作感が現行とほぼ同じ</b>：2画面のファイル操作なので、現行ツールを使っている方の再教育がほとんど不要です。</li>
+      <li><b>マニュアル完備</b>：利用者向け・管理者向けの説明書を用意済みです（→ <a href="#appendix">付録</a>）。</li>
+      <li><b>段階的に移行できる</b>：現行ツールを止めずに、部署単位で順次切り替えられます。</li>
     </ul>
 
     <h3>ご提案するステップ</h3>
     <ol>
-      <li><b>試験導入（PoC）</b>：1部署・少人数で、検証用サーバに Watashi を立てて実運用に近い形で試す。</li>
-      <li><b>評価</b>：安全性（HTTPS・権限分離）、運用性（ユーザー追加・ログ）、保守性を、現行と比較確認。</li>
-      <li><b>本番展開</b>：問題なければ対象部署を拡大し、現行ツールから順次切り替え。</li>
+      <li><b>準備</b>：検証用サーバーに Watashi を構築し、対象部署・評価項目を確定します。</li>
+      <li><b>試験導入（PoC）</b>：1 部署・少人数で、実運用に近い形で試します。</li>
+      <li><b>評価</b>：安全性（暗号化・権限分離）、運用性（ユーザー追加・記録の取り出し）、保守性を、現行と比較して確認します。</li>
+      <li><b>本番展開</b>：問題なければ対象部署を拡大し、現行ツールから順次切り替えます。</li>
     </ol>
 
     <div class="conclusion">
       <h3>ご判断のお願い</h3>
-      <p>まずは<b>試験導入（PoC）の実施</b>についてご承認いただけますと、現行ツールの課題がどれだけ解消されるかを、実際の画面・数字でご報告できます。</p>
+      <p>まずは <b>試験導入（PoC）の実施</b> についてご承認いただけますと、現行ツールの課題がどれだけ解消されるかを、<b>実際の画面と数字でご報告</b>できます。</p>
+      <p>大きな投資判断は、その結果をご覧いただいてからで問題ありません。</p>
+    </div>
+
+    <!-- ===== 13章 ===== -->
+    <!-- ------------------------------------------------------------------
+         【スケジュールの変更方法】
+         この章の図（ガントチャート）と表は、ページ末尾にある
+         「導入スケジュール設定（SCHEDULE）」を書き換えるだけで、
+         すべて自動的に再計算されます。
+         HTML 本文をさわる必要はありません。
+         ------------------------------------------------------------------ -->
+    <h2 id="ch13"><span class="n">13</span>導入スケジュール（想定）</h2>
+
+    <p class="lead">本格導入の前に、まず<b>小規模な試験導入（PoC）</b>で効果を確認する進め方を想定しています。<span id="sched-summary">—</span></p>
+
+    <noscript>
+      <div class="warn">スケジュールの図と表は自動計算で表示しています。ブラウザの JavaScript が無効になっているため表示できません。有効にして再度開いてください。</div>
+    </noscript>
+
+    <figure>
+      <svg id="sched-gantt" viewBox="0 0 880 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="導入スケジュールのガントチャート"></svg>
+      <figcaption>図12：導入スケジュールの想定。①準備・②試験導入から着手し、③評価を経て④本番展開へ進みます。◆は意思決定のタイミングです。</figcaption>
+    </figure>
+
+    <div class="tblwrap">
+    <table>
+      <thead><tr><th style="width:170px">フェーズ</th><th>内容</th><th style="width:250px">期間</th><th style="width:80px">期間長</th></tr></thead>
+      <tbody id="sched-tbody"></tbody>
+    </table>
+    </div>
+
+    <div class="note">
+      <b>日程の変更について：</b>上の図と表の日付は、<b>このファイル末尾にある「導入スケジュール設定」の1箇所（開始日）を書き換えるだけ</b>で、すべて自動的に再計算されます。各フェーズの長さ・名称・順番も同じ場所で変更できます。日程が確定した段階で、管理者にこの1箇所の変更をご依頼ください。
     </div>
 
     <hr class="sec">
 
-    <!-- ===== 付録 ===== -->
-    <h2><span class="n">＊</span>付録：補足資料</h2>
-    <p>本ツールには、導入後すぐ使える説明資料が揃っています（社内サーバに配置すると相互リンクで参照できます）。</p>
+    <!-- ============================================================
+         付録
+         ============================================================ -->
+    <h2 id="appendix"><span class="n">付</span>付録：用語集・関連資料</h2>
+
+    <h3>用語集</h3>
+    <div class="tblwrap">
+    <table>
+      <thead><tr><th style="width:210px">用語</th><th>やさしい説明</th></tr></thead>
+      <tbody>
+        <tr><td>共有フォルダ</td><td>社内のファイルサーバー上にある、みんなで使うフォルダのこと</td></tr>
+        <tr><td>踏み台サーバー</td><td>直接つなげない場所へ、間に立って中継するためのサーバー</td></tr>
+        <tr><td>中継役（エージェント）</td><td>踏み台サーバーに置く小さなプログラム。中央サーバーからの指示を受けて、その先のファイルサーバーを操作します</td></tr>
+        <tr><td>HTTP / HTTPS</td><td>通信の方式。HTTP は中身がそのまま流れる（平文）、HTTPS は暗号化されて流れる</td></tr>
+        <tr><td>監査ログ（操作ログ）</td><td>「いつ・誰が・何をしたか」の記録</td></tr>
+        <tr><td>CSV</td><td>表計算ソフトでそのまま開ける、表形式のファイル</td></tr>
+        <tr><td>PoC（ピーオーシー）</td><td>本格導入の前に、小さく試して効果を確かめること（試験導入）</td></tr>
+        <tr><td>最小権限の原則</td><td>「必要な人に、必要な範囲だけ」権限を渡すという、セキュリティの基本的な考え方</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>あわせてご用意している資料</h3>
     <ul>
       <li><b>ポータル（玄関ページ）</b>：インストールと各マニュアルへの入口</li>
-      <li><b>利用者マニュアル</b>：ログイン〜ファイル操作までを図解で説明（全23章）</li>
-      <li><b>管理者マニュアル</b>：管理コンソール全機能の運用手順（全17章）</li>
+      <li><b>利用者マニュアル</b>：ログイン〜ファイル操作までを図解で説明（全 23 章）</li>
+      <li><b>管理者マニュアル</b>：管理画面の全機能の運用手順（全 17 章）</li>
+      <li><b>機能カタログ／機能仕様書</b>：技術的な詳細根拠が必要な場合はこちら</li>
     </ul>
-    <p style="color:var(--muted); font-size:13.5px;">※ 本資料中の「PANDA」は現行ツールの仮称です。実際の名称・数値は社内事情に合わせて差し替えてください。技術的な詳細根拠が必要な場合は、別添の機能仕様書（FEATURES / SPECIFICATION）をご参照ください。</p>
+    <p class="fn">※ 社内サーバーに配置すると、各資料が相互リンクで参照できます。</p>
+
+    <h3>本資料についての注記</h3>
+    <p class="fn">
+      ・本資料では、現在利用中のファイル受け渡しツールを<b>「現行ツール」</b>と表記しています。<br>
+      ・本文中の数値・期間・部署名などは想定値です。実際の状況に合わせて差し替えてください。<br>
+      ・スクリーンショットの枠（点線）は、<code>docs/proposal/images/</code> に所定のファイル名で画像を置くと自動的に差し替わります。詳細は同フォルダの <code>README.md</code> をご覧ください。
+    </p>
 
   </div>
 
@@ -540,43 +1250,224 @@
 
   <script>
   (function(){
-    /* ============================================================
-       導入スケジュール（第8章）の自動計算設定
-       SCHEDULE_START（起点日）だけを書き換えれば、本文中の
-       スケジュール図・スケジュール表の日付がすべて自動的に更新されます。
-       ============================================================ */
-    var SCHEDULE_START = '2026-08-01'; // ← ここを実際の開始予定日 (YYYY-MM-DD) に変更
-    var PHASES = [
-      { key: 'prep',   weeks: 2 }, // ① 準備
-      { key: 'poc',    weeks: 4 }, // ② 試験導入（PoC）
-      { key: 'eval',   weeks: 2 }, // ③ 評価
-      { key: 'deploy', weeks: 4 }  // ④ 本番展開
-    ];
-    /* ============================================================ */
+    /* ==================================================================
+       ▼▼▼ 導入スケジュール設定（第13章）— ここだけを書き換えてください ▼▼▼
 
-    function addDays(d, n){ var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+       ・start  … 全体の開始予定日を 'YYYY-MM-DD' 形式で指定します。
+       ・phases … フェーズを上から順に並べます。
+                    name  : フェーズ名（表と図の左端に出ます）
+                    note  : 補足説明（表の「内容」列に出ます）
+                    weeks : そのフェーズの週数（数字を変えると図の長さも変わります）
+                    color : 図のバーの色（省略可）
+                    gate  : そのフェーズの終わりに置く意思決定の名前（省略可）
+
+       ・フェーズの追加／削除／並べ替えも、この配列を編集するだけで
+         図・表・冒頭の文章がすべて自動的に作り直されます。
+       ================================================================== */
+
+    var SCHEDULE = {
+      start: '2026-08-01',
+      phases: [
+        { name: '① 準備',           note: '検証用サーバーの構築、対象部署・評価項目の確定', weeks: 2, color: '#6B7280' },
+        { name: '② 試験導入（PoC）', note: '1 部署・少人数で、実運用に近い形で試行',        weeks: 4, color: '#C73E1D' },
+        { name: '③ 評価',           note: '安全性・運用性・保守性を現行ツールと比較',        weeks: 2, color: '#BF8700', gate: '導入判断' },
+        { name: '④ 本番展開',       note: '対象部署を拡大し、現行ツールから順次切替',        weeks: 4, color: '#1F6B3A', gate: '切替完了' }
+      ]
+    };
+
+    /* ▲▲▲ 設定はここまで。以下は書き換え不要です ▲▲▲ */
+    /* ================================================================== */
+
+    var SVG_NS = 'http://www.w3.org/2000/svg';
+    var VIEW_W   = 880;   // 図の横幅
+    var LABEL_W  = 190;   // 左のフェーズ名エリアの幅
+    var TRACK_X0 = LABEL_W + 6;
+    var TRACK_X1 = VIEW_W - 36;
+    var HEAD_H   = 46;    // 月表示のヘッダー高さ
+    var ROW_H    = 62;    // 1 フェーズあたりの高さ
+    var FOOT_H   = 40;
+
+    function addDays(d, n){ var r = new Date(d.getTime()); r.setDate(r.getDate() + n); return r; }
+    function diffDays(a, b){ return Math.round((b - a) / 86400000); }
     function fmtLong(d){ return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日'; }
     function fmtShort(d){ return (d.getMonth() + 1) + '/' + d.getDate(); }
-    function setText(id, text){ var el = document.getElementById(id); if (el) el.textContent = text; }
 
-    var start = new Date(SCHEDULE_START + 'T00:00:00');
-    var cursor = start;
-    PHASES.forEach(function(p){
-      var phaseStart = cursor;
-      var phaseEnd = addDays(cursor, p.weeks * 7 - 1);
-      setText('sched-short-' + p.key, fmtShort(phaseStart) + '〜' + fmtShort(phaseEnd));
-      setText('sched-range-' + p.key, fmtLong(phaseStart) + ' 〜 ' + fmtLong(phaseEnd));
-      cursor = addDays(cursor, p.weeks * 7);
+    function el(tag, attrs, text){
+      var n = document.createElementNS(SVG_NS, tag);
+      for (var k in attrs){ if (attrs.hasOwnProperty(k)) n.setAttribute(k, attrs[k]); }
+      if (text != null) n.textContent = text;
+      return n;
+    }
+
+    var phases = (SCHEDULE.phases || []).filter(function(p){ return p && p.weeks > 0; });
+    if (!phases.length) return;
+
+    var start = new Date(SCHEDULE.start + 'T00:00:00');
+    if (isNaN(start.getTime())) return;
+
+    // --- 各フェーズの開始/終了日を確定 ---
+    var totalDays = 0, cursor = start;
+    phases.forEach(function(p){
+      p._days  = p.weeks * 7;
+      p._start = cursor;
+      p._end   = addDays(cursor, p._days - 1);   // 終了日は最終日そのもの
+      cursor   = addDays(cursor, p._days);
+      totalDays += p._days;
     });
-    setText('sched-total-start', fmtLong(start));
-    setText('sched-total-end', fmtLong(addDays(cursor, -1)));
+    var end = addDays(start, totalDays - 1);
 
-    var monthEls = document.querySelectorAll('[data-month-offset]');
-    for (var i = 0; i < monthEls.length; i++) {
-      var el = monthEls[i];
-      var off = parseInt(el.getAttribute('data-month-offset'), 10);
-      var d = new Date(start.getFullYear(), start.getMonth() + off, 1);
-      el.textContent = d.getFullYear() + '年' + (d.getMonth() + 1) + '月';
+    function dayX(dayOffset){
+      return TRACK_X0 + (dayOffset / totalDays) * (TRACK_X1 - TRACK_X0);
+    }
+
+    // ================= 冒頭の要約文 =================
+    var totalWeeks  = totalDays / 7;
+    var totalMonths = Math.round(totalDays / 30.44 * 10) / 10;
+    var sum = document.getElementById('sched-summary');
+    if (sum){
+      sum.innerHTML = '<b>' + fmtLong(start) + '</b> 開始の場合、<b>' + fmtLong(end) +
+        '</b> 頃までの<b>約 ' + totalMonths + ' ヶ月</b>（' + totalWeeks + ' 週間）で本番展開まで到達できる見込みです。';
+    }
+
+    // ================= ガントチャート =================
+    var svg = document.getElementById('sched-gantt');
+    if (svg){
+      var chartBottom = HEAD_H + phases.length * ROW_H;
+      var totalH = chartBottom + FOOT_H;
+      svg.setAttribute('viewBox', '0 0 ' + VIEW_W + ' ' + totalH);
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+      // --- 月ごとの帯と区切り線 ---
+      var m = new Date(start.getFullYear(), start.getMonth(), 1);
+      var band = 0;
+      while (m <= end){
+        var next  = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+        var mFrom = m < start ? start : m;
+        var mTo   = addDays(next, -1) > end ? end : addDays(next, -1);
+        var x0 = dayX(diffDays(start, mFrom));
+        var x1 = dayX(diffDays(start, mTo) + 1);
+
+        svg.appendChild(el('rect', {
+          x: x0, y: 34, width: Math.max(0, x1 - x0), height: chartBottom - 34,
+          fill: band % 2 === 0 ? '#fafbfc' : '#f0f2f5'
+        }));
+        if (x1 - x0 > 46){
+          svg.appendChild(el('text', {
+            x: (x0 + x1) / 2, y: 24, 'text-anchor': 'middle',
+            'font-size': 12.5, 'font-weight': 700, fill: '#4A535C'
+          }, m.getFullYear() + '年' + (m.getMonth() + 1) + '月'));
+        }
+        svg.appendChild(el('line', { x1: x0, y1: 34, x2: x0, y2: chartBottom, stroke: '#D5D9DE' }));
+        m = next; band++;
+      }
+      svg.appendChild(el('line', { x1: TRACK_X1, y1: 34, x2: TRACK_X1, y2: chartBottom, stroke: '#D5D9DE' }));
+
+      // --- フェーズごとの行 ---
+      phases.forEach(function(p, i){
+        var rowY = HEAD_H + i * ROW_H;
+        var color = p.color || '#C73E1D';
+
+        // 行の区切り線
+        if (i > 0){
+          svg.appendChild(el('line', {
+            x1: 16, y1: rowY, x2: TRACK_X1, y2: rowY, stroke: '#E5E8EC'
+          }));
+        }
+
+        // 左のラベル
+        svg.appendChild(el('text', {
+          x: 16, y: rowY + 28, 'font-size': 13.5, 'font-weight': 700, fill: '#1F2328'
+        }, p.name));
+        if (p.note){
+          var note = p.note.length > 16 ? p.note.slice(0, 15) + '…' : p.note;
+          svg.appendChild(el('text', {
+            x: 16, y: rowY + 46, 'font-size': 10.5, fill: '#6B7280'
+          }, note));
+        }
+
+        // バー
+        var bx = dayX(diffDays(start, p._start));
+        var bw = dayX(diffDays(start, p._end) + 1) - bx;
+        svg.appendChild(el('rect', {
+          x: bx, y: rowY + 12, width: bw, height: 28, rx: 7, fill: color
+        }));
+
+        // バー内 or バー右の期間ラベル
+        var rangeLabel = fmtShort(p._start) + ' 〜 ' + fmtShort(p._end);
+        if (bw >= 96){
+          svg.appendChild(el('text', {
+            x: bx + bw / 2, y: rowY + 31, 'text-anchor': 'middle',
+            'font-size': 11.5, 'font-weight': 700, fill: '#fff'
+          }, rangeLabel));
+        } else {
+          svg.appendChild(el('text', {
+            x: Math.min(bx + bw + 8, TRACK_X1 - 4), y: rowY + 31,
+            'text-anchor': bx + bw + 8 > TRACK_X1 - 90 ? 'end' : 'start',
+            'font-size': 11, fill: '#4A535C'
+          }, rangeLabel));
+        }
+
+        // 週数
+        svg.appendChild(el('text', {
+          x: bx + 2, y: rowY + 54, 'font-size': 10.5, fill: '#6B7280'
+        }, p.weeks + ' 週間'));
+
+        // 意思決定ポイント（◆）
+        if (p.gate){
+          var gx = dayX(diffDays(start, p._end) + 1);
+          svg.appendChild(el('path', {
+            d: 'M' + gx + ',' + (rowY + 14) + ' L' + (gx + 9) + ',' + (rowY + 26) +
+               ' L' + gx + ',' + (rowY + 38) + ' L' + (gx - 9) + ',' + (rowY + 26) + ' Z',
+            fill: '#1B2A41', stroke: '#fff', 'stroke-width': 1.5
+          }));
+          var anchor = gx > TRACK_X1 - 70 ? 'end' : 'middle';
+          svg.appendChild(el('text', {
+            x: anchor === 'end' ? gx - 12 : gx, y: rowY + 8,
+            'text-anchor': anchor, 'font-size': 10.5, 'font-weight': 700, fill: '#1B2A41'
+          }, '◆ ' + p.gate));
+        }
+      });
+
+      // --- 脚注 ---
+      svg.appendChild(el('text', {
+        x: VIEW_W / 2, y: chartBottom + 26, 'text-anchor': 'middle',
+        'font-size': 11.5, fill: '#9CA3AF'
+      }, '※ 開始日・各フェーズの週数は、このファイル末尾の「導入スケジュール設定」で変更できます'));
+    }
+
+    // ================= 表 =================
+    var tbody = document.getElementById('sched-tbody');
+    if (tbody){
+      tbody.innerHTML = '';
+      phases.forEach(function(p){
+        var tr = document.createElement('tr');
+
+        var td1 = document.createElement('td');
+        td1.innerHTML = '<b>' + p.name + '</b>' + (p.gate ? '<br><span style="font-size:12px;color:#6B7280;">◆ ' + p.gate + '</span>' : '');
+        tr.appendChild(td1);
+
+        var td2 = document.createElement('td');
+        td2.textContent = p.note || '';
+        tr.appendChild(td2);
+
+        var td3 = document.createElement('td');
+        td3.textContent = fmtLong(p._start) + ' 〜 ' + fmtLong(p._end);
+        tr.appendChild(td3);
+
+        var td4 = document.createElement('td');
+        td4.textContent = p.weeks + ' 週間';
+        tr.appendChild(td4);
+
+        tbody.appendChild(tr);
+      });
+
+      var trT = document.createElement('tr');
+      trT.innerHTML =
+        '<td style="background:#F0F2F5;"><b>合計</b></td>' +
+        '<td style="background:#F0F2F5;">準備から本番展開まで</td>' +
+        '<td style="background:#F0F2F5;"><b>' + fmtLong(start) + ' 〜 ' + fmtLong(end) + '</b></td>' +
+        '<td style="background:#F0F2F5;"><b>' + totalWeeks + ' 週間</b></td>';
+      tbody.appendChild(trT);
     }
   })();
   </script>
