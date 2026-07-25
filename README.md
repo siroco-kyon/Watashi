@@ -25,8 +25,9 @@ Agent は 1 台構成に加えて、共有秘密認証の `Server → Agent A �
 
 | 文書 | 内容 |
 |---|---|
+| **[docs/spec/index.html](docs/spec/index.html)** | **統合仕様書 (HTML)** — これ 1 枚で全体像から実装詳細まで掴める。SVG 図 12 点つき、印刷/PDF 対応 |
 | **[docs/OVERVIEW-FOR-MANAGERS.md](docs/OVERVIEW-FOR-MANAGERS.md)** | ツール紹介 — 管理職・非技術者向けの概要 |
-| **[docs/SPECIFICATION.md](docs/SPECIFICATION.md)** | 機能仕様書 — 全機能を 1 文書に統合した詳細仕様 (この 1 つで全体像が掴める) |
+| **[docs/SPECIFICATION.md](docs/SPECIFICATION.md)** | 機能仕様書 (Markdown 版) — 全機能を 1 文書に統合した詳細仕様 |
 | **[docs/FEATURES.md](docs/FEATURES.md)** | 機能カタログ — 何ができるか |
 | **[docs/SETUP.md](docs/SETUP.md)** | 環境構築 — 0 から動かすまで (3 通りのネットワーク構成) |
 | **[docs/USER-GUIDE.md](docs/USER-GUIDE.md)** | 利用者ガイド — ログインからファイル操作まで |

@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watashi 統合仕様書</title>
+<style>
+  :root{
+    --accent:#C73E1D;       /* 鳥居の朱色 */
+    --accent-hover:#A83216;
+    --accent-deep:#5C1A0B;
+    --accent-soft:#F9E5E0;
+    --header:#1B2A41;
+    --header-alt:#243B5C;
+    --bg:#F6F7F9;
+    --surface:#FFFFFF;
+    --surface-alt:#F0F2F5;
+    --border:#D5D9DE;
+    --text:#1F2328;
+    --text-2:#4A535C;
+    --muted:#6B7280;
+    --danger:#CF222E;
+    --danger-soft:#FFE9EA;
+    --warning:#BF8700;
+    --warning-soft:#FFF6E0;
+    --success:#1F883D;
+    --success-soft:#E6F5EB;
+    --info:#0969DA;
+    --info-soft:#E6F0FB;
+    --shadow:0 1px 2px rgba(15,27,45,.06), 0 10px 30px rgba(15,27,45,.06);
+    --maxw:1040px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+    color:var(--text); background:var(--bg); line-height:1.85; font-size:16px;
+  }
+  code,.mono,kbd{font-family:"Consolas","SFMono-Regular",Menlo,monospace;}
+  code{background:var(--surface-alt); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:13.5px; overflow-wrap:anywhere;}
+  td code,th code,li code{font-size:13px;}
+  kbd{display:inline-block; background:#fff; border:1px solid #c4c9d0; border-bottom-width:2px; border-radius:5px; padding:0 7px; font-size:12.5px; color:var(--header); white-space:nowrap;}
+  pre{background:#12202f; color:#e6edf3; border-radius:10px; padding:16px 18px; overflow-x:auto; font-size:13.5px; line-height:1.7; margin:14px 0;}
+  pre code{background:none; border:none; color:inherit; padding:0; font-size:13.5px;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px;}
+
+  /* ===== 表紙 ===== */
+  .cover{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; padding:60px 28px 52px; position:relative; overflow:hidden; text-align:center;
+  }
+  .cover::after{content:""; position:absolute; left:0; right:0; bottom:0; height:6px; background:var(--accent);}
+  .cover .torii{margin:0 auto 16px; display:block;}
+  .cover .doctype{display:inline-block; font-size:13px; letter-spacing:3px; color:#9fb0c9; border:1px solid #3a4f70; border-radius:20px; padding:4px 16px; margin-bottom:18px;}
+  .cover h1{font-size:38px; margin:0 0 12px; font-weight:800; letter-spacing:1px; line-height:1.35;}
+  .cover .tag{font-size:17px; color:#c8d3e3; margin:0;}
+  .cover .meta{margin-top:26px; font-size:13px; color:#8294b0;}
+  .cover .meta span{margin:0 10px;}
+
+  /* ===== 見出し ===== */
+  h2{font-size:25px; margin:52px 0 16px; padding-bottom:10px; border-bottom:3px solid var(--accent); display:flex; align-items:center; gap:12px; scroll-margin-top:14px; line-height:1.4;}
+  h2 .n{background:var(--accent); color:#fff; font-size:15px; font-weight:700; min-width:38px; height:38px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;}
+  h3{font-size:18.5px; margin:32px 0 10px; color:var(--accent-deep); scroll-margin-top:14px;}
+  h4{font-size:16px; margin:22px 0 6px; color:var(--header);}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0; padding-left:24px;} li{margin:6px 0;}
+  a{color:var(--accent);}
+
+  /* ===== 部（パート）区切り ===== */
+  .part{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; border-radius:14px; padding:20px 26px; margin:60px 0 6px;
+    display:flex; align-items:center; gap:18px; box-shadow:var(--shadow);
+  }
+  .part .pnum{font-size:12px; letter-spacing:2px; color:#9fb0c9; border:1px solid #3a4f70; border-radius:16px; padding:3px 14px; white-space:nowrap;}
+  .part .ptitle{font-size:21px; font-weight:800; margin:0;}
+  .part .psub{font-size:13px; color:#c8d3e3; margin:2px 0 0;}
+  .part + h2{margin-top:26px;}
+
+  /* ===== 要点ボックス ===== */
+  .conclusion{
+    background:var(--accent-soft); border:1px solid #e7c3ba; border-left:6px solid var(--accent);
+    border-radius:12px; padding:22px 26px; margin:26px 0; box-shadow:var(--shadow);
+  }
+  .conclusion h3{margin:0 0 8px; color:var(--accent-deep); font-size:18px;}
+  .conclusion p{margin:6px 0; font-size:16px;}
+  .conclusion ol{margin:8px 0 4px;}
+  .conclusion li{font-size:15.5px;}
+
+  /* ===== 目次 ===== */
+  .toc{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 24px; margin:26px 0; box-shadow:var(--shadow);}
+  .toc h3{margin:0 0 10px; font-size:16px; color:var(--header);}
+  .toc ol{list-style:none; padding:0; margin:0; display:grid; grid-template-columns:1fr 1fr; gap:2px 26px;}
+  @media(max-width:760px){.toc ol{grid-template-columns:1fr;}}
+  .toc li{margin:3px 0; font-size:14px;}
+  .toc li a{text-decoration:none; color:var(--text-2);}
+  .toc li a:hover{color:var(--accent); text-decoration:underline;}
+  .toc li .no{display:inline-block; min-width:26px; color:var(--accent); font-weight:700;}
+  .toc .grp{grid-column:1 / -1; font-size:12px; font-weight:700; color:var(--muted); letter-spacing:1px; margin-top:10px; border-top:1px dashed var(--border); padding-top:8px;}
+
+  /* ===== サマリーカード ===== */
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:24px 0;}
+  .stats.c4{grid-template-columns:repeat(4,1fr);}
+  .stats.c2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:860px){.stats,.stats.c4,.stats.c2{grid-template-columns:1fr;}}
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 16px; box-shadow:var(--shadow); text-align:center;}
+  .stat .ico{font-size:26px; line-height:1.3;}
+  .stat .big{font-size:16px; font-weight:800; color:var(--header); margin:6px 0 4px; line-height:1.5;}
+  .stat .desc{font-size:13px; color:var(--text-2); line-height:1.7;}
+
+  /* ===== コールアウト ===== */
+  .note,.tip,.warn{border-radius:10px; padding:14px 18px; margin:18px 0; border:1px solid var(--border); position:relative; padding-left:50px; font-size:15px;}
+  .note::before,.tip::before,.warn::before{position:absolute; left:16px; top:13px; font-size:19px;}
+  .note{background:var(--info-soft); border-color:#bcd6f5;} .note::before{content:"ℹ️";}
+  .tip{background:var(--success-soft); border-color:#bfe3cb;} .tip::before{content:"💡";}
+  .warn{background:var(--warning-soft); border-color:#f0dca0;} .warn::before{content:"⚠️";}
+
+  /* ===== テーブル ===== */
+  table{border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px; background:var(--surface); box-shadow:var(--shadow); border-radius:8px; overflow:hidden;}
+  th,td{border:1px solid var(--border); padding:10px 12px; text-align:left; vertical-align:top;}
+  th{background:var(--header); color:#fff; font-weight:700; font-size:14px;}
+  tbody tr:nth-child(even){background:#fafbfc;}
+  .tblwrap{overflow-x:auto;}
+  table.sm{font-size:13.5px;} table.sm th,table.sm td{padding:8px 10px;}
+  /* 画面が狭いときは表そのものを横スクロールさせ、本文が横に伸びないようにする */
+  @media(max-width:820px){
+    table{display:block; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  }
+  .grouped tr.gh td{background:var(--surface-alt); font-weight:700; color:var(--header); font-size:14px; letter-spacing:.5px;}
+  .grouped tr.gh td .badge{display:inline-block; background:var(--header); color:#fff; border-radius:10px; font-size:11.5px; padding:1px 10px; margin-right:8px; font-weight:700;}
+
+  /* API メソッドバッジ */
+  .m{display:inline-block; border-radius:5px; font-size:11px; font-weight:700; padding:1px 8px; color:#fff; letter-spacing:.5px; min-width:56px; text-align:center;}
+  .m.get{background:#1F883D;} .m.post{background:#0969DA;} .m.patch{background:#BF8700;}
+  .m.put{background:#8250DF;} .m.del{background:#CF222E;}
+
+  .pill{display:inline-block; background:var(--accent-soft); color:var(--accent-deep); border-radius:12px; padding:1px 10px; font-size:12.5px; font-weight:700; margin-right:4px;}
+  .pill.ok{background:var(--success-soft); color:#155e2e;}
+  .pill.info{background:var(--info-soft); color:#0b4a8f;}
+  .pill.warn{background:var(--warning-soft); color:#7a5600;}
+  .pill.ng{background:var(--danger-soft); color:#8a1119;}
+  .lead{font-size:17px; color:var(--text-2);}
+  .yes{color:var(--success); font-weight:700;}
+  .no{color:var(--danger); font-weight:700;}
+
+  figure{margin:26px 0; text-align:center;}
+  figure svg{max-width:100%; height:auto; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow);}
+  figcaption{font-size:13px; color:var(--muted); margin-top:8px; line-height:1.75; text-align:left; max-width:880px; margin-left:auto; margin-right:auto;}
+  hr.sec{border:none; border-top:1px dashed var(--border); margin:44px 0;}
+  .fn{color:var(--muted); font-size:13px; line-height:1.8;}
+  .anchor-top{font-size:12.5px; color:var(--muted); text-decoration:none; float:right; margin-top:6px;}
+
+  .printbtn{position:fixed; right:22px; bottom:22px; background:var(--accent); color:#fff; border:none; border-radius:30px; padding:12px 22px; font-size:14px; font-weight:700; box-shadow:var(--shadow); cursor:pointer; z-index:50; display:flex; align-items:center; gap:8px;}
+  .printbtn:hover{background:var(--accent-hover);}
+  footer{text-align:center; color:var(--muted); font-size:12.5px; padding:40px 20px 60px;}
+
+  @media print{
+    .printbtn{display:none;}
+    body{background:#fff; font-size:11.5px; line-height:1.6;}
+    .cover{padding:36px 20px;}
+    .cover h1{font-size:26px;}
+    h2{margin:22px 0 10px; font-size:17px; break-after:avoid;}
+    h3{margin:16px 0 6px; font-size:14.5px;}
+    .part{break-inside:avoid; break-before:page; margin:18px 0 6px; padding:12px 16px;}
+    .part .ptitle{font-size:16px;}
+    table,figure,.conclusion,.stats,.stat,.toc,pre{break-inside:avoid;}
+    .stats{gap:10px;}
+    a{color:var(--text); text-decoration:none;}
+  }
+</style>
+</head>
+<body>
+
+  <!-- ============================================================
+       表紙
+       ============================================================ -->
+  <header class="cover">
+    <svg class="torii" width="76" height="76" viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
+      <rect x="22" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="69" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="16" y="40" width="68" height="8" fill="#fff"/>
+    </svg>
+    <div class="doctype">統合仕様書</div>
+    <h1>Watashi 統合仕様書</h1>
+    <p class="tag">社内 CIFS/SMB ファイルサーバーへ、中央サーバー経由で安全にアクセスする Windows デスクトップツール</p>
+    <p class="meta">
+      <span>対象バージョン 1.0.1 系</span>・<span>.NET 8</span>・<span>この 1 文書で全体像から実装詳細まで把握できます</span>
+    </p>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ============================================================
+         要点 + 目次
+         ============================================================ -->
+    <h2><span class="n">要点</span>この仕様書の要約</h2>
+
+    <div class="conclusion">
+      <h3>5 行でいうと</h3>
+      <ol>
+        <li><b>Watashi</b> は、社員が自分の PC から社内のファイルサーバー (CIFS/SMB 共有) へ、FFFTP 風の 2 ペイン画面でアクセスするためのツールです。</li>
+        <li>クライアントはファイルサーバーへ<b>直接つながりません</b>。必ず<b>中央サーバー</b>を経由し、そこで<b>認証・認可・監査</b>をまとめて行います。</li>
+        <li>中央サーバーから直接届かない隔離網のファイルサーバーには、踏み台に置いた <b>Agent</b> が中継します (1 段のチェーンにも対応)。</li>
+        <li>権限は「<b>どの共有の、どのフォルダ配下を、何ができるか</b>」の単位で管理者が付与します。範囲外の操作はサーバー側で拒否され、拒否も記録されます。</li>
+        <li>接続先サーバーや一部機能の可否は、<b>配布時に管理者が固定</b>します (<code>deployment.json</code>)。利用者は変更できません。</li>
+      </ol>
+    </div>
+
+    <div class="stats c4">
+      <div class="stat">
+        <div class="ico">🖥️</div>
+        <div class="big">4 つの部品</div>
+        <div class="desc">Client (WPF) / Server / Agent / Shared。すべて .NET 8、Server と Agent は Windows サービスとして常駐</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🔐</div>
+        <div class="big">中央で全部決める</div>
+        <div class="desc">JWT 認証、(共有 × サブパス) 権限、ファイルサーバーの資格情報は暗号化して中央にのみ保持</div>
+      </div>
+      <div class="stat">
+        <div class="ico">📝</div>
+        <div class="big">全操作を記録</div>
+        <div class="desc">ファイル操作も管理操作もログイン事象も監査ログへ。既定 365 日保管、CSV 出力可</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🚚</div>
+        <div class="big">大容量に耐える</div>
+        <div class="desc">全区間ストリーミング中継 (4 MB バッファ)。既定の要求上限 10 GB、途中失敗しても不完全ファイルを残さない</div>
+      </div>
+    </div>
+
+    <div class="toc">
+      <h3>目次</h3>
+      <ol>
+        <li class="grp">第 1 部　全体像をつかむ</li>
+        <li><a href="#ch1"><span class="no">1</span>このツールは何をするものか</a></li>
+        <li><a href="#ch2"><span class="no">2</span>設計思想・想定利用者・用語の前提</a></li>
+        <li><a href="#ch3"><span class="no">3</span>技術スタックとプロジェクト構成</a></li>
+        <li class="grp">第 2 部　どう動くのか</li>
+        <li><a href="#ch4"><span class="no">4</span>1 回のリクエストが処理される流れ</a></li>
+        <li><a href="#ch5"><span class="no">5</span>ネットワーク構成とポート</a></li>
+        <li><a href="#ch6"><span class="no">6</span>ノードルーティングと Agent (踏み台)</a></li>
+        <li><a href="#ch7"><span class="no">7</span>配布と接続先の固定 (deployment.json / ClickOnce)</a></li>
+        <li class="grp">第 3 部　安全性と統制</li>
+        <li><a href="#ch8"><span class="no">8</span>認証・セッション管理</a></li>
+        <li><a href="#ch9"><span class="no">9</span>権限モデル</a></li>
+        <li><a href="#ch10"><span class="no">10</span>監査ログ</a></li>
+        <li><a href="#ch11"><span class="no">11</span>セキュリティ設計の総覧</a></li>
+        <li class="grp">第 4 部　機能仕様</li>
+        <li><a href="#ch12"><span class="no">12</span>クライアント UI と操作</a></li>
+        <li><a href="#ch13"><span class="no">13</span>ファイル操作とデータ転送</a></li>
+        <li><a href="#ch14"><span class="no">14</span>管理機能</a></li>
+        <li class="grp">第 5 部　インタフェースとデータ</li>
+        <li><a href="#ch15"><span class="no">15</span>API 一覧</a></li>
+        <li><a href="#ch16"><span class="no">16</span>データモデル</a></li>
+        <li class="grp">第 6 部　構築・運用</li>
+        <li><a href="#ch17"><span class="no">17</span>設定項目の全体像</a></li>
+        <li><a href="#ch18"><span class="no">18</span>導入手順と本番投入チェックリスト</a></li>
+        <li><a href="#ch19"><span class="no">19</span>運用・保守と障害時のふるまい</a></li>
+        <li><a href="#ch20"><span class="no">20</span>制限事項と非機能特性</a></li>
+        <li><a href="#ch21"><span class="no">付</span>用語集</a></li>
+      </ol>
+    </div>
+
+    <!-- ============================================================
+         第 1 部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 1 部</span>
+      <div>
+        <p class="ptitle">全体像をつかむ</p>
+        <p class="psub">何をするツールで、何でできていて、なぜその形なのか</p>
+      </div>
+    </div>
+
+    <!-- ===== 1 章 ===== -->
+    <h2 id="ch1"><span class="n">1</span>このツールは何をするものか</h2>
+
+    <p class="lead">Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサーバー (ファイル共有) へアクセスし、<b>アップロード・ダウンロード・削除・リネーム・フォルダ作成</b>を行うための Windows デスクトップツールです。画面は FFFTP に似た 2 ペイン構成で、左が自分の PC、右が社内ファイルサーバーです。</p>
+
+    <p>最大の特徴は、<b>クライアントがファイルサーバーへ直接つながらない</b>点です。通信は必ず中央サーバーを通り、中央サーバーが「誰が・どこへ・何をしてよいか」を判断し、実際の SMB アクセスを代行し、結果を記録します。ファイルサーバーの資格情報 (ID/パスワード) はクライアントには一切渡りません。</p>
+
+    <figure>
+      <svg viewBox="0 0 920 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Watashi の全体構成図。クライアントは中央サーバーだけに接続し、中央サーバーが直接またはエージェント経由でファイルサーバーへ SMB 接続する">
+        <defs>
+          <marker id="f1arw" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1B2A41"/></marker>
+          <marker id="f1arwR" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#C73E1D"/></marker>
+          <marker id="f1arwG" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1F883D"/></marker>
+        </defs>
+
+        <!-- ゾーン枠 -->
+        <rect x="14" y="118" width="196" height="182" rx="12" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.4" stroke-dasharray="6 5"/>
+        <text x="112" y="140" text-anchor="middle" font-size="11.5" font-weight="700" fill="#6B7280">利用者ネットワーク</text>
+
+        <rect x="242" y="60" width="230" height="300" rx="12" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.6" stroke-dasharray="6 5"/>
+        <text x="357" y="82" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5C1A0B">管理ゾーン (中央)</text>
+
+        <rect x="512" y="222" width="182" height="138" rx="12" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.4" stroke-dasharray="6 5"/>
+        <text x="603" y="244" text-anchor="middle" font-size="11.5" font-weight="700" fill="#6B7280">踏み台ゾーン</text>
+
+        <rect x="726" y="60" width="180" height="300" rx="12" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.4" stroke-dasharray="6 5"/>
+        <text x="816" y="82" text-anchor="middle" font-size="11.5" font-weight="700" fill="#6B7280">ファイルサーバー群</text>
+
+        <!-- 利用者 PC -->
+        <rect x="34" y="152" width="156" height="122" rx="10" fill="#fff" stroke="#1B2A41" stroke-width="1.6"/>
+        <text x="112" y="178" text-anchor="middle" font-size="13" font-weight="700" fill="#1B2A41">Watashi.Client</text>
+        <text x="112" y="198" text-anchor="middle" font-size="11" fill="#4A535C">WPF デスクトップアプリ</text>
+        <text x="112" y="220" text-anchor="middle" font-size="11" fill="#6B7280">2 ペイン UI / 管理画面</text>
+        <text x="112" y="240" text-anchor="middle" font-size="11" fill="#6B7280">ClickOnce で配布・自動更新</text>
+        <rect x="52" y="250" width="120" height="18" rx="9" fill="#F9E5E0"/>
+        <text x="112" y="263" text-anchor="middle" font-size="10.5" fill="#5C1A0B">資格情報は持たない</text>
+
+        <!-- 中央サーバー -->
+        <rect x="262" y="98" width="190" height="176" rx="10" fill="#fff" stroke="#C73E1D" stroke-width="2"/>
+        <text x="357" y="124" text-anchor="middle" font-size="13.5" font-weight="700" fill="#5C1A0B">Watashi.Server</text>
+        <text x="357" y="142" text-anchor="middle" font-size="10.5" fill="#6B7280">ASP.NET Core / Windows サービス</text>
+        <rect x="278" y="152" width="158" height="21" rx="6" fill="#F0F2F5"/><text x="357" y="167" text-anchor="middle" font-size="11" fill="#1F2328">① 認証 (JWT)</text>
+        <rect x="278" y="178" width="158" height="21" rx="6" fill="#F0F2F5"/><text x="357" y="193" text-anchor="middle" font-size="11" fill="#1F2328">② 認可 (共有 × サブパス)</text>
+        <rect x="278" y="204" width="158" height="21" rx="6" fill="#F0F2F5"/><text x="357" y="219" text-anchor="middle" font-size="11" fill="#1F2328">③ ルーティング</text>
+        <rect x="278" y="230" width="158" height="21" rx="6" fill="#F0F2F5"/><text x="357" y="245" text-anchor="middle" font-size="11" fill="#1F2328">④ 監査ログ記録</text>
+
+        <!-- DB -->
+        <ellipse cx="357" cy="298" rx="44" ry="9" fill="#fff" stroke="#C73E1D" stroke-width="1.4"/>
+        <path d="M313 298 v24 a44 9 0 0 0 88 0 v-24" fill="#fff" stroke="#C73E1D" stroke-width="1.4"/>
+        <text x="357" y="320" text-anchor="middle" font-size="11" fill="#5C1A0B">SQLite</text>
+        <text x="357" y="345" text-anchor="middle" font-size="10.5" fill="#6B7280">利用者 / 権限 / 監査ログ / 暗号化資格情報</text>
+
+        <!-- Agent -->
+        <rect x="530" y="256" width="146" height="86" rx="10" fill="#fff" stroke="#1B2A41" stroke-width="1.6"/>
+        <text x="603" y="280" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1B2A41">Watashi.Agent</text>
+        <text x="603" y="298" text-anchor="middle" font-size="10.5" fill="#4A535C">踏み台に常駐するサービス</text>
+        <text x="603" y="318" text-anchor="middle" font-size="10.5" fill="#6B7280">受けた操作を SMB に変換</text>
+        <text x="603" y="334" text-anchor="middle" font-size="10.5" fill="#6B7280">資格情報は保存しない</text>
+
+        <!-- CIFS 1 -->
+        <rect x="744" y="106" width="144" height="82" rx="10" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="816" y="132" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">ファイルサーバー</text>
+        <text x="816" y="150" text-anchor="middle" font-size="10.5" fill="#6B7280">中央から直接届く</text>
+        <text x="816" y="170" text-anchor="middle" font-size="10.5" fill="#6B7280">共有フォルダ (CIFS/SMB)</text>
+
+        <!-- CIFS 2 -->
+        <rect x="744" y="256" width="144" height="82" rx="10" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="816" y="282" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1F2328">ファイルサーバー</text>
+        <text x="816" y="300" text-anchor="middle" font-size="10.5" fill="#6B7280">隔離網にある</text>
+        <text x="816" y="320" text-anchor="middle" font-size="10.5" fill="#6B7280">共有フォルダ (CIFS/SMB)</text>
+
+        <!-- 矢印: Client → Server -->
+        <line x1="190" y1="205" x2="256" y2="205" stroke="#C73E1D" stroke-width="2.4" marker-end="url(#f1arwR)"/>
+        <text x="223" y="196" text-anchor="middle" font-size="10.5" font-weight="700" fill="#C73E1D">HTTPS</text>
+        <text x="223" y="224" text-anchor="middle" font-size="10" fill="#6B7280">Bearer</text>
+
+        <!-- 矢印: Server → CIFS1 (Direct) -->
+        <path d="M452 147 H700 V147" fill="none" stroke="#1F883D" stroke-width="2.4" marker-end="url(#f1arwG)" stroke-linejoin="round"/>
+        <text x="580" y="138" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1F883D">SMB 2/3 — Direct ノード</text>
+
+        <!-- 矢印: Server → Agent -->
+        <path d="M452 299 H524" fill="none" stroke="#1B2A41" stroke-width="2.4" marker-end="url(#f1arw)"/>
+        <text x="489" y="290" text-anchor="middle" font-size="10" font-weight="700" fill="#1B2A41">HTTPS</text>
+        <text x="489" y="316" text-anchor="middle" font-size="9.5" fill="#6B7280">+ mTLS</text>
+
+        <!-- 矢印: Agent → CIFS2 -->
+        <line x1="676" y1="299" x2="738" y2="299" stroke="#1F883D" stroke-width="2.4" marker-end="url(#f1arwG)"/>
+        <text x="707" y="290" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1F883D">SMB 2/3</text>
+
+        <!-- ハートビート戻り -->
+        <path d="M530 340 C 480 372 430 372 400 356" fill="none" stroke="#9CA3AF" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f1arw)"/>
+        <text x="470" y="392" text-anchor="middle" font-size="10" fill="#6B7280">ハートビート / バッファした監査ログ (30 秒・10 秒周期)</text>
+
+        <!-- 凡例 -->
+        <line x1="34" y1="428" x2="66" y2="428" stroke="#C73E1D" stroke-width="2.4"/>
+        <text x="74" y="432" font-size="11" fill="#4A535C">利用者の通信 (HTTP/HTTPS)</text>
+        <line x1="250" y1="428" x2="282" y2="428" stroke="#1B2A41" stroke-width="2.4"/>
+        <text x="290" y="432" font-size="11" fill="#4A535C">中央 ⇄ 踏み台 (HTTP/HTTPS)</text>
+        <line x1="470" y1="428" x2="502" y2="428" stroke="#1F883D" stroke-width="2.4"/>
+        <text x="510" y="432" font-size="11" fill="#4A535C">ファイル共有アクセス (SMB)</text>
+        <line x1="684" y1="428" x2="716" y2="428" stroke="#9CA3AF" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="724" y="432" font-size="11" fill="#4A535C">自律的な定期通信</text>
+      </svg>
+      <figcaption>図 1：全体構成。利用者が触れるのは左端のクライアントだけで、接続先は中央サーバー 1 か所に固定されています。ファイルサーバーへの実際の SMB 接続は、中央サーバー自身 (Direct ノード) か、踏み台の Agent が代行します。</figcaption>
+    </figure>
+
+    <h3>1.1 解決していること</h3>
+    <table>
+      <thead><tr><th style="width:200px">課題</th><th>Watashi での解き方</th></tr></thead>
+      <tbody>
+        <tr><td><b>ネットワークが分かれていてファイルが運べない</b></td><td>中央サーバーが唯一の通り道になり、直接届かない先へは踏み台 Agent が中継する。利用者はネットワーク構造を意識しない</td></tr>
+        <tr><td><b>誰が何を持ち出したか分からない</b></td><td>通り道が 1 本なので、通過したものはすべて監査ログに残る。ログイン事象・管理操作・拒否された操作も記録される</td></tr>
+        <tr><td><b>共有フォルダの権限が粗い</b></td><td>ファイルサーバー側の権限とは別に、「利用者 × 共有 × サブパス × 操作種別」で中央が絞り込む</td></tr>
+        <tr><td><b>ファイルサーバーの資格情報が広まる</b></td><td>資格情報は暗号化して中央 DB にのみ保持。クライアントにも Agent にも永続化されない</td></tr>
+        <tr><td><b>接続先を勝手に変えられてしまう</b></td><td>接続先は配布パッケージ同梱の <code>deployment.json</code> で固定。クライアントに編集画面を持たせない</td></tr>
+      </tbody>
+    </table>
+
+    <h3>1.2 やらないこと (スコープ外)</h3>
+    <ul>
+      <li><b>ファイルサーバー側の ACL 管理</b> — Watashi の権限は「Watashi 経由で何ができるか」を決めるもので、ファイルサーバー自体の権限設定は行いません。Watashi はホストに登録された 1 組の資格情報でファイルサーバーへ接続します。</li>
+      <li><b>ファイルの中身の検査</b> — ウイルススキャンや DLP のような内容検査機能はありません。</li>
+      <li><b>Web ブラウザからの利用</b> — 利用者向けの UI は WPF デスクトップアプリのみです (API を直接呼ぶことは可能)。</li>
+      <li><b>Windows 以外のクライアント</b> — クライアントは Windows 専用です。</li>
+    </ul>
+
+    <!-- ===== 2 章 ===== -->
+    <h2 id="ch2"><span class="n">2</span>設計思想・想定利用者・用語の前提</h2>
+
+    <h3>2.1 6 つの設計原則</h3>
+    <p>以下の 6 つが、この仕様全体を貫く判断基準です。個々の機能の「なぜそうなっているか」は、ほぼすべてここに帰着します。</p>
+    <table>
+      <thead><tr><th style="width:190px">原則</th><th>内容</th><th style="width:150px">主な現れ方</th></tr></thead>
+      <tbody>
+        <tr><td><b>中央集権</b></td><td>認証・認可・監査・資格情報の保持は、すべて中央サーバーが担う。末端 (クライアント・Agent) には秘密を置かない</td><td>§8 §9 §10</td></tr>
+        <tr><td><b>接続先は末端で変えさせない</b></td><td>接続先サーバーと一部機能の可否は、配布時に管理者が固定する。利用者側に編集手段を用意しない</td><td>§7</td></tr>
+        <tr><td><b>最小権限</b></td><td>利用者は「(共有, サブパス) 単位」で許可された範囲だけを操作できる。範囲外はパス正規化 + 範囲チェックで拒否する</td><td>§9</td></tr>
+        <tr><td><b>全操作を監査</b></td><td>ファイル操作・管理操作・ログイン事象・拒否された操作、すべてを記録する</td><td>§10</td></tr>
+        <tr><td><b>多層防御</b></td><td>1 か所の実装ミスが即漏えいにならないよう、機微フィールドの除外・例外のマスク・トークンのローテーションを重ねる</td><td>§11</td></tr>
+        <tr><td><b>到達網に応じた中継</b></td><td>中央から直接届かないファイルサーバーは踏み台 Agent 経由。1 段のゲートウェイチェーンまで対応する</td><td>§6</td></tr>
+      </tbody>
+    </table>
+
+    <h3>2.2 想定利用者と役割</h3>
+    <table>
+      <thead><tr><th style="width:170px">役割</th><th>使うもの</th><th>やること</th></tr></thead>
+      <tbody>
+        <tr><td><b>一般利用者</b></td><td>クライアントの 2 ペイン画面</td><td>許可された範囲のファイルを置く・取り出す・整理する。接続先や設定は意識しない</td></tr>
+        <tr><td><b>管理者</b><br><span class="fn">(<code>IsAdmin = true</code>)</span></td><td>同じクライアントの「管理」ウィンドウ</td><td>利用者・ホスト・共有・権限・実行ノード・操作ログ・システム設定の管理</td></tr>
+        <tr><td><b>構築 / 運用担当</b></td><td>サーバーと踏み台の OS・設定ファイル</td><td>中央サーバー / Agent の構築、証明書、バックアップ、死活監視、配布パッケージの発行</td></tr>
+      </tbody>
+    </table>
+    <p class="fn">※ 「管理者」は Watashi のアカウント属性であり、Windows の管理者権限とは無関係です。一般利用者のクライアントに管理ボタンは表示されません。</p>
+
+    <h3>2.3 最低限おさえる 5 つの用語</h3>
+    <p>詳細な用語集は <a href="#ch21">付録</a>にありますが、読み進めるうえで先に必要なものだけ挙げます。</p>
+    <table class="sm">
+      <thead><tr><th style="width:170px">用語</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td><b>ホスト (CifsHost)</b></td><td>1 台のファイルサーバー。アドレス・ポート・接続用の資格情報・どの実行ノードから接続するかを持つ</td></tr>
+        <tr><td><b>共有 (CifsShare)</b></td><td>ホスト上の SMB 共有。権限を付ける単位のひとつ</td></tr>
+        <tr><td><b>サブパス (AllowedPath)</b></td><td>共有の中の許可されたフォルダ。権限を付けるもうひとつの単位</td></tr>
+        <tr><td><b>実行ノード (ExecutionNode)</b></td><td>実際に SMB 接続を行う主体。<code>Direct</code> (中央サーバー自身) か <code>Agent</code> (踏み台) のいずれか</td></tr>
+        <tr><td><b>権限テンプレート</b></td><td>READ / WRITE / DELETE / RENAME の許可の組み合わせに名前を付けたもの</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===== 3 章 ===== -->
+    <h2 id="ch3"><span class="n">3</span>技術スタックとプロジェクト構成</h2>
+
+    <h3>3.1 技術スタック</h3>
+    <table>
+      <thead><tr><th style="width:180px">領域</th><th>採用技術</th><th>補足</th></tr></thead>
+      <tbody>
+        <tr><td>言語 / 基盤</td><td>.NET 8 / C#</td><td>Server・Agent・Client・共有ライブラリすべて</td></tr>
+        <tr><td>クライアント</td><td>WPF (<code>net8.0-windows</code>)、MVVM</td><td>CommunityToolkit.Mvvm の <code>[ObservableProperty]</code> / <code>[RelayCommand]</code></td></tr>
+        <tr><td>サーバー / Agent</td><td>ASP.NET Core Minimal API</td><td><code>Microsoft.Extensions.Hosting.WindowsServices</code> で Windows サービス化</td></tr>
+        <tr><td>データベース</td><td>SQLite + EF Core</td><td>マイグレーション自動適用、WAL モード、読み取りは <code>AsNoTracking</code></td></tr>
+        <tr><td>ファイル共有アクセス</td><td>SMBLibrary (SMB 2/3)</td><td>OS のドライブマウントに依存しない実装</td></tr>
+        <tr><td>ログ</td><td>Serilog</td><td>日次ローテーション。監査ログ (DB) とは別のアプリケーションログ</td></tr>
+        <tr><td>認証・暗号</td><td>JWT (HS256) / bcrypt / AES-256-GCM</td><td>順に アクセストークン / パスワード・デバイストークン / ファイルサーバー資格情報</td></tr>
+        <tr><td>配布</td><td>ClickOnce</td><td>配布 URL からのインストールと自動更新</td></tr>
+        <tr><td>テスト</td><td>xUnit + FluentAssertions</td><td>パス正規化・権限判定・認証・暗号・CSV・セッションプール等を網羅</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3.2 プロジェクト構成</h3>
+
+    <figure>
+      <svg viewBox="0 0 900 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="5 つのプロジェクトの依存関係図。Client・Server・Agent がいずれも Shared を参照し、Tests が Server・Agent・Shared を検証する">
+        <defs>
+          <marker id="f2arw" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#6B7280"/></marker>
+        </defs>
+
+        <!-- 上段 3 プロジェクト -->
+        <rect x="40" y="40" width="220" height="96" rx="11" fill="#fff" stroke="#C73E1D" stroke-width="1.8"/>
+        <text x="150" y="66" text-anchor="middle" font-size="13" font-weight="700" fill="#5C1A0B">Watashi.Client</text>
+        <text x="150" y="86" text-anchor="middle" font-size="10.5" fill="#4A535C">WPF / net8.0-windows</text>
+        <text x="150" y="104" text-anchor="middle" font-size="10.5" fill="#6B7280">2 ペイン UI・管理 UI</text>
+        <text x="150" y="121" text-anchor="middle" font-size="10.5" fill="#6B7280">ApiClient / SessionManager</text>
+
+        <rect x="340" y="40" width="220" height="96" rx="11" fill="#fff" stroke="#C73E1D" stroke-width="1.8"/>
+        <text x="450" y="66" text-anchor="middle" font-size="13" font-weight="700" fill="#5C1A0B">Watashi.Server</text>
+        <text x="450" y="86" text-anchor="middle" font-size="10.5" fill="#4A535C">ASP.NET Core / Windows サービス</text>
+        <text x="450" y="104" text-anchor="middle" font-size="10.5" fill="#6B7280">Endpoints / Services / Data</text>
+        <text x="450" y="121" text-anchor="middle" font-size="10.5" fill="#6B7280">認証・認可・監査・ルーティング</text>
+
+        <rect x="640" y="40" width="220" height="96" rx="11" fill="#fff" stroke="#C73E1D" stroke-width="1.8"/>
+        <text x="750" y="66" text-anchor="middle" font-size="13" font-weight="700" fill="#5C1A0B">Watashi.Agent</text>
+        <text x="750" y="86" text-anchor="middle" font-size="10.5" fill="#4A535C">ASP.NET Core / Windows サービス</text>
+        <text x="750" y="104" text-anchor="middle" font-size="10.5" fill="#6B7280">AgentEndpoints</text>
+        <text x="750" y="121" text-anchor="middle" font-size="10.5" fill="#6B7280">ハートビート・ログバッファ</text>
+
+        <!-- 下段 Shared -->
+        <rect x="240" y="212" width="420" height="86" rx="11" fill="#F9E5E0" stroke="#C73E1D" stroke-width="2"/>
+        <text x="450" y="238" text-anchor="middle" font-size="13" font-weight="700" fill="#5C1A0B">Watashi.Shared</text>
+        <text x="450" y="258" text-anchor="middle" font-size="10.5" fill="#4A535C">モデル / DTO / 定数 / ヘルパー</text>
+        <text x="450" y="277" text-anchor="middle" font-size="10.5" fill="#4A535C">CIFS レイヤ (CifsService・セッションプール・ストリーム)</text>
+
+        <!-- 依存矢印 -->
+        <path d="M150 136 V174 H360 V206" fill="none" stroke="#6B7280" stroke-width="1.6" marker-end="url(#f2arw)"/>
+        <path d="M450 136 V206" fill="none" stroke="#6B7280" stroke-width="1.6" marker-end="url(#f2arw)"/>
+        <path d="M750 136 V174 H540 V206" fill="none" stroke="#6B7280" stroke-width="1.6" marker-end="url(#f2arw)"/>
+        <text x="576" y="168" font-size="10.5" fill="#6B7280">参照 (ProjectReference)</text>
+
+        <!-- Tests -->
+        <rect x="40" y="212" width="164" height="86" rx="11" fill="#fff" stroke="#9CA3AF" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="122" y="240" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1B2A41">Watashi.Tests</text>
+        <text x="122" y="259" text-anchor="middle" font-size="10.5" fill="#6B7280">xUnit + FluentAssertions</text>
+        <text x="122" y="277" text-anchor="middle" font-size="10.5" fill="#6B7280">Server / Agent / Shared を検証</text>
+        <path d="M204 250 H234" fill="none" stroke="#9CA3AF" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#f2arw)"/>
+
+        <!-- 注記 -->
+        <text x="700" y="240" font-size="11" fill="#4A535C">Client は Server の API のみを呼び、</text>
+        <text x="700" y="258" font-size="11" fill="#4A535C">Agent とは直接通信しない。</text>
+        <text x="700" y="280" font-size="11" fill="#4A535C">Agent は Server からのみ呼ばれる。</text>
+      </svg>
+      <figcaption>図 2：プロジェクトの依存関係。3 つの実行体がいずれも <code>Watashi.Shared</code> を参照することで、DTO と CIFS アクセスの実装が 1 か所に集約されています。クライアントが Agent を直接呼ぶ経路は存在しません。</figcaption>
+    </figure>
+
+    <table>
+      <thead><tr><th style="width:170px">プロジェクト</th><th>責務</th><th style="width:250px">主な構成要素</th></tr></thead>
+      <tbody>
+        <tr><td><b>Watashi.Client</b></td><td>利用者 UI と管理 UI。API 呼び出し、トークンの保持と自動更新、ローカルファイル I/O</td><td><code>MainViewModel</code> / <code>LocalPaneViewModel</code> / <code>RemotePaneViewModel</code> / <code>TransferViewModel</code> / <code>ApiClient</code> / <code>SessionManager</code> / <code>DeploymentConfig</code></td></tr>
+        <tr><td><b>Watashi.Server</b></td><td>認証・認可・監査・ルーティング・SMB アクセスの中枢。唯一クライアントが接続する先</td><td><code>AuthService</code> / <code>PermissionService</code> / <code>AuditLogService</code> / <code>NodeRouter</code> / <code>AgentForwarder</code> / <code>NodeHealthMonitor</code> / <code>EncryptionService</code></td></tr>
+        <tr><td><b>Watashi.Agent</b></td><td>踏み台での中継。中央から受けた操作を SMB に変換して実行し、結果を返す</td><td><code>AgentEndpoints</code> / <code>HeartbeatService</code> / <code>LogSyncService</code> / <code>ConcurrencyLimiter</code></td></tr>
+        <tr><td><b>Watashi.Shared</b></td><td>3 者で共有するモデル・DTO・定数・ヘルパーと、CIFS アクセスの実装本体</td><td><code>Models</code> / <code>DTOs</code> / <code>PathHelper</code> / <code>CsvHelper</code> / <code>CifsService</code> / <code>CifsSessionPool</code></td></tr>
+        <tr><td><b>Watashi.Tests</b></td><td>単体テスト。パス正規化・権限判定・認証・暗号・CSV・監査ログ・セッションプール等</td><td>xUnit + FluentAssertions、SQLite in-memory の <code>TestDb</code></td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <b>フォルダ構成</b>：<code>src/</code> に 4 プロジェクト、<code>tests/</code> にテスト、<code>deploy/</code> にサービス登録スクリプトと ClickOnce / IIS 用の設定、<code>docs/</code> に本書を含むドキュメントが置かれています。
+    </div>
+
+    <!-- ============================================================
+         第 2 部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 2 部</span>
+      <div>
+        <p class="ptitle">どう動くのか</p>
+        <p class="psub">1 回の操作がどこを通り、どの経路を選び、どう配布されるのか</p>
+      </div>
+    </div>
+
+    <!-- ===== 4 章 ===== -->
+    <h2 id="ch4"><span class="n">4</span>1 回のリクエストが処理される流れ</h2>
+
+    <p class="lead">クライアントからの操作は、種類を問わず<b>同じ 5 段階</b>を通ります。「認可 → コンテキスト構築 → 実行 → 監査ログ → エラーマップ」で、これは中央サーバー側の共通ヘルパー <code>ExecuteAsync</code> に実装されています。個々のエンドポイントが独自に認可や記録を書くことはありません。</p>
+
+    <figure>
+      <svg viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ファイル一覧取得の処理シーケンス図。クライアント、中央サーバー、実行ノード、ファイルサーバーの 4 者のやり取り">
+        <defs>
+          <marker id="f3arw" markerWidth="10" markerHeight="10" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1B2A41"/></marker>
+          <marker id="f3arwD" markerWidth="10" markerHeight="10" refX="9" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#6B7280"/></marker>
+        </defs>
+
+        <!-- ヘッダー -->
+        <rect x="20" y="22" width="150" height="42" rx="8" fill="#1B2A41"/>
+        <text x="95" y="48" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Watashi.Client</text>
+        <rect x="255" y="22" width="150" height="42" rx="8" fill="#C73E1D"/>
+        <text x="330" y="48" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">Watashi.Server</text>
+        <rect x="490" y="22" width="150" height="42" rx="8" fill="#1B2A41"/>
+        <text x="565" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">実行ノード</text>
+        <text x="565" y="57" text-anchor="middle" font-size="9.5" fill="#c8d3e3">Direct 自身 / Agent</text>
+        <rect x="725" y="22" width="150" height="42" rx="8" fill="#4A535C"/>
+        <text x="800" y="48" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">ファイルサーバー</text>
+
+        <!-- ライフライン -->
+        <line x1="95" y1="64" x2="95" y2="462" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="5 5"/>
+        <line x1="330" y1="64" x2="330" y2="462" stroke="#C73E1D" stroke-width="1.2" stroke-dasharray="5 5"/>
+        <line x1="565" y1="64" x2="565" y2="462" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="5 5"/>
+        <line x1="800" y1="64" x2="800" y2="462" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="5 5"/>
+
+        <!-- ① -->
+        <line x1="95" y1="100" x2="322" y2="100" stroke="#1B2A41" stroke-width="2" marker-end="url(#f3arw)"/>
+        <circle cx="105" cy="88" r="9" fill="#C73E1D"/><text x="105" y="92" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1</text>
+        <text x="122" y="93" font-size="11" fill="#1F2328">GET /api/files（Bearer トークン付き）</text>
+
+        <!-- ② 自己処理 -->
+        <rect x="338" y="116" width="230" height="40" rx="7" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.2"/>
+        <text x="453" y="133" text-anchor="middle" font-size="11" fill="#5C1A0B">JWT を検証し、利用者を特定</text>
+        <text x="453" y="149" text-anchor="middle" font-size="10.5" fill="#6B7280">失効・ロック・パスワード期限も確認</text>
+        <path d="M330 120 h6" stroke="#C73E1D" stroke-width="2"/>
+        <circle cx="322" cy="126" r="9" fill="#C73E1D"/><text x="322" y="130" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">2</text>
+
+        <!-- ③ 認可 -->
+        <rect x="338" y="168" width="230" height="54" rx="7" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.2"/>
+        <text x="453" y="186" text-anchor="middle" font-size="11" fill="#5C1A0B">PermissionService で認可判定</text>
+        <text x="453" y="202" text-anchor="middle" font-size="10.5" fill="#6B7280">パス正規化 → 許可範囲内かを確認</text>
+        <text x="453" y="216" text-anchor="middle" font-size="10.5" fill="#6B7280">結果はリクエスト内でメモ化 (DB 参照は 1 回)</text>
+        <path d="M330 172 h6" stroke="#C73E1D" stroke-width="2"/>
+        <circle cx="322" cy="178" r="9" fill="#C73E1D"/><text x="322" y="182" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">3</text>
+
+        <!-- 拒否分岐 -->
+        <path d="M330 236 H120" fill="none" stroke="#CF222E" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f3arwD)"/>
+        <text x="225" y="226" text-anchor="middle" font-size="10.5" fill="#CF222E">範囲外なら 403 + 監査ログに denied を記録して終了</text>
+
+        <!-- ④ ルーティング -->
+        <rect x="338" y="252" width="230" height="40" rx="7" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.2"/>
+        <text x="453" y="269" text-anchor="middle" font-size="11" fill="#5C1A0B">NodeRouter が実行ノードを決定</text>
+        <text x="453" y="285" text-anchor="middle" font-size="10.5" fill="#6B7280">資格情報を復号してコンテキストを構築</text>
+        <path d="M330 256 h6" stroke="#C73E1D" stroke-width="2"/>
+        <circle cx="322" cy="262" r="9" fill="#C73E1D"/><text x="322" y="266" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">4</text>
+
+        <!-- ⑤ 委譲 -->
+        <line x1="330" y1="316" x2="557" y2="316" stroke="#1B2A41" stroke-width="2" marker-end="url(#f3arw)"/>
+        <circle cx="340" cy="304" r="9" fill="#C73E1D"/><text x="340" y="308" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">5</text>
+        <text x="356" y="309" font-size="10.5" fill="#1F2328">Direct は自身で実行 / Agent へは HTTPS 転送</text>
+
+        <!-- ⑥ SMB -->
+        <line x1="565" y1="350" x2="792" y2="350" stroke="#1F883D" stroke-width="2" marker-end="url(#f3arw)"/>
+        <circle cx="575" cy="338" r="9" fill="#C73E1D"/><text x="575" y="342" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">6</text>
+        <text x="682" y="343" text-anchor="middle" font-size="10.5" fill="#1F2328">SMB でフォルダ一覧を取得</text>
+
+        <!-- 戻り -->
+        <line x1="800" y1="376" x2="573" y2="376" stroke="#6B7280" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f3arwD)"/>
+        <line x1="565" y1="400" x2="338" y2="400" stroke="#6B7280" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#f3arwD)"/>
+        <text x="452" y="394" text-anchor="middle" font-size="10.5" fill="#6B7280">一覧データ</text>
+
+        <!-- ⑦ 監査 -->
+        <rect x="338" y="410" width="230" height="34" rx="7" fill="#E6F5EB" stroke="#1F883D" stroke-width="1.2"/>
+        <text x="453" y="431" text-anchor="middle" font-size="11" fill="#155e2e">監査ログを記録 (成否・所要時間・バイト数)</text>
+        <path d="M330 414 h6" stroke="#1F883D" stroke-width="2"/>
+        <circle cx="322" cy="420" r="9" fill="#C73E1D"/><text x="322" y="424" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">7</text>
+
+        <!-- ⑧ 応答 -->
+        <line x1="330" y1="462" x2="103" y2="462" stroke="#C73E1D" stroke-width="2" marker-end="url(#f3arwD)"/>
+        <circle cx="320" cy="450" r="9" fill="#C73E1D"/><text x="320" y="454" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">8</text>
+        <text x="216" y="455" text-anchor="middle" font-size="10.5" fill="#1F2328">JSON で返却 (内部例外はマスク)</text>
+      </svg>
+      <figcaption>図 3：ファイル一覧取得の処理シーケンス。ダウンロード・アップロード・削除・リネーム・フォルダ作成も、⑥ の中身が変わるだけで前後の流れは同一です。認可で弾かれた場合も監査ログに <code>denied</code> として残ります。</figcaption>
+    </figure>
+
+    <h3>4.1 共通ヘルパー <code>ExecuteAsync</code> が保証すること</h3>
+    <table>
+      <thead><tr><th style="width:170px">段階</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><b>① 認可</b></td><td>操作種別 (READ / WRITE / DELETE / RENAME …) と対象パスから <code>PermissionService.CanPerformAsync</code> を呼び、許可がなければ 403。判定結果は <code>HttpContext.Items</code> にメモ化され、同一リクエスト内で何度呼んでも DB 参照は 1 回</td></tr>
+        <tr><td><b>② コンテキスト構築</b></td><td>ホスト・共有・実行ノードを解決し、暗号化されたファイルサーバー資格情報を復号して接続情報を組み立てる</td></tr>
+        <tr><td><b>③ 実行</b></td><td><code>NodeRouter</code> が Direct / Agent を振り分け、SMB 操作を実行する</td></tr>
+        <tr><td><b>④ 監査ログ</b></td><td>成功・失敗・拒否のいずれでも 1 行記録する。所要時間・転送バイト数・接続プロトコル・使用した権限 ID も残す</td></tr>
+        <tr><td><b>⑤ エラーマップ</b></td><td>内部例外は <code>Results.Problem</code> で汎用メッセージにマスクし、スタックトレースや内部パスをクライアントへ返さない。Agent 側で発生したエラーはステータスコードを保ったまま中央へ伝播する</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===== 5 章 ===== -->
+    <h2 id="ch5"><span class="n">5</span>ネットワーク構成とポート</h2>
+
+    <p class="lead">通信経路は <b>区間 A (クライアント ⇄ 中央サーバー)</b> と <b>区間 B (中央サーバー ⇄ Agent)</b> の 2 つで、それぞれ独立に HTTP / HTTPS を選べます。区間 B は実行ノードごとに選択できます。</p>
+
+    <h3>5.1 3 つの構成モード</h3>
+    <table>
+      <thead><tr><th style="width:150px">モード</th><th style="width:130px">区間 A</th><th style="width:170px">区間 B</th><th style="width:80px">mTLS</th><th>想定環境</th></tr></thead>
+      <tbody>
+        <tr><td><b>A: 全 HTTPS + mTLS</b><br><span class="pill ok">推奨</span></td><td>HTTPS</td><td>HTTPS + クライアント証明書</td><td class="yes">ON</td><td>本番。踏み台が別のセキュリティゾーンにある場合</td></tr>
+        <tr><td><b>B: 混在</b></td><td>HTTPS</td><td>HTTP + 共有秘密</td><td class="no">OFF</td><td>中央サーバーと Agent が同一の信頼ゾーンにある場合</td></tr>
+        <tr><td><b>C: 全 HTTP</b><br><span class="pill ng">本番不可</span></td><td>HTTP</td><td>HTTP</td><td class="no">OFF</td><td>検証・内部ラボ専用</td></tr>
+      </tbody>
+    </table>
+
+    <div class="warn">
+      区間 A にはファイルの中身とパスワードが流れるため、<b>本番では区間 A の HTTPS は必須</b>です。区間 B が社内 LAN 内で完結するなら HTTP + 共有秘密でも実用上は成立しますが、個人情報など規制対象を扱う経路は mTLS にしてください。<br>
+      HTTP 構成でも「この PC を記憶する」(自動ログイン) は利用できますが、デバイストークンが平文で流れます。サーバー側の <code>Auth:AllowHttpForAutoLogin</code> が <code>false</code> なら HTTP の自動ログインは 401 で拒否されます (本番は <code>false</code> 推奨)。
+    </div>
+
+    <h3>5.2 ポートと通信方向</h3>
+    <table>
+      <thead><tr><th style="width:190px">区間</th><th style="width:130px">既定ポート</th><th style="width:110px">発信側</th><th>ファイアウォールで開ける向き</th></tr></thead>
+      <tbody>
+        <tr><td>クライアント → 中央サーバー</td><td>8443 (HTTPS)<br>8080 (HTTP)</td><td>クライアント</td><td>利用者セグメント → 中央サーバー</td></tr>
+        <tr><td>中央サーバー → Agent</td><td>8443 / 8081</td><td>中央サーバー</td><td>中央サーバーの IP からのみ踏み台へ</td></tr>
+        <tr><td>Agent → 中央サーバー</td><td>8443 / 8080</td><td>Agent</td><td>ハートビートとバッファ済み監査ログの送信のみ</td></tr>
+        <tr><td>中央サーバー / Agent → ファイルサーバー</td><td>445 (SMB)</td><td>中央サーバー / Agent</td><td>実行ノード → ファイルサーバー</td></tr>
+      </tbody>
+    </table>
+    <p class="fn">ポートは Server / Agent とも <code>appsettings.json</code> の <code>Kestrel:Endpoints</code> の URL を書き換えるだけで変更できます (開発時の既定は 18080 / 18443)。変更した場合は、中央 DB に登録した実行ノードの <code>Endpoint</code> も合わせて更新してください。</p>
+
+    <!-- ===== 6 章 ===== -->
+    <h2 id="ch6"><span class="n">6</span>ノードルーティングと Agent (踏み台)</h2>
+
+    <p class="lead">ホストごとに「どの実行ノードから SMB 接続するか」を管理者が指定します。中央サーバーの <code>NodeRouter</code> がこの指定を見て、自分で SMB を張るか、踏み台へ転送するかを振り分けます。</p>
+
+    <figure>
+      <svg viewBox="0 0 900 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ノードルーティングの 3 パターン。Direct、Agent 1 段、ゲートウェイ経由の 1 段チェーン">
+        <defs>
+          <marker id="f4arw" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1B2A41"/></marker>
+          <marker id="f4arwG" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1F883D"/></marker>
+        </defs>
+
+        <!-- パターン 1 -->
+        <rect x="16" y="20" width="868" height="112" rx="11" fill="#FAFBFC" stroke="#D5D9DE"/>
+        <rect x="30" y="34" width="112" height="24" rx="12" fill="#1B2A41"/>
+        <text x="86" y="51" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">パターン 1</text>
+        <text x="156" y="51" font-size="12.5" font-weight="700" fill="#1B2A41">Direct — 中央サーバーが自分で SMB を張る</text>
+        <text x="156" y="70" font-size="11" fill="#6B7280">中央サーバーからファイルサーバーへ直接届く場合。踏み台は不要で、ホップが最も少ない</text>
+
+        <rect x="180" y="82" width="150" height="36" rx="8" fill="#fff" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="255" y="105" text-anchor="middle" font-size="11.5" fill="#5C1A0B">中央サーバー</text>
+        <line x1="330" y1="100" x2="452" y2="100" stroke="#1F883D" stroke-width="2.2" marker-end="url(#f4arwG)"/>
+        <text x="391" y="94" text-anchor="middle" font-size="10.5" fill="#1F883D">SMB</text>
+        <rect x="460" y="82" width="150" height="36" rx="8" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="535" y="105" text-anchor="middle" font-size="11.5" fill="#1F2328">ファイルサーバー</text>
+        <text x="640" y="105" font-size="11" fill="#6B7280">HealthStatus は常に Healthy</text>
+
+        <!-- パターン 2 -->
+        <rect x="16" y="146" width="868" height="112" rx="11" fill="#FAFBFC" stroke="#D5D9DE"/>
+        <rect x="30" y="160" width="112" height="24" rx="12" fill="#1B2A41"/>
+        <text x="86" y="177" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">パターン 2</text>
+        <text x="156" y="177" font-size="12.5" font-weight="700" fill="#1B2A41">Agent — 踏み台が代わりに SMB を張る</text>
+        <text x="156" y="196" font-size="11" fill="#6B7280">中央から直接届かない網。中央は HTTP(S) で踏み台へ転送し、踏み台が SMB に変換する</text>
+
+        <rect x="180" y="208" width="132" height="36" rx="8" fill="#fff" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="246" y="231" text-anchor="middle" font-size="11.5" fill="#5C1A0B">中央サーバー</text>
+        <line x1="312" y1="226" x2="374" y2="226" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#f4arw)"/>
+        <text x="343" y="220" text-anchor="middle" font-size="10" fill="#1B2A41">HTTPS</text>
+        <rect x="382" y="208" width="132" height="36" rx="8" fill="#fff" stroke="#1B2A41" stroke-width="1.6"/>
+        <text x="448" y="231" text-anchor="middle" font-size="11.5" fill="#1B2A41">Agent</text>
+        <line x1="514" y1="226" x2="576" y2="226" stroke="#1F883D" stroke-width="2.2" marker-end="url(#f4arwG)"/>
+        <text x="545" y="220" text-anchor="middle" font-size="10" fill="#1F883D">SMB</text>
+        <rect x="584" y="208" width="140" height="36" rx="8" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="654" y="231" text-anchor="middle" font-size="11.5" fill="#1F2328">ファイルサーバー</text>
+        <text x="740" y="231" font-size="11" fill="#6B7280">Unhealthy なら即 503</text>
+
+        <!-- パターン 3 -->
+        <rect x="16" y="272" width="868" height="128" rx="11" fill="#FAFBFC" stroke="#D5D9DE"/>
+        <rect x="30" y="286" width="112" height="24" rx="12" fill="#1B2A41"/>
+        <text x="86" y="303" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">パターン 3</text>
+        <text x="156" y="303" font-size="12.5" font-weight="700" fill="#1B2A41">1 段チェーン — 踏み台をもう 1 つ挟む</text>
+        <text x="156" y="322" font-size="11" fill="#6B7280">目的の踏み台へも直接届かない場合。ゲートウェイ役の Agent が中継する (チェーンは 1 段まで)</text>
+
+        <rect x="120" y="336" width="118" height="36" rx="8" fill="#fff" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="179" y="359" text-anchor="middle" font-size="11" fill="#5C1A0B">中央サーバー</text>
+        <line x1="238" y1="354" x2="286" y2="354" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#f4arw)"/>
+        <rect x="294" y="336" width="130" height="36" rx="8" fill="#fff" stroke="#1B2A41" stroke-width="1.6"/>
+        <text x="359" y="353" text-anchor="middle" font-size="11" fill="#1B2A41">Agent (Gateway)</text>
+        <text x="359" y="367" text-anchor="middle" font-size="9.5" fill="#6B7280">GatewayNodeId で指定</text>
+        <line x1="424" y1="354" x2="472" y2="354" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#f4arw)"/>
+        <rect x="480" y="336" width="130" height="36" rx="8" fill="#fff" stroke="#1B2A41" stroke-width="1.6"/>
+        <text x="545" y="353" text-anchor="middle" font-size="11" fill="#1B2A41">Agent (Target)</text>
+        <text x="545" y="367" text-anchor="middle" font-size="9.5" fill="#6B7280">共有秘密で認証</text>
+        <line x1="610" y1="354" x2="658" y2="354" stroke="#1F883D" stroke-width="2.2" marker-end="url(#f4arwG)"/>
+        <rect x="666" y="336" width="140" height="36" rx="8" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="736" y="359" text-anchor="middle" font-size="11" fill="#1F2328">ファイルサーバー</text>
+
+        <text x="450" y="418" text-anchor="middle" font-size="11" fill="#6B7280">いずれのパターンでも、転送はリレー方式でストリーミングされ、途中でファイル全体をメモリに展開することはありません</text>
+      </svg>
+      <figcaption>図 4：ノードルーティングの 3 パターン。ホストに紐づく実行ノードの種別 (<code>Direct</code> / <code>Agent</code>) と <code>GatewayNodeId</code> の有無だけで決まり、利用者の操作は 3 パターンとも同じです。</figcaption>
+    </figure>
+
+    <h3>6.1 中継時の取り決め</h3>
+    <ul>
+      <li><b>資格情報の渡し方</b> — ファイルサーバーの資格情報は POST の本文、またはヘッダー <code>X-Watashi-Cifs</code> (Base64 の JSON) で渡します。URL のクエリ文字列には載せません (アクセスログへの平文残留を避けるため)。</li>
+      <li><b>Agent 側では永続化しない</b> — 受け取った資格情報はメモリ上でのみ使い、ディスクには書きません。</li>
+      <li><b>到達性の事前判定</b> — 経路上の Agent (チェーンの場合はゲートウェイ側) が <code>Unhealthy</code> なら、SMB を試みずに即座に 503 を返します。無駄なリトライは行いません。</li>
+      <li><b>過負荷制御</b> — Agent は同時処理数が <code>MaxConcurrency</code> (既定 20) を超えると <code>503</code> + <code>Retry-After: 5</code> を返します。</li>
+    </ul>
+
+    <h3>6.2 Agent の受け口の認証</h3>
+    <table>
+      <thead><tr><th style="width:170px">モード</th><th>仕組み</th></tr></thead>
+      <tbody>
+        <tr><td><b>mTLS</b></td><td>中央サーバーが提示するクライアント証明書のサムプリントを、Agent 側の <code>Auth:CentralCertificateThumbprint</code> と照合する</td></tr>
+        <tr><td><b>共有秘密</b></td><td>ヘッダー <code>X-Watashi-Secret</code> の値を、Agent 側の <code>Auth:SharedSecret</code> と一致確認する</td></tr>
+        <tr><td><b>どちらも未設定</b></td><td class="no">すべてのアクセスを 401 で拒否する (設定漏れが「素通し」にならない設計)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>6.3 ハートビートと健全性判定</h3>
+    <table>
+      <thead><tr><th style="width:200px">動作</th><th style="width:120px">周期 / しきい値</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>Agent → 中央 ハートビート</td><td>30 秒ごと</td><td><code>POST /api/internal/heartbeat</code>。mTLS 構成では証明書を提示する。応答で中央側の <code>MaxConcurrency</code> が返り、Agent に反映される</td></tr>
+        <tr><td>中央のヘルスモニタ</td><td>15 秒ごと</td><td>各 Agent ノードの最終ハートビート時刻を点検する</td></tr>
+        <tr><td>Unhealthy 判定</td><td>90 秒以上未着</td><td><code>Unhealthy</code> に変更。復帰すると <code>Healthy</code> に戻る。状態が変わったノードだけを更新する</td></tr>
+        <tr><td>チェーン配下の Agent</td><td>—</td><td>中央へ直接ハートビートできない場合は <code>Unknown</code> のままとし、実際の操作時の到達性で判断する</td></tr>
+        <tr><td>Direct ノード</td><td>—</td><td>中央サーバー自身なので常に <code>Healthy</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3>6.4 SMB セッションプール</h3>
+    <p>操作のたびに TCP 接続・SMB ネゴシエーション・ログイン・共有への接続をやり直すと、小さな操作でも待ち時間が積み上がります。そこで <code>(ホスト, ポート, ユーザー, 共有)</code> をキーにしたセッションプールを中央サーバーと Agent の双方で使います。</p>
+    <ul>
+      <li>アイドル保持時間の既定は <b>60 秒</b> (<code>Cifs:SessionIdleSeconds</code>)、キーあたりの上限は既定 <b>4</b> (<code>Cifs:MaxSessionsPerKey</code>)</li>
+      <li>バックグラウンドのタイマーが、使われなくなったセッションを自動的に破棄する</li>
+      <li>同時転送が多い環境では上限を、接続コストが高い環境では保持時間を調整する</li>
+    </ul>
+
+    <!-- ===== 7 章 ===== -->
+    <h2 id="ch7"><span class="n">7</span>配布と接続先の固定 (deployment.json / ClickOnce)</h2>
+
+    <div class="note">
+      <b>本章はこのシステムのガバナンスの要です。</b>「クライアント側から接続先を変えられない」ことが設計上の必須要件であり、そのために利用者向けの設定画面をあえて持たせていません。
+    </div>
+
+    <h3>7.1 deployment.json — 配布時に管理者が固定する設定</h3>
+    <p>接続先サーバーと一部機能の可否は、アプリに同梱する読み取り専用の <code>deployment.json</code> で決まります。管理者が発行前に編集し、利用者は変更できません。</p>
+
+<pre><code>{
+  "serverUrl": "https://watashi.internal",
+  "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application",
+  "enableDragDrop": true,
+  "fileTransferTimeoutMinutes": 30
+}</code></pre>
+
+    <table>
+      <thead><tr><th style="width:230px">キー</th><th style="width:110px">既定</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td><code>serverUrl</code></td><td><span class="pill">必須</span></td><td>接続先の中央サーバー URL。スキーム (<code>https</code> / <code>http</code>) から <code>IsHttps</code> を判定し、画面表示と実際の通信の整合性を保証する</td></tr>
+        <tr><td><code>updateManifestUrl</code></td><td><span class="pill">必須</span></td><td>起動時に確認する ClickOnce 配置マニフェストの URL。exe を直接起動した場合もこの URL で公開版を確認する</td></tr>
+        <tr><td><code>enableDragDrop</code></td><td><code>true</code></td><td>ドラッグ &amp; ドロップ機能を有効にするか</td></tr>
+        <tr><td><code>fileTransferTimeoutMinutes</code></td><td><code>30</code></td><td>ファイル転送 1 件あたりのタイムアウト (分)。0 以下を指定した場合は 30 に正規化される</td></tr>
+      </tbody>
+    </table>
+
+    <figure>
+      <svg viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="クライアント起動時の設定適用フロー。deployment.json が settings.json を上書きし、不備があれば起動を中止する">
+        <defs>
+          <marker id="f5arw" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1B2A41"/></marker>
+          <marker id="f5arwR" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#CF222E"/></marker>
+        </defs>
+
+        <!-- 起動 -->
+        <rect x="330" y="20" width="180" height="38" rx="19" fill="#1B2A41"/>
+        <text x="420" y="44" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">クライアント起動</text>
+        <line x1="420" y1="58" x2="420" y2="80" stroke="#1B2A41" stroke-width="1.8" marker-end="url(#f5arw)"/>
+
+        <!-- settings.json 読み込み -->
+        <rect x="300" y="86" width="240" height="46" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="420" y="106" text-anchor="middle" font-size="11.5" fill="#1F2328">利用者ごとの settings.json を読む</text>
+        <text x="420" y="123" text-anchor="middle" font-size="10" fill="#6B7280">%LocalAppData%\Watashi\settings.json</text>
+        <line x1="420" y1="132" x2="420" y2="154" stroke="#1B2A41" stroke-width="1.8" marker-end="url(#f5arw)"/>
+
+        <!-- deployment.json 適用 -->
+        <rect x="286" y="160" width="268" height="50" rx="9" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.8"/>
+        <text x="420" y="181" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5C1A0B">同梱 deployment.json を上書き適用</text>
+        <text x="420" y="199" text-anchor="middle" font-size="10" fill="#5C1A0B">exe と同じフォルダの読み取り専用設定</text>
+
+        <!-- 左: 上書きされる項目 -->
+        <rect x="24" y="150" width="228" height="120" rx="9" fill="#FAFBFC" stroke="#D5D9DE"/>
+        <text x="138" y="172" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B2A41">deployment.json が決める</text>
+        <text x="40" y="194" font-size="10.5" fill="#4A535C">・接続先サーバー URL</text>
+        <text x="40" y="213" font-size="10.5" fill="#4A535C">・更新マニフェスト URL</text>
+        <text x="40" y="232" font-size="10.5" fill="#4A535C">・ドラッグ &amp; ドロップの可否</text>
+        <text x="40" y="251" font-size="10.5" fill="#4A535C">・転送タイムアウト</text>
+        <text x="138" y="266" text-anchor="middle" font-size="10" fill="#C73E1D">settings.json には保存されない</text>
+        <line x1="252" y1="185" x2="280" y2="185" stroke="#C73E1D" stroke-width="1.8" marker-end="url(#f5arw)"/>
+
+        <!-- 右: settings.json が持つもの -->
+        <rect x="588" y="150" width="288" height="120" rx="9" fill="#FAFBFC" stroke="#D5D9DE"/>
+        <text x="732" y="172" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B2A41">settings.json が持つ</text>
+        <text x="604" y="194" font-size="10.5" fill="#4A535C">・最後に開いていたローカルパス</text>
+        <text x="604" y="213" font-size="10.5" fill="#4A535C">・その他、利用者ごとの軽微な画面状態</text>
+        <text x="732" y="240" text-anchor="middle" font-size="10.5" fill="#6B7280">接続先に関わる情報は一切含まない</text>
+        <text x="732" y="259" text-anchor="middle" font-size="10.5" fill="#6B7280">(書き換えても接続先は変わらない)</text>
+
+        <!-- 判定 -->
+        <path d="M420 210 L420 232" stroke="#1B2A41" stroke-width="1.8" marker-end="url(#f5arw)"/>
+        <path d="M420 238 L546 282 L420 326 L294 282 Z" fill="#FFF6E0" stroke="#BF8700" stroke-width="1.6"/>
+        <text x="420" y="278" text-anchor="middle" font-size="11" font-weight="700" fill="#7a5600">serverUrl と</text>
+        <text x="420" y="294" text-anchor="middle" font-size="11" font-weight="700" fill="#7a5600">updateManifestUrl があるか</text>
+
+        <!-- NG -->
+        <line x1="294" y1="282" x2="200" y2="282" stroke="#CF222E" stroke-width="1.8" marker-end="url(#f5arwR)"/>
+        <text x="247" y="275" text-anchor="middle" font-size="10.5" font-weight="700" fill="#CF222E">なし</text>
+        <rect x="24" y="292" width="180" height="56" rx="9" fill="#FFE9EA" stroke="#CF222E" stroke-width="1.6"/>
+        <text x="114" y="314" text-anchor="middle" font-size="11" font-weight="700" fill="#8a1119">「配布設定エラー」を表示</text>
+        <text x="114" y="332" text-anchor="middle" font-size="10.5" fill="#8a1119">起動を中止 (設定画面は出さない)</text>
+
+        <!-- OK -->
+        <line x1="546" y1="282" x2="640" y2="282" stroke="#1F883D" stroke-width="1.8" marker-end="url(#f5arw)"/>
+        <text x="593" y="275" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1F883D">あり</text>
+        <rect x="648" y="292" width="228" height="56" rx="9" fill="#E6F5EB" stroke="#1F883D" stroke-width="1.6"/>
+        <text x="762" y="314" text-anchor="middle" font-size="11" font-weight="700" fill="#155e2e">ログイン画面へ</text>
+        <text x="762" y="332" text-anchor="middle" font-size="10.5" fill="#155e2e">接続テストは疎通確認のみ (編集不可)</text>
+
+        <text x="450" y="382" text-anchor="middle" font-size="11" fill="#6B7280">ClickOnce はマニフェストでファイルのハッシュを検証するため、配布後に deployment.json を書き換えると起動できません</text>
+      </svg>
+      <figcaption>図 5：起動時の設定適用フロー。<code>deployment.json</code> が唯一の接続先情報であり、欠落や設定漏れは「設定画面を出して直してもらう」のではなく、起動を止めるゲートとして扱われます。</figcaption>
+    </figure>
+
+    <h3>7.2 接続テスト画面 (編集 UI は持たない)</h3>
+    <p>ログイン画面の「接続テスト」は、<b>固定された接続先に対する疎通確認専用</b>です。接続先 URL とドラッグ &amp; ドロップの有効状態を読み取り専用で表示し、<code>/health</code> を呼んで結果を出すだけで、接続先を編集する UI は存在しません。</p>
+
+    <h3>7.3 ドラッグ &amp; ドロップの配布時ゲート</h3>
+    <p>ドラッグ &amp; ドロップは <code>enableDragDrop</code> でゲートされます。実装は専用のファイル (<code>MainWindow.DragDrop.cs</code>) に隔離されており、無効の場合は<b>イベントハンドラ自体を登録しません</b>。画面上でボタンを隠すだけの制御ではないため、無効配布時に機能が動く余地がありません。</p>
+
+    <h3>7.4 ClickOnce による配布と更新</h3>
+    <ul>
+      <li>配布 URL (例: <code>https://watashi.internal/install/Watashi.Client.application</code>) からインストールする</li>
+      <li>ショートカットからの起動時は ClickOnce が更新を確認する。exe を直接起動した場合も、アプリ自身が <code>updateManifestUrl</code> を確認し、新しい版があれば ClickOnce の更新を起動する</li>
+      <li>接続先を変更するには<b>再発行 (re-publish) が必要</b>。配布済みファイルの書き換えでは変更できない</li>
+      <li>配布サーバー (IIS) 側で <code>.application</code> / <code>.manifest</code> / <code>.deploy</code> の MIME 登録が必要</li>
+    </ul>
+
+    <!-- ============================================================
+         第 3 部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 3 部</span>
+      <div>
+        <p class="ptitle">安全性と統制</p>
+        <p class="psub">誰であることを確かめ、どこまで許し、何を記録するか</p>
+      </div>
+    </div>
+
+    <!-- ===== 8 章 ===== -->
+    <h2 id="ch8"><span class="n">8</span>認証・セッション管理</h2>
+
+    <h3>8.1 ログイン方式</h3>
+    <table>
+      <thead><tr><th style="width:200px">方式</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><b>手動ログイン</b></td><td>ユーザー名 + パスワード。パスワード欄は目のアイコンで平文表示とマスクを切り替えられる (打ち間違いの確認用)</td></tr>
+        <tr><td><b>自動ログイン</b><br><span class="fn">(信頼デバイス)</span></td><td>PC 名 + Windows ユーザー名 + デバイストークンの組で、次回から入力なしでログインする。ログイン画面のチェックボックスで有効化する</td></tr>
+      </tbody>
+    </table>
+
+    <h3>8.2 トークンのライフサイクル</h3>
+
+    <figure>
+      <svg viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="アクセストークンとリフレッシュトークンのライフサイクル、およびローテーションと盗難検知の仕組み">
+        <defs>
+          <marker id="f6arw" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#1B2A41"/></marker>
+          <marker id="f6arwR" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#CF222E"/></marker>
+        </defs>
+
+        <!-- 上段: 時間軸 -->
+        <text x="30" y="34" font-size="12.5" font-weight="700" fill="#1B2A41">① 通常のセッション（時間の流れ）</text>
+
+        <line x1="40" y1="112" x2="866" y2="112" stroke="#9CA3AF" stroke-width="1.6" marker-end="url(#f6arw)"/>
+        <!-- ログイン -->
+        <circle cx="70" cy="112" r="7" fill="#C73E1D"/>
+        <text x="70" y="94" text-anchor="middle" font-size="11" font-weight="700" fill="#5C1A0B">ログイン</text>
+        <!-- アクセストークン区間 -->
+        <rect x="70" y="122" width="150" height="24" rx="6" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.2"/>
+        <text x="145" y="139" text-anchor="middle" font-size="10.5" fill="#0b4a8f">アクセストークン 15 分</text>
+        <rect x="230" y="122" width="150" height="24" rx="6" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.2"/>
+        <text x="305" y="139" text-anchor="middle" font-size="10.5" fill="#0b4a8f">アクセストークン 15 分</text>
+        <rect x="390" y="122" width="150" height="24" rx="6" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.2"/>
+        <text x="465" y="139" text-anchor="middle" font-size="10.5" fill="#0b4a8f">アクセストークン 15 分</text>
+        <text x="580" y="139" font-size="11" fill="#6B7280">… 期限が切れるたびに自動で更新（利用者は気づかない）</text>
+
+        <!-- 更新点 -->
+        <circle cx="225" cy="112" r="5" fill="#0969DA"/><circle cx="385" cy="112" r="5" fill="#0969DA"/>
+        <text x="225" y="100" text-anchor="middle" font-size="9.5" fill="#0969DA">更新</text>
+        <text x="385" y="100" text-anchor="middle" font-size="9.5" fill="#0969DA">更新</text>
+
+        <!-- リフレッシュトークン区間 -->
+        <rect x="70" y="156" width="700" height="24" rx="6" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.2"/>
+        <text x="420" y="173" text-anchor="middle" font-size="10.5" fill="#5C1A0B">リフレッシュトークン 30 日（更新のたびに新しいものへ置き換わる）</text>
+
+        <!-- アイドル -->
+        <rect x="70" y="190" width="290" height="24" rx="6" fill="#FFF6E0" stroke="#BF8700" stroke-width="1.2"/>
+        <text x="215" y="207" text-anchor="middle" font-size="10.5" fill="#7a5600">無操作 30 分で自動ログアウト（既定値・変更可）</text>
+        <text x="378" y="207" font-size="10.5" fill="#6B7280">操作するたびにリセットされる</text>
+
+        <!-- 下段: ローテーションと盗難検知 -->
+        <line x1="30" y1="238" x2="870" y2="238" stroke="#D5D9DE" stroke-width="1" stroke-dasharray="5 4"/>
+        <text x="30" y="266" font-size="12.5" font-weight="700" fill="#1B2A41">② 更新のたびに使い捨てる（ローテーション）と、盗難の検知</text>
+
+        <!-- 正常フロー -->
+        <rect x="40" y="286" width="120" height="40" rx="8" fill="#fff" stroke="#1F883D" stroke-width="1.6"/>
+        <text x="100" y="303" text-anchor="middle" font-size="11" font-weight="700" fill="#155e2e">トークン A</text>
+        <text x="100" y="318" text-anchor="middle" font-size="9.5" fill="#6B7280">有効</text>
+        <line x1="160" y1="306" x2="212" y2="306" stroke="#1B2A41" stroke-width="1.8" marker-end="url(#f6arw)"/>
+        <text x="186" y="298" text-anchor="middle" font-size="9.5" fill="#4A535C">更新</text>
+
+        <rect x="220" y="272" width="128" height="34" rx="8" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="1.4"/>
+        <text x="284" y="293" text-anchor="middle" font-size="10.5" fill="#6B7280">A は即座に失効</text>
+        <rect x="220" y="312" width="128" height="34" rx="8" fill="#fff" stroke="#1F883D" stroke-width="1.6"/>
+        <text x="284" y="333" text-anchor="middle" font-size="10.5" font-weight="700" fill="#155e2e">トークン B を発行</text>
+        <path d="M212 306 L220 289 M212 306 L220 329" stroke="#1B2A41" stroke-width="1.4" fill="none"/>
+
+        <!-- 盗難シナリオ -->
+        <rect x="404" y="278" width="150" height="42" rx="8" fill="#FFE9EA" stroke="#CF222E" stroke-width="1.6"/>
+        <text x="479" y="297" text-anchor="middle" font-size="10.5" font-weight="700" fill="#8a1119">攻撃者が古い A を提示</text>
+        <text x="479" y="312" text-anchor="middle" font-size="9.5" fill="#8a1119">（盗まれたトークンの再利用）</text>
+        <line x1="554" y1="299" x2="606" y2="299" stroke="#CF222E" stroke-width="1.8" marker-end="url(#f6arwR)"/>
+        <text x="580" y="291" text-anchor="middle" font-size="9.5" fill="#CF222E">検知</text>
+
+        <rect x="614" y="272" width="246" height="56" rx="8" fill="#FFE9EA" stroke="#CF222E" stroke-width="1.8"/>
+        <text x="737" y="292" text-anchor="middle" font-size="11" font-weight="700" fill="#8a1119">その利用者の有効なトークンを全失効</text>
+        <text x="737" y="309" text-anchor="middle" font-size="10" fill="#8a1119">正規の利用者も含めて再ログインが必要になる</text>
+        <text x="737" y="323" text-anchor="middle" font-size="10" fill="#8a1119">＝ 盗んだ側も使い続けられない</text>
+
+        <!-- 注記 -->
+        <text x="40" y="368" font-size="10.5" fill="#4A535C">・同じトークンで同時に更新要求が来ても、後継トークンを発行できるのは 1 つだけ（直列化トランザクションで排他）</text>
+        <text x="40" y="388" font-size="10.5" fill="#4A535C">・パスワード変更より前に発行されたトークンは、その 1 本だけが無効になり、変更後に発行した新しいセッションは巻き添えにしない</text>
+        <text x="40" y="408" font-size="10.5" fill="#4A535C">・更新のたびに、アカウントのロック状態・信頼デバイスの失効・パスワード期限を DB で再確認する</text>
+      </svg>
+      <figcaption>図 6：トークンのライフサイクル。アクセストークンは短命 (15 分) で、裏側でリフレッシュトークンが自動更新します。リフレッシュトークンは使い捨てで、失効済みのものが再提示された場合は盗難とみなして一括失効させます。</figcaption>
+    </figure>
+
+    <table>
+      <thead><tr><th style="width:200px">項目</th><th style="width:130px">既定値</th><th>補足</th></tr></thead>
+      <tbody>
+        <tr><td>アクセストークン</td><td>15 分</td><td>JWT (HS256)。<code>Authorization: Bearer</code> で送る。クレームに利用者 ID と役割 (<code>Admin</code> / <code>User</code>) を含む。設定キーは <code>Jwt:AccessTokenMinutes</code></td></tr>
+        <tr><td>リフレッシュトークン</td><td>30 日</td><td>DB には bcrypt ハッシュのみ保存。設定キーは <code>Jwt:RefreshTokenDays</code></td></tr>
+        <tr><td>アイドルタイムアウト</td><td>30 分</td><td>サーバーのシステム設定 <code>SessionIdleMinutes</code> 由来。ログイン応答でクライアントへ伝えられる</td></tr>
+        <tr><td>起動時の自動ログイン</td><td>8 秒でタイムアウト</td><td>サーバー応答が遅くても起動画面が固まらないようにするため</td></tr>
+      </tbody>
+    </table>
+
+    <h3>8.3 自動ログイン (信頼デバイス) の詳細</h3>
+    <ul>
+      <li><b>HTTP / HTTPS どちらでも利用可能</b>。ただし HTTP は平文のため警告を表示し、サーバー側の <code>Auth:AllowHttpForAutoLogin</code> が <code>false</code> なら拒否する</li>
+      <li><b>1 利用者につき 1 台のみ</b>。別の PC でチェックを入れると、以前のデバイストークンは失効する (直列化トランザクションで原子的に切り替え)</li>
+      <li>デバイストークンは 256 ビットの乱数。サーバー側は <b>bcrypt ハッシュ</b>で保存し、平文は <b>Windows 資格情報マネージャー</b>に Windows ユーザー単位で暗号化保存する (同じ PC の別 Windows ユーザーからは読めない)</li>
+      <li>管理者は「全デバイス失効」で無効化できる (退職時など)。失効理由 <code>admin_revoked</code> と日時が記録される</li>
+      <li>ログアウト時は資格情報マネージャーからも削除する</li>
+    </ul>
+
+    <h3>8.4 パスワードポリシー</h3>
+    <table>
+      <thead><tr><th style="width:220px">条件</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><b>長さ</b></td><td>12 文字以上</td></tr>
+        <tr><td><b>文字種</b></td><td>英大文字・英小文字・数字・記号を<b>それぞれ 1 文字以上</b></td></tr>
+        <tr><td><b>有効期限</b></td><td>既定 90 日 (<code>PasswordExpiryDays</code>)。残り 14 日以内 (<code>PasswordWarningDays</code>) で警告表示</td></tr>
+        <tr><td><b>履歴チェック</b></td><td>なし (過去のパスワードの再利用は技術的には可能。運用ポリシーで補完する前提)</td></tr>
+        <tr><td><b>強制変更</b></td><td>初回ログイン時・期限切れ時・管理者によるリセット後は、変更画面から先へ進めない</td></tr>
+        <tr><td><b>例</b></td><td>不可: <code>password123</code> / <code>Short1!</code>　　可: <code>Spring2026!Welcome</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3>8.5 アカウント保護</h3>
+    <table>
+      <thead><tr><th style="width:220px">対策</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><b>連続失敗によるロック</b></td><td>既定 15 回 (<code>MaxFailedLoginAttempts</code>、管理画面で変更可) 連続で失敗するとアカウントを自動ロック。解除は管理者のみ</td></tr>
+        <tr><td><b>利用者名の推測対策</b></td><td>存在しない利用者名ではロックせず、エラーメッセージも共通にする (存在の有無を漏らさない)</td></tr>
+        <tr><td><b>レート制限</b></td><td>ログインと自動ログインに <b>IP 単位で 1 分あたり 10 回</b>の固定ウィンドウ制限 (<code>Auth:LoginPerMinutePerIp</code>)。超過は 429</td></tr>
+        <tr><td><b>異常の記録</b></td><td>ログイン失敗・ロック・前回と異なる端末からのログイン・Windows ログオン名との不一致を監査ログに記録する (§10.2)</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===== 9 章 ===== -->
+    <h2 id="ch9"><span class="n">9</span>権限モデル</h2>
+
+    <p class="lead">権限は「<b>誰が / どの共有の / どのフォルダ配下を / 何ができるか</b>」の 4 点で決まります。1 人の利用者が同じ共有に対して複数のフォルダ権限を持つことができます。</p>
+
+    <figure>
+      <svg viewBox="0 0 900 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="権限モデルの構造図。テンプレートと共有とサブパスの組み合わせでユーザー権限が決まり、権限セットで一括付与できる。判定は正規化と範囲チェックを経る">
+        <defs>
+          <marker id="f7arw" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#6B7280"/></marker>
+          <marker id="f7arwR" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#C73E1D"/></marker>
+        </defs>
+
+        <text x="30" y="30" font-size="12.5" font-weight="700" fill="#1B2A41">① 権限 1 行を構成する 4 つの要素</text>
+
+        <!-- 4 要素 -->
+        <rect x="30" y="46" width="176" height="72" rx="10" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="118" y="68" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B2A41">利用者</text>
+        <text x="118" y="88" text-anchor="middle" font-size="10.5" fill="#6B7280">例: yamada</text>
+        <text x="118" y="106" text-anchor="middle" font-size="10.5" fill="#6B7280">User</text>
+
+        <rect x="222" y="46" width="176" height="72" rx="10" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="310" y="68" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B2A41">共有</text>
+        <text x="310" y="88" text-anchor="middle" font-size="10.5" fill="#6B7280">例: 経理部共有</text>
+        <text x="310" y="106" text-anchor="middle" font-size="10.5" fill="#6B7280">CifsShare（ホストに従属）</text>
+
+        <rect x="414" y="46" width="176" height="72" rx="10" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="502" y="68" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B2A41">サブパス</text>
+        <text x="502" y="88" text-anchor="middle" font-size="10.5" fill="#6B7280">例: /2026/上期</text>
+        <text x="502" y="106" text-anchor="middle" font-size="10.5" fill="#6B7280">AllowedPath（配下すべて）</text>
+
+        <rect x="606" y="46" width="264" height="72" rx="10" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="738" y="68" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5C1A0B">権限テンプレート</text>
+        <text x="738" y="88" text-anchor="middle" font-size="10.5" fill="#5C1A0B">READ / WRITE / DELETE / RENAME</text>
+        <text x="738" y="106" text-anchor="middle" font-size="10.5" fill="#6B7280">例: フルアクセス・読取+書込・読取のみ</text>
+
+        <!-- 権限セット -->
+        <text x="30" y="156" font-size="12.5" font-weight="700" fill="#1B2A41">② 権限セット — よく使う組み合わせをまとめて 1 クリックで付与する</text>
+
+        <rect x="30" y="172" width="238" height="112" rx="10" fill="#fff" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="149" y="194" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5C1A0B">権限セット「経理部標準」</text>
+        <rect x="44" y="204" width="210" height="22" rx="5" fill="#F0F2F5"/>
+        <text x="149" y="219" text-anchor="middle" font-size="10" fill="#1F2328">経理部共有 / 2026 → 読取+書込</text>
+        <rect x="44" y="230" width="210" height="22" rx="5" fill="#F0F2F5"/>
+        <text x="149" y="245" text-anchor="middle" font-size="10" fill="#1F2328">経理部共有 / 参照資料 → 読取のみ</text>
+        <rect x="44" y="256" width="210" height="22" rx="5" fill="#F0F2F5"/>
+        <text x="149" y="271" text-anchor="middle" font-size="10" fill="#1F2328">全社共有 / 総務 → 読取のみ</text>
+
+        <line x1="268" y1="228" x2="336" y2="228" stroke="#C73E1D" stroke-width="2" marker-end="url(#f7arwR)"/>
+        <text x="302" y="220" text-anchor="middle" font-size="10" fill="#C73E1D">適用</text>
+
+        <rect x="344" y="180" width="238" height="96" rx="10" fill="#E6F5EB" stroke="#1F883D" stroke-width="1.6"/>
+        <text x="463" y="202" text-anchor="middle" font-size="11.5" font-weight="700" fill="#155e2e">利用者の権限 3 行として展開</text>
+        <text x="463" y="224" text-anchor="middle" font-size="10.5" fill="#155e2e">展開後は独立した行になる</text>
+        <text x="463" y="244" text-anchor="middle" font-size="10.5" fill="#6B7280">= セットを後で削除しても</text>
+        <text x="463" y="262" text-anchor="middle" font-size="10.5" fill="#6B7280">付与済みの権限は消えない</text>
+
+        <rect x="606" y="180" width="264" height="96" rx="10" fill="#FAFBFC" stroke="#D5D9DE"/>
+        <text x="738" y="202" text-anchor="middle" font-size="11" font-weight="700" fill="#1B2A41">ほかの付与方法</text>
+        <text x="620" y="224" font-size="10.5" fill="#4A535C">・1 行ずつ手で追加（フォルダを画面上で選択）</text>
+        <text x="620" y="244" font-size="10.5" fill="#4A535C">・別の利用者の全権限をまるごと複製</text>
+        <text x="620" y="264" font-size="10.5" fill="#4A535C">　いずれも重複行はスキップか上書きを選べる</text>
+
+        <!-- 判定フロー -->
+        <text x="30" y="322" font-size="12.5" font-weight="700" fill="#1B2A41">③ 操作のたびに行われる判定</text>
+
+        <rect x="30" y="338" width="152" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="106" y="360" text-anchor="middle" font-size="10.5" fill="#1F2328">要求されたパスを</text>
+        <text x="106" y="377" text-anchor="middle" font-size="10.5" fill="#1F2328">正規化（.. を展開）</text>
+        <line x1="182" y1="364" x2="212" y2="364" stroke="#6B7280" stroke-width="1.6" marker-end="url(#f7arw)"/>
+
+        <rect x="220" y="338" width="152" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="296" y="360" text-anchor="middle" font-size="10.5" fill="#1F2328">許可サブパスの</text>
+        <text x="296" y="377" text-anchor="middle" font-size="10.5" fill="#1F2328">配下にあるか確認</text>
+        <line x1="372" y1="364" x2="402" y2="364" stroke="#6B7280" stroke-width="1.6" marker-end="url(#f7arw)"/>
+
+        <rect x="410" y="338" width="152" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="486" y="360" text-anchor="middle" font-size="10.5" fill="#1F2328">テンプレートで</text>
+        <text x="486" y="377" text-anchor="middle" font-size="10.5" fill="#1F2328">その操作が許可か</text>
+        <line x1="562" y1="364" x2="592" y2="364" stroke="#6B7280" stroke-width="1.6" marker-end="url(#f7arw)"/>
+
+        <rect x="600" y="330" width="270" height="68" rx="9" fill="#FFF6E0" stroke="#BF8700" stroke-width="1.5"/>
+        <text x="735" y="351" text-anchor="middle" font-size="10.5" font-weight="700" fill="#7a5600">さらに 2 つの安全弁</text>
+        <text x="614" y="370" font-size="10" fill="#7a5600">・許可パスのルート自体は削除・改名できない</text>
+        <text x="614" y="388" font-size="10" fill="#7a5600">・改名は同じ親フォルダ内のみ（隠れた移動の禁止）</text>
+
+        <text x="450" y="428" text-anchor="middle" font-size="11" fill="#CF222E">どれか 1 つでも通らなければ 403 で拒否し、監査ログに「denied」として記録する</text>
+        <text x="450" y="452" text-anchor="middle" font-size="10.5" fill="#6B7280">判定結果はリクエスト単位でメモ化され、1 リクエスト内で何度参照しても DB アクセスは 1 回</text>
+      </svg>
+      <figcaption>図 7：権限モデルの全体構造。付与の手間を減らす仕組み (権限セット・複製) と、絞り込みの仕組み (範囲チェック・ルート保護・改名の制限) が両立しています。</figcaption>
+    </figure>
+
+    <h3>9.1 権限テンプレート</h3>
+    <p>操作の許可の集合に名前を付けたものです。新規データベースには次の 3 つが初期登録されます。クライアント上では<b>強い順</b>に表示され、既定の選択はフルアクセスです。使用中のテンプレートは削除できません。</p>
+    <table class="sm">
+      <thead><tr><th style="width:180px">テンプレート</th><th style="width:90px">READ</th><th style="width:90px">WRITE</th><th style="width:90px">DELETE</th><th style="width:90px">RENAME</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td><b>フルアクセス</b></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td>担当者が自由に扱うフォルダ</td></tr>
+        <tr><td><b>読取 + 書込</b></td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td>置くことはできるが、消させたくないフォルダ</td></tr>
+        <tr><td><b>読取のみ</b></td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td>参照専用の資料フォルダ</td></tr>
+      </tbody>
+    </table>
+
+    <h3>9.2 操作種別</h3>
+    <p>権限判定と監査ログで使われる操作の識別子です。</p>
+    <table class="sm">
+      <thead><tr><th style="width:220px">分類</th><th>識別子</th></tr></thead>
+      <tbody>
+        <tr><td><b>ファイル操作</b></td><td><code>READ</code> / <code>WRITE</code> / <code>DELETE</code> / <code>RENAME</code> / <code>LIST</code> / <code>DOWNLOAD</code> / <code>UPLOAD</code> / <code>MKDIR</code></td></tr>
+        <tr><td><b>ログイン事象</b></td><td><code>LOGIN_FAILED</code> / <code>LOGIN_LOCKED_OUT</code> / <code>LOGIN_DEVICE_CHANGED</code> / <code>LOGIN_IDENTITY_MISMATCH</code></td></tr>
+        <tr><td><b>管理操作</b></td><td><code>ADMIN_</code> で始まる識別子 (利用者・ホスト・共有・テンプレート・権限・権限セット・実行ノード・設定の各操作)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>9.3 ディレクトリトラバーサルの防御</h3>
+    <p>「<code>../../</code> を含むパスで許可範囲の外へ抜ける」攻撃には 2 段で対処します。</p>
+    <ol>
+      <li>利用者が指定したパスを <code>PathHelper.NormalizePath()</code> で正規化し、<code>..</code> を実際に展開する</li>
+      <li>展開後のパスが許可サブパスの配下にあるかを <code>IsPathWithin()</code> で確認する</li>
+      <li>範囲外なら 403 を返し、監査ログに <code>denied</code> を記録する</li>
+    </ol>
+    <p class="fn">正規化前の文字列に対する検査 (「<code>..</code> が含まれていたら弾く」といった方式) では、エンコードや区切り文字の揺れで回避されるおそれがあります。展開後の絶対パスで比較するのが要点です。</p>
+
+    <!-- ===== 10 章 ===== -->
+    <h2 id="ch10"><span class="n">10</span>監査ログ</h2>
+
+    <p class="lead">「いつ・誰が・どこで・何をして・どうなったか」を 1 行として記録します。成功だけでなく<b>失敗と拒否も記録</b>することが重要で、これにより「権限が足りていない」「誰かが範囲外を触ろうとした」の両方が後から分かります。</p>
+
+    <h3>10.1 記録項目</h3>
+    <table class="sm">
+      <thead><tr><th style="width:190px">項目</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>Timestamp</code></td><td>発生時刻 (UTC で保存し、画面ではローカル時刻に変換して表示)</td></tr>
+        <tr><td><code>UserId</code> / <code>Username</code></td><td>操作した利用者。利用者が削除されても名前は残る</td></tr>
+        <tr><td><code>Operation</code></td><td>操作種別 (§9.2)。画面では「ダウンロード」「フォルダ作成」等の日本語ラベルに変換される</td></tr>
+        <tr><td><code>HostId</code> / <code>ShareId</code></td><td>対象のホストと共有。画面と CSV では名前に解決され、<b>「ホスト名 / 共有名 :: パス」</b>の形で読める。削除済みの場合は「(削除済)」と表示される</td></tr>
+        <tr><td><code>Path</code> / <code>TargetPath</code></td><td>対象パスと、改名時の変更後パス</td></tr>
+        <tr><td><code>Result</code></td><td><code>success</code> / <code>failure</code> / <code>denied</code></td></tr>
+        <tr><td><code>ErrorMessage</code></td><td>失敗時の理由 (クライアントへ返すのと同じ、内部情報を含まない文言)</td></tr>
+        <tr><td><code>ClientIp</code> / <code>ClientHostname</code></td><td>要求元の IP とホスト名</td></tr>
+        <tr><td><code>BytesTransferred</code> / <code>DurationMs</code></td><td>転送バイト数と所要時間 (性能調査や大量持ち出しの検知に使える)</td></tr>
+        <tr><td><code>Protocol</code></td><td>その操作が HTTP と HTTPS のどちらで行われたか</td></tr>
+        <tr><td><code>ExecutionNodeId</code></td><td>実際に SMB を行った実行ノード</td></tr>
+        <tr><td><code>UsedPermissionId</code></td><td>許可の根拠になった権限行。「なぜ通ったのか」を後から追跡できる</td></tr>
+      </tbody>
+    </table>
+    <p class="fn">索引は Timestamp 降順・UserId・HostId に張られており、期間指定と利用者指定の検索が実用的な速度で行えます。</p>
+
+    <h3>10.2 記録される事象</h3>
+    <table>
+      <thead><tr><th style="width:200px">分類</th><th>具体例</th></tr></thead>
+      <tbody>
+        <tr><td><b>ファイル操作</b></td><td>一覧表示・ダウンロード・アップロード・削除・改名・フォルダ作成 (成功 / 失敗 / 拒否のすべて)</td></tr>
+        <tr><td><b>ログイン事象</b></td><td>ログイン失敗、連続失敗によるロック、前回と異なる端末からのログイン、Windows ログオン名と Watashi のユーザー名の不一致 (いずれもログイン自体は成立する場合も記録)</td></tr>
+        <tr><td><b>管理操作</b></td><td>利用者の追加 / 変更 / 削除 / ロック解除 / パスワードリセット / 一括登録 / 一覧出力、ホスト・共有・テンプレート・権限・権限セット・実行ノードの変更、システム設定の変更、デバイスの一括失効</td></tr>
+      </tbody>
+    </table>
+
+    <h3>10.3 保管と取り出し</h3>
+    <table>
+      <thead><tr><th style="width:200px">項目</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><b>保管期間</b></td><td>既定 365 日 (<code>AuditLogRetentionDays</code>)。管理画面から変更でき、<b>0 以下を設定すると永久保管</b></td></tr>
+        <tr><td><b>削除の実行</b></td><td>サーバー内蔵の削除処理が、起動 30 秒後と以後 24 時間ごとに、保管期間を過ぎた行をまとめて削除する</td></tr>
+        <tr><td><b>画面での閲覧</b></td><td>利用者名・操作種別・期間で絞り込み、1 ページ 100 件の新しい順で表示</td></tr>
+        <tr><td><b>CSV 出力</b></td><td>BOM 付き UTF-8 (Excel でそのまま開ける)。ホスト名・共有名・場所の列を含む。大量データでも一気に読み込まずストリーミングで書き出す</td></tr>
+      </tbody>
+    </table>
+
+    <div class="warn">
+      監査ログの削除はサーバー内蔵の処理が行います。タスクスケジューラなどで別途削除処理を組むと、管理画面で設定した保管ポリシーと食い違うため<b>行わないでください</b>。
+    </div>
+
+    <h3>10.4 中央が止まっているときの記録</h3>
+    <p>Agent は、中央サーバーが一時的に到達不能でも操作を継続できるよう、監査ログをローカルの SQLite にバッファします。</p>
+    <ul>
+      <li>10 秒ごとに中央へ一括送信を試みる</li>
+      <li>成功すれば一括削除、失敗すれば試行回数を加算する</li>
+      <li>連続して失敗する場合は間隔を指数的に広げる (最大 5 分)</li>
+      <li>試行回数が 50 に達した行は送信対象から外れる (滞留を無限に増やさないため)</li>
+    </ul>
+
+    <!-- ===== 11 章 ===== -->
+    <h2 id="ch11"><span class="n">11</span>セキュリティ設計の総覧</h2>
+
+    <h3>11.1 通信経路の保護</h3>
+    <table>
+      <thead><tr><th style="width:250px">経路</th><th>保護</th></tr></thead>
+      <tbody>
+        <tr><td>クライアント ⇄ 中央サーバー</td><td>HTTP / HTTPS (本番は HTTPS 必須)。自動ログインの可否は <code>Auth:AllowHttpForAutoLogin</code> でサーバーが最終判断する</td></tr>
+        <tr><td>中央サーバー ⇄ Agent</td><td>HTTP / HTTPS。加えて <b>mTLS (双方向のクライアント証明書認証)</b> または共有秘密ヘッダー</td></tr>
+        <tr><td>中央サーバー / Agent → ファイルサーバー</td><td>SMB 2/3</td></tr>
+      </tbody>
+    </table>
+
+    <h3>11.2 保存データの保護</h3>
+    <table>
+      <thead><tr><th style="width:250px">対象</th><th>方式</th></tr></thead>
+      <tbody>
+        <tr><td>ファイルサーバーの資格情報</td><td><b>AES-256-GCM</b> で暗号化して DB 保存。マスターキーは <code>appsettings.json</code> または環境変数</td></tr>
+        <tr><td>利用者のパスワード</td><td><b>bcrypt</b> (ワークファクター 11)。復号は不可能</td></tr>
+        <tr><td>リフレッシュトークン / デバイストークン</td><td>bcrypt ハッシュで保存。平文はサーバーに残らない</td></tr>
+        <tr><td>デバイストークンのクライアント側保管</td><td>Windows 資格情報マネージャーに、Windows ユーザー単位で暗号化保存</td></tr>
+        <tr><td>JWT の署名</td><td>HMAC-SHA256</td></tr>
+      </tbody>
+    </table>
+    <p>加えて、パスワードハッシュ・トークンハッシュ・暗号化された資格情報の各フィールドには <code>[JsonIgnore]</code> が付いており、<b>実装ミスでエンティティをそのまま API から返しても秘密が流出しません</b>。</p>
+
+    <h3>11.3 起動時のシークレット検証</h3>
+    <p>JWT の署名鍵と暗号化マスターキーが、雛形のままの値 (<code>CHANGE-ME…</code> / <code>REPLACE-WITH…</code>) になっていないかを起動時に検査します。<b>本番環境では起動を拒否</b>し、開発・検証環境では警告にとどめます。「設定を忘れたまま本番稼働してしまう」事故を構造的に防ぐためです。</p>
+
+    <h3>11.4 攻撃シナリオ別の対策</h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:250px">想定される攻撃</th><th>対策</th></tr></thead>
+      <tbody>
+        <tr><td>パスワードの総当たり</td><td>bcrypt による低速ハッシュ + 連続 15 回失敗でロック + IP 単位のレート制限 (10 回/分)</td></tr>
+        <tr><td>利用者名の存在推測</td><td>存在しない利用者ではロックせず、エラーメッセージを共通化。レート制限は IP 単位</td></tr>
+        <tr><td>リフレッシュトークンの盗難</td><td>更新のたびにローテーションし、失効済みトークンの再提示を検知したらその利用者のトークンを一括失効</td></tr>
+        <tr><td>Agent へのなりすまし</td><td>mTLS でクライアント証明書のサムプリントを照合、または共有秘密ヘッダーで確認</td></tr>
+        <tr><td>中央サーバーへのなりすまし</td><td>Agent 側で中央の証明書サムプリント / 共有秘密を検証。どちらも未設定なら全拒否</td></tr>
+        <tr><td>ディレクトリトラバーサル</td><td>パス正規化と範囲チェックの 2 段 (§9.3)</td></tr>
+        <tr><td>アクセスログへの資格情報残留</td><td>資格情報を URL クエリに載せず、POST 本文またはヘッダーでのみ渡す</td></tr>
+        <tr><td>監査ログの偽造</td><td>内部エンドポイントを mTLS / 共有秘密で保護。mTLS 構成では Agent の識別名と証明書を相互照合</td></tr>
+        <tr><td>エンティティの直接シリアライズによる漏えい</td><td>機微フィールドに <code>[JsonIgnore]</code> を付与</td></tr>
+        <tr><td>内部情報の漏えい</td><td>例外は <code>Results.Problem</code> でマスクし、スタックトレースや内部パスを返さない</td></tr>
+        <tr><td>接続先のすり替え</td><td>ClickOnce がマニフェストでファイルのハッシュを検証。クライアントに接続先の編集 UI がない</td></tr>
+        <tr><td>管理者の締め出し</td><td>自分自身の削除・降格、および最後の有効な管理者の削除・降格をサーバー側で拒否</td></tr>
+        <tr><td>CSV の数式インジェクション</td><td>出力する CSV で <code>=</code> <code>+</code> <code>-</code> <code>@</code> タブ・CR で始まるセルの先頭にシングルクォートを付けて無害化</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <!-- ============================================================
+         第 4 部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 4 部</span>
+      <div>
+        <p class="ptitle">機能仕様</p>
+        <p class="psub">画面で何ができ、ファイルがどう運ばれ、管理者は何を設定できるか</p>
+      </div>
+    </div>
+
+    <!-- ===== 12 章 ===== -->
+    <h2 id="ch12"><span class="n">12</span>クライアント UI と操作</h2>
+
+    <h3>12.1 画面遷移</h3>
+
+    <figure>
+      <svg viewBox="0 0 900 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="クライアントの画面遷移図。起動からログイン、パスワード変更、メイン画面、管理ウィンドウまで">
+        <defs>
+          <marker id="f8arw" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#1B2A41"/></marker>
+          <marker id="f8arwR" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#CF222E"/></marker>
+        </defs>
+
+        <!-- スプラッシュ -->
+        <rect x="24" y="112" width="118" height="56" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="83" y="136" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B2A41">起動画面</text>
+        <text x="83" y="154" text-anchor="middle" font-size="10" fill="#6B7280">設定読込・更新確認</text>
+        <line x1="142" y1="140" x2="176" y2="140" stroke="#1B2A41" stroke-width="1.7" marker-end="url(#f8arw)"/>
+
+        <!-- 配布設定エラー -->
+        <rect x="24" y="212" width="118" height="48" rx="9" fill="#FFE9EA" stroke="#CF222E" stroke-width="1.4"/>
+        <text x="83" y="233" text-anchor="middle" font-size="10.5" font-weight="700" fill="#8a1119">配布設定エラー</text>
+        <text x="83" y="250" text-anchor="middle" font-size="9.5" fill="#8a1119">起動を中止</text>
+        <line x1="83" y1="168" x2="83" y2="206" stroke="#CF222E" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#f8arwR)"/>
+
+        <!-- ログイン -->
+        <rect x="184" y="104" width="140" height="72" rx="9" fill="#fff" stroke="#C73E1D" stroke-width="1.7"/>
+        <text x="254" y="128" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5C1A0B">ログイン画面</text>
+        <text x="254" y="146" text-anchor="middle" font-size="10" fill="#6B7280">手動 / 自動ログイン</text>
+        <text x="254" y="163" text-anchor="middle" font-size="10" fill="#6B7280">接続テスト（疎通確認のみ）</text>
+        <line x1="324" y1="140" x2="360" y2="140" stroke="#1B2A41" stroke-width="1.7" marker-end="url(#f8arw)"/>
+
+        <!-- パスワード変更 -->
+        <rect x="368" y="30" width="150" height="62" rx="9" fill="#FFF6E0" stroke="#BF8700" stroke-width="1.5"/>
+        <text x="443" y="53" text-anchor="middle" font-size="11" font-weight="700" fill="#7a5600">パスワード変更画面</text>
+        <text x="443" y="71" text-anchor="middle" font-size="9.5" fill="#7a5600">初回 / 期限切れ / 管理者リセット後</text>
+        <text x="443" y="86" text-anchor="middle" font-size="9.5" fill="#7a5600">変更するまで先へ進めない</text>
+        <path d="M330 124 C 348 100 350 84 366 68" fill="none" stroke="#BF8700" stroke-width="1.6" marker-end="url(#f8arw)"/>
+        <path d="M518 62 C 546 62 556 96 560 122" fill="none" stroke="#BF8700" stroke-width="1.6" marker-end="url(#f8arw)"/>
+
+        <!-- メイン -->
+        <rect x="368" y="112" width="190" height="72" rx="9" fill="#F9E5E0" stroke="#C73E1D" stroke-width="2"/>
+        <text x="463" y="137" text-anchor="middle" font-size="12" font-weight="700" fill="#5C1A0B">メイン画面（2 ペイン）</text>
+        <text x="463" y="155" text-anchor="middle" font-size="10" fill="#5C1A0B">左: 自分の PC ／ 右: 社内ファイルサーバー</text>
+        <text x="463" y="172" text-anchor="middle" font-size="10" fill="#6B7280">通常の業務はここで完結する</text>
+
+        <!-- 管理ウィンドウ -->
+        <rect x="616" y="72" width="180" height="66" rx="9" fill="#fff" stroke="#1B2A41" stroke-width="1.7"/>
+        <text x="706" y="96" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B2A41">管理ウィンドウ</text>
+        <text x="706" y="114" text-anchor="middle" font-size="10" fill="#6B7280">10 のタブ（§14）</text>
+        <text x="706" y="130" text-anchor="middle" font-size="10" fill="#6B7280">管理者のみボタンが表示される</text>
+        <line x1="558" y1="132" x2="610" y2="112" stroke="#1B2A41" stroke-width="1.7" marker-end="url(#f8arw)"/>
+
+        <!-- ログアウト -->
+        <rect x="616" y="164" width="180" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.4"/>
+        <text x="706" y="185" text-anchor="middle" font-size="11" fill="#1F2328">ログアウト / 自動ログアウト</text>
+        <text x="706" y="203" text-anchor="middle" font-size="9.5" fill="#6B7280">無操作 30 分（既定）</text>
+        <line x1="558" y1="160" x2="610" y2="180" stroke="#9CA3AF" stroke-width="1.5" marker-end="url(#f8arw)"/>
+        <path d="M660 216 C 620 268 320 268 254 182" fill="none" stroke="#9CA3AF" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#f8arw)"/>
+        <text x="450" y="272" text-anchor="middle" font-size="10" fill="#6B7280">ログイン画面へ戻る（保存されたデバイストークンも削除される）</text>
+
+        <text x="450" y="312" text-anchor="middle" font-size="10.5" fill="#6B7280">アクセス可能な共有が 1 つも無い利用者には、メイン画面右側に「管理者に依頼してください」という案内が表示されます</text>
+      </svg>
+      <figcaption>図 8：画面遷移。接続先の設定画面が存在しないため、起動時に配布設定が不備だった場合は「直す」導線ではなく「止める」導線になります。</figcaption>
+    </figure>
+
+    <h3>12.2 メイン画面の構成</h3>
+
+    <figure>
+      <svg viewBox="0 0 900 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="メイン画面のワイヤーフレーム。ヘッダー、左のローカルペイン、右のリモートペイン、ステータスバー">
+        <!-- 外枠 -->
+        <rect x="20" y="20" width="860" height="356" rx="10" fill="#FAFBFC" stroke="#1B2A41" stroke-width="1.8"/>
+
+        <!-- ヘッダー -->
+        <rect x="20" y="20" width="860" height="46" rx="10" fill="#1B2A41"/>
+        <rect x="20" y="56" width="860" height="10" fill="#1B2A41"/>
+        <g transform="translate(36,28) scale(0.30)">
+          <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
+          <rect x="22" y="34" width="9" height="54" fill="#fff"/>
+          <rect x="69" y="34" width="9" height="54" fill="#fff"/>
+          <rect x="16" y="40" width="68" height="8" fill="#fff"/>
+        </g>
+        <text x="72" y="49" font-size="13" font-weight="700" fill="#fff">Watashi</text>
+        <rect x="560" y="31" width="74" height="24" rx="12" fill="#2b3f5e"/><text x="597" y="47" text-anchor="middle" font-size="10" fill="#c8d3e3">yamada</text>
+        <rect x="640" y="31" width="60" height="24" rx="12" fill="#2b3f5e"/><text x="670" y="47" text-anchor="middle" font-size="10" fill="#c8d3e3">HTTPS</text>
+        <rect x="706" y="31" width="52" height="24" rx="6" fill="#C73E1D"/><text x="732" y="47" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">管理</text>
+        <rect x="764" y="31" width="44" height="24" rx="6" fill="#2b3f5e"/><text x="786" y="47" text-anchor="middle" font-size="10" fill="#c8d3e3">更新</text>
+        <rect x="806" y="31" width="60" height="24" rx="6" fill="#2b3f5e"/><text x="836" y="47" text-anchor="middle" font-size="9.5" fill="#c8d3e3">ログアウト</text>
+        <text x="732" y="14" text-anchor="middle" font-size="9.5" fill="#C73E1D">管理者にだけ表示</text>
+
+        <!-- 左ペイン -->
+        <rect x="34" y="80" width="404" height="256" rx="9" fill="#fff" stroke="#D5D9DE" stroke-width="1.4"/>
+        <rect x="34" y="80" width="404" height="30" rx="9" fill="#F0F2F5"/>
+        <rect x="34" y="100" width="404" height="10" fill="#F0F2F5"/>
+        <text x="48" y="100" font-size="11.5" font-weight="700" fill="#1B2A41">💻 ローカル（自分の PC）</text>
+        <rect x="46" y="120" width="300" height="22" rx="5" fill="#fff" stroke="#D5D9DE"/>
+        <text x="56" y="135" font-size="10" fill="#6B7280">C:\Users\yamada\Documents　← 直接入力して Enter で移動</text>
+        <rect x="354" y="120" width="34" height="22" rx="5" fill="#F0F2F5" stroke="#D5D9DE"/><text x="371" y="135" text-anchor="middle" font-size="10" fill="#4A535C">📂</text>
+        <rect x="392" y="120" width="34" height="22" rx="5" fill="#F0F2F5" stroke="#D5D9DE"/><text x="409" y="135" text-anchor="middle" font-size="10" fill="#4A535C">🔍</text>
+        <line x1="46" y1="152" x2="426" y2="152" stroke="#E6E8EB"/>
+        <text x="56" y="170" font-size="10.5" fill="#1F2328">📁  ..</text>
+        <text x="56" y="190" font-size="10.5" fill="#1F2328">📁  2026年度</text>
+        <text x="56" y="210" font-size="10.5" fill="#1F2328">📄  見積書.xlsx</text>
+        <text x="56" y="230" font-size="10.5" fill="#1F2328">📄  図面一式.zip</text>
+        <text x="300" y="190" font-size="9.5" fill="#6B7280">名前 / 日付 / サイズで並べ替え</text>
+        <rect x="46" y="300" width="120" height="24" rx="5" fill="#C73E1D"/><text x="106" y="316" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">アップロード ▶</text>
+        <rect x="176" y="300" width="76" height="24" rx="5" fill="#F0F2F5" stroke="#D5D9DE"/><text x="214" y="316" text-anchor="middle" font-size="10" fill="#4A535C">新規フォルダ</text>
+        <rect x="262" y="300" width="60" height="24" rx="5" fill="#F0F2F5" stroke="#D5D9DE"/><text x="292" y="316" text-anchor="middle" font-size="10" fill="#4A535C">削除</text>
+
+        <!-- 中央の転送方向 -->
+        <text x="452" y="204" text-anchor="middle" font-size="16" fill="#C73E1D">⇄</text>
+        <text x="452" y="224" text-anchor="middle" font-size="9" fill="#6B7280">D&amp;D</text>
+
+        <!-- 右ペイン -->
+        <rect x="466" y="80" width="400" height="256" rx="9" fill="#fff" stroke="#D5D9DE" stroke-width="1.4"/>
+        <rect x="466" y="80" width="400" height="30" rx="9" fill="#F9E5E0"/>
+        <rect x="466" y="100" width="400" height="10" fill="#F9E5E0"/>
+        <text x="480" y="100" font-size="11.5" font-weight="700" fill="#5C1A0B">⛩ リモート（社内ファイルサーバー）</text>
+        <rect x="478" y="120" width="190" height="22" rx="5" fill="#fff" stroke="#C73E1D"/>
+        <text x="488" y="135" font-size="10" fill="#5C1A0B">場所: 経理部共有 / 2026 ▾</text>
+        <rect x="676" y="120" width="140" height="22" rx="5" fill="#fff" stroke="#D5D9DE"/>
+        <text x="686" y="135" font-size="10" fill="#6B7280">/2026/上期</text>
+        <rect x="822" y="120" width="32" height="22" rx="5" fill="#F0F2F5" stroke="#D5D9DE"/><text x="838" y="135" text-anchor="middle" font-size="10" fill="#4A535C">🔍</text>
+        <line x1="478" y1="152" x2="854" y2="152" stroke="#E6E8EB"/>
+        <text x="488" y="170" font-size="10.5" fill="#9CA3AF">📁  ..　（許可された一番上のフォルダではグレー表示）</text>
+        <text x="488" y="190" font-size="10.5" fill="#1F2328">📁  01_請求書</text>
+        <text x="488" y="210" font-size="10.5" fill="#1F2328">📁  02_精算</text>
+        <text x="488" y="230" font-size="10.5" fill="#1F2328">📄  月次報告.pdf</text>
+        <rect x="478" y="300" width="128" height="24" rx="5" fill="#C73E1D"/><text x="542" y="316" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">◀ ダウンロード</text>
+        <rect x="616" y="300" width="76" height="24" rx="5" fill="#F0F2F5" stroke="#D5D9DE"/><text x="654" y="316" text-anchor="middle" font-size="10" fill="#4A535C">新規フォルダ</text>
+        <rect x="702" y="300" width="60" height="24" rx="5" fill="#F0F2F5" stroke="#D5D9DE"/><text x="732" y="316" text-anchor="middle" font-size="10" fill="#4A535C">削除</text>
+        <rect x="772" y="300" width="60" height="24" rx="5" fill="#F0F2F5" stroke="#D5D9DE"/><text x="802" y="316" text-anchor="middle" font-size="10" fill="#4A535C">名前変更</text>
+
+        <!-- ステータスバー -->
+        <rect x="20" y="346" width="860" height="30" rx="0" fill="#F0F2F5"/>
+        <rect x="20" y="366" width="860" height="10" rx="10" fill="#F0F2F5"/>
+        <circle cx="40" cy="361" r="5" fill="#1F883D"/>
+        <text x="54" y="365" font-size="10" fill="#4A535C">HTTPS 接続中</text>
+        <text x="160" y="365" font-size="10" fill="#4A535C">14:32 アップロード完了: 見積書.xlsx</text>
+        <text x="470" y="365" font-size="10" fill="#4A535C">yamada でログイン中</text>
+        <rect x="640" y="353" width="180" height="14" rx="7" fill="#D5D9DE"/>
+        <rect x="640" y="353" width="118" height="14" rx="7" fill="#C73E1D"/>
+        <text x="836" y="365" font-size="10" fill="#4A535C">65%</text>
+
+        <text x="450" y="404" text-anchor="middle" font-size="10.5" fill="#6B7280">長いファイル名やパスはマウスを乗せると全文が表示され、一覧は仮想化されているため大量のファイルでも軽快に動きます</text>
+      </svg>
+      <figcaption>図 9：メイン画面のレイアウト。左が自分の PC、右が社内ファイルサーバーで、中央のボタンまたはドラッグ &amp; ドロップで受け渡しします。右ペインの「場所」は、その利用者に許可されたフォルダだけが並びます。</figcaption>
+    </figure>
+
+    <h3>12.3 操作とショートカット</h3>
+    <table class="sm">
+      <thead><tr><th style="width:230px">操作</th><th style="width:230px">キー / UI</th><th>備考</th></tr></thead>
+      <tbody>
+        <tr><td>フォルダを開く</td><td>ダブルクリック / <kbd>Enter</kbd></td><td>ファイルに対しては何も起きない</td></tr>
+        <tr><td>親フォルダへ</td><td><kbd>Backspace</kbd> または <code>..</code></td><td>許可された一番上のフォルダではグレー表示になり、それ以上は上がれない</td></tr>
+        <tr><td>戻る / 進む / 上へ</td><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd> / <kbd>↑</kbd></td><td>—</td></tr>
+        <tr><td>両ペインを更新</td><td><kbd>F5</kbd></td><td>—</td></tr>
+        <tr><td>削除</td><td><kbd>Delete</kbd> / 削除ボタン</td><td>確認ダイアログあり。フォルダは中身ごと削除される</td></tr>
+        <tr><td>名前の変更</td><td><kbd>F2</kbd> / 右クリック</td><td>同じフォルダ内のみ。<code>/</code> <code>\</code> は使えない</td></tr>
+        <tr><td>新規フォルダ</td><td>ツールバー / 右クリック</td><td>名前入力ダイアログが開く</td></tr>
+        <tr><td>パスを直接指定して移動</td><td>パス欄に入力して <kbd>Enter</kbd></td><td>両ペインとも可能</td></tr>
+        <tr><td>絞り込み</td><td>各ペインの検索ボックス</td><td>クリアボタンあり。該当なしの場合は案内文を表示</td></tr>
+        <tr><td>複数選択して一括転送</td><td><kbd>Ctrl</kbd> / <kbd>Shift</kbd> + クリック</td><td>—</td></tr>
+      </tbody>
+    </table>
+
+    <p>右クリックメニューからは、開く / 展開、アップロード・ダウンロード、名前の変更、削除、新規フォルダ、エクスプローラーで表示 (ローカルのみ)、パスのコピーが行えます。</p>
+
+    <h3>12.4 ドラッグ &amp; ドロップ</h3>
+    <p>配布時に有効化されている場合のみ利用できます (§7.3)。</p>
+    <ul>
+      <li>ローカル一覧 → リモート一覧: アップロード</li>
+      <li>リモート一覧 → ローカル一覧: ダウンロード</li>
+      <li>エクスプローラーなど<b>アプリ外</b>からリモート一覧へのドロップ: アップロード (確認ダイアログを前面に表示)</li>
+    </ul>
+
+    <h3>12.5 画面上の細かな配慮</h3>
+    <ul>
+      <li>長いファイル名・パス・ホスト名は省略表示し、マウスを乗せると全文をツールチップ表示する</li>
+      <li>「利用者が 0 件」「許可されたフォルダが 0 件」「表示できる場所が無い」「絞り込みに一致しない」の各状態に、それぞれ専用の案内文を出す</li>
+      <li>一覧は仮想化されており、大量の項目でもスクロールが重くならない</li>
+      <li>転送中は進捗率・速度・推定残り時間を表示し、キャンセルできる。二重起動は抑止される</li>
+      <li>パスワード入力欄には目のアイコンがあり、入力内容を一時的に平文表示できる (ログイン・パスワード変更・管理画面の各欄)</li>
+      <li>管理者でない利用者には管理ボタン自体が表示されない</li>
+    </ul>
+
+    <!-- ===== 13 章 ===== -->
+    <h2 id="ch13"><span class="n">13</span>ファイル操作とデータ転送</h2>
+
+    <h3>13.1 対応する操作</h3>
+    <table>
+      <thead><tr><th style="width:150px">操作</th><th style="width:200px">必要な権限</th><th>仕様</th></tr></thead>
+      <tbody>
+        <tr><td>一覧表示</td><td>READ</td><td>1 ページ 200 件。名前 / 日付 / サイズで昇順・降順の並べ替え</td></tr>
+        <tr><td>ダウンロード</td><td>READ</td><td>ストリーミング。フォルダを選ぶと配下ごと再帰的に取得する</td></tr>
+        <tr><td>アップロード</td><td>WRITE</td><td>ストリーミング。フォルダを選ぶと構造を保ったまま再帰的に送る</td></tr>
+        <tr><td>削除</td><td>DELETE</td><td>確認ダイアログあり。フォルダは配下を再帰的に削除する</td></tr>
+        <tr><td>名前の変更</td><td>RENAME</td><td>同じ親フォルダ内に限定 (フォルダをまたぐ移動を名前変更として行わせない)</td></tr>
+        <tr><td>フォルダ作成</td><td>WRITE</td><td>—</td></tr>
+      </tbody>
+    </table>
+
+    <h3>13.2 転送のしくみ</h3>
+
+    <figure>
+      <svg viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="アップロードとダウンロードのストリーミング経路。4MB バッファで中継し、ダウンロードは .part ファイル経由で完成させる">
+        <defs>
+          <marker id="f9arw" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#C73E1D"/></marker>
+          <marker id="f9arwB" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0969DA"/></marker>
+        </defs>
+
+        <!-- アップロード -->
+        <text x="30" y="34" font-size="12.5" font-weight="700" fill="#1B2A41">① アップロード（ローカル → 社内ファイルサーバー）</text>
+
+        <rect x="30" y="48" width="146" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="103" y="70" text-anchor="middle" font-size="11" fill="#1F2328">自分の PC のファイル</text>
+        <text x="103" y="88" text-anchor="middle" font-size="10" fill="#6B7280">サイズを問わない</text>
+
+        <line x1="176" y1="74" x2="222" y2="74" stroke="#C73E1D" stroke-width="2.2" marker-end="url(#f9arw)"/>
+        <rect x="230" y="48" width="146" height="52" rx="9" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="303" y="70" text-anchor="middle" font-size="11" fill="#5C1A0B">クライアント</text>
+        <text x="303" y="88" text-anchor="middle" font-size="10" fill="#5C1A0B">4 MB ずつ読んで送る</text>
+
+        <line x1="376" y1="74" x2="422" y2="74" stroke="#C73E1D" stroke-width="2.2" marker-end="url(#f9arw)"/>
+        <rect x="430" y="48" width="146" height="52" rx="9" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="503" y="70" text-anchor="middle" font-size="11" fill="#5C1A0B">中央サーバー</text>
+        <text x="503" y="88" text-anchor="middle" font-size="10" fill="#5C1A0B">受けた分だけ次へ流す</text>
+
+        <line x1="576" y1="74" x2="622" y2="74" stroke="#C73E1D" stroke-width="2.2" marker-end="url(#f9arw)"/>
+        <rect x="630" y="48" width="120" height="52" rx="9" fill="#fff" stroke="#1B2A41" stroke-width="1.5"/>
+        <text x="690" y="70" text-anchor="middle" font-size="11" fill="#1B2A41">Agent（経由時）</text>
+        <text x="690" y="88" text-anchor="middle" font-size="10" fill="#6B7280">同じくそのまま中継</text>
+
+        <line x1="750" y1="74" x2="790" y2="74" stroke="#1F883D" stroke-width="2.2" marker-end="url(#f9arw)"/>
+        <rect x="798" y="48" width="76" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="836" y="70" text-anchor="middle" font-size="10.5" fill="#1F2328">ファイル</text>
+        <text x="836" y="86" text-anchor="middle" font-size="10.5" fill="#1F2328">サーバー</text>
+
+        <rect x="230" y="112" width="546" height="34" rx="8" fill="#E6F5EB" stroke="#1F883D" stroke-width="1.2"/>
+        <text x="503" y="134" text-anchor="middle" font-size="10.5" fill="#155e2e">どの段でもファイル全体をメモリに載せない（バッファはプールから借りて返すため、大容量でもメモリ使用量が増え続けない）</text>
+
+        <!-- ダウンロード -->
+        <line x1="30" y1="172" x2="870" y2="172" stroke="#D5D9DE" stroke-width="1" stroke-dasharray="5 4"/>
+        <text x="30" y="200" font-size="12.5" font-weight="700" fill="#1B2A41">② ダウンロード（社内ファイルサーバー → ローカル）— 途中で失敗しても壊れたファイルを残さない</text>
+
+        <rect x="30" y="216" width="140" height="48" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="100" y="238" text-anchor="middle" font-size="10.5" fill="#1F2328">ファイルサーバー</text>
+        <text x="100" y="255" text-anchor="middle" font-size="10" fill="#6B7280">SMB で読み出し</text>
+        <line x1="170" y1="240" x2="214" y2="240" stroke="#0969DA" stroke-width="2.2" marker-end="url(#f9arwB)"/>
+
+        <rect x="222" y="216" width="150" height="48" rx="9" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.5"/>
+        <text x="297" y="238" text-anchor="middle" font-size="10.5" fill="#0b4a8f">中央サーバー（+ Agent）</text>
+        <text x="297" y="255" text-anchor="middle" font-size="10" fill="#0b4a8f">4 MB ずつ中継</text>
+        <line x1="372" y1="240" x2="416" y2="240" stroke="#0969DA" stroke-width="2.2" marker-end="url(#f9arwB)"/>
+
+        <rect x="424" y="208" width="176" height="64" rx="9" fill="#FFF6E0" stroke="#BF8700" stroke-width="1.6"/>
+        <text x="512" y="230" text-anchor="middle" font-size="11" font-weight="700" fill="#7a5600">まず「.part」に書き出す</text>
+        <text x="512" y="248" text-anchor="middle" font-size="10" fill="#7a5600">例: 月次報告.pdf.part</text>
+        <text x="512" y="264" text-anchor="middle" font-size="10" fill="#7a5600">この間は未完成と分かる名前</text>
+
+        <line x1="600" y1="240" x2="644" y2="240" stroke="#1F883D" stroke-width="2.2" marker-end="url(#f9arw)"/>
+        <rect x="652" y="216" width="222" height="48" rx="9" fill="#E6F5EB" stroke="#1F883D" stroke-width="1.6"/>
+        <text x="763" y="238" text-anchor="middle" font-size="11" font-weight="700" fill="#155e2e">完了した瞬間に正式名へ改名</text>
+        <text x="763" y="255" text-anchor="middle" font-size="10" fill="#155e2e">＝ 存在するファイルは必ず完全</text>
+
+        <rect x="424" y="292" width="450" height="40" rx="8" fill="#FFE9EA" stroke="#CF222E" stroke-width="1.3"/>
+        <text x="649" y="309" text-anchor="middle" font-size="10.5" font-weight="700" fill="#8a1119">通信が切れた・利用者がキャンセルした場合</text>
+        <text x="649" y="325" text-anchor="middle" font-size="10" fill="#8a1119">.part ファイルを自動削除。中途半端なファイルが業務フォルダに残らない</text>
+        <path d="M512 272 V292" stroke="#CF222E" stroke-width="1.6" stroke-dasharray="4 3"/>
+
+        <text x="450" y="368" text-anchor="middle" font-size="10.5" fill="#6B7280">要求の既定上限は 10 GB（設定変更可）。IIS を前段に置く場合は IIS 側の上限（約 4 GB）が先に効く点に注意</text>
+      </svg>
+      <figcaption>図 10：転送パイプライン。アップロードもダウンロードも全区間ストリーミングで、ダウンロードは <code>.part</code> 方式により「途中で切れた不完全なファイルが正式名で残る」ことを防いでいます。</figcaption>
+    </figure>
+
+    <h3>13.3 転送の詳細</h3>
+    <table>
+      <thead><tr><th style="width:230px">項目</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><b>バッファサイズ</b></td><td>4 MB。共有バッファプールから借りて返すため、大容量転送でも大きなメモリ領域が積み上がらない</td></tr>
+        <tr><td><b>Agent 経由時</b></td><td>応答ヘッダーだけを先に読んで本文を流す方式で中継するため、途中の段でも全体をメモリに展開しない</td></tr>
+        <tr><td><b>要求サイズの上限</b></td><td>既定 10 GB (<code>Kestrel:Limits:MaxRequestBodySize</code>)。IIS を前段に置く構成では IIS 側の上限が別レイヤーで効き、その最大値は約 4 GB</td></tr>
+        <tr><td><b>タイムアウト</b></td><td>転送 1 件あたり既定 30 分 (<code>deployment.json</code> の <code>fileTransferTimeoutMinutes</code>)</td></tr>
+        <tr><td><b>フォルダ転送</b></td><td>フォルダを選ぶと配下を再帰的に処理し、進捗はフォルダ単位で表示される。各ファイルの操作はそれぞれ監査ログに残る</td></tr>
+        <tr><td><b>ローカル側の I/O</b></td><td>フォルダの走査は増分列挙、ファイル操作はすべてバックグラウンド実行のため、大量ファイルでも画面が固まらない</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===== 14 章 ===== -->
+    <h2 id="ch14"><span class="n">14</span>管理機能</h2>
+
+    <p class="lead">管理者フラグを持つ利用者がログインすると、ヘッダーに「管理」ボタンが表示されます。管理ウィンドウはタブ構成で、<b>すべての管理操作が監査ログに記録されます</b>。</p>
+
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:150px">タブ</th><th style="width:300px">できること</th><th>仕様上のポイント</th></tr></thead>
+      <tbody>
+        <tr><td><b>① ユーザー</b></td><td>一覧 / 追加 / 削除 / 管理者フラグ変更 / ロック解除 / パスワード強制リセット / CSV 一括登録 / CSV 出力</td><td>新規作成とリセット後は必ず初回パスワード変更が必要になる。CSV 一括登録は「新規のみ」「上書き」の 2 モードで、失敗した行は行番号付きで表示される。自分自身の削除・降格と、最後の有効な管理者の削除・降格はサーバー側で拒否される</td></tr>
+        <tr><td><b>② ホスト</b></td><td>ファイルサーバーの登録 (表示名 / アドレス / ポート / 資格情報 / 実行ノード) と接続テスト</td><td>資格情報は AES-256-GCM で暗号化して保存し、API 応答には決して含まれない。接続テストは登録済みの共有を 1 つ使って SMB 接続を試みる</td></tr>
+        <tr><td><b>③ 共有</b></td><td>ホストに紐づく SMB 共有名と表示名の登録</td><td>同一ホスト内で共有名は一意</td></tr>
+        <tr><td><b>④ テンプレート</b></td><td>権限テンプレートの作成・編集・削除</td><td>強い順に表示される。使用中のテンプレートは削除できない</td></tr>
+        <tr><td><b>⑤ ユーザー権限</b></td><td>利用者ごとの許可フォルダの付与・削除。実際のフォルダツリーから選べるパスブラウザ付き</td><td>左に利用者一覧 (絞り込みと件数バッジ)、右に付与済みパス。「権限セットから一括適用」「他の利用者から全件複製」が使える (重複はスキップか上書きを選択)</td></tr>
+        <tr><td><b>⑥ 権限セット</b></td><td>部署・役割単位で権限行をまとめて定義</td><td>適用時に利用者権限として展開されるため、セットを後から削除しても付与済みの権限は残る</td></tr>
+        <tr><td><b>⑦ 信頼デバイス</b></td><td>自動ログインが登録された端末の一覧と、利用者単位の一括失効</td><td>退職・端末紛失時の対応。失効理由と日時が記録される</td></tr>
+        <tr><td><b>⑧ 実行ノード</b></td><td>Direct / Agent ノードの登録・削除・状態確認・鍵の再生成</td><td>ホストで使用中のノードは削除できない。mTLS 構成では証明書のサムプリントで Agent を識別する</td></tr>
+        <tr><td><b>⑨ 操作ログ</b></td><td>監査ログの検索と CSV 出力</td><td>利用者名・操作種別・期間で絞り込み、1 ページ 100 件の新しい順 (§10)</td></tr>
+        <tr><td><b>⑩ システム設定</b></td><td>パスワード期限・警告日数・同時接続上限・アイドル時間・ログ保管日数・ロックまでの失敗回数</td><td>変更は即時反映され、サーバーの再起動は不要 (§17.4)</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="note">
+      <b>設定の置き場所に注意</b>：ログ保管日数やアイドル時間などの運用パラメータは <code>appsettings.json</code> ではなく<b>データベース上のシステム設定</b>であり、管理画面 (または管理 API) から変更します。一方、接続 URL・証明書・暗号鍵などの基盤設定は <code>appsettings.json</code> 側です。詳細は §17 を参照してください。
+    </div>
+
+    <!-- ============================================================
+         第 5 部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 5 部</span>
+      <div>
+        <p class="ptitle">インタフェースとデータ</p>
+        <p class="psub">外から見える API と、内部に持つデータの形</p>
+      </div>
+    </div>
+
+    <!-- ===== 15 章 ===== -->
+    <h2 id="ch15"><span class="n">15</span>API 一覧</h2>
+
+    <p class="lead">中央サーバーの API はすべて JSON ベースです。認証欄の意味は次のとおりです。<span class="pill info">Bearer</span> アクセストークン必須／<span class="pill">Admin</span> 管理者のみ／<span class="pill warn">Agent</span> mTLS または共有秘密／<span class="pill ok">不要</span> 認証なし。</p>
+
+    <h3>15.1 認証 <code>/api/auth</code></h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:80px">Method</th><th style="width:250px">Path</th><th>用途</th><th style="width:150px">認証</th></tr></thead>
+      <tbody>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/auth/login</code></td><td>手動ログイン</td><td><span class="pill ok">不要</span> <span class="fn">10 回/分/IP</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/auth/auto-login</code></td><td>信頼デバイスによる自動ログイン</td><td><span class="pill ok">不要</span> <span class="fn">10 回/分/IP</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/auth/trust-device</code></td><td>この端末を信頼デバイスとして登録</td><td><span class="pill info">Bearer</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/auth/refresh</code></td><td>アクセストークンの更新 (ローテーション)</td><td><span class="pill ok">不要</span> <span class="fn">リフレッシュトークン</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/auth/logout</code></td><td>ログアウト (トークン失効)</td><td><span class="pill info">Bearer</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/auth/change-password</code></td><td>パスワード変更</td><td><span class="pill info">Bearer</span></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="fn">ログイン応答には、アクセストークン・リフレッシュトークン (と その ID)・有効秒数・パスワード変更が必要か・パスワード期限までの日数・アイドルタイムアウト分数が含まれます。</p>
+
+    <h3>15.2 ファイル操作 <code>/api/files</code>　<span class="pill info">Bearer</span></h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:80px">Method</th><th style="width:250px">Path</th><th>用途</th><th style="width:150px">必要な権限</th></tr></thead>
+      <tbody>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/files</code></td><td>一覧 (200 件/ページ、並べ替え対応)</td><td>READ</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/files/download</code></td><td>ダウンロード (ストリーミング)</td><td>READ</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/files/upload</code></td><td>アップロード (ストリーミング)</td><td>WRITE</td></tr>
+        <tr><td><span class="m del">DELETE</span></td><td><code>/api/files</code></td><td>削除 (フォルダは再帰)</td><td>DELETE</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/files/rename</code></td><td>名前の変更 (同一親のみ)</td><td>RENAME</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/files/mkdir</code></td><td>フォルダ作成</td><td>WRITE</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>15.3 ホスト・共有の参照 <code>/api/hosts</code>　<span class="pill info">Bearer</span></h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:80px">Method</th><th style="width:330px">Path</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/hosts</code></td><td>その利用者がアクセスできるホスト一覧</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/hosts/{hostId}/shares</code></td><td>共有一覧</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/hosts/{hostId}/shares/{shareId}/locations</code></td><td>許可された場所 (サブパス) 一覧</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/hosts/catalog</code></td><td>ホスト・共有・場所を <b>1 リクエストにまとめて</b>取得 (画面初期化の往復を削減)</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>15.4 管理 <code>/api/admin/*</code>　<span class="pill">Admin</span></h3>
+    <div class="tblwrap">
+    <table class="sm grouped">
+      <thead><tr><th style="width:80px">Method</th><th style="width:330px">Path</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr class="gh"><td colspan="3"><span class="badge">利用者</span>アカウントとデバイスの管理</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/users</code></td><td>一覧</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/users</code></td><td>追加 (初回パスワード変更が必須になる)</td></tr>
+        <tr><td><span class="m patch">PATCH</span></td><td><code>/api/admin/users/{id}</code></td><td>管理者フラグなどの変更</td></tr>
+        <tr><td><span class="m del">DELETE</span></td><td><code>/api/admin/users/{id}</code></td><td>削除 (自分自身と最後の管理者は拒否)</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/users/{id}/unlock</code></td><td>ロック解除</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/users/{id}/reset-password</code></td><td>パスワードの強制リセット</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/users/{id}/devices</code></td><td>その利用者の信頼デバイス一覧</td></tr>
+        <tr><td><span class="m del">DELETE</span></td><td><code>/api/admin/users/{id}/devices</code></td><td>信頼デバイスの一括失効</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/users/export.csv</code></td><td>利用者一覧の CSV 出力 (棚卸し用)</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/users/import.csv</code></td><td>CSV による一括登録</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/devices</code></td><td>信頼デバイスの全体一覧</td></tr>
+
+        <tr class="gh"><td colspan="3"><span class="badge">資源</span>ホスト・共有・実行ノード</td></tr>
+        <tr><td><span class="m get">GET</span> <span class="m post">POST</span></td><td><code>/api/admin/hosts</code></td><td>ホストの一覧・追加</td></tr>
+        <tr><td><span class="m patch">PATCH</span> <span class="m del">DELETE</span></td><td><code>/api/admin/hosts/{id}</code></td><td>ホストの変更・削除</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/hosts/test-connection</code></td><td>接続テスト</td></tr>
+        <tr><td><span class="m get">GET</span> <span class="m post">POST</span></td><td><code>/api/admin/shares</code></td><td>共有の一覧 (<code>?hostId</code>)・追加</td></tr>
+        <tr><td><span class="m patch">PATCH</span> <span class="m del">DELETE</span></td><td><code>/api/admin/shares/{id}</code></td><td>共有の変更・削除</td></tr>
+        <tr><td><span class="m get">GET</span> <span class="m post">POST</span></td><td><code>/api/admin/nodes</code></td><td>実行ノードの一覧・追加</td></tr>
+        <tr><td><span class="m patch">PATCH</span> <span class="m del">DELETE</span></td><td><code>/api/admin/nodes/{id}</code></td><td>実行ノードの変更・削除</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/nodes/{id}/regenerate-key</code></td><td>鍵の再生成</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/nodes/{id}/status</code></td><td>状態確認</td></tr>
+
+        <tr class="gh"><td colspan="3"><span class="badge">権限</span>テンプレート・利用者権限・権限セット</td></tr>
+        <tr><td><span class="m get">GET</span> <span class="m post">POST</span></td><td><code>/api/admin/permission-templates</code></td><td>テンプレートの一覧・追加</td></tr>
+        <tr><td><span class="m patch">PATCH</span> <span class="m del">DELETE</span></td><td><code>/api/admin/permission-templates/{id}</code></td><td>テンプレートの変更・削除 (使用中は削除不可)</td></tr>
+        <tr><td><span class="m get">GET</span> <span class="m post">POST</span></td><td><code>/api/admin/user-permissions</code></td><td>権限の一覧 (<code>?userId&amp;shareId</code>)・付与</td></tr>
+        <tr><td><span class="m del">DELETE</span></td><td><code>/api/admin/user-permissions/{id}</code></td><td>権限の削除</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/user-permissions/copy</code></td><td>他の利用者から全権限を複製</td></tr>
+        <tr><td><span class="m get">GET</span> <span class="m post">POST</span></td><td><code>/api/admin/permission-bundles</code></td><td>権限セットの一覧・作成</td></tr>
+        <tr><td><span class="m get">GET</span> <span class="m patch">PATCH</span> <span class="m del">DELETE</span></td><td><code>/api/admin/permission-bundles/{id}</code></td><td>権限セットの取得・変更・削除</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/permission-bundles/{id}/apply</code></td><td>権限セットを利用者へ一括適用</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/browse</code></td><td>権限付与時のフォルダツリー参照</td></tr>
+
+        <tr class="gh"><td colspan="3"><span class="badge">記録・設定</span>操作ログとシステム設定</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/logs</code></td><td>監査ログの検索 (100 件/ページ)</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/logs/export.csv</code></td><td>監査ログの CSV 出力</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/settings</code></td><td>システム設定の一覧</td></tr>
+        <tr><td><span class="m get">GET</span> <span class="m put">PUT</span></td><td><code>/api/admin/settings/{key}</code></td><td>個別設定の取得・更新</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>15.5 内部 (Agent ⇄ 中央) と Agent の受け口</h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:80px">Method</th><th style="width:260px">Path</th><th>用途</th><th style="width:130px">認証</th></tr></thead>
+      <tbody>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/internal/heartbeat</code></td><td>Agent → 中央。応答で同時接続上限が返る</td><td><span class="pill warn">Agent</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/internal/audit-logs/batch</code></td><td>バッファした監査ログの一括送信</td><td><span class="pill warn">Agent</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/agent/files/list</code> ほか <code>download</code> / <code>upload</code> / <code>delete</code> / <code>rename</code> / <code>mkdir</code></td><td>中央 → Agent。SMB 操作の実体</td><td><span class="pill warn">Agent</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/agent/test-connection</code></td><td>Agent 経由の接続テスト</td><td><span class="pill warn">Agent</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/agent/internal/buffer-log</code></td><td>監査ログのバッファ投入</td><td><span class="pill warn">Agent</span></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>15.6 死活確認</h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:80px">Method</th><th style="width:260px">Path</th><th>用途</th><th style="width:130px">認証</th></tr></thead>
+      <tbody>
+        <tr><td><span class="m get">GET</span></td><td><code>/health</code></td><td>中央サーバー / Agent の死活確認。<code>{"status":"ok", ...}</code> を返す。クライアントの接続テストと監視で使用</td><td><span class="pill ok">不要</span></td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/</code></td><td>ブラウザで開いたときの案内 (主要エンドポイントの一覧)</td><td><span class="pill ok">不要</span></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <!-- ===== 16 章 ===== -->
+    <h2 id="ch16"><span class="n">16</span>データモデル</h2>
+
+    <p class="lead">中央サーバーは SQLite に次のデータを持ちます。初回起動時にマイグレーションが自動適用され、初期データが投入されます。<code>[JsonIgnore]</code> と記した項目は API 応答から自動的に除外されます。</p>
+
+    <figure>
+      <svg viewBox="0 0 900 590" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="データモデルのエンティティ関連図">
+        <defs>
+          <marker id="f11arw" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#6B7280"/></marker>
+        </defs>
+
+        <!-- 凡例的グループ帯 -->
+        <rect x="16" y="24" width="868" height="140" rx="10" fill="#FAFBFC" stroke="#D5D9DE" stroke-dasharray="5 4"/>
+        <text x="30" y="44" font-size="11" font-weight="700" fill="#6B7280">アカウントとセッション</text>
+
+        <rect x="16" y="178" width="868" height="150" rx="10" fill="#FAFBFC" stroke="#D5D9DE" stroke-dasharray="5 4"/>
+        <text x="30" y="198" font-size="11" font-weight="700" fill="#6B7280">権限</text>
+
+        <rect x="16" y="342" width="868" height="150" rx="10" fill="#FAFBFC" stroke="#D5D9DE" stroke-dasharray="5 4"/>
+        <text x="30" y="362" font-size="11" font-weight="700" fill="#6B7280">接続先の資源</text>
+
+        <!-- User -->
+        <rect x="36" y="56" width="190" height="90" rx="9" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.8"/>
+        <text x="131" y="78" text-anchor="middle" font-size="12" font-weight="700" fill="#5C1A0B">User</text>
+        <text x="48" y="98" font-size="9.5" fill="#4A535C">Username / IsAdmin / IsLocked</text>
+        <text x="48" y="114" font-size="9.5" fill="#4A535C">PasswordHash 🔒 / FailedLoginCount</text>
+        <text x="48" y="130" font-size="9.5" fill="#4A535C">PasswordExpiresAt / MustChangePassword</text>
+
+        <!-- TrustedDevice -->
+        <rect x="290" y="56" width="190" height="90" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="385" y="78" text-anchor="middle" font-size="12" font-weight="700" fill="#1B2A41">TrustedDevice</text>
+        <text x="302" y="98" font-size="9.5" fill="#4A535C">MachineName / WindowsUsername</text>
+        <text x="302" y="114" font-size="9.5" fill="#4A535C">DeviceTokenHash 🔒</text>
+        <text x="302" y="130" font-size="9.5" fill="#4A535C">IsRevoked / RevokedReason</text>
+
+        <!-- RefreshToken -->
+        <rect x="544" y="56" width="190" height="90" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="639" y="78" text-anchor="middle" font-size="12" font-weight="700" fill="#1B2A41">RefreshToken</text>
+        <text x="556" y="98" font-size="9.5" fill="#4A535C">TokenHash 🔒 / DeviceId</text>
+        <text x="556" y="114" font-size="9.5" fill="#4A535C">IssuedAt / ExpiresAt</text>
+        <text x="556" y="130" font-size="9.5" fill="#4A535C">IsRevoked / ClientIp</text>
+
+        <!-- SystemSetting -->
+        <rect x="752" y="56" width="118" height="90" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="811" y="78" text-anchor="middle" font-size="12" font-weight="700" fill="#1B2A41">SystemSetting</text>
+        <text x="764" y="98" font-size="9.5" fill="#4A535C">Key / Value</text>
+        <text x="764" y="114" font-size="9.5" fill="#4A535C">UpdatedAt</text>
+        <text x="764" y="130" font-size="9.5" fill="#4A535C">UpdatedBy</text>
+
+        <!-- 関係 (上段) -->
+        <line x1="226" y1="94" x2="284" y2="94" stroke="#6B7280" stroke-width="1.4" marker-end="url(#f11arw)"/>
+        <text x="238" y="88" font-size="9" fill="#6B7280">1</text><text x="272" y="88" font-size="9" fill="#6B7280">N</text>
+        <line x1="480" y1="94" x2="538" y2="94" stroke="#6B7280" stroke-width="1.4" marker-end="url(#f11arw)"/>
+        <text x="492" y="88" font-size="9" fill="#6B7280">1</text><text x="526" y="88" font-size="9" fill="#6B7280">N</text>
+        <path d="M226 132 C 380 168 420 168 544 132" fill="none" stroke="#6B7280" stroke-width="1.4" marker-end="url(#f11arw)"/>
+        <text x="380" y="175" text-anchor="middle" font-size="9" fill="#6B7280">1 : N（利用者のトークン）</text>
+
+        <!-- UserPermission -->
+        <rect x="36" y="212" width="190" height="94" rx="9" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.8"/>
+        <text x="131" y="234" text-anchor="middle" font-size="12" font-weight="700" fill="#5C1A0B">UserPermission</text>
+        <text x="48" y="254" font-size="9.5" fill="#4A535C">UserId / ShareId / TemplateId</text>
+        <text x="48" y="270" font-size="9.5" fill="#4A535C">AllowedPath（許可フォルダ）</text>
+        <text x="48" y="286" font-size="9.5" fill="#4A535C">DisplayName / CreatedBy</text>
+        <text x="48" y="300" font-size="9" fill="#C73E1D">この 1 行が「許可」の実体</text>
+
+        <!-- PermissionTemplate -->
+        <rect x="290" y="212" width="190" height="94" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="385" y="234" text-anchor="middle" font-size="12" font-weight="700" fill="#1B2A41">PermissionTemplate</text>
+        <text x="302" y="256" font-size="9.5" fill="#4A535C">Name</text>
+        <text x="302" y="274" font-size="9.5" fill="#4A535C">CanRead / CanWrite</text>
+        <text x="302" y="292" font-size="9.5" fill="#4A535C">CanDelete / CanRename</text>
+
+        <!-- PermissionBundle -->
+        <rect x="544" y="200" width="146" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="617" y="220" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B2A41">PermissionBundle</text>
+        <text x="556" y="240" font-size="9.5" fill="#4A535C">Name / Description</text>
+
+        <rect x="544" y="266" width="146" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="617" y="286" text-anchor="middle" font-size="11" font-weight="700" fill="#1B2A41">BundleEntry</text>
+        <text x="556" y="306" font-size="9.5" fill="#4A535C">ShareId / TemplateId / Path</text>
+        <line x1="617" y1="252" x2="617" y2="260" stroke="#6B7280" stroke-width="1.4" marker-end="url(#f11arw)"/>
+
+        <rect x="710" y="212" width="160" height="94" rx="9" fill="#F0F2F5" stroke="#D5D9DE"/>
+        <text x="790" y="234" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1B2A41">適用のしかた</text>
+        <text x="722" y="254" font-size="9.5" fill="#4A535C">セットを適用すると、</text>
+        <text x="722" y="270" font-size="9.5" fill="#4A535C">各 Entry が UserPermission</text>
+        <text x="722" y="286" font-size="9.5" fill="#4A535C">として複製される（以後は独立）</text>
+        <path d="M544 292 C 400 336 260 330 172 312" fill="none" stroke="#C73E1D" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#f11arw)"/>
+
+        <line x1="290" y1="258" x2="232" y2="258" stroke="#6B7280" stroke-width="1.4" marker-end="url(#f11arw)"/>
+        <text x="276" y="252" font-size="9" fill="#6B7280">1</text><text x="242" y="252" font-size="9" fill="#6B7280">N</text>
+        <line x1="131" y1="146" x2="131" y2="206" stroke="#6B7280" stroke-width="1.4" marker-end="url(#f11arw)"/>
+        <text x="120" y="164" font-size="9" fill="#6B7280">1</text><text x="120" y="200" font-size="9" fill="#6B7280">N</text>
+
+        <!-- CifsShare -->
+        <rect x="36" y="376" width="190" height="80" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="131" y="398" text-anchor="middle" font-size="12" font-weight="700" fill="#1B2A41">CifsShare</text>
+        <text x="48" y="418" font-size="9.5" fill="#4A535C">HostId / ShareName（ホスト内で一意）</text>
+        <text x="48" y="436" font-size="9.5" fill="#4A535C">DisplayName</text>
+        <line x1="131" y1="376" x2="131" y2="312" stroke="#6B7280" stroke-width="1.4" marker-end="url(#f11arw)"/>
+        <text x="120" y="368" font-size="9" fill="#6B7280">1</text><text x="120" y="326" font-size="9" fill="#6B7280">N</text>
+
+        <!-- CifsHost -->
+        <rect x="290" y="376" width="190" height="80" rx="9" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.8"/>
+        <text x="385" y="398" text-anchor="middle" font-size="12" font-weight="700" fill="#5C1A0B">CifsHost</text>
+        <text x="302" y="418" font-size="9.5" fill="#4A535C">Name / HostAddress / Port(445)</text>
+        <text x="302" y="436" font-size="9.5" fill="#4A535C">CredUsername / CredPasswordEnc 🔒</text>
+        <line x1="290" y1="416" x2="232" y2="416" stroke="#6B7280" stroke-width="1.4" marker-end="url(#f11arw)"/>
+        <text x="276" y="410" font-size="9" fill="#6B7280">1</text><text x="242" y="410" font-size="9" fill="#6B7280">N</text>
+
+        <!-- ExecutionNode -->
+        <rect x="544" y="376" width="190" height="80" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
+        <text x="639" y="398" text-anchor="middle" font-size="12" font-weight="700" fill="#1B2A41">ExecutionNode</text>
+        <text x="556" y="418" font-size="9.5" fill="#4A535C">Name / NodeType / Endpoint</text>
+        <text x="556" y="436" font-size="9.5" fill="#4A535C">HealthStatus / MaxConcurrency</text>
+        <line x1="544" y1="416" x2="486" y2="416" stroke="#6B7280" stroke-width="1.4" marker-end="url(#f11arw)"/>
+        <text x="530" y="410" font-size="9" fill="#6B7280">1</text><text x="496" y="410" font-size="9" fill="#6B7280">N</text>
+        <path d="M700 376 C 720 348 760 356 754 384" fill="none" stroke="#6B7280" stroke-width="1.3" marker-end="url(#f11arw)"/>
+        <text x="784" y="360" font-size="9" fill="#6B7280">GatewayNodeId</text>
+        <text x="784" y="374" font-size="9" fill="#6B7280">（自分自身への参照）</text>
+
+        <!-- AuditLog -->
+        <rect x="16" y="506" width="500" height="64" rx="9" fill="#E6F5EB" stroke="#1F883D" stroke-width="1.6"/>
+        <text x="266" y="527" text-anchor="middle" font-size="12" font-weight="700" fill="#155e2e">AuditLog（監査ログ）</text>
+        <text x="30" y="546" font-size="9.5" fill="#155e2e">Timestamp / Username / Operation / HostId / ShareId / Path / TargetPath / Result</text>
+        <text x="30" y="562" font-size="9.5" fill="#155e2e">ClientIp / BytesTransferred / DurationMs / Protocol / ExecutionNodeId / UsedPermissionId</text>
+
+        <rect x="532" y="506" width="352" height="64" rx="9" fill="#FFF6E0" stroke="#BF8700" stroke-width="1.4"/>
+        <text x="708" y="527" text-anchor="middle" font-size="11" font-weight="700" fill="#7a5600">監査ログは各 ID を「弱く」参照する</text>
+        <text x="546" y="546" font-size="9.5" fill="#7a5600">利用者やホストを削除しても、記録は名前とパスを保ったまま残る。</text>
+        <text x="546" y="562" font-size="9.5" fill="#7a5600">画面では解決できない ID を「(削除済)」として表示する。</text>
+      </svg>
+      <figcaption>図 11：データモデルの関連図。🔒 は API 応答から自動除外される機微フィールドです。監査ログだけは外部キー制約で縛らず、参照先が消えても記録が残るようにしています。</figcaption>
+    </figure>
+
+    <h3>16.1 主要エンティティの項目</h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:170px">エンティティ</th><th>主な項目</th></tr></thead>
+      <tbody>
+        <tr><td><b>User</b></td><td><code>Id</code> / <code>Username</code> / <code>PasswordHash</code> 🔒 / <code>IsAdmin</code> / <code>IsLocked</code> / <code>FailedLoginCount</code> / <code>PasswordChangedAt</code> / <code>PasswordExpiresAt</code> / <code>MustChangePassword</code> / <code>LastLoginAt</code> / <code>LastWindowsUsername</code> / <code>LastMachineName</code> / <code>CreatedAt</code></td></tr>
+        <tr><td><b>RefreshToken</b></td><td><code>Id</code> / <code>UserId</code> / <code>TokenHash</code> 🔒 / <code>DeviceId</code> / <code>IssuedAt</code> / <code>ExpiresAt</code> / <code>LastUsedAt</code> / <code>IsRevoked</code> / <code>ClientIp</code></td></tr>
+        <tr><td><b>TrustedDevice</b></td><td><code>Id</code> / <code>UserId</code> / <code>MachineName</code> / <code>WindowsUsername</code> / <code>DeviceTokenHash</code> 🔒 / <code>RegisteredAt</code> / <code>LastUsedAt</code> / <code>IsRevoked</code> / <code>RevokedReason</code> / <code>RevokedAt</code></td></tr>
+        <tr><td><b>CifsHost</b></td><td><code>Id</code> / <code>Name</code> / <code>HostAddress</code> / <code>Port</code> (445) / <code>Description</code> / <code>CredUsername</code> / <code>CredPasswordEnc</code> 🔒 (AES-256-GCM) / <code>ExecutionNodeId</code> / <code>CreatedAt</code></td></tr>
+        <tr><td><b>CifsShare</b></td><td><code>Id</code> / <code>HostId</code> / <code>ShareName</code> (ホスト内で一意) / <code>DisplayName</code></td></tr>
+        <tr><td><b>PermissionTemplate</b></td><td><code>Id</code> / <code>Name</code> / <code>CanRead</code> / <code>CanWrite</code> / <code>CanDelete</code> / <code>CanRename</code></td></tr>
+        <tr><td><b>UserPermission</b></td><td><code>Id</code> / <code>UserId</code> / <code>ShareId</code> / <code>TemplateId</code> / <code>AllowedPath</code> / <code>DisplayName</code> / <code>CreatedAt</code> / <code>CreatedBy</code></td></tr>
+        <tr><td><b>PermissionBundle</b><br>／ <b>Entry</b></td><td>セット: <code>Id</code> / <code>Name</code> / <code>Description</code> / <code>CreatedAt</code> / <code>CreatedBy</code><br>エントリ: <code>Id</code> / <code>BundleId</code> / <code>ShareId</code> / <code>TemplateId</code> / <code>AllowedPath</code> / <code>DisplayName</code></td></tr>
+        <tr><td><b>ExecutionNode</b></td><td><code>Id</code> / <code>Name</code> / <code>NodeType</code> (<code>Direct</code> / <code>Agent</code>) / <code>Endpoint</code> / <code>ClientCertificateThumbprint</code> / <code>GatewayNodeId</code> / <code>IsActive</code> / <code>LastHeartbeatAt</code> / <code>HealthStatus</code> / <code>MaxConcurrency</code> (20) / <code>CreatedAt</code></td></tr>
+        <tr><td><b>AuditLog</b></td><td><code>Id</code> / <code>Timestamp</code> / <code>UserId</code> / <code>Username</code> / <code>Operation</code> / <code>HostId</code> / <code>ShareId</code> / <code>Path</code> / <code>TargetPath</code> / <code>Result</code> / <code>ErrorMessage</code> / <code>ClientIp</code> / <code>ClientHostname</code> / <code>BytesTransferred</code> / <code>DurationMs</code> / <code>Protocol</code> / <code>ExecutionNodeId</code> / <code>UsedPermissionId</code></td></tr>
+        <tr><td><b>SystemSetting</b></td><td><code>Key</code> / <code>Value</code> / <code>UpdatedAt</code> / <code>UpdatedBy</code> (§17.4 の 6 キー)</td></tr>
+        <tr><td><b>PendingLog</b><br><span class="fn">(Agent のローカル DB)</span></td><td>送信待ちの監査ログ内容 / <code>AttemptCount</code> (50 以上で送信対象外)</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>16.2 初期データ (新規データベース)</h3>
+    <table class="sm">
+      <thead><tr><th style="width:200px">対象</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>システム設定</td><td>パスワード期限 90 / 警告 14 / 同時接続上限 20 / アイドル 30 / ログ保管 365 / 失敗ロック 15</td></tr>
+        <tr><td>権限テンプレート</td><td>フルアクセス・読取+書込・読取のみ</td></tr>
+        <tr><td>実行ノード</td><td><code>Direct (Local)</code> 1 件</td></tr>
+        <tr><td>管理者アカウント</td><td><code>admin</code>。初回ログイン時にパスワード変更が必須</td></tr>
+      </tbody>
+    </table>
+    <div class="warn">
+      初期管理者アカウントの既定パスワードは公開情報です。<b>構築直後に必ず変更してください</b> (§18 のチェックリスト参照)。
+    </div>
+
+    <!-- ============================================================
+         第 6 部
+         ============================================================ -->
+    <div class="part">
+      <span class="pnum">第 6 部</span>
+      <div>
+        <p class="ptitle">構築・運用</p>
+        <p class="psub">どこに何を設定し、どう立ち上げ、どう維持するか</p>
+      </div>
+    </div>
+
+    <!-- ===== 17 章 ===== -->
+    <h2 id="ch17"><span class="n">17</span>設定項目の全体像</h2>
+
+    <p class="lead">設定は 4 か所に分かれています。<b>どこを触るべきかを取り違えないこと</b>が運用上のつまずきどころなので、まず全体の割り当てを押さえてください。</p>
+
+    <table>
+      <thead><tr><th style="width:230px">設定の場所</th><th style="width:160px">変更する人</th><th>扱う内容</th><th style="width:130px">反映</th></tr></thead>
+      <tbody>
+        <tr><td><b>deployment.json</b><br><span class="fn">クライアント同梱</span></td><td>管理者 (配布時)</td><td>接続先・更新確認先・ドラッグ &amp; ドロップ・転送タイムアウト</td><td>再発行が必要</td></tr>
+        <tr><td><b>appsettings.json</b><br><span class="fn">中央サーバー</span></td><td>構築 / 運用担当</td><td>DB の場所・暗号鍵・証明書・待受ポート・mTLS・ログ出力</td><td>サービス再起動</td></tr>
+        <tr><td><b>appsettings.json</b><br><span class="fn">Agent</span></td><td>構築 / 運用担当</td><td>中央の URL・自身の識別名・認証方式・待受ポート・バッファ DB</td><td>サービス再起動</td></tr>
+        <tr><td><b>システム設定</b><br><span class="fn">データベース</span></td><td>管理者 (管理画面)</td><td>パスワード期限・アイドル時間・ログ保管日数・ロック回数・同時接続上限</td><td class="yes">即時</td></tr>
+      </tbody>
+    </table>
+
+    <h3>17.1 クライアント (deployment.json)</h3>
+    <p>§7.1 のとおりです。<code>serverUrl</code> と <code>updateManifestUrl</code> は必須で、欠けていると起動しません。</p>
+
+    <h3>17.2 中央サーバー (appsettings.json)</h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:280px">キー</th><th style="width:90px">必須</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>ConnectionStrings:Default</code></td><td><span class="pill ng">必須</span></td><td>SQLite データベースの保存先。サービスアカウントが読み書きできる場所にすること</td></tr>
+        <tr><td><code>Jwt:Secret</code></td><td><span class="pill ng">必須</span></td><td>JWT の署名鍵 (32 バイト以上のランダム値)。雛形のままだと本番では起動しない</td></tr>
+        <tr><td><code>Jwt:Issuer</code> / <code>Jwt:Audience</code></td><td>推奨</td><td>JWT の発行者と対象。通常は変更不要</td></tr>
+        <tr><td><code>Jwt:AccessTokenMinutes</code></td><td>任意</td><td>アクセストークンの有効分数 (既定 15)</td></tr>
+        <tr><td><code>Jwt:RefreshTokenDays</code></td><td>任意</td><td>リフレッシュトークンの有効日数 (既定 30)。再ログインなしで使える期間</td></tr>
+        <tr><td><code>Encryption:MasterKey</code></td><td><span class="pill ng">必須</span></td><td>ファイルサーバー資格情報の暗号化キー (32 バイトの Base64)。<b>紛失すると既存の登録済み資格情報を復号できなくなる</b></td></tr>
+        <tr><td><code>Auth:AllowHttpForAutoLogin</code></td><td>任意</td><td>HTTP 接続での自動ログインを許可するか (本番は <code>false</code> 推奨)</td></tr>
+        <tr><td><code>Auth:LoginPerMinutePerIp</code></td><td>任意</td><td>IP あたりのログイン試行回数の上限 (既定 10)。同一 NAT 配下で誤検知する場合のみ増やす</td></tr>
+        <tr><td><code>Routing:UseMtls</code></td><td>構成依存</td><td>中央 ⇄ Agent を mTLS で相互認証するか</td></tr>
+        <tr><td><code>Routing:ClientCertificatePath</code> / <code>…Password</code></td><td>mTLS 時</td><td>中央が Agent へ提示するクライアント証明書</td></tr>
+        <tr><td><code>Routing:SharedSecret</code></td><td>共有秘密時</td><td>Agent と同じ値を設定する (32 バイト以上推奨)。mTLS 構成では空を推奨</td></tr>
+        <tr><td><code>Cifs:SessionIdleSeconds</code> / <code>Cifs:MaxSessionsPerKey</code></td><td>任意</td><td>SMB セッションプールの保持秒数 (既定 60) と、キーあたりの上限 (既定 4)</td></tr>
+        <tr><td><code>Kestrel:Endpoints</code></td><td><span class="pill ng">必須</span></td><td>待受 URL と HTTPS 証明書</td></tr>
+        <tr><td><code>Kestrel:Limits:MaxRequestBodySize</code></td><td>任意</td><td>要求本文の上限 (既定 10 GB)</td></tr>
+        <tr><td><code>Serilog:WriteTo</code></td><td>推奨</td><td>アプリケーションログの出力先。既定は日次ローテーションのファイル</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>17.3 Agent (appsettings.json)</h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:280px">キー</th><th style="width:90px">必須</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>Agent:AgentId</code></td><td><span class="pill ng">必須</span></td><td>この Agent の識別名。中央に登録した実行ノード名と<b>完全に一致</b>させる</td></tr>
+        <tr><td><code>Agent:CentralUrl</code></td><td><span class="pill ng">必須</span></td><td>中央サーバーの URL (ハートビートとログ送信の宛先)</td></tr>
+        <tr><td><code>Agent:MaxConcurrency</code></td><td>任意</td><td>起動時の同時処理上限。以後は中央の設定値がハートビート応答で反映される</td></tr>
+        <tr><td><code>ConnectionStrings:Buffer</code></td><td><span class="pill ng">必須</span></td><td>監査ログを一時保管するローカル SQLite の場所</td></tr>
+        <tr><td><code>Certificate:Path</code> / <code>…Password</code></td><td>mTLS 時</td><td>Agent が中央へ提示するクライアント証明書</td></tr>
+        <tr><td><code>Auth:CentralCertificateThumbprint</code></td><td>mTLS 時</td><td>中央が Agent へ提示する証明書のサムプリント (受け口の検証に使う)</td></tr>
+        <tr><td><code>Auth:SharedSecret</code></td><td>共有秘密時</td><td>中央の <code>Routing:SharedSecret</code> と同じ値</td></tr>
+        <tr><td><code>Routing:UseMtls</code></td><td>構成依存</td><td>mTLS を使うか。<b><code>false</code> かつ共有秘密が空だと、Agent は設定エラーとして起動を中止する</b></td></tr>
+        <tr><td><code>Kestrel:Endpoints</code></td><td><span class="pill ng">必須</span></td><td>Agent の待受 URL (HTTP なら証明書は不要)</td></tr>
+        <tr><td><code>Cifs:*</code> / <code>Serilog:*</code></td><td>任意</td><td>中央と同じ意味</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>17.4 システム設定 (管理画面から変更、即時反映)</h3>
+    <table>
+      <thead><tr><th style="width:270px">キー</th><th style="width:100px">既定</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>PasswordExpiryDays</code></td><td>90</td><td>パスワードの有効期限 (日)</td></tr>
+        <tr><td><code>PasswordWarningDays</code></td><td>14</td><td>期限切れ前に警告を出し始める日数</td></tr>
+        <tr><td><code>AgentMaxConcurrency</code></td><td>20</td><td>Agent の同時処理上限</td></tr>
+        <tr><td><code>SessionIdleMinutes</code></td><td>30</td><td>無操作で自動ログアウトするまでの分数</td></tr>
+        <tr><td><code>AuditLogRetentionDays</code></td><td>365</td><td>監査ログの保管日数。<b>0 以下で永久保管</b></td></tr>
+        <tr><td><code>MaxFailedLoginAttempts</code></td><td>15</td><td>連続ログイン失敗で自動ロックするまでの回数</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===== 18 章 ===== -->
+    <h2 id="ch18"><span class="n">18</span>導入手順と本番投入チェックリスト</h2>
+
+    <h3>18.1 構築の流れ</h3>
+    <ol>
+      <li><b>中央サーバーを構築</b> — 発行物を配置し、<code>appsettings.json</code> に暗号鍵・証明書・待受ポートを設定して、Windows サービスとして登録する。データベースは初回起動時に自動生成・初期化される</li>
+      <li><b>配布サーバーを用意</b> — ClickOnce 用に IIS などで発行物を公開する (<code>.application</code> / <code>.manifest</code> / <code>.deploy</code> の MIME 登録が必要)</li>
+      <li><b>踏み台に Agent を配置</b> — 必要な場合のみ。識別名・中央の URL・認証方式 (mTLS または共有秘密) を設定し、Windows サービスとして登録する</li>
+      <li><b>初期データを登録</b> — 管理者としてログインし、実行ノード → ホスト → 共有 → (必要なら) テンプレート → 利用者 → 利用者権限 の順に登録する</li>
+      <li><b>クライアントを配布</b> — <code>deployment.json</code> に本番の接続先を書いて発行し、配布 URL を利用者へ案内する</li>
+    </ol>
+
+    <div class="tip">
+      登録の順序には依存関係があります。<b>実行ノードがないとホストを登録できず、ホストがないと共有を登録できず、共有がないと権限を付与できません</b>。新規データベースには <code>Direct (Local)</code> ノードが最初から入っているため、踏み台を使わない構成なら手順 4 はホストの登録から始められます。
+    </div>
+
+    <h3>18.2 本番投入チェックリスト</h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:60px">✓</th><th style="width:150px">分類</th><th>項目</th></tr></thead>
+      <tbody>
+        <tr><td>☐</td><td rowspan="3"><b>秘密情報</b></td><td>JWT の署名鍵を本番値 (32 バイト以上のランダム) に差し替える</td></tr>
+        <tr><td>☐</td><td>暗号化マスターキーを本番値に差し替え、<b>安全な場所にバックアップを取る</b></td></tr>
+        <tr><td>☐</td><td>初期管理者アカウントのパスワードを変更する</td></tr>
+        <tr><td>☐</td><td rowspan="4"><b>証明書</b></td><td>中央サーバーの HTTPS 証明書を社内 CA 発行のものにする</td></tr>
+        <tr><td>☐</td><td>(ストア参照方式の場合) 秘密キーにサービスアカウントの読み取り権限を付与する</td></tr>
+        <tr><td>☐</td><td>クライアント PC へ社内 CA のルート証明書を配布する</td></tr>
+        <tr><td>☐</td><td>ClickOnce の署名証明書のサムプリントを発行プロファイルへ設定する</td></tr>
+        <tr><td>☐</td><td rowspan="3"><b>経路</b></td><td>(mTLS 構成) Agent 用クライアント証明書を発行し、実行ノードにサムプリントを登録する</td></tr>
+        <tr><td>☐</td><td>(mTLS 構成) Agent 側に中央のクライアント証明書サムプリントを設定する</td></tr>
+        <tr><td>☐</td><td>(共有秘密構成) 中央と Agent の両方に同じ共有秘密を設定する</td></tr>
+        <tr><td>☐</td><td rowspan="3"><b>調整</b></td><td>ログイン試行回数の上限を環境に合わせて調整する (既定 10 回/分/IP)</td></tr>
+        <tr><td>☐</td><td>SMB セッションプールのキーあたり上限を調整する (既定 4)</td></tr>
+        <tr><td>☐</td><td>管理画面で監査ログの保管日数を運用ポリシーに合わせる (既定 365 日、0 以下で永久保管)</td></tr>
+        <tr><td>☐</td><td rowspan="5"><b>運用</b></td><td>中央サーバー / Agent を Windows サービスとして登録し、自動再起動を確認する</td></tr>
+        <tr><td>☐</td><td>データベースの日次バックアップを登録する</td></tr>
+        <tr><td>☐</td><td>アプリケーションログのローテーションを確認する</td></tr>
+        <tr><td>☐</td><td>中央サーバーと Agent の <code>/health</code> を死活監視に登録する</td></tr>
+        <tr><td>☐</td><td>ファイアウォールで必要な経路のみを開放する (§5.2)</td></tr>
+        <tr><td>☐</td><td><b>配布</b></td><td>配布サーバーで <code>.application</code> / <code>.manifest</code> / <code>.deploy</code> の MIME を登録する</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <!-- ===== 19 章 ===== -->
+    <h2 id="ch19"><span class="n">19</span>運用・保守と障害時のふるまい</h2>
+
+    <h3>19.1 定期的に動いている処理</h3>
+    <table>
+      <thead><tr><th style="width:250px">処理</th><th style="width:150px">周期</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>Agent のハートビート送信</td><td>30 秒</td><td>中央へ生存を通知し、応答で同時接続上限を受け取る</td></tr>
+        <tr><td>中央のヘルス点検</td><td>15 秒</td><td>各 Agent の最終ハートビートを確認し、90 秒以上未着なら <code>Unhealthy</code> にする</td></tr>
+        <tr><td>Agent のログ同期</td><td>10 秒</td><td>バッファした監査ログを中央へ一括送信する</td></tr>
+        <tr><td>監査ログの自動削除</td><td>起動 30 秒後 + 24 時間ごと</td><td>保管日数を過ぎた行をまとめて削除する</td></tr>
+        <tr><td>SMB セッションの破棄</td><td>常時</td><td>アイドル時間を超えたセッションを自動的に閉じる</td></tr>
+      </tbody>
+    </table>
+
+    <h3>19.2 障害時のふるまい</h3>
+
+    <figure>
+      <svg viewBox="0 0 900 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="4 つの障害シナリオとシステムのふるまい">
+        <defs>
+          <marker id="f12arw" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#6B7280"/></marker>
+        </defs>
+
+        <!-- ① Agent 不達 -->
+        <rect x="20" y="24" width="424" height="196" rx="11" fill="#fff" stroke="#D5D9DE" stroke-width="1.4"/>
+        <rect x="20" y="24" width="424" height="30" rx="11" fill="#FFE9EA"/>
+        <rect x="20" y="44" width="424" height="10" fill="#FFE9EA"/>
+        <text x="36" y="45" font-size="12" font-weight="700" fill="#8a1119">① 踏み台の Agent が落ちた / 届かない</text>
+
+        <rect x="40" y="70" width="120" height="40" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="100" y="88" text-anchor="middle" font-size="10" fill="#4A535C">ハートビートが</text>
+        <text x="100" y="103" text-anchor="middle" font-size="10" fill="#4A535C">届かなくなる</text>
+        <line x1="160" y1="90" x2="192" y2="90" stroke="#6B7280" stroke-width="1.5" marker-end="url(#f12arw)"/>
+        <rect x="200" y="70" width="120" height="40" rx="8" fill="#FFF6E0" stroke="#BF8700"/>
+        <text x="260" y="88" text-anchor="middle" font-size="10" fill="#7a5600">90 秒後に</text>
+        <text x="260" y="103" text-anchor="middle" font-size="10" fill="#7a5600">Unhealthy へ</text>
+        <line x1="320" y1="90" x2="352" y2="90" stroke="#6B7280" stroke-width="1.5" marker-end="url(#f12arw)"/>
+        <rect x="360" y="70" width="70" height="40" rx="8" fill="#FFE9EA" stroke="#CF222E"/>
+        <text x="395" y="88" text-anchor="middle" font-size="10" fill="#8a1119">操作は</text>
+        <text x="395" y="103" text-anchor="middle" font-size="10" fill="#8a1119">即 503</text>
+
+        <text x="40" y="136" font-size="10.5" fill="#4A535C">・待たされてから失敗するのではなく、<tspan font-weight="700">すぐに理由が返る</tspan>（無駄なリトライをしない）</text>
+        <text x="40" y="156" font-size="10.5" fill="#4A535C">・そのノードを使わないホストへの操作には影響しない</text>
+        <text x="40" y="176" font-size="10.5" fill="#4A535C">・Agent が復帰してハートビートが再開すれば、自動的に <tspan font-weight="700">Healthy</tspan> に戻る</text>
+        <text x="40" y="196" font-size="10.5" fill="#4A535C">・管理画面の実行ノード一覧で現在の状態を確認できる</text>
+
+        <!-- ② 中央不達 -->
+        <rect x="456" y="24" width="424" height="196" rx="11" fill="#fff" stroke="#D5D9DE" stroke-width="1.4"/>
+        <rect x="456" y="24" width="424" height="30" rx="11" fill="#FFF6E0"/>
+        <rect x="456" y="44" width="424" height="10" fill="#FFF6E0"/>
+        <text x="472" y="45" font-size="12" font-weight="700" fill="#7a5600">② 中央サーバーへ一時的に届かない（Agent 側から見て）</text>
+
+        <rect x="476" y="70" width="122" height="40" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="537" y="88" text-anchor="middle" font-size="10" fill="#4A535C">監査ログを送れない</text>
+        <text x="537" y="103" text-anchor="middle" font-size="10" fill="#4A535C">（操作自体は継続）</text>
+        <line x1="598" y1="90" x2="630" y2="90" stroke="#6B7280" stroke-width="1.5" marker-end="url(#f12arw)"/>
+        <rect x="638" y="70" width="112" height="40" rx="8" fill="#E6F0FB" stroke="#0969DA"/>
+        <text x="694" y="88" text-anchor="middle" font-size="10" fill="#0b4a8f">ローカル DB に</text>
+        <text x="694" y="103" text-anchor="middle" font-size="10" fill="#0b4a8f">いったん保管</text>
+        <line x1="750" y1="90" x2="782" y2="90" stroke="#6B7280" stroke-width="1.5" marker-end="url(#f12arw)"/>
+        <rect x="790" y="70" width="72" height="40" rx="8" fill="#E6F5EB" stroke="#1F883D"/>
+        <text x="826" y="88" text-anchor="middle" font-size="10" fill="#155e2e">復旧後に</text>
+        <text x="826" y="103" text-anchor="middle" font-size="10" fill="#155e2e">一括送信</text>
+
+        <text x="476" y="136" font-size="10.5" fill="#4A535C">・再送は 10 秒ごと。失敗が続くと間隔を広げる（最大 5 分）</text>
+        <text x="476" y="156" font-size="10.5" fill="#4A535C">・50 回試しても送れなかった行は送信対象から外れる（滞留を無限に増やさない）</text>
+        <text x="476" y="176" font-size="10.5" fill="#4A535C">・中央が完全に停止している間は、クライアントからの操作自体ができない</text>
+        <text x="476" y="196" font-size="10.5" fill="#4A535C">　（認証も認可も中央が行うため。ここは冗長化の検討対象）</text>
+
+        <!-- ③ プロセス異常終了 -->
+        <rect x="20" y="238" width="424" height="196" rx="11" fill="#fff" stroke="#D5D9DE" stroke-width="1.4"/>
+        <rect x="20" y="238" width="424" height="30" rx="11" fill="#E6F0FB"/>
+        <rect x="20" y="258" width="424" height="10" fill="#E6F0FB"/>
+        <text x="36" y="259" font-size="12" font-weight="700" fill="#0b4a8f">③ サービスが異常終了した</text>
+
+        <rect x="40" y="284" width="86" height="38" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="83" y="308" text-anchor="middle" font-size="10" fill="#4A535C">異常終了</text>
+        <line x1="126" y1="303" x2="152" y2="303" stroke="#6B7280" stroke-width="1.5" marker-end="url(#f12arw)"/>
+        <rect x="160" y="284" width="76" height="38" rx="8" fill="#E6F5EB" stroke="#1F883D"/>
+        <text x="198" y="300" text-anchor="middle" font-size="10" fill="#155e2e">5 秒後に</text>
+        <text x="198" y="315" text-anchor="middle" font-size="10" fill="#155e2e">再起動</text>
+        <line x1="236" y1="303" x2="262" y2="303" stroke="#6B7280" stroke-width="1.5" marker-end="url(#f12arw)"/>
+        <rect x="270" y="284" width="70" height="38" rx="8" fill="#E6F5EB" stroke="#1F883D"/>
+        <text x="305" y="300" text-anchor="middle" font-size="10" fill="#155e2e">30 秒後</text>
+        <text x="305" y="315" text-anchor="middle" font-size="10" fill="#155e2e">に再試行</text>
+        <line x1="340" y1="303" x2="366" y2="303" stroke="#6B7280" stroke-width="1.5" marker-end="url(#f12arw)"/>
+        <rect x="374" y="284" width="56" height="38" rx="8" fill="#E6F5EB" stroke="#1F883D"/>
+        <text x="402" y="300" text-anchor="middle" font-size="10" fill="#155e2e">60 秒後</text>
+        <text x="402" y="315" text-anchor="middle" font-size="10" fill="#155e2e">以降</text>
+
+        <text x="40" y="348" font-size="10.5" fill="#4A535C">・Windows のサービス機能による自動復旧。中央サーバー / Agent とも同じ設定</text>
+        <text x="40" y="368" font-size="10.5" fill="#4A535C">・繰り返し落ちる場合はアプリケーションログに原因が残る（設定不備・ポート競合・証明書など）</text>
+        <text x="40" y="388" font-size="10.5" fill="#4A535C">・起動時に暗号鍵が雛形のままだと、本番環境では<tspan font-weight="700">あえて起動しない</tspan>（§11.3）</text>
+        <text x="40" y="410" font-size="10.5" fill="#6B7280">　→ 「動いているのに保護されていない」状態を作らないための設計</text>
+
+        <!-- ④ 過負荷 -->
+        <rect x="456" y="238" width="424" height="196" rx="11" fill="#fff" stroke="#D5D9DE" stroke-width="1.4"/>
+        <rect x="456" y="238" width="424" height="30" rx="11" fill="#F9E5E0"/>
+        <rect x="456" y="258" width="424" height="10" fill="#F9E5E0"/>
+        <text x="472" y="259" font-size="12" font-weight="700" fill="#5C1A0B">④ 同時アクセスが集中した</text>
+
+        <rect x="476" y="284" width="120" height="38" rx="8" fill="#F0F2F5" stroke="#9CA3AF"/>
+        <text x="536" y="300" text-anchor="middle" font-size="10" fill="#4A535C">Agent の同時処理が</text>
+        <text x="536" y="315" text-anchor="middle" font-size="10" fill="#4A535C">上限（既定 20）を超過</text>
+        <line x1="596" y1="303" x2="628" y2="303" stroke="#6B7280" stroke-width="1.5" marker-end="url(#f12arw)"/>
+        <rect x="636" y="284" width="120" height="38" rx="8" fill="#FFF6E0" stroke="#BF8700"/>
+        <text x="696" y="300" text-anchor="middle" font-size="10" fill="#7a5600">503 と「5 秒後に</text>
+        <text x="696" y="315" text-anchor="middle" font-size="10" fill="#7a5600">再試行」を返す</text>
+        <line x1="756" y1="303" x2="788" y2="303" stroke="#6B7280" stroke-width="1.5" marker-end="url(#f12arw)"/>
+        <rect x="796" y="284" width="66" height="38" rx="8" fill="#E6F5EB" stroke="#1F883D"/>
+        <text x="829" y="300" text-anchor="middle" font-size="10" fill="#155e2e">落ちずに</text>
+        <text x="829" y="315" text-anchor="middle" font-size="10" fill="#155e2e">耐える</text>
+
+        <text x="476" y="348" font-size="10.5" fill="#4A535C">・上限は管理画面から変更でき、次のハートビートで Agent に反映される</text>
+        <text x="476" y="368" font-size="10.5" fill="#4A535C">・SMB セッションプールにより、接続の張り直し自体が減っている</text>
+        <text x="476" y="388" font-size="10.5" fill="#4A535C">・ログインへの過剰なアクセスは IP 単位のレート制限（既定 10 回/分）で抑える</text>
+        <text x="476" y="410" font-size="10.5" fill="#6B7280">　→ いずれも「全体が倒れる前に一部を断る」方針</text>
+      </svg>
+      <figcaption>図 12：代表的な 4 つの障害シナリオとシステムのふるまい。共通する考え方は「黙って壊れない・待たせずに理由を返す・回復したら自動で戻る」です。</figcaption>
+    </figure>
+
+    <h3>19.3 バックアップと保守</h3>
+    <table>
+      <thead><tr><th style="width:220px">対象</th><th>方針</th></tr></thead>
+      <tbody>
+        <tr><td><b>データベース</b></td><td>SQLite の正規のバックアップ機能を使い、日次で取得する。世代管理の目安は日次 7 世代 + 月次 4 世代。稼働中でも安全に取得できる</td></tr>
+        <tr><td><b>暗号化マスターキー</b></td><td>データベースとは<b>別の場所</b>に保管する。これを失うと、登録済みのファイルサーバー資格情報を復号できなくなる</td></tr>
+        <tr><td><b>監査ログ</b></td><td>保管日数を過ぎた分はサーバー内蔵の処理が自動削除する。長期保存が必要な場合は CSV 出力で退避する</td></tr>
+        <tr><td><b>アプリケーションログ</b></td><td>日次ローテーション。ディスク使用量を定期的に確認する</td></tr>
+        <tr><td><b>データベースの最適化</b></td><td>月次で VACUUM を実施する</td></tr>
+      </tbody>
+    </table>
+
+    <h3>19.4 監視</h3>
+    <ul>
+      <li>中央サーバーと各 Agent の <code>/health</code> を外形監視に登録する</li>
+      <li>管理画面の実行ノード一覧で <code>HealthStatus</code> を確認できる</li>
+      <li>Windows のサービス一覧で常駐状態を確認できる</li>
+      <li>監査ログの <code>failure</code> / <code>denied</code> の増加は、権限設定の不備または不正アクセスの兆候として点検する</li>
+    </ul>
+
+    <!-- ===== 20 章 ===== -->
+    <h2 id="ch20"><span class="n">20</span>制限事項と非機能特性</h2>
+
+    <h3>20.1 数値で押さえる仕様</h3>
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:280px">項目</th><th style="width:170px">値</th><th>備考</th></tr></thead>
+      <tbody>
+        <tr><td>ファイル一覧のページサイズ</td><td>200 件</td><td>並べ替えはサーバー側で行う</td></tr>
+        <tr><td>監査ログのページサイズ</td><td>100 件</td><td>新しい順</td></tr>
+        <tr><td>転送バッファ</td><td>4 MB</td><td>全区間共通</td></tr>
+        <tr><td>要求本文の上限</td><td>既定 10 GB</td><td>IIS を前段に置く場合は IIS 側の上限 (最大約 4 GB) が先に効く</td></tr>
+        <tr><td>転送タイムアウト</td><td>既定 30 分 / 件</td><td>配布時に変更可</td></tr>
+        <tr><td>アクセストークン / リフレッシュトークン</td><td>15 分 / 30 日</td><td>設定変更可</td></tr>
+        <tr><td>アイドルタイムアウト</td><td>既定 30 分</td><td>管理画面で変更可</td></tr>
+        <tr><td>ログイン試行の上限</td><td>10 回 / 分 / IP</td><td>設定変更可</td></tr>
+        <tr><td>連続失敗によるロック</td><td>既定 15 回</td><td>管理画面で変更可</td></tr>
+        <tr><td>Agent の同時処理上限</td><td>既定 20</td><td>管理画面で変更可。超過は 503</td></tr>
+        <tr><td>SMB セッション保持</td><td>既定 60 秒 / キーあたり 4</td><td>設定変更可</td></tr>
+        <tr><td>監査ログ保管</td><td>既定 365 日</td><td>0 以下で永久保管</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>20.2 設計上の制限</h3>
+    <table>
+      <thead><tr><th style="width:280px">制限</th><th>理由 / 回避策</th></tr></thead>
+      <tbody>
+        <tr><td><b>中継チェーンは 1 段まで</b></td><td>「中央 → ゲートウェイ Agent → 目的の Agent → ファイルサーバー」が最長。これ以上多段にする場合は経路設計自体の見直しが必要</td></tr>
+        <tr><td><b>1 ホストにつき資格情報は 1 組</b></td><td>ファイルサーバーへの接続は登録された 1 組のアカウントで行う。利用者ごとの権限は Watashi 側で絞り込む方式のため、ファイルサーバー側の ACL による利用者別制御とは併用しにくい</td></tr>
+        <tr><td><b>自動ログインは 1 利用者 1 台</b></td><td>複数台での自動ログインは非対応。別の PC で登録すると前の登録は失効する</td></tr>
+        <tr><td><b>パスワードの履歴チェックなし</b></td><td>過去に使ったパスワードの再設定を技術的には防げない。運用ポリシーで補完する前提</td></tr>
+        <tr><td><b>クライアントは Windows 専用</b></td><td>WPF 実装のため。他 OS からは API を直接呼ぶ形になる</td></tr>
+        <tr><td><b>中央サーバーは単一障害点</b></td><td>認証・認可・監査を一手に担う構成のため、停止すると全操作が止まる。可用性要件が高い場合は冗長化の設計が別途必要</td></tr>
+        <tr><td><b>名前の変更はフォルダをまたげない</b></td><td>意図的な制限。フォルダをまたぐ移動を「名前の変更」として行わせないため (§9)</td></tr>
+        <tr><td><b>許可フォルダの直下より上へは行けない</b></td><td>許可されたルート自体の削除・改名も不可。誤操作による事故を防ぐための制限</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===== 21 章 ===== -->
+    <h2 id="ch21"><span class="n">21</span>用語集</h2>
+
+    <div class="tblwrap">
+    <table class="sm">
+      <thead><tr><th style="width:230px">用語</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td><b>中央サーバー</b></td><td>認証・認可・監査・ルーティングを担う中枢。クライアントが接続する唯一の相手</td></tr>
+        <tr><td><b>Agent (踏み台)</b></td><td>中央から直接届かないファイルサーバーへ中継する中間ノード。踏み台サーバーに常駐する</td></tr>
+        <tr><td><b>実行ノード</b></td><td>実際に SMB 接続を行う主体の登録単位。<code>Direct</code> (中央自身) と <code>Agent</code> の 2 種類</td></tr>
+        <tr><td><b>ゲートウェイノード</b></td><td>目的の Agent へ届かないときに間に挟む Agent。1 段まで</td></tr>
+        <tr><td><b>ホスト</b></td><td>1 台のファイルサーバーの登録。アドレス・ポート・資格情報・実行ノードを持つ</td></tr>
+        <tr><td><b>共有</b></td><td>ファイルサーバー上の SMB 共有。権限の基本単位</td></tr>
+        <tr><td><b>サブパス / 許可パス</b></td><td>共有の中で許可されたフォルダ。その配下すべてが対象になる</td></tr>
+        <tr><td><b>権限テンプレート</b></td><td>READ / WRITE / DELETE / RENAME の許可の組み合わせに名前を付けたもの</td></tr>
+        <tr><td><b>権限セット</b></td><td>複数の権限行をまとめた配布単位。適用すると個別の権限行として展開される</td></tr>
+        <tr><td><b>信頼デバイス</b></td><td>自動ログインを許可された PC。1 利用者につき 1 台</td></tr>
+        <tr><td><b>deployment.json</b></td><td>配布時に管理者が固定する接続先・機能設定。利用者は変更できない</td></tr>
+        <tr><td><b>ClickOnce</b></td><td>クライアントの配布と自動更新の仕組み。マニフェストでファイルのハッシュを検証する</td></tr>
+        <tr><td><b>mTLS</b></td><td>相互 TLS。サーバーとクライアントの双方が証明書を提示して相手を確認する方式</td></tr>
+        <tr><td><b>共有秘密</b></td><td>中央と Agent が共通で持つ合言葉。ヘッダーに載せて相手を識別する</td></tr>
+        <tr><td><b>アクセストークン</b></td><td>API を呼ぶための短命な証明書 (既定 15 分)</td></tr>
+        <tr><td><b>リフレッシュトークン</b></td><td>アクセストークンを再発行するための長命なトークン (既定 30 日)。使うたびに置き換わる</td></tr>
+        <tr><td><b>監査ログ</b></td><td>いつ・誰が・どこで・何をして・どうなったかの記録。データベースに保存される</td></tr>
+        <tr><td><b>CIFS / SMB</b></td><td>Windows のファイル共有プロトコル。本システムは SMB 2/3 を使う</td></tr>
+        <tr><td><b>SMB セッションプール</b></td><td>ファイルサーバーへの接続を再利用するしくみ。接続の張り直しのコストを減らす</td></tr>
+        <tr><td><b>Direct ノード</b></td><td>中央サーバー自身が直接 SMB を行う実行ノード。常に <code>Healthy</code></td></tr>
+        <tr><td><b>ハートビート</b></td><td>Agent が中央へ 30 秒ごとに送る生存通知</td></tr>
+        <tr><td><b>.part ファイル</b></td><td>ダウンロード中の一時ファイル。完了時に正式名へ改名される</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <hr class="sec">
+
+    <h3>関連ドキュメント</h3>
+    <table class="sm">
+      <thead><tr><th style="width:280px">文書</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>導入提案資料</td><td>導入の背景・ねらい・スケジュール (非技術者向け)</td></tr>
+        <tr><td>利用者マニュアル / 管理者マニュアル</td><td>画面ごとの操作手順</td></tr>
+        <tr><td>環境構築ガイド</td><td>0 から動かすまでの具体的なコマンドと設定例</td></tr>
+        <tr><td>API ガイド</td><td>クライアントを使わずに API を直接操作する場合の手引き</td></tr>
+        <tr><td>開発者ガイド</td><td>ローカル開発、ビルド、テスト、発行の手順</td></tr>
+      </tbody>
+    </table>
+
+
+  </div>
+
+  <button class="printbtn" onclick="window.print()">🖨 印刷 / PDF 保存</button>
+
+  <footer>
+    Watashi 統合仕様書 — 社内利用を想定した実装です。本番投入前に §18 のチェックリストを完了させてください。
+  </footer>
+
+</body>
+</html>
