@@ -6,13 +6,16 @@
 > このガイドは**変更箇所の一覧**です。実際の改名作業そのものは含みません。
 > 新しい名前・アイコンが決まったら、本書を見ながら該当箇所を差し替えてください。
 
+> 📘 表やチェックリストを画面で読みやすくした [HTML 版](BRANDING.html) もあります。
+
 - [1. 変更箇所の全体像](#1-変更箇所の全体像)
 - [2. 画面に表示されるアプリ名](#2-画面に表示されるアプリ名watashi)
 - [3. exe ファイル名](#3-exe-ファイル名watashiclientexe)
 - [4. 配布物・インストーラの名前 (ClickOnce)](#4-配布物インストーラの名前-clickonce)
 - [5. アイコン (鳥居マーク)](#5-アイコン-鳥居マーク)
 - [6. (任意) より広範にブランドを変える場合](#6-任意-より広範にブランドを変える場合)
-- [7. 変更後の確認手順](#7-変更後の確認手順)
+- [7. A/B 版を同じ PC で共存させる場合](#7-ab-版を同じ-pc-で共存させる場合)
+- [8. 変更後の確認手順](#8-変更後の確認手順)
 
 ---
 
@@ -24,8 +27,11 @@
 | exe ファイル名 (`Watashi.Client.exe`) | `Watashi.Client.csproj` | [§3](#3-exe-ファイル名watashiclientexe) |
 | 配布物・インストーラの名前 | `ClickOnceProfile.pubxml` | [§4](#4-配布物インストーラの名前-clickonce) |
 | アイコン (鳥居) | `Watashi.ico` + `Icons.xaml` + `Colors.xaml` | [§5](#5-アイコン-鳥居マーク) |
+| A/B を別アプリとして同時利用 | ClickOnce ID・配布 URL・ローカル保存先 | [§7](#7-ab-版を同じ-pc-で共存させる場合) |
 
-通常のリブランドは **§2・§4・§5 の 3 つ** を変えれば足ります。サーバー側の名前まで変えたい場合は §6 を参照。
+1 種類だけを配布する通常のリブランドは **§2・§4・§5 の 3 つ**を変えれば足ります。
+ただし、**A 版と B 版を同じ PC にインストールして同時利用する場合は §7 まで必須**です。
+サーバー側の名前まで変えたい場合は §6 を参照してください。
 
 ---
 
@@ -81,6 +87,10 @@ UI 文字列としての「Watashi」は以下に直書きされています。�
 > ⚠ **名前空間・クラス名の `Watashi.*` (例: `Watashi.Client.Views`) は変更しないこと。**
 > これは内部識別子で画面には一切出ません。書き換えるとビルドが壊れます。
 
+> `Window.Title` はタスクバーのホバー表示にも使われますが、タイトルを変えるだけでは
+> A/B のタスクバーグループは分離されません。`Watashi (2)` のようにまとめられる場合は
+> [§7](#7-ab-版を同じ-pc-で共存させる場合) の ClickOnce ID 分離が必要です。
+
 ---
 
 ## 3. exe ファイル名 (`Watashi.Client.exe`)
@@ -94,6 +104,10 @@ UI 文字列としての「Watashi」は以下に直書きされています。�
 <Product>NewName</Product>                    <!-- exe のプロパティ→詳細「製品名」 -->
 <AssemblyTitle>NewName</AssemblyTitle>        <!-- 〃「説明」 -->
 ```
+
+通常のリブランドでは exe 名の変更は任意です。一方、A/B を同じ PC で別アプリとして
+共存させる場合は、ClickOnce のアプリケーション ID を分けるため、
+本ガイドの共存手順では `AssemblyName` を A/B で別名にします。具体例は [§7-2](#7-2-a-版と-b-版で変更する値) を参照してください。
 
 ---
 
@@ -114,6 +128,10 @@ UI 文字列としての「Watashi」は以下に直書きされています。�
 > 配布 URL (`<PublishUrl>` / `<InstallUrl>` / `<UpdateUrl>`) のパスに `Watashi` が含まれる場合は、
 > 配布サーバ側の都合に合わせて任意に変更できます (ブランド名と一致させる必要はありません)。
 > スクリプトは URL を書き換えません (アンカーを `<ProductName>` 等の要素に限定しているため)。
+
+> `ProductName` は主に人に見せる名前です。A/B を ClickOnce 上の別アプリとして共存させるには、
+> `ProductName` の変更だけでは不十分です。`AssemblyName`、生成マニフェストの
+> `assemblyIdentity`、配布・更新 URL も分離してください。詳細は [§7](#7-ab-版を同じ-pc-で共存させる場合) を参照してください。
 
 ---
 
@@ -200,6 +218,9 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5
 > アプリ画面内のロゴ (ベクター) の色も揃えたい場合は、[§5-4](#5-4-色-朱色アクセント) の
 > `Colors.xaml` (`AccentColor` / `AccentDeepColor`) を上表の 2 色に合わせて変更してください。
 
+> アイコンを色分けしても、Windows 上のアプリ ID は分かれません。
+> A/B が `Watashi (2)` と同じタスクバーグループに入る場合は [§7](#7-ab-版を同じ-pc-で共存させる場合) の対応が必要です。
+
 **再生成・色の追加:**
 `scripts/Generate-ToriiIconVariants.ps1` が生成元です。色を追加したい場合は
 スクリプト内の `$variants` に名前と色相 (Hue) を足して再実行します。
@@ -222,18 +243,195 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1
 | JWT Issuer / Audience | `appsettings.json` の `Jwt:Issuer` / `Jwt:Audience` (`Watashi`) | Client/Server 双方の整合が必要 |
 
 > これらは「見た目の名前」ではなく運用上の識別子です。
-> **通常のリブランドでは §2 (表示名)・§4 (配布物名)・§5 (アイコン) の変更で十分**です。
+> **1 種類だけを配布する通常のリブランドでは §2 (表示名)・§4 (配布物名)・§5 (アイコン) の変更で十分**です。
+> A/B を同じ PC で共存させる場合は、クライアント側の保存先も含めて §7 を参照してください。
 
 ---
 
-## 7. 変更後の確認手順
+## 7. A/B 版を同じ PC で共存させる場合
+
+### 7-1. なぜ表示名だけでは足りないのか
+
+Windows と ClickOnce には、見た目の名前とは別にアプリケーションを識別する値があります。
+たとえばショートカットを `Watashi-a` / `Watashi-b` に改名しても、内部 ID が同じなら
+Windows は同じアプリの 2 ウィンドウと判断し、タスクバーに `Watashi (2)` と表示します。
+
+| 層 | 役割 | A/B での扱い |
+|---|---|---|
+| `Window.Title` | タスクバーのホバー、各画面のタイトル | **別にする** |
+| `ProductName` | スタートメニュー、インストーラ、「アプリと機能」 | **別にする** |
+| `AssemblyName` | exe 名、ClickOnce アプリケーションマニフェスト ID の基礎 | **別にする** |
+| ClickOnce `assemblyIdentity` | ClickOnce がアプリを識別する内部 ID | **発行後に別値か確認** |
+| 配布・更新 URL | インストール元と更新先 | **完全に分ける** |
+| `serverUrl` | 接続する中央サーバ | 環境ごとに設定 |
+| ローカル設定・資格情報・ログ | 同じ Windows ユーザー内の保存先 | **別にすることを強く推奨** |
+| アイコン | 人が見分けるための補助 | 色分けを推奨。ただし ID 分離にはならない |
+
+### 7-2. A 版と B 版で変更する値
+
+以下は例です。内部 ID には全角の `ｂ` を使わず、ASCII の `A` / `B` を使用してください。
+画面表示は `Watashi-a` / `Watashi-b` のような任意の表記で構いません。
+
+| 設定 | A 版の例 | B 版の例 |
+|---|---|---|
+| 画面表示名 | `Watashi-a` | `Watashi-b` |
+| `AssemblyName` | `WatashiA.Client` | `WatashiB.Client` |
+| `Product` / `AssemblyTitle` | `Watashi-a` | `Watashi-b` |
+| ClickOnce `ProductName` | `Watashi-a` | `Watashi-b` |
+| 発行フォルダ | `\\fileserver\share\Watashi-a\` | `\\fileserver\share\Watashi-b\` |
+| インストール・更新 URL | `https://host/install/watashi-a/` | `https://host/install/watashi-b/` |
+| 更新マニフェスト | `WatashiA.Client.application` | `WatashiB.Client.application` |
+| `serverUrl` | A 環境の中央サーバ | B 環境の中央サーバ |
+| 設定・ログフォルダ | `%LOCALAPPDATA%\Watashi-a\` | `%LOCALAPPDATA%\Watashi-b\` |
+| 資格情報ターゲット | `Watashi-a/AutoLogin` | `Watashi-b/AutoLogin` |
+
+#### `Watashi.Client.csproj`
+
+A 版:
+
+```xml
+<AssemblyName>WatashiA.Client</AssemblyName>
+<Product>Watashi-a</Product>
+<AssemblyTitle>Watashi-a</AssemblyTitle>
+```
+
+B 版:
+
+```xml
+<AssemblyName>WatashiB.Client</AssemblyName>
+<Product>Watashi-b</Product>
+<AssemblyTitle>Watashi-b</AssemblyTitle>
+```
+
+#### `ClickOnceProfile.pubxml`
+
+`ProductName` に加えて、発行先と更新先を A/B で分けます。
+`PublisherName` は会社・発行組織名なので共通でも構いません。
+`SuiteName` も同じスタートメニューフォルダにまとめたい場合は共通にできます。
+
+```xml
+<!-- A 版の例 -->
+<PublishUrl>\\fileserver\share\Watashi-a\</PublishUrl>
+<InstallUrl>https://host/install/watashi-a/</InstallUrl>
+<UpdateUrl>https://host/install/watashi-a/</UpdateUrl>
+<ProductName>Watashi-a</ProductName>
+```
+
+```xml
+<!-- B 版の例 -->
+<PublishUrl>\\fileserver\share\Watashi-b\</PublishUrl>
+<InstallUrl>https://host/install/watashi-b/</InstallUrl>
+<UpdateUrl>https://host/install/watashi-b/</UpdateUrl>
+<ProductName>Watashi-b</ProductName>
+```
+
+#### `deployment.json`
+
+`serverUrl` と `updateManifestUrl` は必ず同じ版の組み合わせにします。
+A 版から B 版のマニフェストを参照させてはいけません。
+
+```json
+{
+  "serverUrl": "https://server-a.internal",
+  "updateManifestUrl": "https://host/install/watashi-a/WatashiA.Client.application"
+}
+```
+
+```json
+{
+  "serverUrl": "https://server-b.internal",
+  "updateManifestUrl": "https://host/install/watashi-b/WatashiB.Client.application"
+}
+```
+
+### 7-3. タスクバー ID は ClickOnce に管理させる
+
+Windows は AppUserModelID を使ってタスクバーのウィンドウをグループ化します。
+ClickOnce で起動するアプリについては、ClickOnce が AppUserModelID を割り当てます。
+
+そのため、このプロジェクトのような ClickOnce 配布では
+`SetCurrentProcessExplicitAppUserModelID` をアプリ側から呼ばないでください。
+Microsoft も、ClickOnce 管理アプリが明示的な AppUserModelID を設定すると
+ClickOnce が割り当てる ID と競合し、予期しない結果になると説明しています。
+
+- [Microsoft Learn: Application User Model IDs](https://learn.microsoft.com/windows/win32/shell/appids)
+- [Microsoft Learn: ClickOnce application manifest](https://learn.microsoft.com/visualstudio/deployment/clickonce-application-manifest)
+
+タスクバーグループを分けるには、明示的な AppUserModelID をコードへ追加するのではなく、
+A/B の `AssemblyName`、ClickOnce マニフェスト ID、配布 URL を分離し、
+ClickOnce から別アプリとしてインストールしてください。
+
+### 7-4. ローカル設定・自動ログイン・ログも分離する
+
+現在のクライアントは次の固定名を使っています。同じ Windows ユーザーが A/B を併用すると共有されます。
+
+| 対象 | 現在の値 | ファイル |
+|---|---|---|
+| ユーザー設定 | `%LOCALAPPDATA%\Watashi\settings.json` | `Services/AppSettings.cs` |
+| クライアントログ | `%LOCALAPPDATA%\Watashi\logs\` | `Services/AppLog.cs` |
+| 自動ログイン資格情報 | `Watashi/AutoLogin` | `Services/CredentialStore.cs` |
+
+特に資格情報ターゲットが共通だと、A 版が保存したデバイストークンを B 版が読み込み、
+B 側で認証失敗した後に資格情報を消すなど、相互干渉する可能性があります。
+A/B を独立運用する場合は、これらも版ごとの固定名へ分けてください。
+
+### 7-5. 発行後にマニフェストを確認する
+
+生成された `.application` と `Application Files` 内の `*.manifest` を開き、
+最上位の `assemblyIdentity` が A/B で異なることを確認します。
+
+期待例:
+
+```xml
+<!-- A 版 -->
+<assemblyIdentity name="WatashiA.Client.application" ... />
+```
+
+```xml
+<!-- B 版 -->
+<assemblyIdentity name="WatashiB.Client.application" ... />
+```
+
+アプリケーションマニフェスト側も `WatashiA.Client.exe` / `WatashiB.Client.exe` のように
+別名になっていることを確認してください。生成済みマニフェストを手作業で改名・編集すると
+署名とハッシュが壊れるため、設定を直して必ず再発行します。
+
+### 7-6. 既に同じアプリとして入っている PC での再確認
+
+古い ClickOnce インストールやタスクバーのピン留めが残っていると、新しい発行物を正しく評価できません。
+
+1. Windows の「インストールされているアプリ」で、旧 `Watashi` / 試作 A/B 版をアンインストール
+2. 旧アイコンをタスクバーにピン留めしている場合はピン留めを外す
+3. A 版を A 専用 URL からインストール
+4. B 版を B 専用 URL からインストール
+5. A/B を同時起動し、タスクバーが 2 グループに分かれることを確認
+6. ホバー表示が `Watashi-a` / `Watashi-b` になることを確認
+7. それぞれが自分の更新 URL と中央サーバだけを参照することを確認
+8. A/B 双方で自動ログインを設定し、再起動後も互いの資格情報を上書きしないことを確認
+
+### 7-7. 症状別チェック
+
+| 症状 | 主な確認箇所 |
+|---|---|
+| `Watashi (2)` と表示される | A/B の `assemblyIdentity`、`AssemblyName`、旧ピン留め |
+| A/B の片方がもう片方として更新される | `UpdateUrl`、`updateManifestUrl`、配布マニフェスト名 |
+| 片方を入れるともう片方が置き換わる | ClickOnce `assemblyIdentity` と配布 URL |
+| ホバー名だけ `Watashi` のまま | 各 XAML の `Window.Title`、古いビルド成果物 |
+| 自動ログインが突然解除される | `CredentialStore.cs` の資格情報ターゲット |
+| 設定やログが混ざる | `AppSettings.cs` / `AppLog.cs` の保存フォルダ |
+
+---
+
+## 8. 変更後の確認手順
 
 1. クライアントをリビルド: `dotnet build src\Watashi.Client\Watashi.Client.csproj`
 2. アイコンを変えた場合は `scripts/Generate-ToriiIcon.ps1` を再実行して `.ico` を更新
 3. クライアント起動 → **ログイン画面・メイン画面・管理画面**の表示名を目視確認
 4. エクスプローラで `Watashi.Client.exe` (または新 exe 名) のアイコン、タスクバー表示を確認
-5. ClickOnce 発行 (`dotnet publish ... -p:PublishProfile=ClickOnceProfile`) →
+5. ClickOnce 発行 (`MSBuild.exe src\Watashi.Client\Watashi.Client.csproj /t:Publish /p:Configuration=Release /p:PublishProfile=ClickOnceProfile`) →
    インストーラ画面・スタートメニュー・「アプリと機能」の名前/アイコンを確認
+6. A/B 共存が必要な場合は [§7-5](#7-5-発行後にマニフェストを確認する) と
+   [§7-6](#7-6-既に同じアプリとして入っている-pc-での再確認) の確認も実施
 
 ---
 
