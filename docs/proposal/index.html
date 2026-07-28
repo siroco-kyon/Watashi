@@ -215,8 +215,8 @@
     <div class="conclusion">
       <h3>3行でいうと</h3>
       <ol>
-        <li>社内のネットワークは、部署・拠点・業務システムごとに分離されています。そのため<b>別ネットワークのファイルサーバーにファイルを置く／取り出す</b>たびに、USB メモリ・メール添付・担当者への依頼といった手段に頼ることになり、<b>誰が何を持ち出したかも残りません</b>。</li>
-        <li>これを解決するために導入されたのが現行の受け渡しツールです。<b>目的は今も正しい</b>一方で、<b>通信が暗号化されていない・記録が取り出せない・運用が手作業</b>の 3 点が限界になっています。</li>
+        <li>社内のネットワークは、部署・拠点・業務システムごとに分離されています。そのため<b>別ネットワークのファイルサーバーにファイルを置く／取り出す</b>たびに、FTP・RDP 経由のコピー＆ペースト・担当者への依頼といった手段に頼ることになり、<b>誰が何を持ち出したかも残りません</b>。</li>
+        <li>これを解決するために導入されたのが<b>現行ツール（PANDA）</b>です。<b>目的は今も正しい</b>一方で、<b>通信が暗号化されていない・記録が取り出せない・運用が手作業</b>の 3 点が限界になっています。</li>
         <li>後継ツール <b>「Watashi」</b> は、目的を変えずに中身を作り直したものです。まず 1 部署での<b>試験導入（PoC）</b>を提案します。</li>
       </ol>
     </div>
@@ -244,8 +244,8 @@
       <ol>
         <li class="grp">第1部　現状の整理</li>
         <li><a href="#ch1"><span class="no">1</span>いま起きている問題 — 分離されたネットワークをまたぐ手段がない</a></li>
-        <li><a href="#ch2"><span class="no">2</span>現行ツールが担っている 2 つの役割</a></li>
-        <li><a href="#ch3"><span class="no">3</span>現行ツールの評価 — 維持する点と、作り直す点</a></li>
+        <li><a href="#ch2"><span class="no">2</span>現行ツール（PANDA）が担っている 2 つの役割</a></li>
+        <li><a href="#ch3"><span class="no">3</span>現行ツール（PANDA）の評価 — 維持する点と、作り直す点</a></li>
         <li class="grp">第2部　何を作り直すのか</li>
         <li><a href="#ch4"><span class="no">4</span>作り直す 4 つの目的</a></li>
         <li><a href="#ch5"><span class="no">5</span>後継ツール「Watashi」の全体像</a></li>
@@ -254,7 +254,7 @@
         <li><a href="#ch7"><span class="no">7</span>目的② 記録を「すぐ使える」ものにする</a></li>
         <li><a href="#ch8"><span class="no">8</span>目的③ 経路と権限を安全にする</a></li>
         <li><a href="#ch9"><span class="no">9</span>目的④ 管理の手間を減らす</a></li>
-        <li><a href="#ch10"><span class="no">10</span>現行ツールの課題への対応（一覧）</a></li>
+        <li><a href="#ch10"><span class="no">10</span>現行ツール（PANDA）の課題への対応（一覧）</a></li>
         <li><a href="#ch11"><span class="no">11</span>システム構成の比較</a></li>
         <li class="grp">第4部　導入について</li>
         <li><a href="#ch12"><span class="no">12</span>導入に必要なものと、進め方</a></li>
@@ -270,7 +270,7 @@
       <span class="pnum">第 1 部</span>
       <div>
         <p class="ptitle">現状の整理</p>
-        <p class="psub">解こうとしている問題と、現行ツールが果たしている役割</p>
+        <p class="psub">解こうとしている問題と、現行ツール（PANDA）が果たしている役割</p>
       </div>
     </div>
 
@@ -332,21 +332,17 @@
         <!-- 回避策 -->
         <text x="440" y="278" text-anchor="middle" font-size="13" font-weight="700" fill="#7a2438">正規の手段がないため、実際には次の方法が使われている</text>
         <g>
-          <rect x="60" y="294" width="180" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
-          <text x="150" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">USB メモリで持ち運ぶ</text>
-          <text x="150" y="334" text-anchor="middle" font-size="11" fill="#CF222E">紛失・持ち出しのリスク</text>
+          <rect x="80" y="294" width="220" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
+          <text x="190" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">FTP で転送する</text>
+          <text x="190" y="334" text-anchor="middle" font-size="11" fill="#CF222E">認証情報もファイルも平文で流れる</text>
 
-          <rect x="260" y="294" width="180" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
-          <text x="350" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">メール添付で送る</text>
-          <text x="350" y="334" text-anchor="middle" font-size="11" fill="#CF222E">誤送信・容量制限</text>
+          <rect x="330" y="294" width="220" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
+          <text x="440" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">RDP でつないでコピー＆ペースト</text>
+          <text x="440" y="334" text-anchor="middle" font-size="11" fill="#CF222E">何を持ち出したかが残らない</text>
 
-          <rect x="460" y="294" width="180" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
-          <text x="550" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">私物のクラウドに置く</text>
-          <text x="550" y="334" text-anchor="middle" font-size="11" fill="#CF222E">社外にデータが出る</text>
-
-          <rect x="660" y="294" width="180" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
-          <text x="750" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">担当者が手作業でコピー</text>
-          <text x="750" y="334" text-anchor="middle" font-size="11" fill="#CF222E">都度の依頼・待ち時間</text>
+          <rect x="580" y="294" width="220" height="52" rx="9" fill="#fff5f5" stroke="#CF222E" stroke-width="1.3"/>
+          <text x="690" y="316" text-anchor="middle" font-size="12.5" fill="#7a2438">担当者が手作業でコピー</text>
+          <text x="690" y="334" text-anchor="middle" font-size="11" fill="#CF222E">都度の依頼・待ち時間</text>
         </g>
         <text x="440" y="376" text-anchor="middle" font-size="12" fill="#6B7280">いずれも管理の外にある経路で、記録も残らない</text>
       </svg>
@@ -357,16 +353,22 @@
     <table>
       <thead><tr><th style="width:150px">損失</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td>🚨 <b>安全性</b></td><td>USB メモリ・メール添付・私物クラウドなど、<b>管理の外にある経路</b>を通る。紛失や誤送信が起きても検知も停止もできない</td></tr>
+        <tr><td>🚨 <b>安全性</b></td><td>FTP や RDP 経由のコピー＆ペーストなど、<b>安全性の低い経路</b>を通る。FTP は認証情報もファイルも平文で流れ、RDP のコピー＆ペーストは何が持ち出されたかを追えない</td></tr>
         <tr><td>🐌 <b>時間</b></td><td>受け渡しのたびに担当者へ依頼し、手作業でのコピーを待つ。依頼する側も対応する側も、その分の時間を取られる</td></tr>
         <tr><td>❓ <b>説明責任</b></td><td>誰が・いつ・どのファイルを持ち出したのかが<b>残らない</b>。「誰が消したか」に答えられず、監査で証跡を求められても示せない</td></tr>
       </tbody>
     </table>
 
-    <!-- ===== 2章 ===== -->
-    <h2 id="ch2"><span class="n">2</span>現行ツールが担っている 2 つの役割</h2>
+    <div class="warn">
+      <b>これらの手段は、今後使えなくなる見込みです。</b><br>
+      <b>FTP</b> は認証情報もファイルも平文で流れるため、廃止して SFTP などへ移行する流れが定着しています。<b>RDP</b> は不正侵入の経路として狙われやすく、接続元の限定や<b>クリップボード経由のコピーの禁止</b>といった制限が一般的になりつつあります。<br>
+      つまり、<b>現在の受け渡し方法はいずれ塞がれる前提で、代替となる正規の手段を用意しておく必要があります</b>。これは「今より便利にする」話ではなく、<b>業務を止めないための備え</b>です。
+    </div>
 
-    <p class="lead">この問題に対して社内で採られた解決策が、現行のファイル受け渡しツールです。<b>USB メモリやメール添付を個別に禁止するのではなく、管理された経路を 1 本用意して、そこに集約する</b>という考え方です。</p>
+    <!-- ===== 2章 ===== -->
+    <h2 id="ch2"><span class="n">2</span>現行ツール（PANDA）が担っている 2 つの役割</h2>
+
+    <p class="lead">この問題に対して社内で採られた解決策が、現行ツール（PANDA）です。<b>FTP や RDP 経由のやり取りを個別に禁止するのではなく、管理された経路を 1 本用意して、そこに集約する</b>という考え方です。</p>
 
     <p>担っている役割は、次の <b>2 つ</b>です。</p>
 
@@ -439,16 +441,16 @@
 
         <text x="440" y="326" text-anchor="middle" font-size="12" fill="#6B7280">経路を 1 本に集約することが、「届ける」と「記録する」の両方の前提になる</text>
       </svg>
-      <figcaption>図2：現行ツールの基本設計。経路を 1 本に集約することで、記録と権限管理をまとめて実現できます。この設計自体は後継ツールでも変えません。</figcaption>
+      <figcaption>図2：現行ツール（PANDA）の基本設計。経路を 1 本に集約することで、記録と権限管理をまとめて実現できます。この設計自体は後継ツールでも変えません。</figcaption>
     </figure>
 
-    <p class="fn">※ 本資料では、現在利用中のファイル受け渡しツールを <b>「現行ツール」</b> と表記します。</p>
+    <p class="fn">※ 本資料では、現在利用中のファイル受け渡しツールを <b>「現行ツール（PANDA）」</b> と表記します。</p>
 
     <!-- ===== 3章 ===== -->
-    <h2 id="ch3"><span class="n">3</span>現行ツールの評価 — 維持する点と、作り直す点</h2>
+    <h2 id="ch3"><span class="n">3</span>現行ツール（PANDA）の評価 — 維持する点と、作り直す点</h2>
 
     <h3>維持する点</h3>
-    <p>現行ツールは、前章の 2 つの役割を実際に果たしています。次の 3 点は<b>後継ツールでもそのまま維持します</b>。</p>
+    <p>現行ツール（PANDA）は、前章の 2 つの役割を実際に果たしています。次の 3 点は<b>後継ツールでもそのまま維持します</b>。</p>
     <div class="stats">
       <div class="stat">
         <div class="ico">🪟</div>
@@ -475,7 +477,7 @@
 
     <div class="tblwrap">
     <table class="grouped">
-      <thead><tr><th style="width:44px">#</th><th style="width:38%">現行ツールの課題</th><th>これが招くリスク・コスト</th></tr></thead>
+      <thead><tr><th style="width:44px">#</th><th style="width:38%">現行ツール（PANDA）の課題</th><th>これが招くリスク・コスト</th></tr></thead>
       <tbody>
         <tr class="gh"><td colspan="3"><span class="badge">A</span>「運ぶ」経路そのものが安全でない</td></tr>
         <tr><td>1</td><td>通信が <b>HTTP のみ</b>（暗号化なし・平文）</td><td>パスワードやファイルの中身が、通信の途中で盗み見られる恐れ。外部監査でも指摘対象になる</td></tr>
@@ -536,7 +538,7 @@
       <div class="aim">
         <span class="no">目的 ③</span>
         <h4>経路と権限を安全にする</h4>
-        <p>通信を<b>暗号化（HTTPS）</b>し、触れる範囲を<b>人ごと・フォルダごと・操作ごと</b>に限定します。現行ツールで最も大きいリスクである平文通信と、触れる範囲を人ごとに分けられない状態を解消します。</p>
+        <p>通信を<b>暗号化（HTTPS）</b>し、触れる範囲を<b>人ごと・フォルダごと・操作ごと</b>に限定します。現行ツール（PANDA）で最も大きいリスクである平文通信と、触れる範囲を人ごとに分けられない状態を解消します。</p>
         <p class="to">→ 詳細は <a href="#ch8">第8章</a></p>
       </div>
       <div class="aim">
@@ -643,7 +645,7 @@
       <thead><tr><th style="width:180px">観点</th><th>後継ツールでの扱い</th></tr></thead>
       <tbody>
         <tr><td>目的（別ネットワークへ届ける／記録する）</td><td><span class="pill keep">維持</span>変更しません。以降の改善は、すべてこの目的を果たす手段の作り直しです</td></tr>
-        <tr><td>2 画面の操作</td><td><span class="pill keep">維持</span>左が自分の PC、右が社内のファイルサーバー。現行ツールの利用者はほぼそのまま使えます</td></tr>
+        <tr><td>2 画面の操作</td><td><span class="pill keep">維持</span>左が自分の PC、右が社内のファイルサーバー。現行ツール（PANDA）の利用者はほぼそのまま使えます</td></tr>
         <tr><td>既存のファイルサーバー</td><td><span class="pill keep">維持</span>置き換えません。今の共有フォルダをそのまま使います</td></tr>
         <tr><td>通信の経路</td><td><span class="pill new">作り直す</span>暗号化（HTTPS）に対応。別ネットワークへの中継にも対応</td></tr>
         <tr><td>権限のしくみ</td><td><span class="pill new">作り直す</span>人ごと・フォルダごと・操作ごとに設定</td></tr>
@@ -756,7 +758,7 @@
     <!-- ===== 7章 ===== -->
     <h2 id="ch7"><span class="n">7</span>目的② 記録を「すぐ使える」ものにする</h2>
 
-    <p class="lead">現行ツールでも記録自体は取れています。問題は<b>取り出せない</b>ことです。データベースを直接調べる必要があるため、質問に答えられるのが特定の担当者だけになっています。Watashi では<b>管理画面から誰でも取り出せる</b>状態にします。</p>
+    <p class="lead">現行ツール（PANDA）でも記録自体は取れています。問題は<b>取り出せない</b>ことです。データベースを直接調べる必要があるため、質問に答えられるのが特定の担当者だけになっています。Watashi では<b>管理画面から誰でも取り出せる</b>状態にします。</p>
 
     <figure>
       <svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="操作から記録・活用までの流れ">
@@ -823,7 +825,7 @@
 
     <div class="tblwrap">
     <table class="cmp">
-      <thead><tr><th>観点</th><th>現行ツール</th><th>Watashi（後継）</th></tr></thead>
+      <thead><tr><th>観点</th><th>現行ツール（PANDA）</th><th>Watashi（後継）</th></tr></thead>
       <tbody>
         <tr><td>記録の見方</td><td><span class="x">✗</span>データベースを直接参照するしかない</td><td><span class="o">✓</span><b>管理画面から一覧・絞り込み</b>。専門知識は不要</td></tr>
         <tr><td>記録の取り出し</td><td><span class="x">✗</span>必要になるたびに担当者が抽出</td><td><span class="o">✓</span><b>CSV 出力</b>。表計算ソフトでそのまま開ける</td></tr>
@@ -847,7 +849,7 @@
     <p class="lead"><b>通信の暗号化</b>と<b>触れる範囲の限定</b>。この 2 つが、今回の改善で最も効果の大きい部分です。第 3 章の課題 A（経路が安全でない）に直接対応します。</p>
 
     <h3>8-1. 通信の暗号化（HTTPS）</h3>
-    <p>現行ツールの通信は<b>平文（HTTP）</b>です。同じネットワーク上で通信を傍受されると、<b>パスワードもファイルの中身もそのまま読み取られます</b>。Watashi は通信を暗号化するため、傍受されても内容を読み取れません。</p>
+    <p>現行ツール（PANDA）の通信は<b>平文（HTTP）</b>です。同じネットワーク上で通信を傍受されると、<b>パスワードもファイルの中身もそのまま読み取られます</b>。Watashi は通信を暗号化するため、傍受されても内容を読み取れません。</p>
 
     <figure>
       <svg viewBox="0 0 880 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="平文通信と暗号化通信の違い">
@@ -886,7 +888,7 @@
     </figure>
 
     <h3>8-2. 触れる範囲を、人ごとに限定する</h3>
-    <p>現行ツールでは、利用できる人は<b>全員が同じ範囲</b>にアクセスできてしまいます。Watashi では <b>「人 × フォルダ × 操作の種類」</b> の組み合わせで許可します。許可されていないフォルダは、そもそも<b>一覧に表示されません</b>（「見えるけれど開けない」ではありません）。</p>
+    <p>現行ツール（PANDA）では、利用できる人は<b>全員が同じ範囲</b>にアクセスできてしまいます。Watashi では <b>「人 × フォルダ × 操作の種類」</b> の組み合わせで許可します。許可されていないフォルダは、そもそも<b>一覧に表示されません</b>（「見えるけれど開けない」ではありません）。</p>
 
     <figure>
       <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="人ごと・フォルダごとの権限設定のイメージ">
@@ -972,7 +974,7 @@
     <!-- ===== 9章 ===== -->
     <h2 id="ch9"><span class="n">9</span>目的④ 管理の手間を減らす</h2>
 
-    <p class="lead">現行ツールで手作業になっている作業を、<b>画面操作と自動化</b>に置き換えます。第 3 章の課題 C（運用が手作業）・D（サーバー保守が重い）に対応します。</p>
+    <p class="lead">現行ツール（PANDA）で手作業になっている作業を、<b>画面操作と自動化</b>に置き換えます。第 3 章の課題 C（運用が手作業）・D（サーバー保守が重い）に対応します。</p>
 
     <div class="tblwrap">
     <table>
@@ -1075,13 +1077,13 @@
     </figure>
 
     <!-- ===== 10章 ===== -->
-    <h2 id="ch10"><span class="n">10</span>現行ツールの課題への対応（一覧）</h2>
+    <h2 id="ch10"><span class="n">10</span>現行ツール（PANDA）の課題への対応（一覧）</h2>
 
     <p class="lead">第 3 章の <b>10 個の課題</b> それぞれについて、Watashi での解決方法を一覧にしました。<b>10 個すべてに対応済み</b>です。</p>
 
     <div class="tblwrap">
     <table class="cmp">
-      <thead><tr><th>観点</th><th>現行ツール</th><th>Watashi（後継）</th></tr></thead>
+      <thead><tr><th>観点</th><th>現行ツール（PANDA）</th><th>Watashi（後継）</th></tr></thead>
       <tbody>
         <tr>
           <td>① 通信の安全性</td>
@@ -1146,8 +1148,8 @@
     <p>変わるのは<b>保守し続ける対象の数</b>です。サーバーの台数ではなく、<b>1 台のサーバーに導入する製品の数が 3 つから 1 つになります</b>。脆弱性対応と監視の対象が、その分だけ減ります。</p>
 
     <figure>
-      <svg viewBox="0 0 880 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="現行ツールとWatashiで、保守が必要な製品の数を比較した図">
-        <text x="220" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#7a2438">現行ツール</text>
+      <svg viewBox="0 0 880 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="現行ツール（PANDA）とWatashiで、保守が必要な製品の数を比較した図">
+        <text x="220" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#7a2438">現行ツール（PANDA）</text>
         <text x="660" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1F6B3A">Watashi（後継）</text>
         <line x1="440" y1="42" x2="440" y2="352" stroke="#D5D9DE" stroke-dasharray="5 5"/>
 
@@ -1241,17 +1243,17 @@
       <li><b>既存データの移行が不要</b>：今のファイルサーバーをそのまま使うため、データを移す作業が発生しません。</li>
       <li><b>検証環境をすぐ用意できる</b>：データベースを別途構築する必要がないため、サーバー 1 台で試せます。</li>
       <li><b>利用者登録と権限付与は一括</b>：CSV でまとめて登録し、権限は「権限セット」で一括付与します。</li>
-      <li><b>再教育がほぼ不要</b>：2 画面の操作は現行ツールとほぼ同じです。</li>
+      <li><b>再教育がほぼ不要</b>：2 画面の操作は現行ツール（PANDA）とほぼ同じです。</li>
       <li><b>マニュアルは作成済み</b>：利用者向け・管理者向けとも用意しています（→ <a href="#appendix">付録</a>）。</li>
-      <li><b>部署単位で切り替えられる</b>：現行ツールを止めずに順次移行できます。</li>
+      <li><b>部署単位で切り替えられる</b>：現行ツール（PANDA）を止めずに順次移行できます。</li>
     </ul>
 
     <h3>進め方</h3>
     <ol>
       <li><b>準備</b>：検証用サーバーに Watashi を構築し、対象部署・評価項目を確定します。</li>
       <li><b>試験導入（PoC）</b>：1 部署・少人数で、実運用に近い形で試します。</li>
-      <li><b>評価</b>：下表の観点で、現行ツールと比較して確認します。</li>
-      <li><b>本番展開</b>：問題なければ対象部署を拡大し、現行ツールから順次切り替えます。</li>
+      <li><b>評価</b>：下表の観点で、現行ツール（PANDA）と比較して確認します。</li>
+      <li><b>本番展開</b>：問題なければ対象部署を拡大し、現行ツール（PANDA）から順次切り替えます。</li>
     </ol>
 
     <h4>試験導入で確認する項目</h4>
@@ -1262,7 +1264,7 @@
         <tr><td><b>安全性</b></td><td>通信が暗号化されているか。許可していないフォルダが利用者の画面に出ないか。許可外の操作が拒否され、記録に残るか</td><td>権限を与えていない部署のフォルダに、一切たどり着けないこと</td></tr>
         <tr><td><b>記録の実用性</b></td><td>「先月、誰がこのファイルを消したか」を管理画面だけで答えられるか。CSV に出して報告資料に使えるか</td><td>担当者以外でも、その場で提示できること</td></tr>
         <tr><td><b>運用性</b></td><td>利用者の一括登録、権限セットによる一括付与、退職者の失効にかかる時間</td><td>現行の手作業より短縮されていること</td></tr>
-        <tr><td><b>利用者の負担</b></td><td>現行ツールの利用者が、説明なしで受け渡しできるか</td><td>再教育がほぼ不要であること</td></tr>
+        <tr><td><b>利用者の負担</b></td><td>現行ツール（PANDA）の利用者が、説明なしで受け渡しできるか</td><td>再教育がほぼ不要であること</td></tr>
         <tr><td><b>実務での通用性</b></td><td>普段扱う最大サイズのファイル・フォルダを、実際の回線で受け渡しできるか</td><td>業務で使うサイズが所要時間内に完了すること</td></tr>
         <tr><td><b>保守性</b></td><td>サービスを強制停止させた場合に自動復旧するか。バックアップが日次で取れているか</td><td>手作業の介入なしに復旧すること</td></tr>
       </tbody>
@@ -1276,7 +1278,7 @@
       <thead><tr><th style="width:230px">留意点</th><th>内容</th><th style="width:32%">対処の考え方</th></tr></thead>
       <tbody>
         <tr><td><b>中央サーバーが止まると、受け渡し全体が止まる</b></td><td>本人確認・権限判定・記録を 1 か所に集めている構成のため</td><td>異常終了時は自動で復旧します。停止が許されない業務が対象になる場合は、予備機の要否を試験導入で判断します</td></tr>
-        <tr><td>利用者の PC は <b>Windows のみ</b></td><td>専用アプリが Windows 向けのため</td><td>現行ツールの利用者はすべて Windows のため、実質的な影響はありません</td></tr>
+        <tr><td>利用者の PC は <b>Windows のみ</b></td><td>専用アプリが Windows 向けのため</td><td>現行ツール（PANDA）の利用者はすべて Windows のため、実質的な影響はありません</td></tr>
         <tr><td>ファイルサーバーへの接続は<b>サーバー 1 台につき 1 アカウント</b></td><td>利用者ごとの絞り込みは Watashi 側で行う方式</td><td>ファイルサーバー側の権限設定で人ごとに分けている運用とは、考え方の整理が必要です</td></tr>
         <tr><td>自動ログインは <b>1 人 1 台まで</b></td><td>端末を記憶する仕組みのため</td><td>2 台目からは毎回入力になります。共用 PC では自動ログインを使わない運用を推奨します</td></tr>
         <tr><td>中継は <b>2 段まで</b></td><td>それより奥のネットワークへは届きません</td><td>該当する経路があれば、事前に構成をご相談ください</td></tr>
@@ -1363,7 +1365,7 @@
 
     <h3>本資料についての注記</h3>
     <p class="fn">
-      ・本資料では、現在利用中のファイル受け渡しツールを<b>「現行ツール」</b>と表記しています。<br>
+      ・本資料では、現在利用中のファイル受け渡しツールを<b>「現行ツール（PANDA）」</b>と表記しています。<br>
       ・本文中の数値・期間・部署名などは想定値です。実際の状況に合わせて差し替えてください。<br>
       ・スクリーンショットの枠（点線）は、<code>docs/proposal/images/</code> に所定のファイル名で画像を置くと自動的に差し替わります。詳細は同フォルダの <code>README.md</code> をご覧ください。
     </p>
@@ -1398,8 +1400,8 @@
       phases: [
         { name: '① 準備',           note: '検証用サーバーの構築、対象部署・評価項目の確定', weeks: 2, color: '#6B7280' },
         { name: '② 試験導入（PoC）', note: '1 部署・少人数で、実運用に近い形で試行',        weeks: 4, color: '#C73E1D' },
-        { name: '③ 評価',           note: '安全性・運用性・保守性を現行ツールと比較',        weeks: 2, color: '#BF8700', gate: '導入判断' },
-        { name: '④ 本番展開',       note: '対象部署を拡大し、現行ツールから順次切替',        weeks: 4, color: '#1F6B3A', gate: '切替完了' }
+        { name: '③ 評価',           note: '現行ツール（PANDA）と安全性・運用性・保守性を比較',        weeks: 2, color: '#BF8700', gate: '導入判断' },
+        { name: '④ 本番展開',       note: '現行ツール（PANDA）から対象部署を順次切替',                weeks: 4, color: '#1F6B3A', gate: '切替完了' }
       ]
     };
 
