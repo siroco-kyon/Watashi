@@ -1,0 +1,977 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Watashi ブランディング変更ガイド</title>
+  <style>
+    :root {
+      --ink: #20242a;
+      --muted: #646b75;
+      --paper: #fbfaf7;
+      --surface: #ffffff;
+      --line: #ddd8cf;
+      --accent: #b7351b;
+      --accent-deep: #71200f;
+      --accent-soft: #fff0eb;
+      --blue: #225ea8;
+      --blue-soft: #edf5ff;
+      --green: #26724a;
+      --green-soft: #edf8f1;
+      --amber: #8a5a00;
+      --amber-soft: #fff8e7;
+      --danger: #9f251d;
+      --danger-soft: #fff0ef;
+      --code: #1f252c;
+      --shadow: 0 16px 45px rgba(64, 46, 32, 0.10);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 24px;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(183, 53, 27, 0.08), transparent 32rem),
+        var(--paper);
+      font-family:
+        "Yu Gothic UI", "Yu Gothic", "Hiragino Kaku Gothic ProN",
+        Meiryo, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.75;
+    }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover { color: var(--accent); }
+
+    code, pre {
+      font-family: "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
+    }
+
+    code {
+      padding: 0.12em 0.38em;
+      border: 1px solid #e5dfd6;
+      border-radius: 6px;
+      background: #f6f3ee;
+      font-size: 0.92em;
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      margin: 14px 0 0;
+      padding: 18px 20px;
+      overflow: auto;
+      border-radius: 13px;
+      color: #f5f7fa;
+      background: var(--code);
+      box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      border: 0;
+      color: inherit;
+      background: transparent;
+      font-size: 0.88rem;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 20;
+      top: 10px;
+      left: 10px;
+      padding: 9px 14px;
+      border-radius: 8px;
+      color: white;
+      background: var(--accent-deep);
+      transform: translateY(-150%);
+    }
+
+    .skip-link:focus { transform: translateY(0); }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      color: white;
+      background:
+        linear-gradient(125deg, rgba(113, 32, 15, 0.98), rgba(183, 53, 27, 0.94)),
+        #7a2413;
+    }
+
+    .hero::after {
+      content: "⛩";
+      position: absolute;
+      right: max(4vw, 24px);
+      bottom: -0.32em;
+      color: rgba(255, 255, 255, 0.09);
+      font-size: clamp(10rem, 24vw, 22rem);
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 58px 0 54px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.82;
+    }
+
+    h1 {
+      max-width: 900px;
+      margin: 0;
+      font-size: clamp(2rem, 6vw, 4.6rem);
+      line-height: 1.08;
+      letter-spacing: -0.035em;
+    }
+
+    .hero-lead {
+      max-width: 760px;
+      margin: 22px 0 0;
+      font-size: clamp(1rem, 2vw, 1.22rem);
+      opacity: 0.93;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 27px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 8px 15px;
+      border: 1px solid rgba(255, 255, 255, 0.46);
+      border-radius: 999px;
+      color: white;
+      background: rgba(255, 255, 255, 0.10);
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .button:hover {
+      color: var(--accent-deep);
+      background: white;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 245px minmax(0, 1fr);
+      gap: 34px;
+      width: min(1180px, calc(100% - 40px));
+      margin: 34px auto 80px;
+      align-items: start;
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 20px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.90);
+      box-shadow: 0 8px 26px rgba(64, 46, 32, 0.06);
+      backdrop-filter: blur(12px);
+    }
+
+    .side-nav strong {
+      display: block;
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .side-nav a {
+      display: block;
+      padding: 7px 9px;
+      border-radius: 8px;
+      color: var(--ink);
+      font-size: 0.91rem;
+      text-decoration: none;
+    }
+
+    .side-nav a:hover {
+      color: var(--accent-deep);
+      background: var(--accent-soft);
+    }
+
+    main { min-width: 0; }
+
+    section {
+      margin: 0 0 30px;
+      padding: clamp(24px, 4vw, 42px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: var(--shadow);
+    }
+
+    section:target {
+      outline: 4px solid rgba(183, 53, 27, 0.16);
+      outline-offset: 4px;
+    }
+
+    h2, h3, h4 {
+      line-height: 1.35;
+      letter-spacing: -0.018em;
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      color: var(--accent-deep);
+      font-size: clamp(1.5rem, 3vw, 2.15rem);
+    }
+
+    h3 {
+      margin: 31px 0 12px;
+      font-size: 1.28rem;
+    }
+
+    h4 {
+      margin: 24px 0 9px;
+      font-size: 1.05rem;
+    }
+
+    p { margin: 10px 0; }
+
+    ul, ol {
+      margin: 10px 0;
+      padding-left: 1.45rem;
+    }
+
+    li + li { margin-top: 6px; }
+
+    .section-kicker {
+      margin: 0 0 7px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 15px;
+      margin-top: 22px;
+    }
+
+    .card {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .card h3 {
+      margin: 0 0 9px;
+      font-size: 1.12rem;
+    }
+
+    .card p:last-child { margin-bottom: 0; }
+
+    .card.primary {
+      border-color: #e7b9ad;
+      background: var(--accent-soft);
+    }
+
+    .card.secondary {
+      border-color: #bfd4ec;
+      background: var(--blue-soft);
+    }
+
+    .badge {
+      display: inline-block;
+      margin-bottom: 9px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      color: white;
+      background: var(--accent);
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .callout {
+      margin: 18px 0;
+      padding: 16px 18px;
+      border-left: 5px solid var(--blue);
+      border-radius: 0 12px 12px 0;
+      background: var(--blue-soft);
+    }
+
+    .callout strong { color: #174d83; }
+
+    .callout.warning {
+      border-left-color: #cb8300;
+      background: var(--amber-soft);
+    }
+
+    .callout.warning strong { color: var(--amber); }
+
+    .callout.danger {
+      border-left-color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .callout.danger strong { color: var(--danger); }
+
+    .callout.success {
+      border-left-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .callout.success strong { color: var(--green); }
+
+    .table-wrap {
+      margin: 16px 0 20px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #4c4039;
+      background: #f5f1eb;
+      font-size: 0.82rem;
+      letter-spacing: 0.02em;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .required {
+      color: var(--danger);
+      font-weight: 800;
+    }
+
+    .recommended {
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 19px 0;
+      counter-reset: flow;
+    }
+
+    .flow div {
+      position: relative;
+      min-height: 120px;
+      padding: 42px 15px 15px;
+      border: 1px solid #e8c8bf;
+      border-radius: 13px;
+      background: #fff8f5;
+      font-size: 0.9rem;
+    }
+
+    .flow div::before {
+      counter-increment: flow;
+      content: counter(flow);
+      position: absolute;
+      top: 13px;
+      left: 14px;
+      display: grid;
+      width: 23px;
+      height: 23px;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      background: var(--accent);
+      font-size: 0.76rem;
+      font-weight: 900;
+    }
+
+    .palette {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin: 15px 0;
+    }
+
+    .swatch {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 10px 5px 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: white;
+      font-size: 0.8rem;
+    }
+
+    .swatch::before {
+      content: "";
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--swatch);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+    }
+
+    .checklist {
+      list-style: none;
+      padding: 0;
+    }
+
+    .checklist li {
+      position: relative;
+      padding: 11px 12px 11px 42px;
+      border-bottom: 1px dashed var(--line);
+    }
+
+    .checklist li::before {
+      content: "□";
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      color: var(--accent);
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+
+    .checklist li:last-child { border-bottom: 0; }
+
+    .file-list code { white-space: nowrap; }
+
+    footer {
+      padding: 28px 20px 46px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.88rem;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-nav { position: static; }
+      .side-nav nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 620px) {
+      .hero-inner, .layout { width: min(100% - 24px, 1180px); }
+      .hero-inner { padding: 42px 0; }
+      .cards, .flow { grid-template-columns: 1fr; }
+      .side-nav nav { grid-template-columns: 1fr; }
+      section { padding: 23px 18px; }
+      th, td { padding: 10px; }
+    }
+
+    @media print {
+      body { background: white; font-size: 10.5pt; }
+      .hero {
+        color: black;
+        background: white;
+        border-bottom: 2px solid #777;
+      }
+      .hero::after, .hero-actions, .side-nav { display: none; }
+      .hero-inner, .layout { width: 100%; }
+      .hero-inner { padding: 0 0 18px; }
+      .layout { display: block; margin: 0; }
+      section {
+        break-inside: avoid;
+        margin: 0 0 18px;
+        padding: 18px 0;
+        border: 0;
+        border-bottom: 1px solid #bbb;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      a { color: black; }
+      pre { white-space: pre-wrap; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">本文へ移動</a>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Watashi Client / Branding Guide</p>
+      <h1>ブランディング変更ガイド</h1>
+      <p class="hero-lead">
+        画面名・exe・ClickOnce・アイコンの変更箇所と、
+        A版／B版を同じPCで別アプリとして共存させるための手順を整理したガイドです。
+      </p>
+      <div class="hero-actions">
+        <a class="button" href="#coexist">A/B共存を確認する</a>
+        <a class="button" href="BRANDING.md">Markdown版を開く</a>
+        <button class="button" type="button" onclick="window.print()">印刷する</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="side-nav" aria-label="ページ内目次">
+      <strong>Contents</strong>
+      <nav>
+        <a href="#overview">1. 最初に選ぶ</a>
+        <a href="#display-name">2. 画面表示名</a>
+        <a href="#executable">3. exe名</a>
+        <a href="#clickonce">4. ClickOnce</a>
+        <a href="#icon">5. アイコン・色</a>
+        <a href="#operations">6. 運用名</a>
+        <a href="#coexist">7. A/B同時共存</a>
+        <a href="#verification">8. 確認手順</a>
+      </nav>
+    </aside>
+
+    <main id="main">
+      <section id="overview">
+        <p class="section-kicker">01 / Choose a path</p>
+        <h2>最初に、目的を選びます</h2>
+        <p>
+          「1つのアプリの名前を変える」のか、「A版とB版を同じPCで同時利用する」のかで
+          必要な変更範囲が違います。
+        </p>
+
+        <div class="cards">
+          <article class="card secondary">
+            <span class="badge" style="background:#225ea8">通常の改名</span>
+            <h3>1種類だけ配布する</h3>
+            <p>画面表示名、ClickOnceの製品名、アイコンを変更します。exe名の変更は任意です。</p>
+            <p><strong>読む章:</strong> 2・4・5</p>
+          </article>
+          <article class="card primary">
+            <span class="badge">A/B共存</span>
+            <h3>2種類を同じPCへ入れる</h3>
+            <p>見た目だけでなく、ClickOnce ID、配布URL、資格情報なども分離します。</p>
+            <p><strong>読む章:</strong> 2〜5に加えて7が必須</p>
+          </article>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>変えたいもの</th><th>主な対象</th><th>A/B共存</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>画面・ホバーに出る名前</td><td>XAMLの<code>Window.Title</code></td><td class="required">別名必須</td></tr>
+              <tr><td>exeファイル名</td><td><code>Watashi.Client.csproj</code></td><td class="required">別名推奨</td></tr>
+              <tr><td>インストール名</td><td><code>ClickOnceProfile.pubxml</code></td><td class="required">別名必須</td></tr>
+              <tr><td>タスクバーのグループ</td><td>ClickOnceマニフェストID</td><td class="required">別ID必須</td></tr>
+              <tr><td>接続先と更新先</td><td><code>deployment.json</code>・配布URL</td><td class="required">完全分離</td></tr>
+              <tr><td>人が見分けるアイコン</td><td><code>Watashi.ico</code>など</td><td class="recommended">色分け推奨</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="display-name">
+        <p class="section-kicker">02 / Display name</p>
+        <h2>画面とタスクバーのホバー表示</h2>
+        <p>
+          WPFの<code>Window.Title</code>が、各ウィンドウのタイトルとタスクバーのホバー表示に使われます。
+          A版なら<code>Watashi-a</code>、B版なら<code>Watashi-b</code>へ変更します。
+        </p>
+
+        <div class="table-wrap file-list">
+          <table>
+            <thead>
+              <tr><th>ファイル</th><th>表示される場所</th><th>現在値</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>Views/SplashWindow.xaml</code></td><td>起動中</td><td><code>Title="Watashi - 起動中"</code></td></tr>
+              <tr><td><code>Views/LoginWindow.xaml</code></td><td>ログイン</td><td><code>Title="Watashi - ログイン"</code></td></tr>
+              <tr><td><code>Views/MainWindow.xaml</code></td><td>メイン・通常時のホバー</td><td><code>Title="Watashi"</code></td></tr>
+              <tr><td><code>Views/Admin/AdminWindow.xaml</code></td><td>管理画面</td><td><code>Title="Watashi - 管理"</code></td></tr>
+              <tr><td><code>Themes/Icons.xaml</code></td><td>画面内のロゴ文字</td><td><code>Text="Watashi"</code></td></tr>
+              <tr><td><code>App.xaml.cs</code></td><td>ダイアログ</td><td><code>"Watashi - …"</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>一括置換スクリプト</h3>
+        <pre><code># 変更内容だけ確認
+powershell -NoProfile -File scripts/Rename-Brand.ps1 `
+  -NewName "Watashi-a" -WhatIf
+
+# 問題なければ適用
+powershell -NoProfile -File scripts/Rename-Brand.ps1 `
+  -NewName "Watashi-a"</code></pre>
+
+        <div class="callout warning">
+          <strong>タイトル変更だけではグループは分かれません。</strong>
+          ホバー文字はA/Bになっても、ClickOnceの内部IDが同じなら
+          <code>Watashi (2)</code>のようにまとめられます。A/B共存では<a href="#coexist">7章</a>も実施します。
+        </div>
+      </section>
+
+      <section id="executable">
+        <p class="section-kicker">03 / Executable identity</p>
+        <h2>exe名と製品プロパティ</h2>
+        <p>
+          現在は<code>AssemblyName</code>が未設定なので、出力名は
+          <code>Watashi.Client.exe</code>です。通常の改名では任意ですが、
+          A/B共存ではClickOnceのアプリケーションマニフェストIDを分けるため、別名を推奨します。
+        </p>
+
+        <div class="cards">
+          <article class="card">
+            <h3>A版</h3>
+            <pre><code>&lt;AssemblyName&gt;WatashiA.Client&lt;/AssemblyName&gt;
+&lt;Product&gt;Watashi-a&lt;/Product&gt;
+&lt;AssemblyTitle&gt;Watashi-a&lt;/AssemblyTitle&gt;</code></pre>
+          </article>
+          <article class="card">
+            <h3>B版</h3>
+            <pre><code>&lt;AssemblyName&gt;WatashiB.Client&lt;/AssemblyName&gt;
+&lt;Product&gt;Watashi-b&lt;/Product&gt;
+&lt;AssemblyTitle&gt;Watashi-b&lt;/AssemblyTitle&gt;</code></pre>
+          </article>
+        </div>
+
+        <div class="callout">
+          <strong>内部IDはASCIIで。</strong>
+          表示名には任意の文字を使えますが、<code>AssemblyName</code>やURL、マニフェスト名には
+          全角の<code>ｂ</code>ではなくASCIIの<code>B</code>を使います。
+        </div>
+      </section>
+
+      <section id="clickonce">
+        <p class="section-kicker">04 / ClickOnce</p>
+        <h2>配布物・インストーラの名前</h2>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>プロパティ</th><th>主な効果</th><th>A/B共存時</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>ProductName</code></td><td>スタートメニュー、インストーラ、「アプリと機能」</td><td>別名</td></tr>
+              <tr><td><code>PublisherName</code></td><td>発行元</td><td>会社名なら共通でも可</td></tr>
+              <tr><td><code>SuiteName</code></td><td>スタートメニューのグループ</td><td>同じフォルダなら共通でも可</td></tr>
+              <tr><td><code>ApplicationIcon</code></td><td>ショートカットとインストーラのアイコン</td><td>色分け推奨</td></tr>
+              <tr><td><code>PublishUrl</code></td><td>発行先</td><td class="required">A/Bで分離</td></tr>
+              <tr><td><code>InstallUrl</code>・<code>UpdateUrl</code></td><td>インストール・更新先</td><td class="required">A/Bで分離</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger">
+          <strong><code>ProductName</code>だけでは別アプリになりません。</strong>
+          A/B共存では、<code>AssemblyName</code>、生成された<code>assemblyIdentity</code>、
+          配布・更新URLも別にします。
+        </div>
+
+        <h3>発行設定の例</h3>
+        <div class="cards">
+          <article class="card">
+            <h3>A版</h3>
+            <pre><code>&lt;PublishUrl&gt;\\fileserver\share\Watashi-a\&lt;/PublishUrl&gt;
+&lt;InstallUrl&gt;https://host/install/watashi-a/&lt;/InstallUrl&gt;
+&lt;UpdateUrl&gt;https://host/install/watashi-a/&lt;/UpdateUrl&gt;
+&lt;ProductName&gt;Watashi-a&lt;/ProductName&gt;</code></pre>
+          </article>
+          <article class="card">
+            <h3>B版</h3>
+            <pre><code>&lt;PublishUrl&gt;\\fileserver\share\Watashi-b\&lt;/PublishUrl&gt;
+&lt;InstallUrl&gt;https://host/install/watashi-b/&lt;/InstallUrl&gt;
+&lt;UpdateUrl&gt;https://host/install/watashi-b/&lt;/UpdateUrl&gt;
+&lt;ProductName&gt;Watashi-b&lt;/ProductName&gt;</code></pre>
+          </article>
+        </div>
+      </section>
+
+      <section id="icon">
+        <p class="section-kicker">05 / Icon &amp; color</p>
+        <h2>アイコンとブランドカラー</h2>
+        <p>
+          アイコンは「exe・タスクバー・ClickOnce用の<code>.ico</code>」と
+          「画面内で描画するXAML」の2系統です。外側だけでなく画面内も揃える場合は両方変更します。
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>対象</th><th>変更箇所</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>exe・タスクバー・インストーラ</td><td><code>Watashi.ico</code>と両方の<code>ApplicationIcon</code></td></tr>
+              <tr><td>画面内の鳥居</td><td><code>Themes/Icons.xaml</code></td></tr>
+              <tr><td>画面内のブランドカラー</td><td><code>Themes/Colors.xaml</code></td></tr>
+              <tr><td>ico生成色</td><td><code>scripts/Generate-ToriiIcon.ps1</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>同梱している色違い</h3>
+        <div class="palette" aria-label="利用可能なアイコンカラー">
+          <span class="swatch" style="--swatch:#C73E1D">朱</span>
+          <span class="swatch" style="--swatch:#C9731D">橙</span>
+          <span class="swatch" style="--swatch:#C9A61D">山吹</span>
+          <span class="swatch" style="--swatch:#73C91D">若草</span>
+          <span class="swatch" style="--swatch:#1DC956">常磐</span>
+          <span class="swatch" style="--swatch:#1DC9AC">青碧</span>
+          <span class="swatch" style="--swatch:#1D8FC9">浅葱</span>
+          <span class="swatch" style="--swatch:#1D48C9">瑠璃</span>
+          <span class="swatch" style="--swatch:#5C1DC9">菫</span>
+          <span class="swatch" style="--swatch:#C91DC9">紫</span>
+          <span class="swatch" style="--swatch:#C91D64">躑躅</span>
+        </div>
+
+        <pre><code># アイコンを生成
+powershell.exe -NoProfile -File scripts/Generate-ToriiIcon.ps1
+
+# 色違い一式を生成
+powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></pre>
+
+        <div class="callout warning">
+          <strong>色分けは人のための目印です。</strong>
+          アイコンを変えてもWindowsのアプリIDは変わりません。
+          <code>Watashi (2)</code>を解消するにはClickOnce IDを分けます。
+        </div>
+      </section>
+
+      <section id="operations">
+        <p class="section-kicker">06 / Operational names</p>
+        <h2>サーバー・運用名まで変える場合</h2>
+        <p>
+          以下は見た目ではなく運用識別子です。通常の改名では変更不要ですが、
+          A/Bのローカル状態を完全に独立させる場合はクライアント保存先を分けます。
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>対象</th><th>現在値・場所</th><th>注意</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>クライアント設定</td><td><code>%LOCALAPPDATA%\Watashi\settings.json</code></td><td>A/Bで共有される</td></tr>
+              <tr><td>クライアントログ</td><td><code>%LOCALAPPDATA%\Watashi\logs\</code></td><td>A/Bのログが混ざる</td></tr>
+              <tr><td>自動ログイン資格情報</td><td><code>Watashi/AutoLogin</code></td><td class="required">A/B分離を強く推奨</td></tr>
+              <tr><td>Windowsサービス名</td><td><code>Watashi.Server</code>・<code>Watashi.Agent</code></td><td>監視・運用コマンドも追従</td></tr>
+              <tr><td>サーバーデータ</td><td><code>C:\ProgramData\Watashi</code></td><td>既存DBの移行を伴う</td></tr>
+              <tr><td>JWT Issuer / Audience</td><td><code>Watashi</code></td><td>Client/Server双方の整合が必要</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="coexist">
+        <p class="section-kicker">07 / Side-by-side deployment</p>
+        <h2>A版・B版を同じPCで共存させる</h2>
+
+        <div class="callout danger">
+          <strong>症状:</strong>
+          ショートカット名を<code>Watashi-a</code>／<code>Watashi-b</code>にしても、
+          タスクバーでは<code>Watashi</code>／<code>Watashi (2)</code>になる。
+          これは見た目の名前ではなく、A/BのClickOnce内部IDが同じ可能性が高い状態です。
+        </div>
+
+        <h3>7-1. 分けるもの一覧</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>設定</th><th>A版の例</th><th>B版の例</th><th>重要度</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>画面表示名</td><td><code>Watashi-a</code></td><td><code>Watashi-b</code></td><td class="required">必須</td></tr>
+              <tr><td><code>AssemblyName</code></td><td><code>WatashiA.Client</code></td><td><code>WatashiB.Client</code></td><td class="required">必須</td></tr>
+              <tr><td><code>ProductName</code></td><td><code>Watashi-a</code></td><td><code>Watashi-b</code></td><td class="required">必須</td></tr>
+              <tr><td>発行・更新URL</td><td><code>/watashi-a/</code></td><td><code>/watashi-b/</code></td><td class="required">必須</td></tr>
+              <tr><td>更新マニフェスト</td><td><code>WatashiA.Client.application</code></td><td><code>WatashiB.Client.application</code></td><td class="required">必須</td></tr>
+              <tr><td><code>serverUrl</code></td><td>A中央サーバ</td><td>B中央サーバ</td><td class="required">必須</td></tr>
+              <tr><td>ローカル保存先</td><td><code>%LOCALAPPDATA%\Watashi-a\</code></td><td><code>%LOCALAPPDATA%\Watashi-b\</code></td><td class="recommended">推奨</td></tr>
+              <tr><td>資格情報ターゲット</td><td><code>Watashi-a/AutoLogin</code></td><td><code>Watashi-b/AutoLogin</code></td><td class="required">強く推奨</td></tr>
+              <tr><td>アイコン</td><td>例: 朱</td><td>例: 瑠璃</td><td class="recommended">推奨</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>7-2. 作成の流れ</h3>
+        <div class="flow" aria-label="A/B版作成フロー">
+          <div><strong>表示名</strong><br>XAML・ダイアログ・ProductNameをA/Bへ変更</div>
+          <div><strong>内部ID</strong><br>AssemblyNameをA/Bで分ける</div>
+          <div><strong>配布先</strong><br>発行・更新URLとdeployment.jsonを分ける</div>
+          <div><strong>検証</strong><br>マニフェスト比較後、同じPCへ両方インストール</div>
+        </div>
+
+        <h3>7-3. deployment.json</h3>
+        <p>
+          接続先と更新先は同じ版で揃えます。A版からB版のマニフェストを参照させてはいけません。
+        </p>
+        <div class="cards">
+          <article class="card">
+            <h3>A版</h3>
+            <pre><code>{
+  "serverUrl": "https://server-a.internal",
+  "updateManifestUrl":
+    "https://host/install/watashi-a/WatashiA.Client.application"
+}</code></pre>
+          </article>
+          <article class="card">
+            <h3>B版</h3>
+            <pre><code>{
+  "serverUrl": "https://server-b.internal",
+  "updateManifestUrl":
+    "https://host/install/watashi-b/WatashiB.Client.application"
+}</code></pre>
+          </article>
+        </div>
+
+        <h3>7-4. AppUserModelIDの扱い</h3>
+        <p>
+          WindowsはAppUserModelIDでタスクバーのウィンドウをグループ化します。
+          このプロジェクトはClickOnce配布なので、AppUserModelIDはClickOnceに管理させます。
+        </p>
+        <div class="callout danger">
+          <strong>アプリ側で明示的なAppUserModelIDを設定しないでください。</strong>
+          <code>SetCurrentProcessExplicitAppUserModelID</code>を追加すると、
+          ClickOnceが割り当てるIDと競合して予期しない結果になる可能性があります。
+          A/BのマニフェストIDを分け、ClickOnceから別アプリとしてインストールするのが正しい対応です。
+        </div>
+        <p>
+          参考:
+          <a href="https://learn.microsoft.com/windows/win32/shell/appids">Microsoft Learn: Application User Model IDs</a> /
+          <a href="https://learn.microsoft.com/visualstudio/deployment/clickonce-application-manifest">ClickOnce application manifest</a>
+        </p>
+
+        <h3>7-5. 発行後のマニフェスト確認</h3>
+        <p>
+          最上位の<code>*.application</code>と、
+          <code>Application Files</code>内の<code>*.manifest</code>を比較します。
+          次のように<code>assemblyIdentity</code>がA/Bで異なる必要があります。
+        </p>
+        <div class="cards">
+          <article class="card">
+            <h3>A版</h3>
+            <pre><code>&lt;assemblyIdentity
+  name="WatashiA.Client.application"
+  ... /&gt;</code></pre>
+          </article>
+          <article class="card">
+            <h3>B版</h3>
+            <pre><code>&lt;assemblyIdentity
+  name="WatashiB.Client.application"
+  ... /&gt;</code></pre>
+          </article>
+        </div>
+        <div class="callout warning">
+          <strong>生成物を直接編集しません。</strong>
+          マニフェストを手作業で改名・編集すると署名とハッシュが壊れます。
+          元の設定を直して再発行します。
+        </div>
+
+        <h3>7-6. ローカル状態の分離</h3>
+        <p>
+          現在はA/Bが次の値を共有します。特に自動ログイン資格情報の共有は相互干渉につながります。
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>対象</th><th>現在値</th><th>変更ファイル</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>設定</td><td><code>%LOCALAPPDATA%\Watashi\settings.json</code></td><td><code>Services/AppSettings.cs</code></td></tr>
+              <tr><td>ログ</td><td><code>%LOCALAPPDATA%\Watashi\logs\</code></td><td><code>Services/AppLog.cs</code></td></tr>
+              <tr><td>資格情報</td><td><code>Watashi/AutoLogin</code></td><td><code>Services/CredentialStore.cs</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>7-7. 症状から確認場所を探す</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>症状</th><th>主な確認箇所</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>Watashi (2)</code>になる</td><td><code>AssemblyName</code>、両マニフェストの<code>assemblyIdentity</code>、旧ピン留め</td></tr>
+              <tr><td>片方を入れるともう片方が置き換わる</td><td>ClickOnce IDと配布URL</td></tr>
+              <tr><td>片方がもう片方として更新される</td><td><code>UpdateUrl</code>と<code>updateManifestUrl</code></td></tr>
+              <tr><td>ホバー名だけWatashiのまま</td><td>XAMLの<code>Window.Title</code>と古いビルド成果物</td></tr>
+              <tr><td>自動ログインが解除される</td><td><code>CredentialStore.cs</code>のターゲット</td></tr>
+              <tr><td>設定・ログが混ざる</td><td><code>AppSettings.cs</code>と<code>AppLog.cs</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="verification">
+        <p class="section-kicker">08 / Verification</p>
+        <h2>変更後の確認チェックリスト</h2>
+
+        <h3>通常の改名</h3>
+        <ul class="checklist">
+          <li>クライアントをリビルドした</li>
+          <li>ログイン・メイン・管理画面の表示名を確認した</li>
+          <li>exeとタスクバーのアイコンを確認した</li>
+          <li>ClickOnceを再発行した</li>
+          <li>スタートメニューと「アプリと機能」の名前を確認した</li>
+        </ul>
+
+        <h3>A/B共存</h3>
+        <ul class="checklist">
+          <li>旧Watashi・試作A/B版をアンインストールした</li>
+          <li>古いタスクバーのピン留めを外した</li>
+          <li>A/Bの<code>assemblyIdentity</code>が異なることを確認した</li>
+          <li>A版をA専用URL、B版をB専用URLからインストールした</li>
+          <li>A/B同時起動時にタスクバーが2グループへ分かれた</li>
+          <li>ホバー表示が<code>Watashi-a</code>／<code>Watashi-b</code>になった</li>
+          <li>各版が自分の更新URLと中央サーバだけを参照した</li>
+          <li>A/Bの自動ログイン資格情報が互いに上書きされなかった</li>
+        </ul>
+
+        <div class="callout success">
+          <strong>完了条件:</strong>
+          A/Bを同時起動したとき、別々のタスクバーボタン・名前・アイコンで表示され、
+          更新先・接続先・資格情報が相互干渉しないこと。
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    Watashi ブランディング変更ガイド — 詳細な原文は
+    <a href="BRANDING.md">BRANDING.md</a> を参照してください。
+  </footer>
+</body>
+</html>
