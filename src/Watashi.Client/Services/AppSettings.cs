@@ -45,7 +45,7 @@ public class AppSettings
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ServerUrl);
 
     private static string SettingsPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Watashi", "settings.json");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Brand.Id, "settings.json");
 
     public static AppSettings Load()
     {

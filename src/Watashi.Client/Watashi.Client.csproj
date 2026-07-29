@@ -16,6 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- BrandId をアセンブリに焼き込む。Services/Brand.cs が実行時に読み出す。 -->
+    <AssemblyMetadata Include="BrandId" Value="$(BrandId)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="CredentialManagement" Version="1.0.2" NoWarn="NU1701" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
@@ -38,6 +43,14 @@
     <FileVersion>$(WatashiVersion)</FileVersion>
     <InformationalVersion>$(WatashiVersion)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!--
+      ローカル状態 (%LOCALAPPDATA% の設定/ログ、資格情報ターゲット) を分ける識別子。Services/Brand.cs が読む。
+      A/B 版を同じ PC で共存させる場合のみ、発行時に版ごとの値を渡す:
+        MSBuild.exe ... /p:BrandId=Watashi-b
+      既定は Watashi。既存配布はこの値を変えないこと (変えると利用者の設定と自動ログインが失われる)。
+      詳細は docs/BRANDING.md §7-4。
+    -->
+    <BrandId Condition="'$(BrandId)' == ''">Watashi</BrandId>
     <!--
       鳥居アイコン。Win32 リソースとして埋め込まれ、エクスプローラの exe アイコン、
       タスクバー、ClickOnce インストーラ画面、Add/Remove Programs などで使われる。

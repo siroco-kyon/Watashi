@@ -264,7 +264,7 @@ Windows は同じアプリの 2 ウィンドウと判断し、タスクバーに
 | ClickOnce `assemblyIdentity` | ClickOnce がアプリを識別する内部 ID | **発行後に別値か確認** |
 | 配布・更新 URL | インストール元と更新先 | **完全に分ける** |
 | `serverUrl` | 接続する中央サーバ | 環境ごとに設定 |
-| ローカル設定・資格情報・ログ | 同じ Windows ユーザー内の保存先 | **別にすることを強く推奨** |
+| ローカル設定・資格情報・ログ | 同じ Windows ユーザー内の保存先 | **`BrandId` で別にする ([§7-4](#7-4-ローカル設定自動ログインログも分離する-brandid))** |
 | アイコン | 人が見分けるための補助 | 色分けを推奨。ただし ID 分離にはならない |
 
 ### 7-2. A 版と B 版で変更する値
@@ -282,8 +282,9 @@ Windows は同じアプリの 2 ウィンドウと判断し、タスクバーに
 | インストール・更新 URL | `https://host/install/watashi-a/` | `https://host/install/watashi-b/` |
 | 更新マニフェスト | `WatashiA.Client.application` | `WatashiB.Client.application` |
 | `serverUrl` | A 環境の中央サーバ | B 環境の中央サーバ |
-| 設定・ログフォルダ | `%LOCALAPPDATA%\Watashi-a\` | `%LOCALAPPDATA%\Watashi-b\` |
-| 資格情報ターゲット | `Watashi-a/AutoLogin` | `Watashi-b/AutoLogin` |
+| `BrandId` (発行時 `/p:`) | 既定のまま (指定しない) | `Watashi-b` |
+| 設定・ログフォルダ | `%LOCALAPPDATA%\Watashi\` | `%LOCALAPPDATA%\Watashi-b\` |
+| 資格情報ターゲット | `Watashi/AutoLogin` | `Watashi-b/AutoLogin` |
 
 #### `Watashi.Client.csproj`
 
@@ -361,19 +362,64 @@ ClickOnce が割り当てる ID と競合し、予期しない結果になると
 A/B の `AssemblyName`、ClickOnce マニフェスト ID、配布 URL を分離し、
 ClickOnce から別アプリとしてインストールしてください。
 
-### 7-4. ローカル設定・自動ログイン・ログも分離する
+### 7-4. ローカル設定・自動ログイン・ログも分離する (`BrandId`)
 
-現在のクライアントは次の固定名を使っています。同じ Windows ユーザーが A/B を併用すると共有されます。
+ローカル状態の保存先は、ビルド時プロパティ **`BrandId`** で版ごとに分離します。
+`Services/Brand.cs` がアセンブリに焼き込まれた値を読み、次の 3 つの保存先を決めます。
 
-| 対象 | 現在の値 | ファイル |
+| 対象 | 保存先 | ファイル |
 |---|---|---|
-| ユーザー設定 | `%LOCALAPPDATA%\Watashi\settings.json` | `Services/AppSettings.cs` |
-| クライアントログ | `%LOCALAPPDATA%\Watashi\logs\` | `Services/AppLog.cs` |
-| 自動ログイン資格情報 | `Watashi/AutoLogin` | `Services/CredentialStore.cs` |
+| ユーザー設定 | `%LOCALAPPDATA%\{BrandId}\settings.json` | `Services/AppSettings.cs` |
+| クライアントログ | `%LOCALAPPDATA%\{BrandId}\logs\` | `Services/AppLog.cs` |
+| 自動ログイン資格情報 | `{BrandId}/AutoLogin` | `Services/CredentialStore.cs` |
 
-特に資格情報ターゲットが共通だと、A 版が保存したデバイストークンを B 版が読み込み、
-B 側で認証失敗した後に資格情報を消すなど、相互干渉する可能性があります。
-A/B を独立運用する場合は、これらも版ごとの固定名へ分けてください。
+**既定値は `Watashi`** です。`BrandId` を指定しなければ保存先は従来と同じなので、
+1 種類だけを配布する通常のリブランドでは何もする必要はありません。
+
+#### なぜ分離が必須か
+
+資格情報ターゲットは Windows 資格情報マネージャーの **1 スロットを奪い合います**。
+デバイストークンは各中央サーバの DB (`TrustedDevices`) に個別に保存されるため、
+**A 版のトークンは B 版のサーバでは決して検証を通りません**。共通のままだと:
+
+1. A で「この PC を記憶」→ トークン T_A を保存
+2. B で「この PC を記憶」→ 上書きされ T_A 消滅
+3. A を起動 → T_B を A のサーバへ送り 401
+4. `App.xaml.cs` が `ClearDeviceToken()` を実行し **T_B も消える**
+5. 以降 A/B が互いの自動ログインを潰し合い、毎回手動ログインになる
+
+利用者からは原因の分からない「勝手に自動ログインが切れる」不具合として現れます。
+
+#### 発行時の指定
+
+```powershell
+# B 版 (新ブランド)
+MSBuild.exe src\Watashi.Client\Watashi.Client.csproj /t:Publish /p:Configuration=Release /p:PublishProfile=ClickOnceProfile /p:BrandId=Watashi-b
+```
+
+`/p:` はグローバルプロパティとして最優先で効きます。
+
+> ⚠ **既存配布の `BrandId` は変更しないでください。**
+> 現行ツールは `BrandId` 未指定 (= `Watashi`) のまま発行し、**新ブランド側にだけ**新しい値を与えます。
+> 現行側も `Watashi-a` などに変えると、**既存利用者全員が設定と自動ログインを 1 回失います**
+> (再ログインで復旧しますが問い合わせの原因になります)。
+>
+> | | `BrandId` | 保存先 |
+> |---|---|---|
+> | 現行 (既存利用者) | **指定しない** | `%LOCALAPPDATA%\Watashi\` (現状維持) |
+> | 新ブランド | `Watashi-b` 等 | `%LOCALAPPDATA%\Watashi-b\` |
+
+#### 確認方法
+
+A/B 双方で「この PC を記憶」した後、資格情報が 2 件に分かれていることを確認します。
+
+```powershell
+cmdkey /list | findstr /i AutoLogin
+```
+
+`Watashi/AutoLogin` と `Watashi-b/AutoLogin` の 2 件が出れば成功です。
+あわせて `%LOCALAPPDATA%` に 2 フォルダができ、A/B を交互に起動しても
+自動ログインが切れないことを確認してください。
 
 ### 7-5. 発行後にマニフェストを確認する
 
