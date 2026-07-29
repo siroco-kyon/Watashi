@@ -17,6 +17,8 @@
 - [7. A/B 版を同じ PC で共存させる場合](#7-ab-版を同じ-pc-で共存させる場合)
 - [8. 変更後の確認手順](#8-変更後の確認手順)
 
+> 🔎 A/B 共存の設定は **`scripts/Check-BrandSetup.ps1`** で自動点検できます ([§7-7](#7-7-設定を自動で点検する))。
+
 ---
 
 ## 1. 変更箇所の全体像
@@ -282,26 +284,46 @@ Windows は同じアプリの 2 ウィンドウと判断し、タスクバーに
 | インストール・更新 URL | `https://host/install/watashi-a/` | `https://host/install/watashi-b/` |
 | 更新マニフェスト | `WatashiA.Client.application` | `WatashiB.Client.application` |
 | `serverUrl` | A 環境の中央サーバ | B 環境の中央サーバ |
-| `BrandId` (発行時 `/p:`) | 既定のまま (指定しない) | `Watashi-b` |
+| `BrandId` (`.pubxml` または `/p:`) | 既定のまま (指定しない) | `Watashi-b` |
 | 設定・ログフォルダ | `%LOCALAPPDATA%\Watashi\` | `%LOCALAPPDATA%\Watashi-b\` |
 | 資格情報ターゲット | `Watashi/AutoLogin` | `Watashi-b/AutoLogin` |
 
-#### `Watashi.Client.csproj`
+#### `AssemblyName` をどこに書くか
 
-A 版:
+**発行プロファイルを A/B で分ける運用では、`AssemblyName` は各 `.pubxml` に書きます。**
+csproj に書くと発行のたびに手で書き換えることになります。
 
 ```xml
+<!-- MSAClickOnceProfile.pubxml -->
 <AssemblyName>WatashiA.Client</AssemblyName>
-<Product>Watashi-a</Product>
-<AssemblyTitle>Watashi-a</AssemblyTitle>
+<BrandId>Watashi-a</BrandId>
 ```
 
-B 版:
+```xml
+<!-- kmtClickOnceProfile.pubxml -->
+<AssemblyName>WatashiB.Client</AssemblyName>
+<BrandId>Watashi-b</BrandId>
+```
+
+> ⚠ **csproj 側で `$(BrandId)` を条件にして `AssemblyName` を切り替えることはできません。**
+>
+> ```xml
+> <!-- これは効きません -->
+> <AssemblyName Condition="'$(BrandId)' != 'Watashi'">$(BrandId).Client</AssemblyName>
+> ```
+>
+> MSBuild は**プロパティを記述順に評価**し、`.pubxml` は csproj 本文より**後**に import されます。
+> そのため csproj のプロパティは `.pubxml` の値を参照できず、条件が常に偽になります。
+>
+> 一方**項目 (ItemGroup) は全プロパティの評価後**に処理されるため、
+> `<AssemblyMetadata Include="BrandId" Value="$(BrandId)" />` は `.pubxml` の値を拾えます。
+> これが「`BrandId` は `.pubxml` で効くのに、`AssemblyName` の条件分岐は効かない」理由です。
+
+`Product` / `AssemblyTitle` (exe のプロパティに出る表示名) も同じく `.pubxml` に置けます。
 
 ```xml
-<AssemblyName>WatashiB.Client</AssemblyName>
-<Product>Watashi-b</Product>
-<AssemblyTitle>Watashi-b</AssemblyTitle>
+<Product>Watashi-a</Product>
+<AssemblyTitle>Watashi-a</AssemblyTitle>
 ```
 
 #### `ClickOnceProfile.pubxml`
@@ -392,12 +414,24 @@ ClickOnce から別アプリとしてインストールしてください。
 
 #### 発行時の指定
 
+**方法 1: 発行プロファイルに書く (Visual Studio から発行する場合はこちら)**
+
+`AssemblyName` と同じ `.pubxml` に併記します。ブランド固有の値が 1 ファイルに揃うため、
+「URL は B に変えたのに `BrandId` を付け忘れた」という取り違えが起きません。
+
+```xml
+<BrandId>Watashi-b</BrandId>
+```
+
+VS の「発行」画面でプロファイルを選ぶだけで反映されます。コマンドは不要です。
+
+**方法 2: コマンドラインで渡す**
+
 ```powershell
-# B 版 (新ブランド)
 MSBuild.exe src\Watashi.Client\Watashi.Client.csproj /t:Publish /p:Configuration=Release /p:PublishProfile=ClickOnceProfile /p:BrandId=Watashi-b
 ```
 
-`/p:` はグローバルプロパティとして最優先で効きます。
+`/p:` はグローバルプロパティとして最優先で効き、プロファイルの記述も上書きします。
 
 > ⚠ **既存配布の `BrandId` は変更しないでください。**
 > 現行ツールは `BrandId` 未指定 (= `Watashi`) のまま発行し、**新ブランド側にだけ**新しい値を与えます。
@@ -455,16 +489,39 @@ cmdkey /list | findstr /i AutoLogin
 7. それぞれが自分の更新 URL と中央サーバだけを参照することを確認
 8. A/B 双方で自動ログインを設定し、再起動後も互いの資格情報を上書きしないことを確認
 
-### 7-7. 症状別チェック
+### 7-7. 設定を自動で点検する
+
+発行前の確認は **`scripts/Check-BrandSetup.ps1`** で自動化できます。
+読み取り専用で、リポジトリを書き換えません。
+
+```powershell
+powershell -NoProfile -File scripts/Check-BrandSetup.ps1
+```
+
+点検項目:
+
+| # | 内容 |
+|---|---|
+| 1 | リポジトリがクラウド同期フォルダ (OneDrive 等) 配下にないか |
+| 2 | `.csproj` の重複・競合コピーがないか |
+| 3 | `.sln` にプロジェクト名の重複がないか |
+| 4 | `AssemblyName` が複数ファイルで重複していないか |
+| 5 | ブランド別プロファイルに `BrandId` が漏れていないか / 重複していないか |
+
+問題があれば終了コード 1 を返すので、発行手順に組み込めます。
+
+### 7-8. 症状別チェック
 
 | 症状 | 主な確認箇所 |
 |---|---|
+| **発行時に `Ambiguous project name '<名前>'`** | **同じ `AssemblyName` を宣言したファイルが 2 つ以上ある。`.csproj` の重複・競合コピーも疑う。[§7-7](#7-7-設定を自動で点検する) のスクリプトで検出可能** |
 | `Watashi (2)` と表示される | A/B の `assemblyIdentity`、`AssemblyName`、旧ピン留め |
 | A/B の片方がもう片方として更新される | `UpdateUrl`、`updateManifestUrl`、配布マニフェスト名 |
 | 片方を入れるともう片方が置き換わる | ClickOnce `assemblyIdentity` と配布 URL |
 | ホバー名だけ `Watashi` のまま | 各 XAML の `Window.Title`、古いビルド成果物 |
-| 自動ログインが突然解除される | `CredentialStore.cs` の資格情報ターゲット |
-| 設定やログが混ざる | `AppSettings.cs` / `AppLog.cs` の保存フォルダ |
+| 自動ログインが突然解除される | 発行時の `BrandId` 指定漏れ ([§7-4](#7-4-ローカル設定自動ログインログも分離する-brandid)) |
+| 設定やログが混ざる | 発行時の `BrandId` 指定漏れ ([§7-4](#7-4-ローカル設定自動ログインログも分離する-brandid)) |
+| ビルドは通るのに `XDG0008 名前 "○○View" は名前空間に存在しません` | XAML デザイナー由来。クリーン後にビルドすれば消える。エラー一覧のフィルタを「ビルドのみ」にすると実害の有無が分かる |
 
 ---
 
