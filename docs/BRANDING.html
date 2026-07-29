@@ -453,6 +453,50 @@
       box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
     }
 
+    .recipe {
+      margin: 9px 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+    }
+
+    .recipe > summary {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.93rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .recipe[open] > summary {
+      border-bottom: 1px solid var(--line);
+      border-radius: 12px 12px 0 0;
+      background: #faf7f3;
+    }
+
+    .recipe > summary::before {
+      content: "";
+      width: 17px;
+      height: 17px;
+      flex: none;
+      border-radius: 50%;
+      background: var(--swatch);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+    }
+
+    .recipe > summary .hex {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.85rem;
+    }
+
+    .recipe-body { padding: 4px 14px 15px; }
+
+    .recipe-body pre { margin-top: 12px; }
+
     .checklist {
       list-style: none;
       padding: 0;
@@ -526,6 +570,7 @@
       }
       a { color: black; }
       pre { white-space: pre-wrap; }
+      .recipe, .recipe > summary { break-inside: avoid; }
     }
   </style>
 </head>
@@ -811,8 +856,9 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
           <strong>色を変えるとき<code>Icons.xaml</code>は触りません。</strong>
           鳥居の各パーツは色を直書きせず<code>{StaticResource AccentBrush}</code>／<code>AccentDeepBrush</code>を参照しているため、
           <code>Colors.xaml</code>を変えるだけで画面内ロゴの色も追従します。
-          ただし<code>ToriiIconLight</code>だけは<code>TextOnAccentBrush</code>（白）固定なので、
-          濃色背景に載るロゴはアクセント色を変えても白のままです。
+          もう1つの<code>ToriiIconLight</code>は<code>TextOnAccentBrush</code>（白）固定の濃色背景用ですが、
+          現状どの画面からも参照されていません（<code>ToriiLogo</code>／<code>ToriiLogoLight</code>テンプレートも未使用）。
+          色替えでは無視して構いません。形を変えるときだけ、後で使ったときにズレないよう合わせて直します。
         </div>
 
         <h3 id="icon-color">5-2. ツールの色を変える（最短手順）</h3>
@@ -909,38 +955,103 @@ function Get-BrandHex([double]$h, [double]$s, [double]$l) {
           既存の朱を復元したい場合は式ではなく上表の値をそのまま使ってください。
         </div>
 
-        <h3>5-3. アイコンの絵柄そのものを変える</h3>
-        <div class="cards">
-          <article class="card">
-            <h3>鳥居を描き直す</h3>
-            <p>
-              形は<strong>2箇所に同じ図形が実装</strong>されています。両方直さないと画面内と<code>.ico</code>で形が食い違います。
-            </p>
-            <ul>
-              <li><code>Themes/Icons.xaml</code>の<code>ToriiIcon</code>／<code>ToriiIconLight</code>（<code>PathGeometry</code>・<code>RectangleGeometry</code>、64×64座標）</li>
-              <li><code>scripts/Generate-ToriiIcon.ps1</code>の描画コード（<code>System.Drawing</code>で同じ図形を再現）→ 実行して<code>.ico</code>を再生成</li>
-            </ul>
-          </article>
-          <article class="card">
-            <h3>まったく別の画像にする</h3>
-            <p>用意した画像に置き換える場合の手順です。</p>
-            <ul>
-              <li><code>.ico</code>：マルチサイズ（16〜256px）で作り<code>src/Watashi.Client/Watashi.ico</code>を上書き</li>
-              <li>画面内：<code>Icons.xaml</code>の<code>DrawingImage</code>を画像参照に置換</li>
-            </ul>
-            <pre><code>&lt;BitmapImage x:Key="ToriiIcon"
-    UriSource="pack://application:,,,/Assets/logo.png" /&gt;</code></pre>
-          </article>
-        </div>
-        <div class="callout success">
-          <strong>画面内ロゴは1箇所直せば全画面に反映されます。</strong>
-          スプラッシュ・ログイン・メイン・管理の各画面とウィンドウの<code>Icon</code>属性は、
-          すべて<code>Icons.xaml</code>の<code>ToriiIcon</code>を<code>StaticResource</code>参照しています。
-          キー名（<code>ToriiIcon</code>／<code>ToriiIconLight</code>）を変えると参照側の修正が必要になるので、
-          中身だけ差し替えるのが安全です。
+        <h3 id="icon-shape">5-3. アイコンの絵柄を変える</h3>
+        <p>
+          まず、やりたいことがどれかを決めます。ここを取り違えると触るファイルが変わります。
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>やりたいこと</th><th>触るもの</th><th>手順</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>鳥居のまま色だけ変えたい</td><td><code>Colors.xaml</code>＋<code>Generate-ToriiIcon.ps1</code></td><td><a href="#icon-color">5-2</a></td></tr>
+              <tr><td>環境ごとに色を分けたい（絵柄は鳥居）</td><td>同梱<code>.ico</code>をコピーするだけ</td><td><a href="#icon-variants">5-4</a></td></tr>
+              <tr><td>用意した画像／ロゴに差し替えたい</td><td><code>Watashi.ico</code>＋<code>Icons.xaml</code></td><td>5-3-A</td></tr>
+              <tr><td>鳥居の形を自分で描き直したい</td><td><code>Icons.xaml</code>＋<code>Generate-ToriiIcon.ps1</code>の描画コード</td><td>5-3-B</td></tr>
+            </tbody>
+          </table>
         </div>
 
-        <h3>5-4. 同梱している色違い（接続先ごとの区別用）</h3>
+        <div class="callout">
+          <strong>アイコンは2つあります。</strong>
+          <strong>①exeに埋め込む<code>.ico</code></strong>（タスクバー・エクスプローラ・インストーラ）と
+          <strong>②アプリが画面に描く画像</strong>（各ウィンドウの左上とロゴ）は<strong>別のファイル</strong>です。
+          片方だけ変えると、タスクバーは新しいのに画面内は鳥居のまま、といった食い違いになります。
+        </div>
+
+        <h4>5-3-A. 用意した画像に差し替える</h4>
+        <div class="flow">
+          <div><code>.ico</code>を作って<code>Watashi.ico</code>を上書き（＝タスクバー側）</div>
+          <div>PNGをプロジェクトに追加して<code>Resource</code>指定（＝画面内側）</div>
+          <div><code>Icons.xaml</code>の<code>ToriiIcon</code>を画像参照に置き換え</div>
+          <div>リビルドして全画面とタスクバーを確認</div>
+        </div>
+
+        <p><strong>① <code>.ico</code>を差し替える</strong></p>
+        <ul>
+          <li>16／24／32／48／64／128／256 px を含む<strong>マルチサイズ</strong>・背景透過の<code>.ico</code>を用意する（単一サイズだと縮小時にぼやけます）</li>
+          <li><code>src/Watashi.Client/Watashi.ico</code> を<strong>同じ名前で上書き</strong>する。名前を変えたい場合は<code>Watashi.Client.csproj</code>と<code>ClickOnceProfile.pubxml</code>の<code>&lt;ApplicationIcon&gt;</code>2箇所も直す</li>
+        </ul>
+
+        <p><strong>② 画面内用のPNGをプロジェクトに追加する</strong></p>
+        <p>
+          画像は<code>src/Watashi.Client/Assets/logo.png</code>のように置き（256px程度・透過PNG推奨）、
+          <strong>csprojに<code>Resource</code>として明示的に追加</strong>します。
+          WPFのSDKが自動で拾うのは<code>.xaml</code>だけで、画像は自動では含まれません。
+        </p>
+        <pre><code>&lt;!-- Watashi.Client.csproj --&gt;
+&lt;ItemGroup&gt;
+  &lt;Resource Include="Assets\logo.png" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+
+        <p><strong>③ <code>Themes/Icons.xaml</code>の<code>ToriiIcon</code>を置き換える</strong></p>
+        <p>
+          <code>&lt;DrawingImage x:Key="ToriiIcon"&gt;…&lt;/DrawingImage&gt;</code>のブロックごと、次の1行に置き換えます。
+          <strong><code>x:Key</code>の名前は変えないこと</strong>——変えると参照している8ファイル・11箇所すべての修正が必要になります。
+          名前さえ保てば、参照側（各ウィンドウの<code>Icon</code>属性と<code>&lt;Image&gt;</code>）は<strong>1箇所も直さずに</strong>全画面へ反映されます。
+        </p>
+        <pre><code>&lt;BitmapImage x:Key="ToriiIcon"
+             UriSource="pack://application:,,,/Assets/logo.png" /&gt;</code></pre>
+        <p>
+          濃色背景用の<code>ToriiIconLight</code>も同じ要領で白抜き版に差し替えられます
+          （現状どの画面からも参照されていないため、急ぐ場合は後回しで構いません）。
+        </p>
+
+        <div class="callout warning">
+          <strong>別画像にしたら、鳥居用のスクリプトはもう使いません。</strong>
+          <code>Generate-ToriiIcon.ps1</code>を実行すると<code>Watashi.ico</code>が<strong>鳥居に戻ります</strong>。
+          <code>assets/icons/</code>の色違い（<a href="#icon-variants">5-4</a>）も鳥居の絵柄なので使えなくなります。
+          環境ごとの色分けを続けたい場合は、新しい絵柄でも色違いの<code>.ico</code>を自分で用意してください。
+        </div>
+
+        <h4>5-3-B. 鳥居の形を描き直す</h4>
+        <p>
+          鳥居は<strong>同じ図形が2箇所に別実装</strong>されています（XAMLのベクターと、<code>.ico</code>生成用の<code>System.Drawing</code>コード）。
+          座標系はどちらも<strong>64×64</strong>で、値も一対一で対応しています。
+          <strong>片方だけ直すと画面内と<code>.ico</code>で形が食い違う</strong>ので、必ず両方を同じ数値に合わせてください。
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>パーツ</th><th><code>Themes/Icons.xaml</code></th><th><code>scripts/Generate-ToriiIcon.ps1</code></th><th>色</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>笠木（上の反った梁）</td><td><code>PathGeometry</code>（<code>2,15</code>始点のベジェ）</td><td><code>$kasagi</code>の<code>AddBezier</code>／<code>AddLine</code></td><td>Accent</td></tr>
+              <tr><td>島木（2本目の梁）</td><td><code>RectangleGeometry Rect="6,17,52,5"</code></td><td><code>FillRectangle(..., 6, 17, 52, 5)</code></td><td>AccentDeep</td></tr>
+              <tr><td>左柱</td><td><code>14,22 / 22,22 / 23,60 / 13,60</code></td><td><code>$leftP</code>の4点</td><td>Accent</td></tr>
+              <tr><td>右柱</td><td><code>42,22 / 50,22 / 51,60 / 41,60</code></td><td><code>$rightP</code>の4点</td><td>Accent</td></tr>
+              <tr><td>貫（横木）</td><td><code>RectangleGeometry Rect="10,29,44,5"</code></td><td><code>FillRectangle(..., 10, 29, 44, 5)</code></td><td>Accent</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <code>Icons.xaml</code>は<code>ToriiIcon</code>と<code>ToriiIconLight</code>の<strong>2つに同じ図形</strong>が入っています。
+          直したら<code>Generate-ToriiIcon.ps1</code>を実行して<code>.ico</code>を再生成し、
+          色違いを使っている場合は<code>Generate-ToriiIconVariants.ps1</code>も実行して<code>assets/icons/</code>を作り直します。
+        </p>
+
+        <h3 id="icon-variants">5-4. 同梱している色違い（接続先ごとの区別用）</h3>
         <p>
           複数の中央サーバへ向けたクライアントを併用する場合、配布物ごとに色を変えると
           タスクバーだけでどの環境かが分かります。生成済みの<code>.ico</code>を<code>assets/icons/</code>に同梱しています。
@@ -958,26 +1069,285 @@ function Get-BrandHex([double]$h, [double]$s, [double]$l) {
           <span class="swatch" style="--swatch:#C91DC9">紫</span>
           <span class="swatch" style="--swatch:#C91D64">躑躅</span>
         </div>
+        <h4>11色すべての具体値</h4>
+        <p>
+          <code>.ico</code>だけ差し替えるなら<strong>ファイル名の列</strong>だけ見れば足ります。
+          UIの色（ボタン・フォーカス枠・選択行など）も揃える場合は、
+          その行の5つの値を<code>Colors.xaml</code>へ、<code>Accent</code>と<code>Deep</code>を<code>Generate-ToriiIcon.ps1</code>へ入れます。
+          <code>FocusColor</code>は<code>AccentColor</code>と同じ値です。
+        </p>
         <div class="table-wrap file-list">
           <table>
             <thead>
-              <tr><th>ファイル</th><th>色名</th><th>Hue</th><th>アクセント</th><th>濃色</th></tr>
+              <tr>
+                <th>色名 / Hue</th><th>ファイル</th>
+                <th>Accent<br><span style="font-weight:400">（＝Focus）</span></th>
+                <th>Hover</th><th>Pressed</th><th>Soft</th><th>Deep</th>
+              </tr>
             </thead>
             <tbody>
-              <tr><td><code>Watashi-shu.ico</code></td><td>朱（既定）</td><td>12</td><td><code>#C73E1D</code></td><td><code>#5C1A0B</code></td></tr>
-              <tr><td><code>Watashi-orange.ico</code></td><td>橙</td><td>30</td><td><code>#C9731D</code></td><td><code>#5B330B</code></td></tr>
-              <tr><td><code>Watashi-gold.ico</code></td><td>山吹</td><td>48</td><td><code>#C9A61D</code></td><td><code>#5B4B0B</code></td></tr>
-              <tr><td><code>Watashi-lime.ico</code></td><td>若草</td><td>90</td><td><code>#73C91D</code></td><td><code>#335B0B</code></td></tr>
-              <tr><td><code>Watashi-green.ico</code></td><td>常磐</td><td>140</td><td><code>#1DC956</code></td><td><code>#0B5B26</code></td></tr>
-              <tr><td><code>Watashi-teal.ico</code></td><td>青碧</td><td>170</td><td><code>#1DC9AC</code></td><td><code>#0B5B4E</code></td></tr>
-              <tr><td><code>Watashi-cyan.ico</code></td><td>浅葱</td><td>200</td><td><code>#1D8FC9</code></td><td><code>#0B405B</code></td></tr>
-              <tr><td><code>Watashi-blue.ico</code></td><td>瑠璃</td><td>225</td><td><code>#1D48C9</code></td><td><code>#0B1F5B</code></td></tr>
-              <tr><td><code>Watashi-violet.ico</code></td><td>菫</td><td>262</td><td><code>#5C1DC9</code></td><td><code>#280B5B</code></td></tr>
-              <tr><td><code>Watashi-magenta.ico</code></td><td>紫</td><td>300</td><td><code>#C91DC9</code></td><td><code>#5B0B5B</code></td></tr>
-              <tr><td><code>Watashi-rose.ico</code></td><td>躑躅</td><td>335</td><td><code>#C91D64</code></td><td><code>#5B0B2C</code></td></tr>
+              <tr><td>朱（既定） / 12</td><td><code>Watashi-shu.ico</code></td><td><code>#C73E1D</code></td><td><code>#A83216</code></td><td><code>#8C2911</code></td><td><code>#F9E5E0</code></td><td><code>#5C1A0B</code></td></tr>
+              <tr><td>橙 / 30</td><td><code>Watashi-orange.ico</code></td><td><code>#C9731D</code></td><td><code>#A75E16</code></td><td><code>#8D4F11</code></td><td><code>#F9EDE1</code></td><td><code>#5B330B</code></td></tr>
+              <tr><td>山吹 / 48</td><td><code>Watashi-gold.ico</code></td><td><code>#C9A61D</code></td><td><code>#A78A16</code></td><td><code>#8D7411</code></td><td><code>#F9F4E1</code></td><td><code>#5B4B0B</code></td></tr>
+              <tr><td>若草 / 90</td><td><code>Watashi-lime.ico</code></td><td><code>#73C91D</code></td><td><code>#5EA716</code></td><td><code>#4F8D11</code></td><td><code>#EDF9E1</code></td><td><code>#335B0B</code></td></tr>
+              <tr><td>常磐 / 140</td><td><code>Watashi-green.ico</code></td><td><code>#1DC956</code></td><td><code>#16A746</code></td><td><code>#118D3A</code></td><td><code>#E1F9E9</code></td><td><code>#0B5B26</code></td></tr>
+              <tr><td>青碧 / 170</td><td><code>Watashi-teal.ico</code></td><td><code>#1DC9AC</code></td><td><code>#16A78F</code></td><td><code>#118D78</code></td><td><code>#E1F9F5</code></td><td><code>#0B5B4E</code></td></tr>
+              <tr><td>浅葱 / 200</td><td><code>Watashi-cyan.ico</code></td><td><code>#1D8FC9</code></td><td><code>#1677A7</code></td><td><code>#11648D</code></td><td><code>#E1F1F9</code></td><td><code>#0B405B</code></td></tr>
+              <tr><td>瑠璃 / 225</td><td><code>Watashi-blue.ico</code></td><td><code>#1D48C9</code></td><td><code>#163AA7</code></td><td><code>#11308D</code></td><td><code>#E1E7F9</code></td><td><code>#0B1F5B</code></td></tr>
+              <tr><td>菫 / 262</td><td><code>Watashi-violet.ico</code></td><td><code>#5C1DC9</code></td><td><code>#4B16A7</code></td><td><code>#3F118D</code></td><td><code>#EAE1F9</code></td><td><code>#280B5B</code></td></tr>
+              <tr><td>紫 / 300</td><td><code>Watashi-magenta.ico</code></td><td><code>#C91DC9</code></td><td><code>#A716A7</code></td><td><code>#8D118D</code></td><td><code>#F9E1F9</code></td><td><code>#5B0B5B</code></td></tr>
+              <tr><td>躑躅 / 335</td><td><code>Watashi-rose.ico</code></td><td><code>#C91D64</code></td><td><code>#A71652</code></td><td><code>#8D1145</code></td><td><code>#F9E1EB</code></td><td><code>#5B0B2C</code></td></tr>
             </tbody>
           </table>
         </div>
+
+        <h4>色ごとのコピペ用（クリックで開く）</h4>
+        <p>
+          各色の<code>Colors.xaml</code>6行と<code>Generate-ToriiIcon.ps1</code>2行をそのまま貼り付けられます。
+          <code>Colors.xaml</code>では<code>FocusColor</code>だけ「ボーダー」節にあり、他の5つは「アクセント」節にあります。
+        </p>
+        <details class="recipe" style="--swatch:#C73E1D">
+          <summary>朱（既定）<span class="hex">Hue 12　/　#C73E1D　/　Watashi-shu.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#C73E1D&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#C73E1D&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#A83216&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#8C2911&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#F9E5E0&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#5C1A0B&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC7, 0x3E, 0x1D)   # = #C73E1D
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5C1A0B</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-shu.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#C9731D">
+          <summary>橙<span class="hex">Hue 30　/　#C9731D　/　Watashi-orange.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#C9731D&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#C9731D&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#A75E16&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#8D4F11&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#F9EDE1&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#5B330B&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC9, 0x73, 0x1D)   # = #C9731D
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5B, 0x33, 0x0B)   # = #5B330B</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-orange.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#C9A61D">
+          <summary>山吹<span class="hex">Hue 48　/　#C9A61D　/　Watashi-gold.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#C9A61D&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#C9A61D&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#A78A16&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#8D7411&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#F9F4E1&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#5B4B0B&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC9, 0xA6, 0x1D)   # = #C9A61D
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5B, 0x4B, 0x0B)   # = #5B4B0B</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-gold.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#73C91D">
+          <summary>若草<span class="hex">Hue 90　/　#73C91D　/　Watashi-lime.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#73C91D&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#73C91D&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#5EA716&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#4F8D11&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#EDF9E1&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#335B0B&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0x73, 0xC9, 0x1D)   # = #73C91D
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x33, 0x5B, 0x0B)   # = #335B0B</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-lime.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#1DC956">
+          <summary>常磐<span class="hex">Hue 140　/　#1DC956　/　Watashi-green.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#1DC956&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#1DC956&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#16A746&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#118D3A&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#E1F9E9&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#0B5B26&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0x1D, 0xC9, 0x56)   # = #1DC956
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x5B, 0x26)   # = #0B5B26</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-green.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#1DC9AC">
+          <summary>青碧<span class="hex">Hue 170　/　#1DC9AC　/　Watashi-teal.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#1DC9AC&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#1DC9AC&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#16A78F&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#118D78&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#E1F9F5&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#0B5B4E&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0x1D, 0xC9, 0xAC)   # = #1DC9AC
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x5B, 0x4E)   # = #0B5B4E</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-teal.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#1D8FC9">
+          <summary>浅葱<span class="hex">Hue 200　/　#1D8FC9　/　Watashi-cyan.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#1D8FC9&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#1D8FC9&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#1677A7&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#11648D&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#E1F1F9&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#0B405B&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0x1D, 0x8F, 0xC9)   # = #1D8FC9
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x40, 0x5B)   # = #0B405B</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-cyan.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#1D48C9">
+          <summary>瑠璃<span class="hex">Hue 225　/　#1D48C9　/　Watashi-blue.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#1D48C9&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#1D48C9&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#163AA7&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#11308D&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#E1E7F9&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#0B1F5B&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0x1D, 0x48, 0xC9)   # = #1D48C9
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x1F, 0x5B)   # = #0B1F5B</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-blue.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#5C1DC9">
+          <summary>菫<span class="hex">Hue 262　/　#5C1DC9　/　Watashi-violet.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#5C1DC9&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#5C1DC9&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#4B16A7&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#3F118D&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#EAE1F9&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#280B5B&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1D, 0xC9)   # = #5C1DC9
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x28, 0x0B, 0x5B)   # = #280B5B</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-violet.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#C91DC9">
+          <summary>紫<span class="hex">Hue 300　/　#C91DC9　/　Watashi-magenta.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#C91DC9&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#C91DC9&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#A716A7&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#8D118D&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#F9E1F9&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#5B0B5B&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC9, 0x1D, 0xC9)   # = #C91DC9
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5B, 0x0B, 0x5B)   # = #5B0B5B</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-magenta.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
+        <details class="recipe" style="--swatch:#C91D64">
+          <summary>躑躅<span class="hex">Hue 335　/　#C91D64　/　Watashi-rose.ico</span></summary>
+          <div class="recipe-body">
+            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <pre><code>&lt;!-- ボーダー節 --&gt;
+&lt;Color x:Key="FocusColor"&gt;#C91D64&lt;/Color&gt;
+
+&lt;!-- アクセント節 --&gt;
+&lt;Color x:Key="AccentColor"&gt;#C91D64&lt;/Color&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#A71652&lt;/Color&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#8D1145&lt;/Color&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#F9E1EB&lt;/Color&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#5B0B2C&lt;/Color&gt;</code></pre>
+            <p><strong>scripts/Generate-ToriiIcon.ps1</strong></p>
+            <pre><code>$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC9, 0x1D, 0x64)   # = #C91D64
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5B, 0x0B, 0x2C)   # = #5B0B2C</code></pre>
+            <p>
+              <code>.ico</code>は生成せず<code>assets/icons/Watashi-rose.ico</code>を
+              <code>src/Watashi.Client/Watashi.ico</code>へコピーしても同じ結果になります。
+            </p>
+          </div>
+        </details>
 
         <p><strong>環境ごとの適用手順</strong></p>
         <ol>
@@ -1012,7 +1382,9 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
               <tr><td>タスクバーのアイコンだけ古い色</td><td><code>Generate-ToriiIcon.ps1</code>の再実行漏れ、または<code>.ico</code>のコピー漏れ</td></tr>
               <tr><td>フォーカス枠だけ前の色</td><td><code>FocusColor</code>の変更漏れ</td></tr>
               <tr><td>ビルドしてもexeのアイコンが古い</td><td><code>bin</code>／<code>obj</code>を消してリビルド。ClickOnce配布分は再発行が必要</td></tr>
-              <tr><td>ヘッダー上のロゴが白のまま</td><td>仕様。<code>ToriiIconLight</code>は<code>TextOnAccentBrush</code>固定</td></tr>
+              <tr><td>画像に差し替えたのに画面内が鳥居のまま</td><td><code>Icons.xaml</code>の<code>ToriiIcon</code>を置き換えたか。<code>.ico</code>だけでは画面内は変わらない（<a href="#icon-shape">5-3-A</a>）</td></tr>
+              <tr><td>差し替えた画像が表示されない・ビルドエラー</td><td>csprojの<code>&lt;Resource Include="…" /&gt;</code>の追加漏れ、または<code>UriSource</code>のパス誤り</td></tr>
+              <tr><td><code>ToriiIconLight</code>だけ古いまま</td><td>現状どの画面からも参照されていないため実害なし。形を変えたときは合わせて更新</td></tr>
             </tbody>
           </table>
         </div>
@@ -1303,5 +1675,12 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
     Watashi ブランディング変更ガイド — 詳細な原文は
     <a href="BRANDING.md">BRANDING.md</a> を参照してください。
   </footer>
+
+  <script>
+    // 印刷時は色ごとのコピペ枠をすべて開いた状態にする
+    window.addEventListener('beforeprint', function () {
+      document.querySelectorAll('details.recipe').forEach(function (d) { d.open = true; });
+    });
+  </script>
 </body>
 </html>
