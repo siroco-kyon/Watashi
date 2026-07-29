@@ -1,8 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="AssemblyName">
+﻿<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="AssemblyName;OutputType">
 
   <PropertyGroup>
-    <!-- ソリューション復元時の AssemblyName 汚染を防ぐ。詳細は Watashi.Shared.csproj のコメント。 -->
+    <!-- VS 発行時のプロパティ汚染を防ぐ。詳細は Watashi.Shared.csproj のコメント。 -->
     <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

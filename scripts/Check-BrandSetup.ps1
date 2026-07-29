@@ -32,13 +32,18 @@
        BrandId silently falls back to the default, so A/B fight over the same
        Windows credential slot and keep revoking each other's auto-login.
 
-    6. AssemblyName pollution guard
-       Visual Studio's publish pushes the profile's AssemblyName into the
-       solution-wide restore, so every project takes the same name and restore
-       fails with "Ambiguous project name". Projects other than the branded one
-       must declare TreatAsLocalProperty="AssemblyName" and reset AssemblyName
-       to their own project name. Publishing a single project from the command
-       line does not hit this, which is why it can look like a VS-only failure.
+    6. Property pollution guard
+       Visual Studio's publish pushes the publishing project's values into the
+       solution-wide build and restore as global properties. Unguarded, they
+       break the other projects:
+         AssemblyName - every project takes the same name and restore fails
+                        with "Ambiguous project name"
+         OutputType   - a class library is compiled as an executable and fails
+                        with CS5001 (no entry point)
+       Projects other than the branded one must declare
+       TreatAsLocalProperty="AssemblyName;OutputType" and reset both to their
+       own values. Publishing a single project from the command line does not
+       hit this, which is why it can look like a VS-only failure.
 
   This script only reads files. It never modifies the repository.
 
@@ -262,8 +267,9 @@ if ($missingBrandId.Count -eq 0 -and $dupBrand.Count -eq 0) {
     }
 }
 
-# --- 6. AssemblyName pollution guard ----------------------------------------
-Write-Section '6. AssemblyName pollution guard'
+# --- 6. Property pollution guard ---------------------------------------------
+Write-Section '6. Property pollution guard'
+$guardedProperties = @('AssemblyName', 'OutputType')
 if ($brandProfiles.Count -eq 0) {
     Write-Ok 'No brand-specific publish profile, so the guard is not needed yet.'
 } else {
@@ -281,22 +287,30 @@ if ($brandProfiles.Count -eq 0) {
     foreach ($proj in ($projectFiles | Sort-Object FullName)) {
         if ($brandedProjects -contains $proj.DirectoryName) { continue }
         $content = Get-Content -LiteralPath $proj.FullName -Raw -ErrorAction SilentlyContinue
-        $hasAttribute = $content -match 'TreatAsLocalProperty\s*=\s*"[^"]*\bAssemblyName\b[^"]*"'
-        $hasReset = @(Get-MSBuildPropertyValue -Path $proj.FullName -PropertyName 'AssemblyName').Count -gt 0
-        if (-not ($hasAttribute -and $hasReset)) {
-            $unguarded += (Get-RelativePath $proj.FullName)
+        $missing = @()
+        foreach ($prop in $guardedProperties) {
+            $hasAttribute = $content -match ('TreatAsLocalProperty\s*=\s*"[^"]*\b' + $prop + '\b[^"]*"')
+            $hasReset = @(Get-MSBuildPropertyValue -Path $proj.FullName -PropertyName $prop).Count -gt 0
+            if (-not ($hasAttribute -and $hasReset)) { $missing += $prop }
+        }
+        if ($missing.Count -gt 0) {
+            $unguarded += [pscustomobject]@{
+                File    = (Get-RelativePath $proj.FullName)
+                Missing = ($missing -join ', ')
+            }
         }
     }
 
     if ($unguarded.Count -gt 0) {
-        Write-Problem 'Project is missing the AssemblyName guard:'
-        foreach ($u in $unguarded) { Write-Detail $u }
-        Write-Detail 'Publishing from Visual Studio will fail with "Ambiguous project name".'
-        Write-Detail 'Add to the project element:  TreatAsLocalProperty="AssemblyName"'
-        Write-Detail 'and inside a PropertyGroup:  <AssemblyName>$(MSBuildProjectName)</AssemblyName>'
+        Write-Problem 'Project is missing the property pollution guard:'
+        foreach ($u in $unguarded) { Write-Detail "$($u.File)  (missing: $($u.Missing))" }
+        Write-Detail 'Publishing from Visual Studio will fail with'
+        Write-Detail '"Ambiguous project name" (AssemblyName) or CS5001 (OutputType).'
+        Write-Detail ('Add to the project element:  TreatAsLocalProperty="' + ($guardedProperties -join ';') + '"')
+        Write-Detail 'and reset each property to this project''s own value inside a PropertyGroup.'
         Write-Detail 'See docs/BRANDING.md section 7-2.'
     } else {
-        Write-Ok 'Every non-branded project guards its AssemblyName.'
+        Write-Ok ('Every non-branded project guards: ' + ($guardedProperties -join ', '))
     }
 }
 
