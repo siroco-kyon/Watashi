@@ -685,16 +685,29 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
         </div>
 
         <div class="callout danger">
-          <strong>他プロジェクトは<code>AssemblyName</code>の汚染から守る（対応済み）。</strong>
-          <strong>VSの「発行」は、プロファイルの<code>AssemblyName</code>をソリューション全体の復元へ波及させます。</strong>
-          無防備だと5つのプロジェクト全部が同じ名前になり、NuGetの復元が
-          <code>Ambiguous project name</code>で失敗します。
-          コマンドラインからプロジェクトを指定して発行した場合は復元範囲が狭いため再現しません。
+          <strong>他プロジェクトをプロパティ汚染から守る（対応済み）。</strong>
+          <strong>VSの「発行」は、発行するプロジェクトの値をソリューション全体のビルド/復元へグローバルに波及させます。</strong>
+          無防備だと他プロジェクトが巻き込まれ、<code>AssemblyName</code>汚染で
+          <code>Ambiguous project name</code>、それを直すと次は<code>OutputType</code>汚染で
+          <code>CS5001</code>（エントリポイントのMainが無い）と、順に失敗します。
+          コマンドラインからプロジェクトを指定して発行した場合はビルド範囲が狭いため再現しません。
           「VSの発行だけ失敗し、コマンドラインなら通る」という切り分けになったらこれを疑ってください。
           対策として<code>Watashi.Client</code>以外の4プロジェクトに
-          <code>TreatAsLocalProperty="AssemblyName"</code>と
-          <code>&lt;AssemblyName&gt;$(MSBuildProjectName)&lt;/AssemblyName&gt;</code>を入れてあります。
+          <code>TreatAsLocalProperty="AssemblyName;OutputType"</code>と、各プロジェクト本来の値を入れてあります。
           新しいプロジェクトを追加する場合も同じ指定が必要です。
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>プロジェクト</th><th>本来の<code>OutputType</code></th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>Watashi.Shared</code></td><td><code>Library</code></td></tr>
+              <tr><td><code>Watashi.Server</code> / <code>Watashi.Agent</code> / <code>Watashi.Tests</code></td><td><code>Exe</code></td></tr>
+              <tr><td><code>Watashi.Client</code>（ブランドを受け取る側）</td><td><code>WinExe</code> — 防御しない</td></tr>
+            </tbody>
+          </table>
         </div>
 
         <div class="callout">
@@ -1013,7 +1026,7 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
               <tr><td>3</td><td><code>.sln</code>にプロジェクト名の重複がないか</td></tr>
               <tr><td>4</td><td><code>AssemblyName</code>が複数ファイルで重複していないか</td></tr>
               <tr><td>5</td><td>ブランド別プロファイルに<code>BrandId</code>が漏れていないか・重複していないか</td></tr>
-              <tr><td>6</td><td>他プロジェクトに<code>TreatAsLocalProperty</code>の防御が入っているか</td></tr>
+              <tr><td>6</td><td>他プロジェクトに<code>AssemblyName</code>／<code>OutputType</code>の防御が入っているか</td></tr>
             </tbody>
           </table>
         </div>
@@ -1025,7 +1038,8 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
               <tr><th>症状</th><th>主な確認箇所</th></tr>
             </thead>
             <tbody>
-              <tr><td class="required">VSの発行でだけ<code>Ambiguous project name</code>（コマンドラインは通る）</td><td>他プロジェクトの<code>TreatAsLocalProperty</code>防御が抜けている。当面はコマンドラインから発行すれば回避できる。7-7のスクリプトで検出可能</td></tr>
+              <tr><td class="required">VSの発行でだけ<code>Ambiguous project name</code>や<code>CS5001</code>（コマンドラインは通る）</td><td>他プロジェクトの<code>TreatAsLocalProperty</code>防御が抜けている。当面はコマンドラインから発行すれば回避できる。7-7のスクリプトで検出可能</td></tr>
+              <tr><td><code>MSB3030 ... runtimeconfig.json は見つからなかったためコピーできません</code></td><td>上と同じ<code>OutputType</code>汚染の二次症状。単独では追わないこと</td></tr>
               <tr><td>コマンドラインでも<code>Ambiguous project name</code></td><td>同じ<code>AssemblyName</code>を宣言したファイルが2つ以上ある。<code>.csproj</code>の重複・競合コピーも疑う</td></tr>
               <tr><td><code>Watashi (2)</code>になる</td><td><code>AssemblyName</code>、両マニフェストの<code>assemblyIdentity</code>、旧ピン留め</td></tr>
               <tr><td>片方を入れるともう片方が置き換わる</td><td>ClickOnce IDと配布URL</td></tr>

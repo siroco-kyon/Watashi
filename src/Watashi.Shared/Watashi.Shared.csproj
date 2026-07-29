@@ -1,13 +1,18 @@
-﻿<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="AssemblyName">
+﻿<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="AssemblyName;OutputType">
 
   <PropertyGroup>
     <!--
-      VS の「発行」は、発行プロファイルの AssemblyName をソリューション全体の復元へ
-      波及させる。防御しないと全プロジェクトが同名になり、NuGet の復元が
-      "Ambiguous project name" で失敗する (docs/BRANDING.md §7-2)。
-      TreatAsLocalProperty で外から渡された値を上書き可能にし、自分の名前を保つ。
+      VS の「発行」は、発行するプロジェクトの値をソリューション全体のビルド/復元へ
+      グローバルに波及させる。防御しないと他プロジェクトまで巻き込まれる:
+        AssemblyName … 全プロジェクトが同名になり NuGet 復元が
+                       "Ambiguous project name" で失敗
+        OutputType   … ライブラリが実行ファイル扱いになり CS5001
+                       (エントリポイントの Main が無い) で失敗
+      TreatAsLocalProperty で外から渡された値を上書き可能にし、自分の値を保つ。
+      詳細は docs/BRANDING.md §7-2。
     -->
     <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+    <OutputType>Library</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

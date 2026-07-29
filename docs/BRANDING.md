@@ -326,28 +326,41 @@ csproj に書くと発行のたびに手で書き換えることになります�
 <AssemblyTitle>Watashi-a</AssemblyTitle>
 ```
 
-#### ⚠ 他プロジェクトは `AssemblyName` の汚染から守る (対応済み)
+#### ⚠ 他プロジェクトをプロパティ汚染から守る (対応済み)
 
-**Visual Studio の「発行」は、プロファイルの `AssemblyName` をソリューション全体の復元へ波及させます。**
-無防備だと 5 つのプロジェクト全部が同じ名前になり、NuGet の復元がこう失敗します。
+**Visual Studio の「発行」は、発行するプロジェクトの値をソリューション全体のビルド/復元へ
+グローバルに波及させます。** 無防備だと他のプロジェクトまで巻き込まれ、次の順に失敗します。
 
-```
-error : Ambiguous project name 'Watashi_KmtMSA.Client'. [Watashi.sln]
-```
+| 汚染されるプロパティ | 症状 |
+|---|---|
+| `AssemblyName` | 全プロジェクトが同名になり、NuGet の復元が失敗<br>`error : Ambiguous project name 'Watashi_KmtMSA.Client'. [Watashi.sln]` |
+| `OutputType` | ライブラリが実行ファイル扱いになりコンパイルが失敗<br>`CS5001 プログラムは、エントリ ポイントに適切な静的 'Main' メソッドを含んでいません` |
 
-コマンドラインからプロジェクトを指定して発行した場合は復元範囲が狭いため**再現しません**。
+`AssemblyName` を直すと次に `OutputType` で止まります。**1 つ直すと次が出る**ので、
+まとめて防御してください。
+
+コマンドラインからプロジェクトを指定して発行した場合はビルド範囲が狭いため**再現しません**。
 「VS の発行だけ失敗し、コマンドラインなら通る」という切り分けになったらこれを疑ってください。
 
-対策として、`Watashi.Client` **以外**の 4 プロジェクトに自分の名前を守る指定を入れてあります。
+対策として、`Watashi.Client` **以外**の 4 プロジェクトに自分の値を守る指定を入れてあります。
 
 ```xml
-<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="AssemblyName">
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="AssemblyName;OutputType">
   <PropertyGroup>
     <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+    <OutputType>Library</OutputType>   <!-- 各プロジェクト本来の値 -->
 ```
 
 `TreatAsLocalProperty` は、外から渡されたグローバル値をプロジェクト側で上書き可能にする
-MSBuild の機能です。新しいプロジェクトをソリューションに追加する場合も、同じ指定を入れてください
+MSBuild の機能です。`OutputType` の本来の値はプロジェクトごとに違うので注意してください。
+
+| プロジェクト | `OutputType` |
+|---|---|
+| `Watashi.Shared` | `Library` |
+| `Watashi.Server` / `Watashi.Agent` / `Watashi.Tests` | `Exe` |
+| `Watashi.Client` (ブランドを受け取る側) | `WinExe` — 防御しない |
+
+新しいプロジェクトをソリューションに追加する場合も同じ指定を入れてください
 ([§7-7](#7-7-設定を自動で点検する) のスクリプトが検出します)。
 
 #### `ClickOnceProfile.pubxml`
@@ -531,7 +544,7 @@ powershell -NoProfile -File scripts/Check-BrandSetup.ps1
 | 3 | `.sln` にプロジェクト名の重複がないか |
 | 4 | `AssemblyName` が複数ファイルで重複していないか |
 | 5 | ブランド別プロファイルに `BrandId` が漏れていないか / 重複していないか |
-| 6 | 他プロジェクトに `TreatAsLocalProperty` の防御が入っているか |
+| 6 | 他プロジェクトに `AssemblyName` / `OutputType` の防御が入っているか |
 
 問題があれば終了コード 1 を返すので、発行手順に組み込めます。
 
@@ -539,7 +552,8 @@ powershell -NoProfile -File scripts/Check-BrandSetup.ps1
 
 | 症状 | 主な確認箇所 |
 |---|---|
-| **VS の発行でだけ `Ambiguous project name '<名前>'`** (コマンドラインは通る) | **他プロジェクトの `TreatAsLocalProperty` 防御が抜けている ([§7-2](#7-2-a-版と-b-版で変更する値))。当面はコマンドラインから発行すれば回避できる** |
+| **VS の発行でだけ `Ambiguous project name '<名前>'` や `CS5001`** (コマンドラインは通る) | **他プロジェクトの `TreatAsLocalProperty` 防御が抜けている ([§7-2](#7-2-a-版と-b-版で変更する値))。当面はコマンドラインから発行すれば回避できる** |
+| `MSB3030 ... runtimeconfig.json は見つからなかったためコピーできません` | 上と同じ `OutputType` 汚染の二次症状。単独では追わないこと |
 | コマンドラインでも `Ambiguous project name` | 同じ `AssemblyName` を宣言したファイルが 2 つ以上ある。`.csproj` の重複・競合コピーも疑う |
 | `Watashi (2)` と表示される | A/B の `assemblyIdentity`、`AssemblyName`、旧ピン留め |
 | A/B の片方がもう片方として更新される | `UpdateUrl`、`updateManifestUrl`、配布マニフェスト名 |
