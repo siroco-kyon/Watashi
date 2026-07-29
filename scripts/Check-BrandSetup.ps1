@@ -32,6 +32,14 @@
        BrandId silently falls back to the default, so A/B fight over the same
        Windows credential slot and keep revoking each other's auto-login.
 
+    6. AssemblyName pollution guard
+       Visual Studio's publish pushes the profile's AssemblyName into the
+       solution-wide restore, so every project takes the same name and restore
+       fails with "Ambiguous project name". Projects other than the branded one
+       must declare TreatAsLocalProperty="AssemblyName" and reset AssemblyName
+       to their own project name. Publishing a single project from the command
+       line does not hit this, which is why it can look like a VS-only failure.
+
   This script only reads files. It never modifies the repository.
 
   This script is intentionally ASCII-only: Windows PowerShell 5.1 reads a
@@ -187,7 +195,11 @@ if ($assemblyNames.Count -eq 0) {
 } else {
     foreach ($a in $assemblyNames) { Write-Detail "$($a.Value)   <- $($a.File)" }
 
-    $dupAsm = @($assemblyNames | Group-Object Value | Where-Object { $_.Count -gt 1 })
+    # Values containing an MSBuild expression (e.g. $(MSBuildProjectName), the
+    # pollution guard from check 6) expand to a different name per project, so
+    # they are never a real collision.
+    $literalNames = @($assemblyNames | Where-Object { $_.Value -notmatch '\$\(' })
+    $dupAsm = @($literalNames | Group-Object Value | Where-Object { $_.Count -gt 1 })
     if ($dupAsm.Count -gt 0) {
         foreach ($d in $dupAsm) {
             Write-Problem "AssemblyName '$($d.Name)' is declared in $($d.Count) files:"
@@ -247,6 +259,44 @@ if ($missingBrandId.Count -eq 0 -and $dupBrand.Count -eq 0) {
         Write-Ok 'No brand-specific publish profile. Local state uses the default "Watashi".'
     } else {
         Write-Ok 'Every brand-specific publish profile carries a distinct BrandId.'
+    }
+}
+
+# --- 6. AssemblyName pollution guard ----------------------------------------
+Write-Section '6. AssemblyName pollution guard'
+if ($brandProfiles.Count -eq 0) {
+    Write-Ok 'No brand-specific publish profile, so the guard is not needed yet.'
+} else {
+    # The branded project legitimately takes the AssemblyName from its profile.
+    # Every other project must defend its own name.
+    $brandedProjects = @()
+    foreach ($p in $brandProfiles) {
+        # <repo>\src\Foo\Properties\PublishProfiles\X.pubxml -> <repo>\src\Foo
+        $full = Join-Path $RepositoryRoot $p.File
+        $projDir = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $full))
+        $brandedProjects += $projDir
+    }
+
+    $unguarded = @()
+    foreach ($proj in ($projectFiles | Sort-Object FullName)) {
+        if ($brandedProjects -contains $proj.DirectoryName) { continue }
+        $content = Get-Content -LiteralPath $proj.FullName -Raw -ErrorAction SilentlyContinue
+        $hasAttribute = $content -match 'TreatAsLocalProperty\s*=\s*"[^"]*\bAssemblyName\b[^"]*"'
+        $hasReset = @(Get-MSBuildPropertyValue -Path $proj.FullName -PropertyName 'AssemblyName').Count -gt 0
+        if (-not ($hasAttribute -and $hasReset)) {
+            $unguarded += (Get-RelativePath $proj.FullName)
+        }
+    }
+
+    if ($unguarded.Count -gt 0) {
+        Write-Problem 'Project is missing the AssemblyName guard:'
+        foreach ($u in $unguarded) { Write-Detail $u }
+        Write-Detail 'Publishing from Visual Studio will fail with "Ambiguous project name".'
+        Write-Detail 'Add to the project element:  TreatAsLocalProperty="AssemblyName"'
+        Write-Detail 'and inside a PropertyGroup:  <AssemblyName>$(MSBuildProjectName)</AssemblyName>'
+        Write-Detail 'See docs/BRANDING.md section 7-2.'
+    } else {
+        Write-Ok 'Every non-branded project guards its AssemblyName.'
     }
 }
 
