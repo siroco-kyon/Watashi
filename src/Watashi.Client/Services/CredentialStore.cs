@@ -4,7 +4,9 @@ namespace Watashi.Client.Services;
 
 public class CredentialStore
 {
-    private const string Target = "Watashi/AutoLogin";
+    // ブランドごとに分ける (docs/BRANDING.md §7-4)。共通のままだと A/B が
+    // 同じ資格情報スロットを奪い合い、双方の自動ログインが相互に失効する。
+    private static readonly string Target = $"{Brand.Id}/AutoLogin";
 
     public void SaveDeviceToken(string machineName, string windowsUser, string token)
     {

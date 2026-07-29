@@ -784,9 +784,9 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
               <tr><th>対象</th><th>現在値・場所</th><th>注意</th></tr>
             </thead>
             <tbody>
-              <tr><td>クライアント設定</td><td><code>%LOCALAPPDATA%\Watashi\settings.json</code></td><td>A/Bで共有される</td></tr>
-              <tr><td>クライアントログ</td><td><code>%LOCALAPPDATA%\Watashi\logs\</code></td><td>A/Bのログが混ざる</td></tr>
-              <tr><td>自動ログイン資格情報</td><td><code>Watashi/AutoLogin</code></td><td class="required">A/B分離を強く推奨</td></tr>
+              <tr><td>クライアント設定</td><td><code>%LOCALAPPDATA%\{BrandId}\settings.json</code></td><td><code>BrandId</code>で分離（7-6）</td></tr>
+              <tr><td>クライアントログ</td><td><code>%LOCALAPPDATA%\{BrandId}\logs\</code></td><td><code>BrandId</code>で分離（7-6）</td></tr>
+              <tr><td>自動ログイン資格情報</td><td><code>{BrandId}/AutoLogin</code></td><td class="required">A/B共存時は分離必須（7-6）</td></tr>
               <tr><td>Windowsサービス名</td><td><code>Watashi.Server</code>・<code>Watashi.Agent</code></td><td>監視・運用コマンドも追従</td></tr>
               <tr><td>サーバーデータ</td><td><code>C:\ProgramData\Watashi</code></td><td>既存DBの移行を伴う</td></tr>
               <tr><td>JWT Issuer / Audience</td><td><code>Watashi</code></td><td>Client/Server双方の整合が必要</td></tr>
@@ -819,8 +819,9 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
               <tr><td>発行・更新URL</td><td><code>/watashi-a/</code></td><td><code>/watashi-b/</code></td><td class="required">必須</td></tr>
               <tr><td>更新マニフェスト</td><td><code>WatashiA.Client.application</code></td><td><code>WatashiB.Client.application</code></td><td class="required">必須</td></tr>
               <tr><td><code>serverUrl</code></td><td>A中央サーバ</td><td>B中央サーバ</td><td class="required">必須</td></tr>
-              <tr><td>ローカル保存先</td><td><code>%LOCALAPPDATA%\Watashi-a\</code></td><td><code>%LOCALAPPDATA%\Watashi-b\</code></td><td class="recommended">推奨</td></tr>
-              <tr><td>資格情報ターゲット</td><td><code>Watashi-a/AutoLogin</code></td><td><code>Watashi-b/AutoLogin</code></td><td class="required">強く推奨</td></tr>
+              <tr><td><code>BrandId</code>（発行時<code>/p:</code>）</td><td>指定しない（既定）</td><td><code>Watashi-b</code></td><td class="required">必須</td></tr>
+              <tr><td>ローカル保存先</td><td><code>%LOCALAPPDATA%\Watashi\</code></td><td><code>%LOCALAPPDATA%\Watashi-b\</code></td><td>↑で自動</td></tr>
+              <tr><td>資格情報ターゲット</td><td><code>Watashi/AutoLogin</code></td><td><code>Watashi-b/AutoLogin</code></td><td>↑で自動</td></tr>
               <tr><td>アイコン</td><td>例: 朱</td><td>例: 瑠璃</td><td class="recommended">推奨</td></tr>
             </tbody>
           </table>
@@ -900,22 +901,62 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
           元の設定を直して再発行します。
         </div>
 
-        <h3>7-6. ローカル状態の分離</h3>
+        <h3>7-6. ローカル状態の分離 (<code>BrandId</code>)</h3>
         <p>
-          現在はA/Bが次の値を共有します。特に自動ログイン資格情報の共有は相互干渉につながります。
+          ローカル状態の保存先は、ビルド時プロパティ<code>BrandId</code>で版ごとに分離します。
+          <code>Services/Brand.cs</code>がアセンブリに焼き込まれた値を読み、次の3つを決めます。
+          既定値は<code>Watashi</code>のため、1種類だけを配布する通常の改名では設定不要です。
         </p>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>対象</th><th>現在値</th><th>変更ファイル</th></tr>
+              <tr><th>対象</th><th>保存先</th><th>該当ファイル</th></tr>
             </thead>
             <tbody>
-              <tr><td>設定</td><td><code>%LOCALAPPDATA%\Watashi\settings.json</code></td><td><code>Services/AppSettings.cs</code></td></tr>
-              <tr><td>ログ</td><td><code>%LOCALAPPDATA%\Watashi\logs\</code></td><td><code>Services/AppLog.cs</code></td></tr>
-              <tr><td>資格情報</td><td><code>Watashi/AutoLogin</code></td><td><code>Services/CredentialStore.cs</code></td></tr>
+              <tr><td>設定</td><td><code>%LOCALAPPDATA%\{BrandId}\settings.json</code></td><td><code>Services/AppSettings.cs</code></td></tr>
+              <tr><td>ログ</td><td><code>%LOCALAPPDATA%\{BrandId}\logs\</code></td><td><code>Services/AppLog.cs</code></td></tr>
+              <tr><td>資格情報</td><td><code>{BrandId}/AutoLogin</code></td><td><code>Services/CredentialStore.cs</code></td></tr>
             </tbody>
           </table>
         </div>
+
+        <div class="callout danger">
+          <strong>共通のままだと自動ログインが相互に壊れます。</strong>
+          資格情報ターゲットはWindows資格情報マネージャーの1スロットを奪い合います。
+          デバイストークンは各中央サーバのDBに個別保存されるため、A版のトークンはB版のサーバでは検証を通りません。
+          結果、B側の保存でA側のトークンが消え、次にA版を起動すると401を受けて
+          <code>ClearDeviceToken()</code>が走り、B側のトークンまで消えます。
+          以降A/Bが互いの自動ログインを潰し合い、毎回手動ログインになります。
+        </div>
+
+        <p>発行時にコマンドラインで指定します（グローバルプロパティとして最優先で効きます）。</p>
+        <pre><code>MSBuild.exe src\Watashi.Client\Watashi.Client.csproj /t:Publish `
+  /p:Configuration=Release /p:PublishProfile=ClickOnceProfile `
+  /p:BrandId=Watashi-b</code></pre>
+
+        <div class="callout warning">
+          <strong>既存配布の<code>BrandId</code>は変更しないこと。</strong>
+          現行ツールは未指定（=<code>Watashi</code>）のまま発行し、新ブランド側にだけ新しい値を与えます。
+          現行側も変えると既存利用者全員が設定と自動ログインを1回失います
+          （再ログインで復旧しますが問い合わせの原因になります）。
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>配布</th><th><code>BrandId</code></th><th>保存先</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>現行（既存利用者）</td><td class="required">指定しない</td><td><code>%LOCALAPPDATA%\Watashi\</code>（現状維持）</td></tr>
+              <tr><td>新ブランド</td><td><code>Watashi-b</code></td><td><code>%LOCALAPPDATA%\Watashi-b\</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          A/B双方で「このPCを記憶」した後、資格情報が2件に分かれていることを確認します。
+        </p>
+        <pre><code>cmdkey /list | findstr /i AutoLogin</code></pre>
 
         <h3>7-7. 症状から確認場所を探す</h3>
         <div class="table-wrap">
@@ -928,8 +969,8 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
               <tr><td>片方を入れるともう片方が置き換わる</td><td>ClickOnce IDと配布URL</td></tr>
               <tr><td>片方がもう片方として更新される</td><td><code>UpdateUrl</code>と<code>updateManifestUrl</code></td></tr>
               <tr><td>ホバー名だけWatashiのまま</td><td>XAMLの<code>Window.Title</code>と古いビルド成果物</td></tr>
-              <tr><td>自動ログインが解除される</td><td><code>CredentialStore.cs</code>のターゲット</td></tr>
-              <tr><td>設定・ログが混ざる</td><td><code>AppSettings.cs</code>と<code>AppLog.cs</code></td></tr>
+              <tr><td>自動ログインが解除される</td><td>発行時の<code>/p:BrandId</code>指定漏れ（A/Bが同じ資格情報ターゲットを共有）</td></tr>
+              <tr><td>設定・ログが混ざる</td><td>発行時の<code>/p:BrandId</code>指定漏れ</td></tr>
             </tbody>
           </table>
         </div>

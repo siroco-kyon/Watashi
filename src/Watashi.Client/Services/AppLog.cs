@@ -17,7 +17,7 @@ public static class AppLog
 
     private static readonly string LogDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Watashi", "logs");
+        Brand.Id, "logs");
 
     /// <summary>ログ出力先ディレクトリ (利用者への案内用に公開)。</summary>
     public static string Directory => LogDir;
