@@ -653,19 +653,35 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
           A/B共存ではClickOnceのアプリケーションマニフェストIDを分けるため、別名を推奨します。
         </p>
 
+        <p>
+          発行プロファイルをA/Bで分ける運用では、<code>AssemblyName</code>は各<code>.pubxml</code>に書きます。
+          csprojに書くと発行のたびに手で書き換えることになります。
+        </p>
+
         <div class="cards">
           <article class="card">
-            <h3>A版</h3>
+            <h3>A版のプロファイル</h3>
             <pre><code>&lt;AssemblyName&gt;WatashiA.Client&lt;/AssemblyName&gt;
+&lt;BrandId&gt;Watashi-a&lt;/BrandId&gt;
 &lt;Product&gt;Watashi-a&lt;/Product&gt;
 &lt;AssemblyTitle&gt;Watashi-a&lt;/AssemblyTitle&gt;</code></pre>
           </article>
           <article class="card">
-            <h3>B版</h3>
+            <h3>B版のプロファイル</h3>
             <pre><code>&lt;AssemblyName&gt;WatashiB.Client&lt;/AssemblyName&gt;
+&lt;BrandId&gt;Watashi-b&lt;/BrandId&gt;
 &lt;Product&gt;Watashi-b&lt;/Product&gt;
 &lt;AssemblyTitle&gt;Watashi-b&lt;/AssemblyTitle&gt;</code></pre>
           </article>
+        </div>
+
+        <div class="callout danger">
+          <strong>csprojで<code>$(BrandId)</code>を条件に<code>AssemblyName</code>を切り替えることはできません。</strong>
+          MSBuildは<strong>プロパティを記述順に評価</strong>し、<code>.pubxml</code>はcsproj本文より<strong>後</strong>に
+          importされます。そのためcsprojのプロパティは<code>.pubxml</code>の値を参照できず、条件が常に偽になります。
+          一方<strong>項目 (ItemGroup) は全プロパティの評価後</strong>に処理されるため、
+          <code>&lt;AssemblyMetadata Include="BrandId" Value="$(BrandId)" /&gt;</code>は<code>.pubxml</code>の値を拾えます。
+          これが「<code>BrandId</code>は<code>.pubxml</code>で効くのに<code>AssemblyName</code>の条件分岐は効かない」理由です。
         </div>
 
         <div class="callout">
@@ -929,7 +945,15 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
           以降A/Bが互いの自動ログインを潰し合い、毎回手動ログインになります。
         </div>
 
-        <p>発行時にコマンドラインで指定します（グローバルプロパティとして最優先で効きます）。</p>
+        <p>
+          <strong>方法1: 発行プロファイルに書く（Visual Studioから発行する場合はこちら）。</strong>
+          <code>AssemblyName</code>と同じ<code>.pubxml</code>に併記します。ブランド固有の値が1ファイルに揃うため、
+          「URLはBに変えたのに<code>BrandId</code>を付け忘れた」という取り違えが起きません。
+          VSの「発行」画面でプロファイルを選ぶだけで反映され、コマンドは不要です。
+        </p>
+        <pre><code>&lt;BrandId&gt;Watashi-b&lt;/BrandId&gt;</code></pre>
+
+        <p><strong>方法2: コマンドラインで渡す。</strong><code>/p:</code>はグローバルプロパティとして最優先で効き、プロファイルの記述も上書きします。</p>
         <pre><code>MSBuild.exe src\Watashi.Client\Watashi.Client.csproj /t:Publish `
   /p:Configuration=Release /p:PublishProfile=ClickOnceProfile `
   /p:BrandId=Watashi-b</code></pre>
@@ -958,19 +982,43 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
         </p>
         <pre><code>cmdkey /list | findstr /i AutoLogin</code></pre>
 
-        <h3>7-7. 症状から確認場所を探す</h3>
+        <h3>7-7. 設定を自動で点検する</h3>
+        <p>
+          発行前の確認は<code>scripts/Check-BrandSetup.ps1</code>で自動化できます。
+          読み取り専用で、リポジトリを書き換えません。問題があれば終了コード1を返します。
+        </p>
+        <pre><code>powershell -NoProfile -File scripts/Check-BrandSetup.ps1</code></pre>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>点検項目</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>リポジトリがクラウド同期フォルダ（OneDrive等）配下にないか</td></tr>
+              <tr><td>2</td><td><code>.csproj</code>の重複・競合コピーがないか</td></tr>
+              <tr><td>3</td><td><code>.sln</code>にプロジェクト名の重複がないか</td></tr>
+              <tr><td>4</td><td><code>AssemblyName</code>が複数ファイルで重複していないか</td></tr>
+              <tr><td>5</td><td>ブランド別プロファイルに<code>BrandId</code>が漏れていないか・重複していないか</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>7-8. 症状から確認場所を探す</h3>
         <div class="table-wrap">
           <table>
             <thead>
               <tr><th>症状</th><th>主な確認箇所</th></tr>
             </thead>
             <tbody>
+              <tr><td class="required">発行時に<code>Ambiguous project name</code></td><td>同じ<code>AssemblyName</code>を宣言したファイルが2つ以上ある。<code>.csproj</code>の重複・競合コピーも疑う。7-7のスクリプトで検出可能</td></tr>
               <tr><td><code>Watashi (2)</code>になる</td><td><code>AssemblyName</code>、両マニフェストの<code>assemblyIdentity</code>、旧ピン留め</td></tr>
               <tr><td>片方を入れるともう片方が置き換わる</td><td>ClickOnce IDと配布URL</td></tr>
               <tr><td>片方がもう片方として更新される</td><td><code>UpdateUrl</code>と<code>updateManifestUrl</code></td></tr>
               <tr><td>ホバー名だけWatashiのまま</td><td>XAMLの<code>Window.Title</code>と古いビルド成果物</td></tr>
-              <tr><td>自動ログインが解除される</td><td>発行時の<code>/p:BrandId</code>指定漏れ（A/Bが同じ資格情報ターゲットを共有）</td></tr>
-              <tr><td>設定・ログが混ざる</td><td>発行時の<code>/p:BrandId</code>指定漏れ</td></tr>
+              <tr><td>自動ログインが解除される</td><td><code>BrandId</code>の指定漏れ（A/Bが同じ資格情報ターゲットを共有）</td></tr>
+              <tr><td>設定・ログが混ざる</td><td><code>BrandId</code>の指定漏れ</td></tr>
+              <tr><td>ビルドは通るのに<code>XDG0008</code>が出る</td><td>XAMLデザイナー由来。クリーン後にビルドすれば消える。エラー一覧のフィルタを「ビルドのみ」にすると実害の有無が分かる</td></tr>
             </tbody>
           </table>
         </div>
