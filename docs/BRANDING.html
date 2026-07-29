@@ -768,23 +768,183 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
         <p>
           アイコンは「exe・タスクバー・ClickOnce用の<code>.ico</code>」と
           「画面内で描画するXAML」の2系統です。外側だけでなく画面内も揃える場合は両方変更します。
+          色は<strong>1ファイル（<code>Colors.xaml</code>）に集約</strong>されているので、
+          ツール全体の色替えはそこの6行と、<code>.ico</code>生成スクリプトの2行を合わせるだけです。
         </p>
 
+        <h3>5-1. どこを変えると何が変わるか</h3>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>対象</th><th>変更箇所</th></tr>
+              <tr><th>変えたいもの</th><th>編集するファイル</th><th>具体的な場所</th><th>反映先</th></tr>
             </thead>
             <tbody>
-              <tr><td>exe・タスクバー・インストーラ</td><td><code>Watashi.ico</code>と両方の<code>ApplicationIcon</code></td></tr>
-              <tr><td>画面内の鳥居</td><td><code>Themes/Icons.xaml</code></td></tr>
-              <tr><td>画面内のブランドカラー</td><td><code>Themes/Colors.xaml</code></td></tr>
-              <tr><td>ico生成色</td><td><code>scripts/Generate-ToriiIcon.ps1</code></td></tr>
+              <tr>
+                <td>exe・タスクバー・インストーラのアイコン</td>
+                <td><code>src/Watashi.Client/Watashi.ico</code></td>
+                <td>同名で上書き。別名にするなら<code>Watashi.Client.csproj</code>と<code>ClickOnceProfile.pubxml</code>の<code>&lt;ApplicationIcon&gt;</code><strong>2箇所</strong>も更新</td>
+                <td>exe、ショートカット、タスクバー、インストーラ、スタートメニュー</td>
+              </tr>
+              <tr>
+                <td>画面内ロゴの<strong>形</strong></td>
+                <td><code>src/Watashi.Client/Themes/Icons.xaml</code></td>
+                <td><code>ToriiIcon</code>（通常）と<code>ToriiIconLight</code>（濃色背景用）のジオメトリ。座標系は64×64</td>
+                <td>スプラッシュ、ログイン、メイン、管理の各ロゴとウィンドウ左上</td>
+              </tr>
+              <tr>
+                <td><strong>ツール全体の色</strong></td>
+                <td><code>src/Watashi.Client/Themes/Colors.xaml</code></td>
+                <td><code>AccentColor</code>／<code>AccentHoverColor</code>／<code>AccentPressedColor</code>／<code>AccentSoftColor</code>／<code>AccentDeepColor</code>＋<code>FocusColor</code>の<strong>6行</strong></td>
+                <td>主ボタン、入力欄のフォーカス枠、選択行、リンク文字、見出しの強調、画面内ロゴの色</td>
+              </tr>
+              <tr>
+                <td><code>.ico</code>の色</td>
+                <td><code>scripts/Generate-ToriiIcon.ps1</code></td>
+                <td>先頭付近の<code>$ACCENT</code>／<code>$ACCENT_DEEP</code>の2行</td>
+                <td>再生成した<code>Watashi.ico</code>（＝タスクバー等）</td>
+              </tr>
             </tbody>
           </table>
         </div>
 
-        <h3>同梱している色違い</h3>
+        <div class="callout success">
+          <strong>色を変えるとき<code>Icons.xaml</code>は触りません。</strong>
+          鳥居の各パーツは色を直書きせず<code>{StaticResource AccentBrush}</code>／<code>AccentDeepBrush</code>を参照しているため、
+          <code>Colors.xaml</code>を変えるだけで画面内ロゴの色も追従します。
+          ただし<code>ToriiIconLight</code>だけは<code>TextOnAccentBrush</code>（白）固定なので、
+          濃色背景に載るロゴはアクセント色を変えても白のままです。
+        </div>
+
+        <h3 id="icon-color">5-2. ツールの色を変える（最短手順）</h3>
+        <div class="flow">
+          <div><code>Colors.xaml</code>の6行を新しい色に置き換える</div>
+          <div><code>Generate-ToriiIcon.ps1</code>の<code>$ACCENT</code>／<code>$ACCENT_DEEP</code>を同じ値にする</div>
+          <div>スクリプトを実行して<code>.ico</code>を再生成する</div>
+          <div>リビルドして各画面とタスクバーを目視確認する</div>
+        </div>
+
+        <p><strong>① <code>Themes/Colors.xaml</code></strong>（瑠璃色に変える例）</p>
+        <pre><code>&lt;!-- ===== ボーダー ===== --&gt;
+&lt;Color x:Key="FocusColor"&gt;#1D48C9&lt;/Color&gt;          &lt;!-- 旧 #C73E1D / AccentColor と同値にする --&gt;
+
+&lt;!-- ===== アクセント ===== --&gt;
+&lt;Color x:Key="AccentColor"&gt;#1D48C9&lt;/Color&gt;         &lt;!-- 旧 #C73E1D 基本色 --&gt;
+&lt;Color x:Key="AccentHoverColor"&gt;#163AA7&lt;/Color&gt;    &lt;!-- 旧 #A83216 ホバー --&gt;
+&lt;Color x:Key="AccentPressedColor"&gt;#11308D&lt;/Color&gt;  &lt;!-- 旧 #8C2911 押下 --&gt;
+&lt;Color x:Key="AccentSoftColor"&gt;#E1E7F9&lt;/Color&gt;     &lt;!-- 旧 #F9E5E0 選択行・淡い背景 --&gt;
+&lt;Color x:Key="AccentDeepColor"&gt;#0B1F5B&lt;/Color&gt;     &lt;!-- 旧 #5C1A0B 濃色・鳥居の島木 --&gt;</code></pre>
+        <p>
+          下段の<code>&lt;SolidColorBrush&gt;</code>群は上の<code>&lt;Color&gt;</code>を参照しているだけなので、
+          書き換えるのは<code>&lt;Color&gt;</code>の行だけです。
+        </p>
+
+        <p><strong>② <code>scripts/Generate-ToriiIcon.ps1</code></strong>（<code>Colors.xaml</code>と必ず同じ値に）</p>
+        <pre><code># Mirrors Colors.xaml: AccentColor and AccentDeepColor.
+$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0x1D, 0x48, 0xC9)   # = #1D48C9
+$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x1F, 0x5B)   # = #0B1F5B</code></pre>
+
+        <p><strong>③ 再生成と④ 確認</strong></p>
+        <pre><code># .ico を再生成（src/Watashi.Client/Watashi.ico を上書き）
+powershell.exe -NoProfile -File scripts/Generate-ToriiIcon.ps1
+
+# ビルドして起動確認
+dotnet build src\Watashi.Client\Watashi.Client.csproj</code></pre>
+
+        <div class="callout warning">
+          <strong><code>Colors.xaml</code>と<code>Generate-ToriiIcon.ps1</code>は必ずセットで直します。</strong>
+          片方だけ変えると、画面内のロゴとタスクバーのアイコンで色が食い違います。
+          <code>.ico</code>を差し替えるだけなら<code>Colors.xaml</code>は変わらず、ボタンなどUIの色は元のままです。
+        </div>
+
+        <h4>6つの値の決め方</h4>
+        <p>
+          既定の朱と同じトーンを保つなら、色相（Hue）だけを変えて彩度・明度は下表のまま使います。
+          <code>AccentDeepColor</code>と<code>AccentColor</code>は<code>.ico</code>の配色にもそのまま使われます。
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>キー</th><th>HSL（Hは共通）</th><th>朱＝既定</th><th>瑠璃＝Hue 225の例</th><th>用途</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>AccentColor</code></td><td>S 75% / L 45%</td><td><code>#C73E1D</code></td><td><code>#1D48C9</code></td><td>主ボタン、強調文字、鳥居の柱</td></tr>
+              <tr><td><code>AccentHoverColor</code></td><td>S 77% / L 37%</td><td><code>#A83216</code></td><td><code>#163AA7</code></td><td>主ボタンのホバー</td></tr>
+              <tr><td><code>AccentPressedColor</code></td><td>S 78% / L 31%</td><td><code>#8C2911</code></td><td><code>#11308D</code></td><td>押下状態</td></tr>
+              <tr><td><code>AccentSoftColor</code></td><td>S 68% / L 93%</td><td><code>#F9E5E0</code></td><td><code>#E1E7F9</code></td><td>選択行、テキスト選択、淡い帯</td></tr>
+              <tr><td><code>AccentDeepColor</code></td><td>S 79% / L 20%</td><td><code>#5C1A0B</code></td><td><code>#0B1F5B</code></td><td>濃色の見出し、鳥居の島木</td></tr>
+              <tr><td><code>FocusColor</code></td><td><code>AccentColor</code>と同値</td><td><code>#C73E1D</code></td><td><code>#1D48C9</code></td><td>フォーカス枠（変更漏れしやすい）</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>色相を決めれば、6値はこのスニペットで出せます（貼り付けて実行するだけ）。</p>
+        <pre><code>$hue = 225   # 使いたい色相 (0-359)。5-4 の表の Hue を入れると同梱アイコンと一致します
+
+function Get-BrandHex([double]$h, [double]$s, [double]$l) {
+    $c = (1 - [Math]::Abs(2 * $l - 1)) * $s
+    $x = $c * (1 - [Math]::Abs((($h / 60) % 2) - 1))
+    $m = $l - $c / 2
+    switch ([Math]::Floor($h / 60) % 6) {
+        0 { $r, $g, $b = $c, $x, 0 }
+        1 { $r, $g, $b = $x, $c, 0 }
+        2 { $r, $g, $b = 0, $c, $x }
+        3 { $r, $g, $b = 0, $x, $c }
+        4 { $r, $g, $b = $x, 0, $c }
+        5 { $r, $g, $b = $c, 0, $x }
+    }
+    '#{0:X2}{1:X2}{2:X2}' -f [int][Math]::Round(($r + $m) * 255),
+                             [int][Math]::Round(($g + $m) * 255),
+                             [int][Math]::Round(($b + $m) * 255)
+}
+
+'AccentColor        {0}' -f (Get-BrandHex $hue 0.75 0.45)
+'AccentHoverColor   {0}' -f (Get-BrandHex $hue 0.77 0.37)
+'AccentPressedColor {0}' -f (Get-BrandHex $hue 0.78 0.31)
+'AccentSoftColor    {0}' -f (Get-BrandHex $hue 0.68 0.93)
+'AccentDeepColor    {0}' -f (Get-BrandHex $hue 0.79 0.20)
+'FocusColor         {0}' -f (Get-BrandHex $hue 0.75 0.45)</code></pre>
+        <div class="callout">
+          <strong>既定の朱だけは手調整済みです。</strong>
+          Hue 12を入れると<code>#C93F1D</code>のように現在値（<code>#C73E1D</code>）と1〜2ずれます。
+          既存の朱を復元したい場合は式ではなく上表の値をそのまま使ってください。
+        </div>
+
+        <h3>5-3. アイコンの絵柄そのものを変える</h3>
+        <div class="cards">
+          <article class="card">
+            <h3>鳥居を描き直す</h3>
+            <p>
+              形は<strong>2箇所に同じ図形が実装</strong>されています。両方直さないと画面内と<code>.ico</code>で形が食い違います。
+            </p>
+            <ul>
+              <li><code>Themes/Icons.xaml</code>の<code>ToriiIcon</code>／<code>ToriiIconLight</code>（<code>PathGeometry</code>・<code>RectangleGeometry</code>、64×64座標）</li>
+              <li><code>scripts/Generate-ToriiIcon.ps1</code>の描画コード（<code>System.Drawing</code>で同じ図形を再現）→ 実行して<code>.ico</code>を再生成</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>まったく別の画像にする</h3>
+            <p>用意した画像に置き換える場合の手順です。</p>
+            <ul>
+              <li><code>.ico</code>：マルチサイズ（16〜256px）で作り<code>src/Watashi.Client/Watashi.ico</code>を上書き</li>
+              <li>画面内：<code>Icons.xaml</code>の<code>DrawingImage</code>を画像参照に置換</li>
+            </ul>
+            <pre><code>&lt;BitmapImage x:Key="ToriiIcon"
+    UriSource="pack://application:,,,/Assets/logo.png" /&gt;</code></pre>
+          </article>
+        </div>
+        <div class="callout success">
+          <strong>画面内ロゴは1箇所直せば全画面に反映されます。</strong>
+          スプラッシュ・ログイン・メイン・管理の各画面とウィンドウの<code>Icon</code>属性は、
+          すべて<code>Icons.xaml</code>の<code>ToriiIcon</code>を<code>StaticResource</code>参照しています。
+          キー名（<code>ToriiIcon</code>／<code>ToriiIconLight</code>）を変えると参照側の修正が必要になるので、
+          中身だけ差し替えるのが安全です。
+        </div>
+
+        <h3>5-4. 同梱している色違い（接続先ごとの区別用）</h3>
+        <p>
+          複数の中央サーバへ向けたクライアントを併用する場合、配布物ごとに色を変えると
+          タスクバーだけでどの環境かが分かります。生成済みの<code>.ico</code>を<code>assets/icons/</code>に同梱しています。
+        </p>
         <div class="palette" aria-label="利用可能なアイコンカラー">
           <span class="swatch" style="--swatch:#C73E1D">朱</span>
           <span class="swatch" style="--swatch:#C9731D">橙</span>
@@ -798,12 +958,64 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
           <span class="swatch" style="--swatch:#C91DC9">紫</span>
           <span class="swatch" style="--swatch:#C91D64">躑躅</span>
         </div>
+        <div class="table-wrap file-list">
+          <table>
+            <thead>
+              <tr><th>ファイル</th><th>色名</th><th>Hue</th><th>アクセント</th><th>濃色</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>Watashi-shu.ico</code></td><td>朱（既定）</td><td>12</td><td><code>#C73E1D</code></td><td><code>#5C1A0B</code></td></tr>
+              <tr><td><code>Watashi-orange.ico</code></td><td>橙</td><td>30</td><td><code>#C9731D</code></td><td><code>#5B330B</code></td></tr>
+              <tr><td><code>Watashi-gold.ico</code></td><td>山吹</td><td>48</td><td><code>#C9A61D</code></td><td><code>#5B4B0B</code></td></tr>
+              <tr><td><code>Watashi-lime.ico</code></td><td>若草</td><td>90</td><td><code>#73C91D</code></td><td><code>#335B0B</code></td></tr>
+              <tr><td><code>Watashi-green.ico</code></td><td>常磐</td><td>140</td><td><code>#1DC956</code></td><td><code>#0B5B26</code></td></tr>
+              <tr><td><code>Watashi-teal.ico</code></td><td>青碧</td><td>170</td><td><code>#1DC9AC</code></td><td><code>#0B5B4E</code></td></tr>
+              <tr><td><code>Watashi-cyan.ico</code></td><td>浅葱</td><td>200</td><td><code>#1D8FC9</code></td><td><code>#0B405B</code></td></tr>
+              <tr><td><code>Watashi-blue.ico</code></td><td>瑠璃</td><td>225</td><td><code>#1D48C9</code></td><td><code>#0B1F5B</code></td></tr>
+              <tr><td><code>Watashi-violet.ico</code></td><td>菫</td><td>262</td><td><code>#5C1DC9</code></td><td><code>#280B5B</code></td></tr>
+              <tr><td><code>Watashi-magenta.ico</code></td><td>紫</td><td>300</td><td><code>#C91DC9</code></td><td><code>#5B0B5B</code></td></tr>
+              <tr><td><code>Watashi-rose.ico</code></td><td>躑躅</td><td>335</td><td><code>#C91D64</code></td><td><code>#5B0B2C</code></td></tr>
+            </tbody>
+          </table>
+        </div>
 
-        <pre><code># アイコンを生成
-powershell.exe -NoProfile -File scripts/Generate-ToriiIcon.ps1
+        <p><strong>環境ごとの適用手順</strong></p>
+        <ol>
+          <li><code>deployment.json</code>の<code>serverUrl</code>をその環境の中央サーバにする</li>
+          <li>選んだ色で<code>Watashi.ico</code>を上書き<br>
+            <code>Copy-Item assets\icons\Watashi-blue.ico src\Watashi.Client\Watashi.ico -Force</code></li>
+          <li>画面内の色も揃えるなら<a href="#icon-color">5-2</a>の手順で<code>Colors.xaml</code>を同じ色相に変更（<code>.ico</code>だけならこの手順は不要）</li>
+          <li>ClickOnceを再発行（マニフェストがハッシュ検証するため再発行は必須）</li>
+          <li>発行後に既定へ戻す<br>
+            <code>Copy-Item assets\icons\Watashi-shu.ico src\Watashi.Client\Watashi.ico -Force</code>（<code>git restore src/Watashi.Client/Watashi.ico</code>でも可）</li>
+        </ol>
 
-# 色違い一式を生成
+        <pre><code># 色を追加したいとき（$variants に名前と Hue を足して実行）
 powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></pre>
+
+        <div class="callout danger">
+          <strong>手順2の上書きは発行作業中だけの一時変更です。コミットしないでください。</strong>
+          コミットするとリポジトリの既定アイコンがその色に置き換わります。
+          分からなくなっても<code>Watashi-shu.ico</code>からのコピー、<code>git restore</code>、
+          <code>Generate-ToriiIcon.ps1</code>の再実行のどれでも朱色に戻せます。
+        </div>
+
+        <h3>5-5. 変えたのに反映されないとき</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>症状</th><th>確認する場所</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>ボタンなどUIの色が変わらない</td><td><code>Colors.xaml</code>の<code>&lt;Color&gt;</code>行を直したか（<code>&lt;SolidColorBrush&gt;</code>側だけ直していないか）</td></tr>
+              <tr><td>画面内ロゴだけ古い色</td><td>同上。ロゴは<code>AccentBrush</code>／<code>AccentDeepBrush</code>経由</td></tr>
+              <tr><td>タスクバーのアイコンだけ古い色</td><td><code>Generate-ToriiIcon.ps1</code>の再実行漏れ、または<code>.ico</code>のコピー漏れ</td></tr>
+              <tr><td>フォーカス枠だけ前の色</td><td><code>FocusColor</code>の変更漏れ</td></tr>
+              <tr><td>ビルドしてもexeのアイコンが古い</td><td><code>bin</code>／<code>obj</code>を消してリビルド。ClickOnce配布分は再発行が必要</td></tr>
+              <tr><td>ヘッダー上のロゴが白のまま</td><td>仕様。<code>ToriiIconLight</code>は<code>TextOnAccentBrush</code>固定</td></tr>
+            </tbody>
+          </table>
+        </div>
 
         <div class="callout warning">
           <strong>色分けは人のための目印です。</strong>
