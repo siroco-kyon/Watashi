@@ -2,15 +2,17 @@
 <!--
   Watashi ポータル（玄関）ページ。
 
-  サイトのトップ (https://watashi.internal/) に置く 1 枚もので、次の 3 つへ案内する:
-    1. アプリのインストール / 起動   → install/publish.htm  (ClickOnce)
-    2. 利用者マニュアル              → manual/index.html
-    3. 管理者マニュアル              → manual/admin.html
+  サイトのトップ (https://watashi.internal/) に置く 1 枚もので、次の 4 つへ案内する:
+    1. ユーザー登録の依頼方法        → request.html
+    2. アプリのインストール / 起動   → install/publish.htm  (ClickOnce)
+    3. 利用者マニュアル              → manual/index.html
+    4. 管理者マニュアル              → manual/admin.html
 
   ■ 想定する配布先レイアウト (IIS / 静的ホスティング):
 
     https://watashi.internal/            (= サイトのルート / IIS 既定ドキュメント)
     ├── index.html                       ← このファイル (deploy/site/index.html)
+    ├── request.html                     ← ユーザー登録依頼の案内 (deploy/site/request.html)
     ├── install/                         ← deploy/install/ + ClickOnce 発行物
     │   ├── publish.htm
     │   ├── Watashi.Client.application
@@ -70,7 +72,7 @@
   .top .sub{font-size:15px; color:#c8d3e3; margin:0;}
 
   /* ===== メイン ===== */
-  main{flex:1; width:100%; max-width:1000px; margin:0 auto; padding:0 22px 50px;}
+  main{flex:1; width:100%; max-width:1180px; margin:0 auto; padding:0 22px 50px;}
   .lead{
     text-align:center; color:var(--text-2); font-size:16px;
     max-width:680px; margin:-30px auto 34px;
@@ -80,8 +82,9 @@
   .lead b{color:var(--accent-deep);}
 
   /* ===== カード ===== */
-  .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
-  @media(max-width:820px){ .cards{grid-template-columns:1fr;} }
+  .cards{display:grid; grid-template-columns:repeat(4,1fr); gap:20px;}
+  @media(max-width:1000px){ .cards{grid-template-columns:1fr 1fr;} }
+  @media(max-width:640px){ .cards{grid-template-columns:1fr;} }
 
   .card{
     display:flex; flex-direction:column; text-decoration:none; color:inherit;
@@ -112,6 +115,7 @@
   .card .sub{font-size:12px; color:var(--muted); margin-top:14px;}
 
   /* カードごとの色 */
+  .card.request{--bar:var(--success); --bar-hover:#1a7433; --icobg:#E4F3E8;}
   .card.install{--bar:var(--accent); --bar-hover:var(--accent-hover); --icobg:var(--accent-soft);}
   .card.user{--bar:var(--info); --bar-hover:#0a5fc2; --icobg:#E6F0FB;}
   .card.admin{--bar:var(--header); --bar-hover:#0f1b2d; --icobg:#E7EBF2;}
@@ -126,6 +130,7 @@
   .notes li{font-size:13.5px; color:var(--text-2); margin:6px 0;}
   .notes code{font-family:"Consolas",monospace; background:#F0F2F5; border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:12.5px; color:var(--accent-deep);}
   .notes b{color:var(--text);}
+  .notes a{color:var(--info); font-weight:700;}
 
   footer{text-align:center; color:var(--muted); font-size:12.5px; padding:26px 20px 36px;}
 </style>
@@ -145,23 +150,33 @@
 
   <main>
     <p class="lead">
-      ようこそ。ここから <b>アプリのインストール</b> と <b>マニュアル</b> にアクセスできます。<br>
-      はじめての方は、まず <b>① アプリをインストール</b> し、わからないことがあれば <b>② 利用者マニュアル</b> をご覧ください。
+      ようこそ。ここから <b>ユーザー登録の依頼</b>・<b>アプリのインストール</b>・<b>マニュアル</b> にアクセスできます。<br>
+      はじめての方は、まず <b>① ユーザー登録を依頼</b> し、アカウントを受け取ってから <b>② アプリをインストール</b> してください。
     </p>
 
     <div class="cards">
 
-      <!-- 1. インストール -->
-      <a class="card install" href="install/publish.htm">
+      <!-- 1. ユーザー登録依頼 -->
+      <a class="card request" href="request.html">
         <span class="badge">STEP 1</span>
+        <span class="ico">📝</span>
+        <h2>ユーザー登録を依頼</h2>
+        <p>Watashi のアカウントは管理者が発行します。まだお持ちでない方は、こちらで<b>依頼のしかた</b>（記載する情報とメールの宛先）をご確認ください。</p>
+        <span class="go">依頼方法を見る →</span>
+        <span class="sub">氏名・所属／メールアドレス／サーバー名／必要な権限</span>
+      </a>
+
+      <!-- 2. インストール -->
+      <a class="card install" href="install/publish.htm">
+        <span class="badge">STEP 2</span>
         <span class="ico">📥</span>
         <h2>アプリをインストール</h2>
-        <p>Watashi クライアント（Windows アプリ）を、この PC にインストール・起動します。初回はここから。2 回目以降はスタートメニューの「Watashi」から起動してください。</p>
+        <p>Watashi クライアント（Windows アプリ）を、この PC にインストール・起動します。アカウントを受け取ったらここから。2 回目以降はスタートメニューの「Watashi」から起動してください。</p>
         <span class="go">インストール / 起動 →</span>
         <span class="sub">ClickOnce 自動更新対応 ／ Windows PC 専用</span>
       </a>
 
-      <!-- 2. 利用者マニュアル -->
+      <!-- 3. 利用者マニュアル -->
       <a class="card user" href="manual/index.html">
         <span class="badge">利用者向け</span>
         <span class="ico">👤</span>
@@ -171,7 +186,7 @@
         <span class="sub">全23章 ／ 操作・トラブル対応・用語集</span>
       </a>
 
-      <!-- 3. 管理者マニュアル -->
+      <!-- 4. 管理者マニュアル -->
       <a class="card admin" href="manual/admin.html">
         <span class="badge">管理者向け</span>
         <span class="ico">🛠</span>
@@ -188,6 +203,7 @@
       <ul>
         <li><b>初回インストール後</b>は、通常は<b>スタートメニュー / デスクトップの「Watashi」</b>から起動してください。exe を直接起動した場合も、起動直後に公開版を確認します。</li>
         <li>接続先サーバーは配布時に設定済みです。<b>利用者がサーバーアドレスを入力する必要はありません</b>。</li>
+        <li><b>まだアカウントをお持ちでない方</b>は、<a href="request.html">ユーザー登録の依頼方法</a>をご覧のうえ、管理者へご依頼ください。</li>
         <li><b>ユーザー名・初期パスワード</b>が分からない場合や、ログインできない・ロックされた場合は、<b>管理者</b>にお問い合わせください。</li>
       </ul>
     </div>
