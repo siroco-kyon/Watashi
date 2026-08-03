@@ -4,7 +4,7 @@
 
   ポータル (index.html) と ClickOnce インストールページ (install/publish.htm) から
   リンクされる。まだアカウントを持っていない人が、管理者に何をどう伝えればよいかを
-  1 枚で説明する。
+  1 枚で説明する。1 名分はメール文面テンプレ、複数名分は CSV 添付の 2 通りを案内する。
 
   ■ 配置場所（index.html と同じ階層）
 
@@ -75,11 +75,13 @@
 
   /* ===== メイン ===== */
   main{flex:1; width:100%; max-width:900px; margin:0 auto; padding:0 22px 50px;}
+  /* position:relative が無いと、position:relative のヘッダーが
+     マイナスマージンで重なった上端 26px を覆い、1行目が隠れる。 */
   .lead{
     text-align:center; color:var(--text-2); font-size:15.5px;
     max-width:700px; margin:-26px auto 34px;
     background:var(--surface); border:1px solid var(--border);
-    border-radius:14px; padding:18px 24px; box-shadow:var(--shadow);
+    border-radius:14px; padding:26px 24px 18px; box-shadow:var(--shadow); position:relative;
   }
   .lead b{color:var(--accent-deep);}
 
@@ -140,6 +142,11 @@
   th,td{border:1px solid var(--border); padding:10px 12px; text-align:left; vertical-align:top;}
   th{background:#F0F2F5; color:var(--header); font-weight:700; white-space:nowrap;}
   td.item{width:32%; font-weight:700; color:var(--header);}
+  @media(max-width:600px){
+    table{font-size:13px;}
+    th,td{padding:8px 9px;}
+    td.item{width:38%;}
+  }
   .req{
     display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.5px;
     color:#fff; background:var(--accent); border-radius:4px; padding:1px 7px;
@@ -166,6 +173,8 @@
     padding:16px 18px; font-family:"Consolas",monospace; font-size:13px; line-height:1.9;
     color:var(--text); overflow-x:auto; white-space:pre-wrap; word-break:break-word;
   }
+  /* CSV は列がずれると読めないので折り返さず横スクロールさせる */
+  pre#csv{white-space:pre; word-break:normal; font-size:12.5px; line-height:1.8;}
 
   /* ===== 注意 ===== */
   .notes{border-left:4px solid var(--info); background:var(--info-soft); border-radius:0 10px 10px 0; padding:14px 18px; margin-top:4px;}
@@ -247,7 +256,8 @@
     <!-- 3. 記載してほしい情報 -->
     <section class="panel">
       <h2><span class="num">3</span>メールに記載してほしい情報</h2>
-      <p>次の4項目を必ずご記入ください。不足があると登録できず、確認のやりとりが発生します。</p>
+      <p>次の4項目を必ずご記入ください。不足があると登録できず、確認のやりとりが発生します。<br>
+      複数名分をまとめてご依頼の場合は、下の「<b>5 複数名をまとめて依頼する場合（CSV）</b>」をご覧ください。</p>
       <table>
         <thead>
           <tr><th>項目</th><th>記入内容</th></tr>
@@ -297,7 +307,7 @@
       <h2><span class="num">4</span>コピーして使える依頼メール文面</h2>
       <div class="tplhead">
         <span class="cap">下の文面をコピーし、〔　〕の中をご自身の内容に書き換えて送信してください。</span>
-        <button class="copy" type="button" id="copyBtn">📋 コピー</button>
+        <button class="copy" type="button" data-copy="tpl">📋 コピー</button>
       </div>
 <pre id="tpl">宛先: watashi-admin@example.co.jp
 件名: [Watashi] ユーザー登録依頼
@@ -321,9 +331,50 @@ Watashi のアカウント発行をお願いいたします。
 〔田中 太郎〕</pre>
     </section>
 
-    <!-- 5. 注意 -->
+    <!-- 5. 複数名まとめて（CSV） -->
     <section class="panel">
-      <h2><span class="num">5</span>ご依頼にあたっての注意</h2>
+      <h2><span class="num">5</span>複数名をまとめて依頼する場合（CSV）</h2>
+      <p>3名以上をまとめてご依頼いただくときは、下の書式の <b>CSV ファイルを作ってメールに添付</b>してください（本文にはご依頼者のお名前・ご連絡先をお書きください）。人数が少なければ、1名ずつメールでご依頼いただいても構いません。</p>
+      <p>列は次の7つです。<b>1行目のヘッダー行はそのまま残してください。</b>並び順も変えないでください。</p>
+      <table>
+        <thead>
+          <tr><th>列名</th><th>記入内容</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="item">氏名</td><td>フルネーム（例：田中 太郎）</td></tr>
+          <tr><td class="item">所属部署</td><td>例：経理部 経理課</td></tr>
+          <tr><td class="item">メールアドレス</td><td>ご本人が受信できるアドレス。初期パスワードの通知先</td></tr>
+          <tr><td class="item">サーバー名</td><td>利用したいサーバー（ホスト）名</td></tr>
+          <tr><td class="item">共有名</td><td>共有フォルダ名。分からない場合は空欄で可</td></tr>
+          <tr><td class="item">許可してほしいパス</td><td>共有全体なら <code>/</code>、サブフォルダなら <code>/dept-A</code></td></tr>
+          <tr><td class="item">操作権限</td><td><code>読取のみ</code> / <code>読取＋書込</code> / <code>読取＋書込＋名前変更</code> / <code>フルアクセス</code> のいずれか</td></tr>
+        </tbody>
+      </table>
+
+      <div class="tplhead">
+        <span class="cap">記入例（このままコピーして、2行目以降を書き換えてください）</span>
+        <button class="copy" type="button" data-copy="csv">📋 コピー</button>
+      </div>
+<pre id="csv">氏名,所属部署,メールアドレス,サーバー名,共有名,許可してほしいパス,操作権限
+田中 太郎,経理部 経理課,taro.tanaka@example.co.jp,経理部FS,share-keiri,/dept-A,フルアクセス
+田中 太郎,経理部 経理課,taro.tanaka@example.co.jp,経理部FS,share-keiri,/shared/templates,読取のみ
+鈴木 花子,営業部 第一営業課,hanako.suzuki@example.co.jp,営業部FS,share-eigyo,/,読取＋書込
+佐藤 次郎,総務部,jiro.sato@example.co.jp,経理部FS,share-keiri,/dept-A,読取のみ</pre>
+
+      <div class="notes" style="margin-top:16px">
+        <ul>
+          <li><b>1人が複数のフォルダを使う場合は、行を分けて</b>ください（上の例の田中さん）。氏名とメールアドレスは同じものを繰り返します。</li>
+          <li>Excel で作る場合、保存時のファイルの種類は「<b>CSV UTF-8（カンマ区切り）(*.csv)</b>」を選んでください。ほかの形式だと文字化けすることがあります。</li>
+          <li>値にカンマや改行が含まれる場合は、その値全体を <code>"</code> で囲んでください。</li>
+          <li><b>パスワードの列は不要です。</b>初期パスワードは管理者が発行し、ご記入のメールアドレス宛にお送りします。</li>
+          <li>同じ方の氏名・メールアドレスは<b>表記をそろえて</b>ください（ゆれていると別の方として登録されるおそれがあります）。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 6. 注意 -->
+    <section class="panel">
+      <h2><span class="num">6</span>ご依頼にあたっての注意</h2>
       <div class="notes">
         <ul>
           <li><b>ユーザー名は管理者が決めて通知します。</b>ご希望がある場合のみ、メールにその旨をお書き添えください。</li>
@@ -348,36 +399,37 @@ Watashi のアカウント発行をお願いいたします。
   </footer>
 
   <script>
-    // 文面テンプレをクリップボードにコピー。
+    // 文面テンプレ / CSV 記入例をクリップボードにコピー。
+    // ボタンの data-copy 属性が、コピー元 <pre> の id を指す。
     // https 以外や古いブラウザでは navigator.clipboard が使えないため、
     // 失敗したときは全選択にフォールバックする（利用者は Ctrl+C を押すだけ）。
     (function () {
-      var btn = document.getElementById('copyBtn');
-      var pre = document.getElementById('tpl');
-      if (!btn || !pre) return;
-      btn.addEventListener('click', function () {
-        var text = pre.textContent;
-        var done = function () {
-          btn.textContent = '✅ コピーしました';
-          btn.classList.add('done');
-          setTimeout(function () {
-            btn.textContent = '📋 コピー';
-            btn.classList.remove('done');
-          }, 2000);
-        };
-        var fallback = function () {
-          var sel = window.getSelection();
-          var range = document.createRange();
-          range.selectNodeContents(pre);
-          sel.removeAllRanges();
-          sel.addRange(range);
-          btn.textContent = 'Ctrl+C でコピーしてください';
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(done, fallback);
-        } else {
-          fallback();
-        }
+      Array.prototype.forEach.call(document.querySelectorAll('button.copy'), function (btn) {
+        var pre = document.getElementById(btn.getAttribute('data-copy'));
+        if (!pre) return;
+        btn.addEventListener('click', function () {
+          var done = function () {
+            btn.textContent = '✅ コピーしました';
+            btn.classList.add('done');
+            setTimeout(function () {
+              btn.textContent = '📋 コピー';
+              btn.classList.remove('done');
+            }, 2000);
+          };
+          var fallback = function () {
+            var sel = window.getSelection();
+            var range = document.createRange();
+            range.selectNodeContents(pre);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            btn.textContent = 'Ctrl+C でコピーしてください';
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(pre.textContent).then(done, fallback);
+          } else {
+            fallback();
+          }
+        });
       });
     })();
   </script>
