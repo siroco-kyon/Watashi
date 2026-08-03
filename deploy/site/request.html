@@ -17,8 +17,8 @@
   ■■■ 運用時に必ず書き換える箇所 ■■■
 
     依頼先メールアドレス（暫定値: watashi-admin@example.co.jp）
-      1) 下の <style> 内は不要。HTML 本文の次の 3 か所を実際のアドレスに置換する:
-         a. <a class="mailbox" href="mailto:...">  の href と表示テキスト
+      HTML 本文の次の 3 か所を実際のアドレスに置換する:
+         a. <span class="m-addr" id="addr">  の表示テキスト（コピーボタンのコピー元）
          b. コピペ用テンプレ <pre id="tpl"> 内の「宛先:」行
          c. 最下部フッター手前の「お問い合わせ先」
       検索して置換すれば漏れない:  watashi-admin@example.co.jp
@@ -123,23 +123,17 @@
   .mailrow{display:flex; align-items:stretch; gap:12px; margin:4px 0 12px; flex-wrap:wrap;}
   .mailbox{
     flex:1 1 420px;
-    display:flex; align-items:center; gap:14px; text-decoration:none;
+    display:flex; align-items:center; gap:14px;
     background:var(--accent-soft); border:1px solid var(--accent);
     border-radius:12px; padding:16px 20px;
-    transition:background .15s;
   }
-  .mailbox:hover{background:#F5D6CF;}
   .mailbox .m-ico{font-size:26px; flex:none;}
   .mailbox .m-label{display:block; font-size:12px; color:var(--accent-deep); font-weight:700; letter-spacing:.5px;}
   .mailbox .m-addr{
     display:block; font-family:"Consolas",monospace; font-size:18px; font-weight:700;
     color:var(--accent-deep); word-break:break-all; line-height:1.4;
   }
-  .mailbox .m-go{margin-left:auto; flex:none; font-size:13px; font-weight:700; color:var(--accent-deep); white-space:nowrap;}
-  @media(max-width:600px){
-    .mailbox{flex-wrap:wrap;}
-    .mailbox .m-go{margin-left:0;}
-  }
+  @media(max-width:600px){ .mailbox{flex-wrap:wrap;} }
 
   /* ===== 表 ===== */
   table{width:100%; border-collapse:collapse; margin:4px 0 14px; font-size:14px;}
@@ -253,20 +247,20 @@
     <!-- 2. 依頼先 -->
     <section class="panel">
       <h2><span class="num">2</span>依頼先（送り先メールアドレス）</h2>
-      <!-- コピーボタンは <a> の中に入れられないので、行 (.mailrow) で横に並べる。
+      <!-- mailto: リンクは使わない（既定のメールソフト未設定だと反応しないため）。
+           アドレスを表示して、横のボタンでコピーできるようにするだけ。
            ボタンの data-copy は、コピー元 (#addr) の id を指す。 -->
       <div class="mailrow">
-        <a class="mailbox" href="mailto:watashi-admin@example.co.jp?subject=%5BWatashi%5D%20%E3%83%A6%E3%83%BC%E3%82%B6%E3%83%BC%E7%99%BB%E9%8C%B2%E4%BE%9D%E9%A0%BC">
+        <div class="mailbox">
           <span class="m-ico" aria-hidden="true">📧</span>
           <span>
             <span class="m-label">WATASHI 管理者あて</span>
             <span class="m-addr" id="addr">watashi-admin@example.co.jp</span>
           </span>
-          <span class="m-go">クリックでメール作成 →</span>
-        </a>
+        </div>
         <button class="copy addr" type="button" data-copy="addr">📋 アドレスをコピー</button>
       </div>
-      <p>ボタンを押すと、お使いのパソコンで<b>既定になっているメールソフト</b>（多くの場合 Outlook）が、宛先と件名の入った状態で開きます。開かない場合は「<b>アドレスをコピー</b>」から、普段お使いのメールでお送りください。<br>
+      <p>「<b>アドレスをコピー</b>」を押すとアドレスをコピーできます。普段お使いのメールソフトに貼り付けてお送りください。<br>
       件名は <code>[Watashi] ユーザー登録依頼</code> としてください。<br>
       すでに Watashi を使っている方が<b>別のサーバー・フォルダの権限を追加したい</b>場合も、同じ宛先へご依頼ください。</p>
     </section>
