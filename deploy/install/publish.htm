@@ -18,6 +18,10 @@
       「発行元不明」警告が出る (deploy/CERTIFICATE.md)。警告のまま進めることは可能。
     - 本体は SelfContained=true のため、クライアントに .NET ランタイムの事前導入は不要。
 
+  「ユーザー登録の依頼方法」リンク (../request.html) は、サイトのルートに
+  deploy/site/request.html を置く前提。リポジトリ上ではファイルの位置が異なるため、
+  リンクの確認は配置後 (または deploy/site/ と同階層に置いた状態) で行う。
+
   インストールリンクは相対パスなので、配置するホスト/サブパスを問わずそのまま動く。
   値を変えて再発行したら、このページは変更不要（リンク先ファイル名は固定）。
 -->
@@ -72,7 +76,9 @@
       line-height: 1.7;
     }
     .note b { color: #1f2328; }
+    .note a.req-link { color: #0969da; font-weight: 600; }
     @media (prefers-color-scheme: dark) {
+      .note a.req-link { color: #6cb6ff; }
       body { background: #0d1117; color: #e6edf3; }
       .card { background: #161b22; border-color: #30363d; box-shadow: none; }
       p.lead, .note { color: #9198a1; }
@@ -98,6 +104,9 @@
       <b>「Watashi」ショートカット</b>から起動してください。
       直接 exe を起動した場合も、起動直後に公開版を確認します。</p>
       <p>動作要件: <b>Windows PC</b>。追加のインストールは不要です。</p>
+      <p>まだ Watashi のアカウントをお持ちでない方は、
+      <a class="req-link" href="../request.html">ユーザー登録の依頼方法</a>
+      をご覧ください。</p>
     </div>
   </main>
 

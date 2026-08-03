@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<!--
+  Watashi ユーザー登録（アカウント発行）依頼のご案内ページ。
+
+  ポータル (index.html) と ClickOnce インストールページ (install/publish.htm) から
+  リンクされる。まだアカウントを持っていない人が、管理者に何をどう伝えればよいかを
+  1 枚で説明する。1 名分はメール文面テンプレ、複数名分は CSV 添付の 2 通りを案内する。
+
+  ■ 配置場所（index.html と同じ階層）
+
+    https://watashi.internal/
+    ├── index.html
+    ├── request.html                 ← このファイル (deploy/site/request.html)
+    ├── install/publish.htm
+    └── manual/ ...
+
+  ■■■ 運用時に必ず書き換える箇所 ■■■
+
+    依頼先メールアドレス（暫定値: watashi-admin@example.co.jp）
+      HTML 本文の次の 3 か所を実際のアドレスに置換する:
+         a. <span class="m-addr" id="addr">  の表示テキスト（コピーボタンのコピー元）
+         b. コピペ用テンプレ <pre id="tpl"> 内の「宛先:」行
+         c. 最下部フッター手前の「お問い合わせ先」
+      検索して置換すれば漏れない:  watashi-admin@example.co.jp
+
+  ※ Watashi のユーザーはユーザー名／パスワードのみで管理され、システム側に
+     メールアドレス欄はない。ここで書いてもらうメールアドレスは、あくまで
+     「初期パスワードを通知するための連絡先」。
+  ※ ユーザー名には社内の GID をそのまま使う運用。GID の書式が下記の例
+     （G012345）と違う場合は、本文と CSV 例の GID を実際の書式に合わせて直す。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ユーザー登録の依頼方法 ｜ Watashi</title>
+<style>
+  :root{
+    --accent:#C73E1D;       /* 鳥居の朱色 */
+    --accent-hover:#A83216;
+    --accent-deep:#5C1A0B;
+    --accent-soft:#F9E5E0;
+    --header:#1B2A41;
+    --header-alt:#243B5C;
+    --bg:#F6F7F9;
+    --surface:#FFFFFF;
+    --border:#D5D9DE;
+    --text:#1F2328;
+    --text-2:#4A535C;
+    --muted:#6B7280;
+    --info:#0969DA;
+    --info-soft:#E6F0FB;
+    --success:#1F883D;
+    --shadow:0 1px 2px rgba(15,27,45,.06), 0 10px 30px rgba(15,27,45,.07);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(1100px 420px at 50% -120px, #24395c 0%, rgba(36,57,92,0) 70%),
+      var(--bg);
+    line-height:1.8;
+    display:flex; flex-direction:column;
+  }
+
+  /* ===== ヘッダー ===== */
+  .top{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; text-align:center; padding:44px 20px 50px; position:relative; overflow:hidden;
+  }
+  .top::after{content:""; position:absolute; left:0; right:0; bottom:0; height:6px; background:var(--accent);}
+  .top .torii{margin:0 auto 12px; display:block;}
+  .top h1{font-size:29px; margin:0 0 6px; font-weight:800; letter-spacing:1px;}
+  .top .sub{font-size:14.5px; color:#c8d3e3; margin:0;}
+
+  /* ===== メイン ===== */
+  main{flex:1; width:100%; max-width:900px; margin:0 auto; padding:0 22px 50px;}
+  /* position:relative が無いと、position:relative のヘッダーが
+     マイナスマージンで重なった上端 26px を覆い、1行目が隠れる。 */
+  .lead{
+    text-align:center; color:var(--text-2); font-size:15.5px;
+    max-width:700px; margin:-26px auto 34px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:26px 24px 18px; box-shadow:var(--shadow); position:relative;
+  }
+  .lead b{color:var(--accent-deep);}
+
+  .panel{
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:16px; padding:26px 28px 28px; box-shadow:var(--shadow); margin-bottom:24px;
+  }
+  h2{
+    font-size:19px; color:var(--header); margin:0 0 14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  h2 .num{
+    flex:none; width:28px; height:28px; border-radius:8px; background:var(--accent);
+    color:#fff; font-size:14px; font-weight:700; display:inline-flex;
+    align-items:center; justify-content:center;
+  }
+  p{margin:0 0 12px;}
+  .panel > p:last-child{margin-bottom:0;}
+
+  /* ===== 依頼の流れ ===== */
+  .flow{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:6px;}
+  @media(max-width:760px){ .flow{grid-template-columns:1fr 1fr;} }
+  .step{
+    background:#FAFBFC; border:1px solid var(--border); border-radius:12px;
+    padding:14px 14px 16px; text-align:center; position:relative;
+  }
+  .step .n{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; border-radius:50%; background:var(--accent-soft);
+    color:var(--accent-deep); font-weight:700; font-size:13px; margin-bottom:6px;
+  }
+  .step .ico{display:block; font-size:24px; line-height:1.2; margin-bottom:4px;}
+  .step .t{display:block; font-size:14px; font-weight:700; color:var(--header); margin-bottom:2px;}
+  .step .d{display:block; font-size:12.5px; color:var(--text-2); line-height:1.6;}
+
+  /* ===== 依頼先メール ===== */
+  .mailrow{display:flex; align-items:stretch; gap:12px; margin:4px 0 12px; flex-wrap:wrap;}
+  .mailbox{
+    flex:1 1 420px;
+    display:flex; align-items:center; gap:14px;
+    background:var(--accent-soft); border:1px solid var(--accent);
+    border-radius:12px; padding:16px 20px;
+  }
+  .mailbox .m-ico{font-size:26px; flex:none;}
+  .mailbox .m-label{display:block; font-size:12px; color:var(--accent-deep); font-weight:700; letter-spacing:.5px;}
+  .mailbox .m-addr{
+    display:block; font-family:"Consolas",monospace; font-size:18px; font-weight:700;
+    color:var(--accent-deep); word-break:break-all; line-height:1.4;
+  }
+  @media(max-width:600px){ .mailbox{flex-wrap:wrap;} }
+
+  /* ===== 表 ===== */
+  table{width:100%; border-collapse:collapse; margin:4px 0 14px; font-size:14px;}
+  th,td{border:1px solid var(--border); padding:10px 12px; text-align:left; vertical-align:top;}
+  th{background:#F0F2F5; color:var(--header); font-weight:700; white-space:nowrap;}
+  td.item{width:32%; font-weight:700; color:var(--header);}
+  @media(max-width:600px){
+    table{font-size:13px;}
+    th,td{padding:8px 9px;}
+    td.item{width:38%;}
+  }
+  .req{
+    display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.5px;
+    color:#fff; background:var(--accent); border-radius:4px; padding:1px 7px;
+    margin-left:6px; vertical-align:2px;
+  }
+  .ex{display:block; font-size:12.5px; color:var(--muted); margin-top:4px;}
+  code{
+    font-family:"Consolas",monospace; background:#F0F2F5; border:1px solid var(--border);
+    border-radius:4px; padding:1px 6px; font-size:12.5px; color:var(--accent-deep);
+  }
+
+  /* ===== テンプレ ===== */
+  .tplhead{display:flex; align-items:center; gap:12px; margin:6px 0 8px; flex-wrap:wrap;}
+  .tplhead .cap{font-size:13.5px; color:var(--text-2);}
+  button.copy{
+    margin-left:auto; font:inherit; font-size:13px; font-weight:700; cursor:pointer;
+    color:#fff; background:var(--accent); border:none; border-radius:8px; padding:8px 18px;
+    transition:background .15s;
+  }
+  button.copy:hover{background:var(--accent-hover);}
+  button.copy.done{background:var(--success);}
+  /* 依頼先アドレス横のコピーボタン（メールリンクと同じ高さで並べる） */
+  button.copy.addr{
+    margin-left:0; flex:none; white-space:nowrap; padding:8px 16px;
+    color:var(--accent-deep); background:var(--surface); border:1px solid var(--accent);
+  }
+  button.copy.addr:hover{background:var(--accent-soft);}
+  button.copy.addr.done{color:#fff; background:var(--success); border-color:var(--success);}
+  @media(max-width:600px){ button.copy.addr{width:100%;} }
+  pre{
+    margin:0; background:#F7F8FA; border:1px solid var(--border); border-radius:10px;
+    padding:16px 18px; font-family:"Consolas",monospace; font-size:13px; line-height:1.9;
+    color:var(--text); overflow-x:auto; white-space:pre-wrap; word-break:break-word;
+  }
+  /* CSV は列がずれると読めないので折り返さず横スクロールさせる */
+  pre#csv{white-space:pre; word-break:normal; font-size:12.5px; line-height:1.8;}
+
+  /* ===== 注意 ===== */
+  .notes{border-left:4px solid var(--info); background:var(--info-soft); border-radius:0 10px 10px 0; padding:14px 18px; margin-top:4px;}
+  .notes ul{margin:0; padding-left:20px;}
+  .notes li{font-size:13.5px; color:var(--text-2); margin:6px 0;}
+  .notes b{color:var(--text);}
+
+  .backlink{display:inline-flex; align-items:center; gap:6px; font-size:14px; color:var(--info); text-decoration:none; font-weight:700;}
+  .backlink:hover{text-decoration:underline;}
+
+  footer{text-align:center; color:var(--muted); font-size:12.5px; padding:26px 20px 36px;}
+</style>
+</head>
+<body>
+
+  <header class="top">
+    <svg class="torii" width="60" height="60" viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
+      <rect x="22" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="69" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="16" y="40" width="68" height="8" fill="#fff"/>
+    </svg>
+    <h1>ユーザー登録の依頼方法</h1>
+    <p class="sub">Watashi をはじめて使う方へ ｜ アカウント発行のお願い</p>
+  </header>
+
+  <main>
+    <p class="lead">
+      Watashi は<b>管理者がアカウントを発行</b>する仕組みです。ご自身での登録（サインアップ）はできません。<br>
+      下記の<b>5つの情報</b>をメールで管理者にお送りください。折り返し、初期パスワードをご連絡します。
+    </p>
+
+    <!-- 1. 依頼の流れ -->
+    <section class="panel">
+      <h2><span class="num">1</span>ご依頼の流れ</h2>
+      <div class="flow">
+        <div class="step">
+          <span class="n">1</span>
+          <span class="ico">✉️</span>
+          <span class="t">メールで依頼</span>
+          <span class="d">下の5項目を書いて管理者へ送信</span>
+        </div>
+        <div class="step">
+          <span class="n">2</span>
+          <span class="ico">🛠</span>
+          <span class="t">管理者が登録</span>
+          <span class="d">アカウント作成と権限の割り当て</span>
+        </div>
+        <div class="step">
+          <span class="n">3</span>
+          <span class="ico">🔑</span>
+          <span class="t">初期PWを受領</span>
+          <span class="d">ご記入のメールアドレス宛にご連絡</span>
+        </div>
+        <div class="step">
+          <span class="n">4</span>
+          <span class="ico">📥</span>
+          <span class="t">インストール</span>
+          <span class="d">初回ログイン時にパスワード変更</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 依頼先 -->
+    <section class="panel">
+      <h2><span class="num">2</span>依頼先（送り先メールアドレス）</h2>
+      <!-- mailto: リンクは使わない（既定のメールソフト未設定だと反応しないため）。
+           アドレスを表示して、横のボタンでコピーできるようにするだけ。
+           ボタンの data-copy は、コピー元 (#addr) の id を指す。 -->
+      <div class="mailrow">
+        <div class="mailbox">
+          <span class="m-ico" aria-hidden="true">📧</span>
+          <span>
+            <span class="m-label">WATASHI 管理者あて</span>
+            <span class="m-addr" id="addr">watashi-admin@example.co.jp</span>
+          </span>
+        </div>
+        <button class="copy addr" type="button" data-copy="addr">📋 アドレスをコピー</button>
+      </div>
+      <p>「<b>アドレスをコピー</b>」を押すとアドレスをコピーできます。普段お使いのメールソフトに貼り付けてお送りください。<br>
+      件名は <code>[Watashi] ユーザー登録依頼</code> としてください。<br>
+      すでに Watashi を使っている方が<b>別のサーバー・フォルダの権限を追加したい</b>場合も、同じ宛先へご依頼ください。</p>
+    </section>
+
+    <!-- 3. 記載してほしい情報 -->
+    <section class="panel">
+      <h2><span class="num">3</span>メールに記載してほしい情報</h2>
+      <p>次の5項目を必ずご記入ください。不足があると登録できず、確認のやりとりが発生します。<br>
+      複数名分をまとめてご依頼の場合は、下の「<b>5 複数名をまとめて依頼する場合（CSV）</b>」をご覧ください。</p>
+      <table>
+        <thead>
+          <tr><th>項目</th><th>記入内容</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="item">① GID<span class="req">必須</span></td>
+            <td>社内でお使いの <b>GID</b> をご記入ください。<b>この GID が、そのまま Watashi のユーザー名（ログインID）になります。</b>お間違えのないようご確認ください。<br>
+              <span class="ex">例：G012345</span></td>
+          </tr>
+          <tr>
+            <td class="item">② 氏名・所属部署<span class="req">必須</span></td>
+            <td>フルネームと所属部署をご記入ください。<br>
+              <span class="ex">例：田中 太郎 ／ 経理部 経理課</span></td>
+          </tr>
+          <tr>
+            <td class="item">③ メールアドレス<span class="req">必須</span></td>
+            <td><b>初期パスワードをお送りする連絡先</b>です。ご本人が受信できるアドレスをご記入ください。<br>
+              <span class="ex">例：taro.tanaka@example.co.jp</span></td>
+          </tr>
+          <tr>
+            <td class="item">④ 利用したいサーバー名<span class="req">必須</span></td>
+            <td>アクセスしたい<b>サーバー（ホスト）名と共有名</b>、および<b>許可してほしいパス</b>（フォルダ）をご記入ください。共有全体が必要な場合は <code>/</code>、その中の特定フォルダだけでよい場合は <code>/部署名</code> のように書きます。複数ある場合は行を分けてすべて書いてください。<br>
+              <span class="ex">例：経理部FS ／ 共有 share-keiri ／ 許可してほしいパス <code>/dept-A</code></span><br>
+              <span class="ex">サーバー名が分からない場合は「経理部の共有フォルダ」など、普段の呼び方や UNC パス（<code>\\fs01\share-keiri\dept-A</code>）でも構いません。</span></td>
+          </tr>
+          <tr>
+            <td class="item">⑤ 必要な操作権限<span class="req">必須</span></td>
+            <td>下の4つから選んでご記入ください。パスごとに変えたい場合はパスごとに書いてください。<br>
+              <span class="ex">例：/dept-A はフルアクセス、/shared/templates は読取のみ</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p><b>操作権限の選択肢</b></p>
+      <table>
+        <thead>
+          <tr><th>権限</th><th>できること</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="item">読取のみ</td><td>ファイル一覧の表示・フォルダ移動・ダウンロード</td></tr>
+          <tr><td class="item">読取＋書込</td><td>上記＋アップロード・新規フォルダ作成（削除・名前変更は不可）</td></tr>
+          <tr><td class="item">読取＋書込＋名前変更</td><td>上記＋ファイル名の変更（削除は不可）</td></tr>
+          <tr><td class="item">フルアクセス</td><td>読み・書き・削除・名前変更のすべて</td></tr>
+        </tbody>
+      </table>
+      <p><b>権限は業務に必要な最小限で申請してください。</b>迷う場合は「読取＋書込」を目安に、あわせて利用目的を一言添えていただけると管理者が判断できます。</p>
+    </section>
+
+    <!-- 4. テンプレ -->
+    <section class="panel">
+      <h2><span class="num">4</span>コピーして使える依頼メール文面</h2>
+      <div class="tplhead">
+        <span class="cap">下の文面をコピーし、〔　〕の中をご自身の内容に書き換えて送信してください。</span>
+        <button class="copy" type="button" data-copy="tpl">📋 コピー</button>
+      </div>
+<pre id="tpl">宛先: watashi-admin@example.co.jp
+件名: [Watashi] ユーザー登録依頼
+
+Watashi の管理者ご担当者さま
+
+Watashi のアカウント発行をお願いいたします。
+
+① GID（Watashi のユーザー名になります） : 〔G012345〕
+② 氏名・所属部署 : 〔田中 太郎〕／〔経理部 経理課〕
+③ メールアドレス : 〔taro.tanaka@example.co.jp〕
+④ 利用したいサーバー名（共有名・許可してほしいパス）
+   - サーバー: 〔経理部FS〕 共有: 〔share-keiri〕 パス: 〔/dept-A〕
+   - サーバー: 〔経理部FS〕 共有: 〔share-keiri〕 パス: 〔/shared/templates〕
+⑤ 必要な操作権限
+   - 〔/dept-A〕            : 〔フルアクセス〕
+   - 〔/shared/templates〕  : 〔読取のみ〕
+
+（利用目的）〔月次決算資料の受け渡しのため〕
+
+お手数ですがよろしくお願いいたします。
+〔田中 太郎〕</pre>
+    </section>
+
+    <!-- 5. 複数名まとめて（CSV） -->
+    <section class="panel">
+      <h2><span class="num">5</span>複数名をまとめて依頼する場合（CSV）</h2>
+      <p>3名以上をまとめてご依頼いただくときは、下の書式の <b>CSV ファイルを作ってメールに添付</b>してください（本文にはご依頼者のお名前・ご連絡先をお書きください）。人数が少なければ、1名ずつメールでご依頼いただいても構いません。</p>
+      <p>列は次の8つです。<b>1行目のヘッダー行はそのまま残してください。</b>並び順も変えないでください。</p>
+      <table>
+        <thead>
+          <tr><th>列名</th><th>記入内容</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="item">GID</td><td><b>そのまま Watashi のユーザー名になります</b>（例：G012345）</td></tr>
+          <tr><td class="item">氏名</td><td>フルネーム（例：田中 太郎）</td></tr>
+          <tr><td class="item">所属部署</td><td>例：経理部 経理課</td></tr>
+          <tr><td class="item">メールアドレス</td><td>ご本人が受信できるアドレス。初期パスワードの通知先</td></tr>
+          <tr><td class="item">サーバー名</td><td>利用したいサーバー（ホスト）名</td></tr>
+          <tr><td class="item">共有名</td><td>共有フォルダ名。分からない場合は空欄で可</td></tr>
+          <tr><td class="item">許可してほしいパス</td><td>共有全体なら <code>/</code>、サブフォルダなら <code>/dept-A</code></td></tr>
+          <tr><td class="item">操作権限</td><td><code>読取のみ</code> / <code>読取＋書込</code> / <code>読取＋書込＋名前変更</code> / <code>フルアクセス</code> のいずれか</td></tr>
+        </tbody>
+      </table>
+
+      <div class="tplhead">
+        <span class="cap">記入例（このままコピーして、2行目以降を書き換えてください）</span>
+        <button class="copy" type="button" data-copy="csv">📋 コピー</button>
+      </div>
+<pre id="csv">GID,氏名,所属部署,メールアドレス,サーバー名,共有名,許可してほしいパス,操作権限
+G012345,田中 太郎,経理部 経理課,taro.tanaka@example.co.jp,経理部FS,share-keiri,/dept-A,フルアクセス
+G012345,田中 太郎,経理部 経理課,taro.tanaka@example.co.jp,経理部FS,share-keiri,/shared/templates,読取のみ
+G023456,鈴木 花子,営業部 第一営業課,hanako.suzuki@example.co.jp,営業部FS,share-eigyo,/,読取＋書込
+G034567,佐藤 次郎,総務部,jiro.sato@example.co.jp,経理部FS,share-keiri,/dept-A,読取のみ</pre>
+
+      <div class="notes" style="margin-top:16px">
+        <ul>
+          <li><b>1人が複数のフォルダを使う場合は、行を分けて</b>ください（上の例の田中さん）。GID・氏名・メールアドレスは同じものを繰り返します。</li>
+          <li>Excel で作る場合、保存時のファイルの種類は「<b>CSV UTF-8（カンマ区切り）(*.csv)</b>」を選んでください。ほかの形式だと文字化けすることがあります。</li>
+          <li>値にカンマや改行が含まれる場合は、その値全体を <code>"</code> で囲んでください。</li>
+          <li><b>パスワードの列は不要です。</b>初期パスワードは管理者が発行し、ご記入のメールアドレス宛にお送りします。</li>
+          <li>同じ方の GID・氏名・メールアドレスは<b>表記をそろえて</b>ください（ゆれていると別の方として登録されるおそれがあります）。</li>
+          <li>GID は Watashi のユーザー名になります。<b>誤りがあるとログインできない</b>ため、送信前にもう一度ご確認ください。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 6. 注意 -->
+    <section class="panel">
+      <h2><span class="num">6</span>ご依頼にあたっての注意</h2>
+      <div class="notes">
+        <ul>
+          <li><b>Watashi のユーザー名（ログインID）は、ご記入いただいた GID がそのまま使われます。</b>ログイン時はこの GID を入力してください。</li>
+          <li>お知らせする<b>初期パスワードは初回ログイン時に必ず変更</b>していただきます（12文字以上／英大文字・英小文字・数字・記号を各1文字以上）。</li>
+          <li><b>パスワードをメールで返信したり、他の方と共有したりしないでください。</b>管理者から本人確認以外の目的でパスワードをお尋ねすることはありません。</li>
+          <li>接続先サーバーはアプリに設定済みです。<b>利用者がサーバーアドレスを入力する必要はありません。</b></li>
+          <li>アカウント発行後は、ポータルの「<b>アプリをインストール</b>」からインストールしてご利用ください。</li>
+        </ul>
+      </div>
+      <p style="margin-top:16px">
+        <a class="backlink" href="index.html">← ポータルに戻る</a>
+      </p>
+    </section>
+
+    <p style="text-align:center; font-size:13px; color:var(--muted); margin:0">
+      ご不明な点は <b>watashi-admin@example.co.jp</b> までお問い合わせください。
+    </p>
+  </main>
+
+  <footer>
+    ⛩ Watashi — 鳥居をくぐって、信頼できる場所へ。
+  </footer>
+
+  <script>
+    // 文面テンプレ / CSV 記入例をクリップボードにコピー。
+    // ボタンの data-copy 属性が、コピー元 <pre> の id を指す。
+    // https 以外や古いブラウザでは navigator.clipboard が使えないため、
+    // 失敗したときは全選択にフォールバックする（利用者は Ctrl+C を押すだけ）。
+    (function () {
+      Array.prototype.forEach.call(document.querySelectorAll('button.copy'), function (btn) {
+        var pre = document.getElementById(btn.getAttribute('data-copy'));
+        if (!pre) return;
+        var label = btn.textContent;   // ボタンごとの元のラベルに戻すため控える
+        btn.addEventListener('click', function () {
+          var done = function () {
+            btn.textContent = '✅ コピーしました';
+            btn.classList.add('done');
+            setTimeout(function () {
+              btn.textContent = label;
+              btn.classList.remove('done');
+            }, 2000);
+          };
+          var fallback = function () {
+            var sel = window.getSelection();
+            var range = document.createRange();
+            range.selectNodeContents(pre);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            btn.textContent = 'Ctrl+C でコピーしてください';
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(pre.textContent).then(done, fallback);
+          } else {
+            fallback();
+          }
+        });
+      });
+    })();
+  </script>
+
+</body>
+</html>
