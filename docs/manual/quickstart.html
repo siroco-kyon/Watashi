@@ -16,8 +16,11 @@
     画像が無いときは、点線のカメラ枠（差し替え案内）が出ます。
   ・枠を増やしたいときは、次の1行を貼り付けてください。
       <div class="shot"><img class="shot-img" src="images/05-xxx.png" data-desc="説明"></div>
-  ・第2章ステップ1の <a class="apply-link"> は、社内のユーザー登録申請ページの
-    URL に書き換えてください（初期値は "#" ＝未設定）。
+  ・第2章にある次の2つのリンクは、初期値が "#"（未設定）です。
+    配布環境に合わせて href を書き換えてください。
+      <a class="apply-link">   … 社内のユーザー登録申請ページ（ステップ1）
+      <a class="install-link"> … ClickOnce のインストール用URL（ステップ2）
+        例: https://watashi.internal/install/Watashi.Client.application
   ============================================================
 -->
 <style>
@@ -340,7 +343,13 @@
         <span style="font-size:13px;color:var(--muted);">※ 管理者の方へ：登録の操作手順は <a href="admin.html#users">管理者マニュアル 第3章「ユーザー」</a> を参照してください。</span>
       </div></li>
     <li><strong>インストール（初回だけ）</strong><br>
-      案内された<strong>インストール用のURL</strong>をブラウザ（Edge など）で開き、画面の指示どおりに進めます。完了するとスタートメニューに「Watashi」が追加されます。</li>
+      <strong>インストール用のURL</strong>をブラウザ（Edge など）で開き、画面の指示どおりに進めます。完了するとスタートメニューに「Watashi」が追加されます。
+      <!-- ▼ インストール用URL：ClickOnce の配布URLに書き換えてください（例: https://watashi.internal/install/Watashi.Client.application） -->
+      <div class="note" style="margin:10px 0 0;">
+        <strong>インストール用のURL</strong>
+        インストールページ： <a href="#" class="install-link">Watashi をインストールする</a><br>
+        <span style="font-size:13px;color:var(--muted);">※ リンク先URLは、配布環境に合わせて管理者が設定します（未設定の場合は、管理者から案内されたURLを使ってください）。</span>
+      </div></li>
     <li><strong>起動</strong><br>
       スタートメニュー（またはデスクトップ）の <strong>「Watashi」</strong> から起動します。新しい版があれば起動時に自動で適用されるので、更新作業は不要です。</li>
     <li><strong>ログイン</strong><br>
