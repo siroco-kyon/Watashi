@@ -14,6 +14,7 @@ public class SessionManager
     private string? _refreshToken;
     private System.Threading.Timer? _idleTimer;
     private TimeSpan _idleTimeout = TimeSpan.FromMinutes(30);
+    private int _sessionExpiryRaised;
     public int? UserId { get; private set; }
     public string? Username { get; private set; }
     public bool IsAdmin { get; private set; }
@@ -48,6 +49,7 @@ public class SessionManager
         PasswordWarningDays = res.PasswordWarningDays;
         if (res.IdleMinutes > 0) _idleTimeout = TimeSpan.FromMinutes(res.IdleMinutes);
         ParseClaims(_accessToken);
+        Interlocked.Exchange(ref _sessionExpiryRaised, 0);
         ResetIdleTimer();
     }
 
@@ -59,6 +61,19 @@ public class SessionManager
         MustChangePassword = false; PasswordExpiresInDays = null;
         PasswordWarningDays = 14;
         _idleTimer?.Dispose(); _idleTimer = null;
+    }
+
+    /// <summary>
+    /// サーバーにセッションを拒否されたとき、ローカル状態を破棄して再ログインを通知する。
+    /// 複数の API が同時に 401 を受けても通知は 1 セッションにつき一度だけにする。
+    /// </summary>
+    public void ExpireSession(string? reason)
+    {
+        if (!IsAuthenticated || Interlocked.Exchange(ref _sessionExpiryRaised, 1) != 0)
+            return;
+
+        Clear();
+        SessionExpired?.Invoke(reason);
     }
 
     public async Task<string> GetValidAccessTokenAsync(CancellationToken ct = default)
@@ -85,8 +100,7 @@ public class SessionManager
             {
                 // refresh token が失効している。ローカルセッションを破棄し、UI に再ログインを促す。
                 // (これが無いと refresh 期限切れ後は API 例外が出続けるだけで復帰手段が無かった)
-                Clear();
-                SessionExpired?.Invoke(ex.Message);
+                ExpireSession(ex.Message);
                 throw;
             }
             _accessToken = res.AccessToken;

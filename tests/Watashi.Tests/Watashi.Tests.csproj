@@ -31,4 +31,14 @@
     <ProjectReference Include="..\..\src\Watashi.Agent\Watashi.Agent.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- WPF へ依存しないクライアント認証サービスを同じソースから回帰テストする。 -->
+    <Compile Include="..\..\src\Watashi.Client\Services\ApiException.cs" Link="Client\ApiException.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\ApiClient.cs" Link="Client\ApiClient.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\AppSettings.cs" Link="Client\AppSettings.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\Brand.cs" Link="Client\Brand.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\ProgressStreamContent.cs" Link="Client\ProgressStreamContent.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\SessionManager.cs" Link="Client\SessionManager.cs" />
+  </ItemGroup>
+
 </Project>
