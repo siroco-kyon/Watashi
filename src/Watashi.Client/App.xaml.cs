@@ -124,7 +124,31 @@ public partial class App : Application
         return true;
     }
 
+    private enum LoginFlowOutcome
+    {
+        MainShown,
+        Retry,
+        Shutdown,
+    }
+
     private async Task StartLoginFlowAsync(bool allowAutoLogin = true)
+    {
+        while (true)
+        {
+            var outcome = await TryStartLoginFlowAsync(allowAutoLogin);
+            if (outcome == LoginFlowOutcome.MainShown) return;
+            if (outcome == LoginFlowOutcome.Shutdown)
+            {
+                Shutdown();
+                return;
+            }
+
+            // 失効した記憶済み端末で同じ自動ログインを繰り返さない。
+            allowAutoLogin = false;
+        }
+    }
+
+    private async Task<LoginFlowOutcome> TryStartLoginFlowAsync(bool allowAutoLogin)
     {
         var session = Services.GetRequiredService<SessionManager>();
         var api = Services.GetRequiredService<ApiClient>();
@@ -142,10 +166,13 @@ public partial class App : Application
                 session.SetFromLogin(res);
                 _splash?.SetProgress(100, "起動しています...");
                 CloseSplash();
-                if (res.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
+                if (res.MustChangePassword && !ShowChangePassword())
+                    return session.IsAuthenticated ? LoginFlowOutcome.Shutdown : LoginFlowOutcome.Retry;
+                if (!session.IsAuthenticated) return LoginFlowOutcome.Retry;
                 ShowPasswordExpiryWarning(session);
+                if (!session.IsAuthenticated) return LoginFlowOutcome.Retry;
                 ShowMain();
-                return;
+                return LoginFlowOutcome.MainShown;
             }
             catch (ApiException ex) when (ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
             {
@@ -159,11 +186,16 @@ public partial class App : Application
 
         // ここから先はログイン画面 (対話 UI)。スプラッシュは役目を終えたので閉じる。
         CloseSplash();
-        if (!ShowLogin(out var rememberDevice)) { Shutdown(); return; }
-        if (session.MustChangePassword && !ShowChangePassword()) { Shutdown(); return; }
+        if (!ShowLogin(out var rememberDevice)) return LoginFlowOutcome.Shutdown;
+        if (session.MustChangePassword && !ShowChangePassword())
+            return session.IsAuthenticated ? LoginFlowOutcome.Shutdown : LoginFlowOutcome.Retry;
+        if (!session.IsAuthenticated) return LoginFlowOutcome.Retry;
         if (rememberDevice) await TrySaveTrustedDeviceAsync(api, cred);
+        if (!session.IsAuthenticated) return LoginFlowOutcome.Retry;
         ShowPasswordExpiryWarning(session);
+        if (!session.IsAuthenticated) return LoginFlowOutcome.Retry;
         ShowMain();
+        return LoginFlowOutcome.MainShown;
     }
 
     private void ShowPasswordExpiryWarning(SessionManager session)
@@ -201,12 +233,23 @@ public partial class App : Application
         Console.Error.WriteLine($"[{title}] {ex}");
     }
 
+    private Window? _activeAuthenticationDialog;
+
     private bool ShowLogin(out bool rememberDevice)
     {
         var w = Services.GetRequiredService<LoginWindow>();
-        var ok = w.ShowDialog() == true;
-        rememberDevice = ok && w.RememberDeviceRequested;
-        return ok;
+        _activeAuthenticationDialog = w;
+        try
+        {
+            var ok = w.ShowDialog() == true;
+            rememberDevice = ok && w.RememberDeviceRequested;
+            return ok;
+        }
+        finally
+        {
+            if (ReferenceEquals(_activeAuthenticationDialog, w))
+                _activeAuthenticationDialog = null;
+        }
     }
 
     private static async Task TrySaveTrustedDeviceAsync(ApiClient api, CredentialStore cred)
@@ -216,6 +259,10 @@ public partial class App : Application
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
             var trusted = await api.TrustDeviceAsync(Environment.MachineName, Environment.UserName, cts.Token);
             cred.SaveDeviceToken(Environment.MachineName, Environment.UserName, trusted.DeviceToken);
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // SessionExpired が利用者への通知と再ログイン遷移を担当する。
         }
         catch (Exception ex)
         {
@@ -244,6 +291,7 @@ public partial class App : Application
         MainWindow = w;
         w.Closed += async (_, _) =>
         {
+            if (ReferenceEquals(MainWindow, w)) MainWindow = null;
             if (_logoutInProgress)
             {
                 _logoutInProgress = false;
@@ -260,11 +308,66 @@ public partial class App : Application
         w.Show();
     }
 
-    private bool ShowChangePassword(bool mandatory = true)
+    public bool ShowChangePassword(bool mandatory = true)
+        => ShowChangePassword(mandatory, out _);
+
+    public bool ShowChangePassword(bool mandatory, out bool endedMandatory)
     {
         var w = Services.GetRequiredService<ChangePasswordWindow>();
         w.ViewModel.IsMandatory = mandatory;
-        return w.ShowDialog() == true;
+        endedMandatory = mandatory;
+        if (MainWindow is { IsVisible: true } main)
+        {
+            // 管理画面など別の modal が前面にいる場合、その window を owner にして
+            // 強制変更画面が背面へ回らないようにする。
+            w.Owner = Windows.OfType<Window>()
+                .FirstOrDefault(candidate => candidate.IsActive && !ReferenceEquals(candidate, w))
+                ?? main;
+        }
+        _activeAuthenticationDialog = w;
+        try
+        {
+            var completed = w.ShowDialog() == true;
+            endedMandatory = w.ViewModel.IsMandatory;
+            return completed;
+        }
+        finally
+        {
+            if (ReferenceEquals(_activeAuthenticationDialog, w))
+                _activeAuthenticationDialog = null;
+        }
+    }
+
+    /// <summary>
+    /// メイン画面の表示前後を問わず、現在見えている認証 UI を閉じてログインへ戻す。
+    /// StartLoginFlowAsync は dialog 終了後に session を再確認し、未認証なら Retry する。
+    /// </summary>
+    private void ReturnToLogin(string message, string title)
+    {
+        var main = MainWindow is { IsVisible: true } ? MainWindow : null;
+        var authDialog = _activeAuthenticationDialog is { IsVisible: true }
+            ? _activeAuthenticationDialog
+            : null;
+        var owner = Windows.OfType<Window>().FirstOrDefault(window => window.IsActive && window.IsVisible)
+            ?? authDialog
+            ?? main;
+
+        if (owner is not null)
+            MessageBox.Show(owner, message, title, MessageBoxButton.OK, MessageBoxImage.Information);
+        else
+            MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Information);
+
+        if (main is not null)
+        {
+            RequestLogout();
+            return;
+        }
+
+        if (authDialog is not null)
+        {
+            try { authDialog.DialogResult = false; }
+            catch (InvalidOperationException) { authDialog.Close(); }
+        }
     }
 
     private static IServiceProvider BuildServices(AppSettings settings)
@@ -340,13 +443,13 @@ public partial class App : Application
         };
         // アイドルタイムアウト発火時はメインウィンドウを閉じてログインに戻す。
         // SessionManager 側はタイマーを管理するだけ。UI に戻すのは Dispatcher 経由で行う。
-        session.IdleTimedOut += () =>
+        session.IdleTimedOut += timeout =>
         {
             if (Current is App app)
             {
                 app.Dispatcher.BeginInvoke(async () =>
                 {
-                    if (app.MainWindow is not null)
+                    if (session.IsIdleTimeoutCurrent(timeout))
                     {
                         // 手動ログアウトと同様、サーバ側でも refresh token を失効させる。
                         // ローカルを消すだけだとサーバ側では最大 30 日間有効なまま残る。
@@ -357,21 +460,21 @@ public partial class App : Application
                             // ローテーション) が起こり得るため、先にトークンを確定させてから
                             // 最新の rid/rt を読む。先に rid/rt を掴むと、ローテーションで
                             // 発行された新しい refresh token が失効されずに生き残る。
-                            await session.GetValidAccessTokenAsync(cts.Token);
-                            var rid = session.RefreshTokenId;
-                            var rt = session.RefreshToken;
-                            if (rid is not null && rt is not null)
-                                await sp.GetRequiredService<ApiClient>().LogoutAsync(rid, rt, cts.Token);
+                            var refresh = await session.GetRefreshTokenForLogoutAsync(cts.Token);
+                            if (refresh is not null)
+                                await sp.GetRequiredService<ApiClient>().LogoutAsync(
+                                    refresh.Value.RefreshTokenId,
+                                    refresh.Value.RefreshToken,
+                                    cts.Token);
                         }
                         catch { /* オフライン等で失効できなくてもログアウト自体は続行する */ }
                         // refresh が 401 で拒否された場合は SessionExpired 側が Clear と
                         // 再ログイン誘導を済ませているので、二重にダイアログを出さない。
                         if (!session.IsAuthenticated) return;
-                        MessageBox.Show(app.MainWindow,
-                            "無操作のためログアウトしました。再ログインしてください。",
-                            "アイドルタイムアウト", MessageBoxButton.OK, MessageBoxImage.Information);
                         session.Clear();
-                        app.RequestLogout();
+                        app.ReturnToLogin(
+                            "無操作のためログアウトしました。再ログインしてください。",
+                            "アイドルタイムアウト");
                     }
                 });
             }
@@ -382,17 +485,52 @@ public partial class App : Application
         {
             if (Current is App app)
             {
-                app.Dispatcher.BeginInvoke(() =>
+                void NotifyAndReturn()
                 {
-                    if (app.MainWindow is not null)
+                    // 通知が Dispatcher 待ちの間に再ログイン済みなら、古い通知で
+                    // 新しい認証画面を閉じない。
+                    if (!session.IsSessionExpiryPending) return;
+                    app.ReturnToLogin(
+                        DescribeSessionExpiry(reason) + "\n再ログインしてください。",
+                        "セッション期限切れ");
+                }
+
+                // メイン画面表示前は同期処理し、Retry で次の login dialog を開いた後に
+                // 古い通知が割り込んで閉じてしまう競合を防ぐ。メイン画面表示中は API の
+                // 例外処理を先に完了させ、閉じた ViewModel を再入可能にしない。
+                if (app.Dispatcher.CheckAccess() && app.MainWindow is not { IsVisible: true })
+                    NotifyAndReturn();
+                else
+                {
+                    app.Dispatcher.BeginInvoke(NotifyAndReturn);
+                }
+            }
+        };
+        // アプリを開いたままパスワード期限を迎えた場合、refresh で mcp token が
+        // 発行される。放置すると全 API が 403 を返し続けるため、強制変更へ遷移する。
+        session.RefreshNeedsPasswordChange += () =>
+        {
+            if (Current is not App app) return;
+            app.Dispatcher.BeginInvoke(() =>
+            {
+                if (!session.IsAuthenticated || app.MainWindow is not { IsVisible: true }) return;
+
+                if (app._activeAuthenticationDialog is ChangePasswordWindow activeChangePassword &&
+                    activeChangePassword.IsVisible)
+                {
+                    activeChangePassword.ViewModel.IsMandatory = true;
+                    return;
+                }
+
+                if (!app.ShowChangePassword())
+                {
+                    if (session.IsAuthenticated)
                     {
-                        MessageBox.Show(app.MainWindow,
-                            DescribeSessionExpiry(reason) + "\n再ログインしてください。",
-                            "セッション期限切れ", MessageBoxButton.OK, MessageBoxImage.Information);
+                        session.Clear();
                         app.RequestLogout();
                     }
-                });
-            }
+                }
+            });
         };
         return sp;
     }

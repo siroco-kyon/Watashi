@@ -14,6 +14,8 @@ namespace Watashi.Client.Services;
 
 public class ApiClient
 {
+    private static readonly HttpRequestOptionsKey<long> SessionGenerationKey =
+        new("Watashi.SessionGeneration");
     private readonly HttpClient _http;
     private readonly IHttpClientFactory _httpFactory;
     private readonly SessionManager _session;
@@ -148,7 +150,7 @@ public class ApiClient
         using var req = await CreateAuthedRequestAsync(HttpMethod.Get, $"api/files/download?{qs}", ct);
         var http = _httpFactory.CreateClient("file-transfer");
         using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, req, ct);
         await using var stream = await res.Content.ReadAsStreamAsync(ct);
         var buffer = new byte[4 * 1024 * 1024];
         long total = 0;
@@ -171,7 +173,7 @@ public class ApiClient
         req.Content = content;
         var http = _httpFactory.CreateClient("file-transfer");
         using var res = await http.SendAsync(req, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, req, ct);
     }
 
     public Task DeleteFileAsync(int hostId, int shareId, string path, CancellationToken ct = default)
@@ -215,7 +217,7 @@ public class ApiClient
     {
         using var req = await CreateAuthedRequestAsync(HttpMethod.Get, "api/admin/users/export.csv", ct);
         using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, req, ct);
         await using var src = await res.Content.ReadAsStreamAsync(ct);
         await src.CopyToAsync(output, 64 * 1024, ct);
     }
@@ -231,7 +233,7 @@ public class ApiClient
         using var req = await CreateAuthedRequestAsync(HttpMethod.Post, "api/admin/users/import.csv", ct);
         req.Content = content;
         using var res = await _http.SendAsync(req, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, req, ct);
         var dto = await res.Content.ReadFromJsonAsync<UserImportResultDto>(JsonOptions, ct);
         return dto!;
     }
@@ -331,7 +333,7 @@ public class ApiClient
         var url = "api/admin/logs/export.csv" + (qs.Count > 0 ? "?" + string.Join('&', qs) : string.Empty);
         using var req = await CreateAuthedRequestAsync(HttpMethod.Get, url, ct);
         using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, req, ct);
         await using var src = await res.Content.ReadAsStreamAsync(ct);
         await src.CopyToAsync(output, 1024 * 1024, ct);
     }
@@ -342,10 +344,10 @@ public class ApiClient
     // === Helpers ===
     private async Task<HttpRequestMessage> CreateAuthedRequestAsync(HttpMethod method, string url, CancellationToken ct)
     {
-        var token = await _session.GetValidAccessTokenAsync(ct);
+        var snapshot = await _session.GetValidAccessTokenSnapshotAsync(ct);
         var req = new HttpRequestMessage(method, url);
-        if (!string.IsNullOrEmpty(token))
-            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", snapshot.AccessToken);
+        req.Options.Set(SessionGenerationKey, snapshot.SessionGeneration);
         return req;
     }
 
@@ -353,7 +355,7 @@ public class ApiClient
     {
         using var req = await CreateAuthedRequestAsync(HttpMethod.Get, url, ct);
         using var res = await _http.SendAsync(req, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, req, ct);
         var data = await res.Content.ReadFromJsonAsync<T>(JsonOptions, ct);
         return data!;
     }
@@ -363,12 +365,12 @@ public class ApiClient
         using var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body, options: JsonOptions) };
         if (!anonymous)
         {
-            var token = await _session.GetValidAccessTokenAsync(ct);
-            if (!string.IsNullOrEmpty(token))
-                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var snapshot = await _session.GetValidAccessTokenSnapshotAsync(ct);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", snapshot.AccessToken);
+            req.Options.Set(SessionGenerationKey, snapshot.SessionGeneration);
         }
         using var res = await _http.SendAsync(req, ct);
-        await ThrowIfErrorAsync(res, ct, invalidateSessionOnUnauthorized: !anonymous);
+        await ThrowIfErrorAsync(res, req, ct, invalidateSessionOnUnauthorized: !anonymous);
         var data = await res.Content.ReadFromJsonAsync<T>(JsonOptions, ct);
         return data!;
     }
@@ -378,7 +380,7 @@ public class ApiClient
         using var req = await CreateAuthedRequestAsync(HttpMethod.Post, url, ct);
         req.Content = JsonContent.Create(body, options: JsonOptions);
         using var res = await _http.SendAsync(req, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, req, ct);
     }
 
     private async Task PatchJsonNoContentAsync(string url, object body, CancellationToken ct)
@@ -386,7 +388,7 @@ public class ApiClient
         using var req = await CreateAuthedRequestAsync(HttpMethod.Patch, url, ct);
         req.Content = JsonContent.Create(body, options: JsonOptions);
         using var res = await _http.SendAsync(req, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, req, ct);
     }
 
     private async Task SendNoContentAsync(HttpMethod method, string url, object? body, CancellationToken ct)
@@ -394,13 +396,15 @@ public class ApiClient
         using var req = await CreateAuthedRequestAsync(method, url, ct);
         if (body is not null) req.Content = JsonContent.Create(body, options: JsonOptions);
         using var res = await _http.SendAsync(req, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, req, ct);
     }
 
     private async Task ThrowIfErrorAsync(
         HttpResponseMessage res,
         CancellationToken ct,
-        bool invalidateSessionOnUnauthorized = true)
+        bool invalidateSessionOnUnauthorized = true,
+        string? expectedAccessToken = null,
+        long? expectedSessionGeneration = null)
     {
         if (res.IsSuccessStatusCode) return;
         string? msg = null;
@@ -431,10 +435,36 @@ public class ApiClient
             HttpStatusCode.ServiceUnavailable => "サーバーまたは実行ノードに接続できません。",
             _ => $"HTTP {(int)res.StatusCode}",
         };
-        if (invalidateSessionOnUnauthorized && res.StatusCode == HttpStatusCode.Unauthorized)
-            _session.ExpireSession(msg);
+        if (invalidateSessionOnUnauthorized &&
+            res.StatusCode == HttpStatusCode.Unauthorized &&
+            expectedAccessToken is not null)
+        {
+            // 応答が遅れている間に再ログインされている可能性がある。401 を返した
+            // リクエストの token と現在の token が一致するときだけ失効させる。
+            _session.ExpireSession(msg, expectedAccessToken, expectedSessionGeneration);
+        }
         throw new ApiException(res.StatusCode, msg);
     }
+
+    private static string? BearerToken(HttpRequestMessage request)
+        => request.Headers.Authorization is { Scheme: "Bearer" } auth ? auth.Parameter : null;
+
+    private static long? SessionGeneration(HttpRequestMessage? request)
+        => request is not null && request.Options.TryGetValue(SessionGenerationKey, out var generation)
+            ? generation
+            : null;
+
+    private Task ThrowIfErrorAsync(
+        HttpResponseMessage response,
+        HttpRequestMessage request,
+        CancellationToken ct,
+        bool invalidateSessionOnUnauthorized = true)
+        => ThrowIfErrorAsync(
+            response,
+            ct,
+            invalidateSessionOnUnauthorized,
+            BearerToken(request),
+            SessionGeneration(request));
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 

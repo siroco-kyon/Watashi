@@ -545,6 +545,10 @@ Set-WebConfigurationProperty -PSPath "IIS:\" -Location $loc `
 
 複数ドメインが混在する環境で、別ドメインの同名アカウントによる乗っ取りを防ぎたい場合は `AllowList` にします。
 
+> `AllowList` は「受け付けるドメイン」を絞る設定であり、Watashi ユーザーごとにドメインを割り当てる設定ではありません。
+> 複数の独立したアカウントドメインを同時に許可する場合は、GID が全許可ドメインを通して一意であることを確認してください。
+> 同じ GID が複数の許可ドメインに存在し得る構成では Windows 初回設定を使わず、管理者による初期 PW 発行経路を使用してください。
+
 ```json
 "DomainMatch": "AllowList",
 "AllowedDomains": [ "CORP", "corp.example.com" ]

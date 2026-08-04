@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Watashi.Server.Auth;
 using Watashi.Server.Data;
 using Watashi.Server.Services;
 using Watashi.Shared.Constants;
@@ -75,7 +76,12 @@ public static class AdminUserEndpoints
                 if (decision == AdminUserGuard.Decision.LastActiveAdmin)
                     return Results.BadRequest(new { error = "他にアクティブな管理者がいないため、この管理者を降格できません。" });
             }
-            if (req.IsAdmin.HasValue) u.IsAdmin = req.IsAdmin.Value;
+            if (req.IsAdmin.HasValue)
+            {
+                // JWT の role claim は発行時点の値を保持する。資格情報バージョンも進め、
+                // 昇格前・降格前の access/refresh token を直ちに使えなくする。
+                UserAuthorizationVersion.ApplyAdminRole(u, req.IsAdmin.Value, DateTime.UtcNow);
+            }
             await db.SaveChangesAsync(ct);
             await audit.LogAdminAsync(principal, ctx, AdminOperations.UserUpdate, $"user:{id}", ct: ct);
             return Results.NoContent();
@@ -272,8 +278,8 @@ public static class AdminUserEndpoints
                 return Results.BadRequest(new { error = "CSV が空です。" });
             var header = ParseCsvLine(line);
             int idxUser = Array.FindIndex(header, h => string.Equals(h, "Username", StringComparison.OrdinalIgnoreCase));
-            int idxPw   = Array.FindIndex(header, h => string.Equals(h, "Password", StringComparison.OrdinalIgnoreCase));
-            int idxAdm  = Array.FindIndex(header, h => string.Equals(h, "IsAdmin",  StringComparison.OrdinalIgnoreCase));
+            int idxPw = Array.FindIndex(header, h => string.Equals(h, "Password", StringComparison.OrdinalIgnoreCase));
+            int idxAdm = Array.FindIndex(header, h => string.Equals(h, "IsAdmin", StringComparison.OrdinalIgnoreCase));
             if (idxUser < 0)
                 return Results.BadRequest(new { error = "ヘッダーに Username 列が必要です (IsAdmin は任意)。" });
             if (idxPw >= 0)
@@ -289,14 +295,16 @@ public static class AdminUserEndpoints
                 lineNo++;
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 var cols = ParseCsvLine(line);
-                if (cols.Length <= idxUser) {
+                if (cols.Length <= idxUser)
+                {
                     result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Error = "列数が足りません" });
                     continue;
                 }
                 var username = cols[idxUser].Trim();
-                var isAdmin  = idxAdm >= 0 && idxAdm < cols.Length
+                var isAdmin = idxAdm >= 0 && idxAdm < cols.Length
                     && bool.TryParse(cols[idxAdm].Trim(), out var b) && b;
-                if (string.IsNullOrWhiteSpace(username)) {
+                if (string.IsNullOrWhiteSpace(username))
+                {
                     result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Error = "Username が空" });
                     continue;
                 }
@@ -326,9 +334,11 @@ public static class AdminUserEndpoints
                     }
                     // upsert が触るのは IsAdmin だけ。パスワード・ロック状態・初回設定待ちの
                     // いずれも変更しない (CSV の再取り込みで既存ユーザーが締め出されないように)。
-                    existing.IsAdmin = newIsAdmin;
+                    // PATCH と同じく、CSV 経由の権限変更も古い role claim を即時失効させる。
+                    UserAuthorizationVersion.ApplyAdminRole(existing, newIsAdmin, DateTime.UtcNow);
                     try { await db.SaveChangesAsync(ct); result.Updated++; }
-                    catch (DbUpdateException ex) {
+                    catch (DbUpdateException ex)
+                    {
                         db.ChangeTracker.Clear();
                         result.Failed++;
                         result.Errors.Add(new() { LineNumber = lineNo, Username = username, Error = "更新失敗: " + ex.Message });
@@ -350,7 +360,8 @@ public static class AdminUserEndpoints
                     };
                     db.Users.Add(u);
                     try { await db.SaveChangesAsync(ct); result.Created++; }
-                    catch (DbUpdateException ex) {
+                    catch (DbUpdateException ex)
+                    {
                         db.ChangeTracker.Clear();
                         result.Failed++;
                         result.Errors.Add(new() { LineNumber = lineNo, Username = username, Error = "登録失敗 (重複か制約違反): " + ex.Message });
