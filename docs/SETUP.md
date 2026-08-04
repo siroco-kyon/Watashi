@@ -326,7 +326,16 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
   "Auth": {
     "AllowHttpForAutoLogin": false,
     // IP 単位のログインレート制限 (回/分)
-    "LoginPerMinutePerIp": 10
+    "LoginPerMinutePerIp": 10,
+    // 初回パスワードを本人に設定させる場合だけ有効化。IIS 本番手順は IIS-HOSTING.md を参照
+    "WindowsAuth": {
+      "Mode": "None",
+      "AllowHttp": false,
+      "DomainMatch": "IgnoreDomain",
+      "AllowedDomains": [],
+      "EnableDiagnostics": false,
+      "SetupPerMinutePerIp": 30
+    }
   },
   "Cifs": {
     // SMB セッションプールの挙動
@@ -369,6 +378,7 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
 | `Encryption:MasterKey` | 必須 | 32 バイト Base64 | CIFS パスワード暗号化用。紛失すると既存ホスト資格情報を復号できない |
 | `Auth:AllowHttpForAutoLogin` | 任意 | `false` 推奨 | HTTP 接続で「このPCを記憶する」を許可するか。Production は false |
 | `Auth:LoginPerMinutePerIp` | 任意 | 1 分あたり試行数 | 同一 NAT で誤検知する場合だけ増やす |
+| `Auth:WindowsAuth:*` | 任意 | 初回設定の Windows 本人確認 | 既定 `Mode=None`。本番の IIS 設定、ドメイン照合、受け入れ確認は [IIS-HOSTING.md](../deploy/IIS-HOSTING.md#115-windows-統合認証を有効にする-初回パスワード設定) を参照 |
 | `Routing:UseMtls` | 構成依存 | `true` / `false` | Server↔Agent を mTLS で相互認証するなら true |
 | `Routing:ClientCertificatePath` | mTLS 時必須 | 中央サーバが Agent へ提示する PFX | Server → Agent の呼び出しに使うクライアント証明書 |
 | `Routing:ClientCertificatePassword` | mTLS 時必須 | 上記 PFX のパスワード | 環境変数上書きも可 |
@@ -757,7 +767,7 @@ HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いま
 2. **ホスト**: CIFS ファイルサーバーの情報 (アドレス + 資格情報 + どのノードから接続するか)
 3. **共有**: ホストに紐づく SMB 共有名
 4. **テンプレート**: 「読取のみ」「読取+書込」「フルアクセス」は seed 済み。必要なら追加
-5. **ユーザー**: 一般ユーザーを追加 (作成時は初回 `MustChangePassword=true`)
+5. **ユーザー**: 一般ユーザーを追加 (作成時は `IsPasswordSetupPending=true` の「初回設定待ち」)。Windows 統合認証を使わない端末には「初期PW発行」を行う
 6. **ユーザー権限**: ユーザー × 共有 × サブパス × テンプレートで権限付与
 
 詳細手順は [ADMIN-GUIDE.md](ADMIN-GUIDE.md) を参照。
@@ -775,6 +785,8 @@ HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いま
 | ☐ | クライアント PC に社内 CA ルート証明書を配布 |
 | ☐ | admin の初期パスワード変更 (シード admin `admin` / `Admin123!@#` は従来どおりパスワード付きで作られる。この 1 アカウントだけは必ず手動で変更する) |
 | ☐ | (任意) Windows 統合認証を有効化して初期パスワードの配布を廃止 ([deploy/IIS-HOSTING.md](../deploy/IIS-HOSTING.md) の「Windows 統合認証を有効にする」)。未設定の場合は管理者が「初期PW発行」で配布する運用のまま |
+| ☐ | Windows 統合認証で複数の独立ドメインを許可する場合、GID が全許可ドメインを通して一意か確認。同名 GID が存在し得る場合は管理者発行の初期 PW 経路を使う |
+| ☐ | 既存 DB のアップグレード前に、大文字小文字だけが異なる重複ユーザー (例: `alice` / `ALICE`) がないことを確認。存在する場合は統合してから migration を適用 |
 | ☐ | (モード A の場合) Agent クライアント証明書を発行して `ExecutionNode.ClientCertificateThumbprint` に登録 |
 | ☐ | (モード A の場合) Agent 側 `Auth:CentralCertificateThumbprint` に中央が Agent へ提示するクライアント証明書サムプリント設定 |
 | ☐ | (モード B の場合) `Routing:SharedSecret` を両側に同じ値で設定 |
@@ -905,9 +917,11 @@ Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
   ```
 - パスワード期限切れ: `MustChangePassword=true` になり、レスポンスにフラグが付く。クライアントは強制変更画面へ
 - **「429 Too Many Requests」**: ログイン試行が 1 分あたり 10 回を超えた。`Auth:LoginPerMinutePerIp` を緩めるか時間を空ける
+- 初回設定待ちなのにパスワード入力へ進む: Windows 統合認証が無効・不成立の安全なフォールバック。IIS の `/api/auth/win` 設定を確認するか、管理者が「初期PW発行」を行う
+- ユーザー名の大文字小文字違いは同一ユーザーとして扱う。アップグレード migration が重複を検出して停止した場合は、該当ユーザーを統合してから再実行する
 
 ### 自動ログインが効かない
-- 接続が HTTP: HTTPS 必須なので Client 設定で HTTPS に変更
+- 接続が HTTP で `Auth:AllowHttpForAutoLogin=false`: HTTPS に切り替えるか、閉域の検証環境に限って設定を明示的に `true` にする
 - Credential Manager から消えている: ログイン画面で再度「このPCを記憶する」をチェック
 - 管理者がデバイスを失効済み: 管理画面 → 信頼デバイスで確認
 
@@ -915,6 +929,11 @@ Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
 - 失効済みリフレッシュトークンが提示された場合の応答。ファミリー全体が失効するため、ユーザーは再ログインが必要
 - 原因: 同じトークンを別端末から使った、ログアウト後にトークンが再生された、など
 - 影響: 該当ユーザーの全 active セッションが切断されるため、頻発する場合は配布ログ確認
+
+### 操作中に「再ログインしてください」と表示される
+- パスワード変更・初回設定への差し戻し・管理者権限変更・アカウントロックは、発行済み access token にも次の API 呼び出しで反映される
+- `password_changed` / `account_locked` / `device_revoked` / `token_reuse_detected` の理由を確認し、必要な管理操作後にログインし直す
+- 管理者フラグ変更後は、昇格・降格のどちらでも古い role claim を使わせないため再ログインが必要
 
 ### Agent が Unhealthy のまま
 - Agent サービスが起動しているか: `Get-Service Watashi.Agent`

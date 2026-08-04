@@ -368,6 +368,7 @@ curl "$base/health"</pre>
       <!-- ===================================================== 4 -->
       <h2 id="login"><span class="num">4</span>ログインしてトークンを取得する</h2>
       <p>ファイル操作 API を呼ぶには、まず <code>POST /api/auth/login</code> でログインし、<strong>アクセストークン（JWT）</strong>を取得します。</p>
+      <p>ユーザー名は ASCII の大文字・小文字を区別しません。管理者が追加した直後の「初回設定待ち」アカウントは、Watashi クライアントで本人確認と最初のパスワード設定を完了するまで、この API ではログインできません。</p>
 
       <figure>
         <svg viewBox="0 0 700 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="認証からファイル操作までの流れ">
@@ -454,6 +455,7 @@ access_token=$(echo "$login" | jq -r .accessToken)</pre>
       <pre class="code">Authorization: Bearer eyJhbGciOiJIUzI1NiIs...</pre>
 
       <p>特別なヘッダーやユーザーエージェントの指定は不要です。標準的な JWT Bearer 認証であり、Watashi クライアント固有の識別情報を送る必要もありません。</p>
+      <p>署名と有効期限だけでなく、トークン内の資格情報世代をサーバー上の現在状態と毎回照合します。パスワード変更、初回設定への差し戻し、管理者フラグ変更、アカウントロック後は、発行済みのアクセストークンでも直ちに <span class="msg err">401</span> になります。</p>
 
       <figure>
         <svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="アクセストークンとリフレッシュトークンの関係">
@@ -504,7 +506,7 @@ $headers = @{ Authorization = "Bearer $accessToken" }</pre>
       <table>
         <thead><tr><th>error 値</th><th>意味</th><th>対応</th></tr></thead>
         <tbody>
-          <tr><td><code>password_changed</code></td><td>そのユーザーのパスワードが変更された</td><td>再ログインが必要</td></tr>
+          <tr><td><code>password_changed</code></td><td>パスワード、初回設定状態、管理者フラグなど資格情報の世代が変更された</td><td>再ログインが必要</td></tr>
           <tr><td><code>token_reuse_detected</code></td><td>失効済みトークンの再利用を検知</td><td>再ログインが必要（トークン一族が全失効済み）</td></tr>
           <tr><td><code>account_locked</code></td><td>アカウントがロック中</td><td>管理者にロック解除を依頼</td></tr>
           <tr><td><code>device_revoked</code></td><td>信頼デバイスが失効済み</td><td>再ログインが必要</td></tr>
@@ -520,6 +522,7 @@ $headers = @{ Authorization = "Bearer $accessToken" }</pre>
       <!-- ===================================================== 7 -->
       <h2 id="logout"><span class="num">7</span>ログアウトする</h2>
       <p>スクリプトの実行が終わったら、リフレッシュトークンを明示的に失効させておくと安全です。</p>
+      <p>更新処理とログアウトが並行する可能性がある実装では、先に refresh を完了して最新の <code>accessToken</code> と <code>refreshTokenId</code> を確定し、その組で logout を呼んでください。ローテーション前の ID だけを失効させると、更新後のトークンが残る可能性があります。</p>
 
       <div class="codelabel"><span class="tag">PowerShell</span></div>
       <pre class="code">$body = @{ refreshTokenId = $refreshTokenId } | ConvertTo-Json
@@ -647,7 +650,7 @@ Invoke-RestMethod -Method Post -Uri "$base/api/files/mkdir" -Headers $headers -C
         <thead><tr><th>ステータス</th><th>典型的な原因</th><th>対応</th></tr></thead>
         <tbody>
           <tr><td><span class="msg err">400</span></td><td>必須パラメータ不足／ホスト・共有が存在しない／リネームで親フォルダが変わっている</td><td>リクエスト内容を確認</td></tr>
-          <tr><td><span class="msg err">401</span></td><td>トークン未指定・期限切れ・不正</td><td>再ログイン、または refresh</td></tr>
+          <tr><td><span class="msg err">401</span></td><td>トークン未指定・期限切れ・不正／パスワード・管理者フラグ・初回設定状態の変更／アカウントロック</td><td>現在状態を確認して再ログイン。期限切れだけなら refresh</td></tr>
           <tr><td><span class="msg err">403</span></td><td>権限不足／許可ルート自体の削除・リネーム／<code>mustChangePassword</code> 未対応のまま他 API を呼んだ</td><td>権限を確認、または先に change-password</td></tr>
           <tr><td><span class="msg err">429</span></td><td>ログイン・refresh の回数制限超過</td><td>間隔を空けてリトライ</td></tr>
           <tr><td><span class="msg err">502</span></td><td>CIFS 側の I/O エラー・権限エラー</td><td>ホスト側の資格情報・共有権限を確認</td></tr>
@@ -660,7 +663,7 @@ Invoke-RestMethod -Method Post -Uri "$base/api/files/mkdir" -Headers $headers -C
       <h2 id="caution"><span class="num">15</span>実運用での注意点</h2>
       <ul>
         <li><strong>証明書の検証を無効化しない</strong>：本番で自己署名証明書を使っている場合は、検証を無効化（<code>curl -k</code> や <code>-SkipCertificateCheck</code>）するのではなく、正しい CA 証明書をクライアント側に信頼させてください。</li>
-        <li><strong>パスワード変更が必須のユーザーは先に change-password</strong>：<code>mustChangePassword=true</code> のユーザーは、それ以外の API がすべて 403 になります。</li>
+        <li><strong>パスワード変更が必須のユーザーは先に change-password</strong>：管理者が初期パスワードを発行した場合や期限切れで <code>mustChangePassword=true</code> になったユーザーは、それ以外の API がすべて 403 になります。初回設定待ちのユーザーは通常ログイン自体が 401 になるため、先に Watashi クライアントで初回設定を完了してください。</li>
         <li><strong>トークンの保管場所に注意</strong>：<code>accessToken</code> / <code>refreshToken</code> はそのユーザーの権限をそのまま行使できる鍵です。平文でリポジトリにコミットしたり、ログに残したりしないでください。</li>
         <li><strong>大量ファイルの一覧取得はページングを検討</strong>：既定では <code>page</code> 省略時に全件返却されるため、数万件規模のフォルダでは <code>page</code> を指定して分割取得すると応答が安定します。</li>
         <li><strong>この文書がカバーするのはファイル操作 API のみ</strong>：ユーザー・権限・ホストの管理を行う管理者向け API は別に存在しますが、本書では扱いません。</li>

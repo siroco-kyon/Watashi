@@ -31,7 +31,7 @@ public class InitializePasswordRequest
 }
 
 /// <summary>
-/// Windows 統合認証の疎通確認用 (Auth:EnableWindowsAuthDiagnostics = true のときだけ有効)。
+/// Windows 統合認証の疎通確認用 (Auth:WindowsAuth:EnableDiagnostics = true のときだけ有効)。
 /// 呼び出した本人の情報しか返さないため、ユーザー列挙には使えない。
 /// </summary>
 public class WindowsAuthDiagnosticsResponse

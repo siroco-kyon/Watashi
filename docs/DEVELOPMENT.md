@@ -36,7 +36,7 @@ src/
     ├── ViewModels/    # MVVM (CommunityToolkit.Mvvm)
     ├── Services/      # ApiClient / SessionManager / CredentialStore
     └── Converters/    # WPF Value Converters
-tests/Watashi.Tests/   # xUnit (256 ケース、PathHelper / Permission / Auth / Crypto / Csv / AdminGuard ほか)
+tests/Watashi.Tests/   # xUnit (Auth / Session / Migration / Permission / Crypto / CSV / AdminGuard ほか)
 deploy/                # Windows Service インストーラ、ClickOnce 設定
 docs/                  # ドキュメント
 ```
@@ -49,12 +49,21 @@ docs/                  # ドキュメント
 # ソリューション全体ビルド
 dotnet build Watashi.sln
 
-# 単体テスト (256 ケース)
+# 単体テスト (2026-08-04 時点の基準: 374 件)
 dotnet test tests\Watashi.Tests
 
 # クライアントのみビルド
 dotnet build src\Watashi.Client\Watashi.Client.csproj
 ```
+
+認証・セッション変更時は、全体テストに加えて境界テストを絞って先に実行すると原因を特定しやすい:
+
+```powershell
+dotnet test tests\Watashi.Tests\Watashi.Tests.csproj --filter `
+  "FullyQualifiedName~SessionManagerTests|FullyQualifiedName~ApiClientUnauthorizedTests|FullyQualifiedName~AccessTokenCredentialValidatorTests|FullyQualifiedName~UsernameCollation"
+```
+
+Windows 統合認証の画面確認だけでなく、少なくとも「旧 401 が再ログインを消さない」「refresh 中の再ログインを上書きしない」「大小文字ユーザーの migration が衝突時にロールバックする」を自動テストで固定する。
 
 ---
 
