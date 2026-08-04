@@ -32,6 +32,8 @@
 | `install-agent-service.ps1`  | Agent を Windows Service として登録（推奨） |
 | `uninstall-service.ps1`      | 上記サービスを停止・削除 |
 | `install-agent.ps1`          | 旧式: appsettings.json 生成 + sc.exe 登録（残置、互換用） |
+| `configure-iis-windows-auth.ps1` | 初回パスワード設定 API だけに IIS Windows 認証を設定 |
+| `IIS-WINDOWS-AUTH-SETUP.html` | 上記スクリプトの変更箇所・実行・確認・復元を説明する HTML ガイド |
 | `IIS-MIME.md`                | ClickOnce 配信のための IIS MIME 設定 |
 | `CERTIFICATE.md`             | HTTPS 証明書の設定 (ストア参照 vs ファイル指定、Windows 推奨は前者) |
 | `AGENT-HTTPS-ACME.md`        | Agent の HTTPS 化手順 (社内 ACME CA + Win-ACME、IIS 不要) |

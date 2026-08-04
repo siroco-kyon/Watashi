@@ -327,13 +327,13 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
     "AllowHttpForAutoLogin": false,
     // IP 単位のログインレート制限 (回/分)
     "LoginPerMinutePerIp": 10,
-    // 初回パスワードを本人に設定させる場合だけ有効化。IIS 本番手順は IIS-HOSTING.md を参照
+    // 初回パスワードを本人に設定させる。IIS 本番手順は IIS-HOSTING.md を参照
     "WindowsAuth": {
-      "Mode": "None",
+      "Mode": "IIS",
       "AllowHttp": false,
       "DomainMatch": "IgnoreDomain",
       "AllowedDomains": [],
-      "EnableDiagnostics": false,
+      "EnableDiagnostics": true,
       "SetupPerMinutePerIp": 30
     }
   },
@@ -378,7 +378,7 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
 | `Encryption:MasterKey` | 必須 | 32 バイト Base64 | CIFS パスワード暗号化用。紛失すると既存ホスト資格情報を復号できない |
 | `Auth:AllowHttpForAutoLogin` | 任意 | `false` 推奨 | HTTP 接続で「このPCを記憶する」を許可するか。Production は false |
 | `Auth:LoginPerMinutePerIp` | 任意 | 1 分あたり試行数 | 同一 NAT で誤検知する場合だけ増やす |
-| `Auth:WindowsAuth:*` | 任意 | 初回設定の Windows 本人確認 | 既定 `Mode=None`。本番の IIS 設定、ドメイン照合、受け入れ確認は [IIS-HOSTING.md](../deploy/IIS-HOSTING.md#115-windows-統合認証を有効にする-初回パスワード設定) を参照 |
+| `Auth:WindowsAuth:*` | IIS 構成で必須 | 初回設定の Windows 本人確認 | 同梱設定は `Mode=IIS`。IIS のパス別認証設定、ドメイン照合、受け入れ確認は [HTML ガイド](../deploy/IIS-WINDOWS-AUTH-SETUP.html) と [IIS-HOSTING.md](../deploy/IIS-HOSTING.md#115-windows-統合認証を有効にする-初回パスワード設定) を参照 |
 | `Routing:UseMtls` | 構成依存 | `true` / `false` | Server↔Agent を mTLS で相互認証するなら true |
 | `Routing:ClientCertificatePath` | mTLS 時必須 | 中央サーバが Agent へ提示する PFX | Server → Agent の呼び出しに使うクライアント証明書 |
 | `Routing:ClientCertificatePassword` | mTLS 時必須 | 上記 PFX のパスワード | 環境変数上書きも可 |
