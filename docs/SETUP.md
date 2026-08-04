@@ -378,7 +378,7 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
 | `Encryption:MasterKey` | 必須 | 32 バイト Base64 | CIFS パスワード暗号化用。紛失すると既存ホスト資格情報を復号できない |
 | `Auth:AllowHttpForAutoLogin` | 任意 | `false` 推奨 | HTTP 接続で「このPCを記憶する」を許可するか。Production は false |
 | `Auth:LoginPerMinutePerIp` | 任意 | 1 分あたり試行数 | 同一 NAT で誤検知する場合だけ増やす |
-| `Auth:WindowsAuth:*` | IIS 構成で必須 | 初回設定の Windows 本人確認 | 同梱設定は `Mode=IIS`。IIS のパス別認証設定、ドメイン照合、受け入れ確認は [HTML ガイド](../deploy/IIS-WINDOWS-AUTH-SETUP.html) と [IIS-HOSTING.md](../deploy/IIS-HOSTING.md#115-windows-統合認証を有効にする-初回パスワード設定) を参照 |
+| `Auth:WindowsAuth:*` | IIS 構成で必須 | 初回設定の Windows 本人確認 | 同梱設定は `Mode=IIS`。IIS の匿名認証／Windows認証併用設定、ドメイン照合、受け入れ確認は [HTML ガイド](../deploy/IIS-WINDOWS-AUTH-SETUP.html) と [IIS-HOSTING.md](../deploy/IIS-HOSTING.md#115-windows-統合認証を有効にする-初回パスワード設定) を参照 |
 | `Routing:UseMtls` | 構成依存 | `true` / `false` | Server↔Agent を mTLS で相互認証するなら true |
 | `Routing:ClientCertificatePath` | mTLS 時必須 | 中央サーバが Agent へ提示する PFX | Server → Agent の呼び出しに使うクライアント証明書 |
 | `Routing:ClientCertificatePassword` | mTLS 時必須 | 上記 PFX のパスワード | 環境変数上書きも可 |
@@ -917,7 +917,7 @@ Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
   ```
 - パスワード期限切れ: `MustChangePassword=true` になり、レスポンスにフラグが付く。クライアントは強制変更画面へ
 - **「429 Too Many Requests」**: ログイン試行が 1 分あたり 10 回を超えた。`Auth:LoginPerMinutePerIp` を緩めるか時間を空ける
-- 初回設定待ちなのにパスワード入力へ進む: Windows 統合認証が無効・不成立の安全なフォールバック。IIS の `/api/auth/win` 設定を確認するか、管理者が「初期PW発行」を行う
+- 初回設定待ちなのにパスワード入力へ進む: Windows 統合認証が無効・不成立の安全なフォールバック。IIS で匿名認証と Windows 認証が両方有効か確認し、`/api/auth/win` の場所別Locationは作成しない。利用できない環境では管理者が「初期PW発行」を行う
 - ユーザー名の大文字小文字違いは同一ユーザーとして扱う。アップグレード migration が重複を検出して停止した場合は、該当ユーザーを統合してから再実行する
 
 ### 自動ログインが効かない

@@ -477,7 +477,7 @@ Watashi.Client の配布物に同梱する `deployment.json` の `serverUrl` に
 
 ## 11.5 Windows 統合認証を有効にする (初回パスワード設定)
 
-同梱 `appsettings.json` ではこの機能を `Mode=IIS` で有効にしています。IIS 側のパス別認証設定は [IIS Windows 認証セットアップスクリプト](configure-iis-windows-auth.ps1) で適用でき、変更箇所・実行・確認・復元は [HTML ガイド](IIS-WINDOWS-AUTH-SETUP.html) にまとめています。機能を使わない場合は `Mode=None` にし、従来どおり管理者が「🔑 初期PW発行」を実行します。
+同梱 `appsettings.json` ではこの機能を `Mode=IIS` で有効にしています。IIS 側の認証設定は [IIS Windows 認証セットアップスクリプト](configure-iis-windows-auth.ps1) で適用でき、変更箇所・実行・確認・復元は [HTML ガイド](IIS-WINDOWS-AUTH-SETUP.html) にまとめています。機能を使わない場合は `Mode=None` にし、従来どおり管理者が「🔑 初期PW発行」を実行します。
 
 有効にすると、利用者が Watashi に GID を入力した時点で Windows のログオン情報による本人確認が行われ、**本人が自分で初回パスワードを決められる**ようになります。管理者が初期パスワードを配布する手順がなくなります。
 
@@ -489,34 +489,29 @@ Watashi.Client の配布物に同梱する `deployment.json` の `serverUrl` に
 Install-WindowsFeature Web-Windows-Auth
 ```
 
-### 11.5.2 認証を `/api/auth/win` だけに限定する
+### 11.5.2 IIS は両認証を有効にし、要求範囲はアプリで限定する
 
-⚠️ **サイト全体で Windows 認証を有効にしてはいけません。** 同じサイトでポータル・`/install/` (ClickOnce)・`/manual/` を配信している場合、ドメイン非参加 PC からインストールページが開けなくなります。
+IIS のサイト／アプリでは、**匿名認証と Windows 認証を両方とも有効**にします。匿名認証を有効にしておくため、ポータル・`/install/` (ClickOnce)・`/manual/` はドメイン非参加 PC からも開けます。
 
-Watashi 側で Windows 認証が要るのは `/api/auth/win/*` だけです。ここだけ Windows 認証、他は匿名のままにします。
+Windows 認証を必須にする範囲は Watashi.Server の `WindowsSetup` 認可ポリシーが `/api/auth/win/*` だけに限定します。通常 API は従来どおり匿名または JWT の認可規則を使います。
 
 ```powershell
 Import-Module WebAdministration
 
 $site = "Watashi.Server"
-$loc  = "$site/api/auth/win"
 
-# サイト全体は匿名のまま (既定)
+# 匿名アクセスを維持したまま、アプリから Windows 認証を要求できるようにする
 Set-WebConfigurationProperty -PSPath "IIS:\" -Location $site `
   -Filter "/system.webServer/security/authentication/anonymousAuthentication" -Name enabled -Value $true
 Set-WebConfigurationProperty -PSPath "IIS:\" -Location $site `
-  -Filter "/system.webServer/security/authentication/windowsAuthentication" -Name enabled -Value $false
-
-# /api/auth/win だけ Windows 認証
-Set-WebConfigurationProperty -PSPath "IIS:\" -Location $loc `
-  -Filter "/system.webServer/security/authentication/anonymousAuthentication" -Name enabled -Value $false
-Set-WebConfigurationProperty -PSPath "IIS:\" -Location $loc `
   -Filter "/system.webServer/security/authentication/windowsAuthentication" -Name enabled -Value $true
 ```
 
-物理フォルダが無いパスでも指定できます (ASP.NET Core のルートに対して効きます)。
+⚠️ **IIS に `Watashi.Server/api/auth/win` の場所別Locationを作成しないでください。** 公開時の `web.config` は `aspNetCore` ハンドラーをアプリのLocation内に設定します。別の場所別Locationを仮想APIパスに作ると、環境によってそのパスで `aspNetCore` が選ばれず、IISが `StaticFile` ハンドラーで `publish\api\auth\win\...` という物理ファイルを探して `404.0` を返します。
 
-> この設定を `web.config` に書く方法もありますが、`system.webServer/security/authentication` は既定でサーバーレベルにロックされているため、そのままだと `500.19` になります。上記のように applicationHost.config 側 (`-PSPath "IIS:\" -Location ...`) に書けばロック解除は不要です。
+旧版スクリプトを実行済みの環境では、最新版を再実行してください。旧版の認証セクションを消し、空になった場所別Locationを安全に削除します。認証以外の設定が同じLocationに残っている場合は、スクリプトは勝手に削除せず停止します。
+
+> この設定を `web.config` に書く方法もありますが、`system.webServer/security/authentication` は既定でサーバーレベルにロックされているため、そのままだと `500.19` になります。上記のように applicationHost.config 側 (`-PSPath "IIS:\" -Location $site`) に書けばロック解除は不要です。
 
 ### 11.5.3 appsettings.json に設定を足す
 
@@ -585,7 +580,7 @@ App Pool をドメインユーザー ID で動かしている場合は、マシ�
 | 3 | `curl.exe -s -i https://watashi.internal/api/auth/win/whoami` | `401` + `WWW-Authenticate: Negotiate` |
 | 4 | `curl.exe -s --negotiate -u : https://watashi.internal/api/auth/win/whoami` | 自分の `DOMAIN\GID` が返り、`normalizedName` が GID、`domainAllowed` が `true` |
 | 5 | 通常ログイン (`POST /api/auth/login`) | 従来どおり成功する |
-| 6 | **JWT を付けずに** `curl.exe -s -o NUL -w "%{http_code}" --negotiate -u : https://watashi.internal/api/hosts` | **`401`**。`200` なら Windows 認証が API 全体に効いてしまっている (設定 11.5.2 を見直す) |
+| 6 | **JWT を付けずに** `curl.exe -s -o NUL -w "%{http_code}" --negotiate -u : https://watashi.internal/api/hosts` | **`401`**。`200` なら通常 API の認可が緩んでいるため、Watashi.Server の認証設定を見直す |
 | 7 | テスト用ユーザーを 1 件作り、本人の PC から初回設定を通す | 「初回パスワードの設定」画面が出て、設定後そのままログインできる |
 
 確認が済んだら `EnableDiagnostics` を `false` に戻してアプリプールを再起動します。
