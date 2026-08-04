@@ -50,8 +50,12 @@ public static class WindowsIdentityMatcher
     /// </summary>
     public static bool IsDomainAllowed(string? domain, WindowsAuthOptions options)
     {
-        if (!string.Equals(options.DomainMatch, WindowsAuthDomainMatchModes.AllowList, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(options.DomainMatch, WindowsAuthDomainMatchModes.IgnoreDomain, StringComparison.OrdinalIgnoreCase))
             return true;
+
+        // 未知の値は設定ミス。別ドメインの同名ユーザーを通さないよう fail-closed にする。
+        if (!string.Equals(options.DomainMatch, WindowsAuthDomainMatchModes.AllowList, StringComparison.OrdinalIgnoreCase))
+            return false;
 
         if (string.IsNullOrWhiteSpace(domain)) return false;
 

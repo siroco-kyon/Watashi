@@ -135,4 +135,18 @@ public class WindowsIdentityMatcherTests
         // 設定漏れで全ドメイン素通し、という事故を起こさない。
         WindowsIdentityMatcher.Matches(@"CORP\G012345", "G012345", AllowList()).Should().BeFalse();
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("AllowLis")]
+    [InlineData("unknown")]
+    public void Unknown_domain_match_mode_is_fail_closed(string mode)
+    {
+        var opts = IgnoreDomain();
+        opts.DomainMatch = mode;
+
+        WindowsIdentityMatcher.Matches(@"CORP\G012345", "G012345", opts).Should().BeFalse();
+        Action validate = opts.Validate;
+        validate.Should().Throw<InvalidOperationException>();
+    }
 }

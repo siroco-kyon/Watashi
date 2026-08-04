@@ -59,8 +59,8 @@ public static class WindowsAuthEndpoints
             CancellationToken ct) =>
         {
             if (RejectInsecure(ctx, options) is { } insecure) return insecure;
-            if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.NewPassword))
-                return Results.BadRequest(new { error = "ユーザー名と新しいパスワードを入力してください。" });
+            if (string.IsNullOrWhiteSpace(req.Username))
+                return Results.BadRequest(new { error = "ユーザー名を入力してください。" });
 
             var (response, error) = await auth.CompletePasswordSetupAsync(
                 req.Username.Trim(), req.NewPassword, ctx.User.Identity?.Name, options,

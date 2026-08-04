@@ -14,6 +14,12 @@ public static class AuthClaims
     public const string Admin = "Admin";
     public const string User = "User";
     /// <summary>
+    /// access token 発行時点の <c>User.PasswordChangedAt</c> (UTC ticks)。
+    /// DB 上の値と一致しないトークンは、パスワード変更・管理者リセット・初回設定待ちへの
+    /// 変更より前に発行されたものとして認証時に拒否する。
+    /// </summary>
+    public const string CredentialVersion = "cv";
+    /// <summary>
     /// access token に付与される「パスワード変更必須」フラグ。値は "1" 固定。
     /// 付与されたトークンは <c>/api/auth/change-password</c> / <c>/api/auth/logout</c> /
     /// <c>/api/auth/refresh</c> 以外のエンドポイントで 403 にブロックされる。

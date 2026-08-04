@@ -151,6 +151,8 @@ public static class AdminUserEndpoints
             u.PasswordHash = PasswordSetup.CreateUnusableHash();
             u.IsPasswordSetupPending = true;
             u.PasswordSetupExpiresAt = await auth.ComputeSetupExpiryAsync(now, ct);
+            // 既存 access token の資格情報バージョンと不一致にし、認証時点で即座に拒否する。
+            u.PasswordChangedAt = now;
             u.MustChangePassword = false;
             u.FailedLoginCount = 0;
             u.IsLocked = false;
