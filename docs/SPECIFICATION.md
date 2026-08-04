@@ -229,10 +229,10 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 |---|---|
 | `POST /api/auth/win/prepare-login` | ID から次の画面 (パスワード入力 / 初回設定) を判定 |
 | `POST /api/auth/win/initialize-password` | 初回パスワードを確定し、そのままトークンを発行 |
-| `GET /api/auth/win/whoami` | 導入時の疎通確認 (既定オフ) |
+| `GET /api/auth/win/whoami` | 導入時の疎通確認 (同梱 IIS 設定ではオン) |
 
-- 設定値は `Auth:WindowsAuth` 配下。`Mode` (`None`/`IIS`/`Negotiate`) が既定 `None` で、
-  有効化するまで `/api/auth/win/*` は map されない
+- 設定値は `Auth:WindowsAuth` 配下。`Mode` は `None` / `IIS` / `Negotiate`。
+  同梱 `appsettings.json` は IIS 本番向けに `IIS` を指定し、設定自体が無い場合のコード既定値は `None`
 - OS アカウント名は `DOMAIN\GID` / `GID@domain` / `GID` の 3 形態を正規化して照合。
   ドメイン部の扱いは `DomainMatch` (`IgnoreDomain` / `AllowList`) で切り替える
   - `AllowList` はユーザー単位のドメイン紐付けではない。複数の独立ドメインを許可する場合、
