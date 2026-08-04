@@ -18,7 +18,8 @@ public static class DataSeeder
                 new SystemSetting { Key = SettingKeys.AgentMaxConcurrency, Value = "20", UpdatedAt = now },
                 new SystemSetting { Key = SettingKeys.SessionIdleMinutes, Value = "30", UpdatedAt = now },
                 new SystemSetting { Key = SettingKeys.AuditLogRetentionDays, Value = "365", UpdatedAt = now },
-                new SystemSetting { Key = SettingKeys.MaxFailedLoginAttempts, Value = "15", UpdatedAt = now });
+                new SystemSetting { Key = SettingKeys.MaxFailedLoginAttempts, Value = "15", UpdatedAt = now },
+                new SystemSetting { Key = SettingKeys.PasswordSetupExpiryDays, Value = "0", UpdatedAt = now });
         }
         else
         {
@@ -27,6 +28,9 @@ public static class DataSeeder
                 db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.AuditLogRetentionDays, Value = "365", UpdatedAt = now });
             if (!await db.SystemSettings.AnyAsync(s => s.Key == SettingKeys.MaxFailedLoginAttempts, ct))
                 db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.MaxFailedLoginAttempts, Value = "15", UpdatedAt = now });
+            // 0 = 無期限。既定を無期限にすることで、既存 DB へ入っても運用が変わらない。
+            if (!await db.SystemSettings.AnyAsync(s => s.Key == SettingKeys.PasswordSetupExpiryDays, ct))
+                db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.PasswordSetupExpiryDays, Value = "0", UpdatedAt = now });
         }
 
         if (!await db.PermissionTemplates.AnyAsync(ct))

@@ -59,6 +59,19 @@ public class AuthService
             return new LoginResult(null, LoginFailureReason.AccountLocked);
         }
 
+        // 初回パスワード設定待ちのアカウントは、パスワード照合そのものを行わない。
+        // PasswordHash は使用不能ハッシュなので Verify は必ず false になるが、それに任せると
+        // 本人の試行で FailedLoginCount が積み上がり、設定前にロックされてしまう。
+        // 応答は「不明なユーザー」「パスワード不一致」と同一の InvalidCredentials に揃え、
+        // 未設定アカウントの存在を推測させない (ユーザー列挙対策)。
+        if (user.IsPasswordSetupPending)
+        {
+            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
+                user.Id, user.Username, "password_setup_pending", machineName, clientIp));
+            await _db.SaveChangesAsync(ct);
+            return new LoginResult(null, LoginFailureReason.InvalidCredentials);
+        }
+
         var passwordOk = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
         if (!passwordOk)
         {
@@ -273,6 +286,17 @@ public class AuthService
         var user = device.User;
         if (user.IsLocked)
             return new LoginResult(null, LoginFailureReason.AccountLocked);
+
+        // 初回設定待ちのユーザーを、記憶済み端末からパスワード無しで通してはならない。
+        // ユーザーを未設定へ戻す操作は信頼済み端末も失効させるため通常ここには到達しないが、
+        // 到達した場合は不変条件が壊れているということなので監査ログに残す。
+        if (user.IsPasswordSetupPending)
+        {
+            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
+                user.Id, user.Username, "password_setup_pending", machineName, clientIp));
+            await _db.SaveChangesAsync(ct);
+            return new LoginResult(null, LoginFailureReason.InvalidCredentials);
+        }
 
         device.LastUsedAt = DateTime.UtcNow;
         user.LastLoginAt = DateTime.UtcNow;

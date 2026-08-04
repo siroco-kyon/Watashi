@@ -7,12 +7,13 @@ namespace Watashi.Tests;
 
 public class AdminUserGuardTests
 {
-    private static User MkUser(string name, bool admin, bool locked = false) => new()
+    private static User MkUser(string name, bool admin, bool locked = false, bool pending = false) => new()
     {
         Username = name,
         PasswordHash = "x",
         IsAdmin = admin,
         IsLocked = locked,
+        IsPasswordSetupPending = pending,
         PasswordChangedAt = DateTime.UtcNow,
         PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
         CreatedAt = DateTime.UtcNow,
@@ -75,6 +76,35 @@ public class AdminUserGuardTests
     }
 
     [Fact]
+    public async Task CanDelete_pending_setup_admin_does_not_count_as_active()
+    {
+        // 初回パスワード設定待ちの admin はまだログインできないので「アクティブな他管理者」ではない。
+        // これを数えてしまうと、実際に使える最後の管理者を削除できてしまう。
+        using var db = new TestDb();
+        var pending = MkUser("pending-admin", admin: true, pending: true);
+        var lone = MkUser("only", admin: true);
+        db.Db.Users.AddRange(pending, lone);
+        await db.Db.SaveChangesAsync();
+
+        var d = await AdminUserGuard.CanDeleteAsync(db.Db, actorUserId: 999, lone.Id, lone.IsAdmin);
+        d.Should().Be(AdminUserGuard.Decision.LastActiveAdmin);
+    }
+
+    [Fact]
+    public async Task CanDelete_allows_deleting_a_pending_setup_admin_itself()
+    {
+        // 逆に、未設定 admin 自身の削除は他に有効な管理者が居れば通す。
+        using var db = new TestDb();
+        var pending = MkUser("pending-admin", admin: true, pending: true);
+        var active = MkUser("active", admin: true);
+        db.Db.Users.AddRange(pending, active);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanDeleteAsync(db.Db, actorUserId: active.Id, pending.Id, pending.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.Allow);
+    }
+
+    [Fact]
     public async Task CanDelete_allows_deleting_non_admin_freely()
     {
         using var db = new TestDb();
@@ -109,6 +139,19 @@ public class AdminUserGuardTests
         var lone = MkUser("only", admin: true);
         var guest = MkUser("guest", admin: false);
         db.Db.Users.AddRange(lone, guest);
+        await db.Db.SaveChangesAsync();
+
+        var d = await AdminUserGuard.CanDemoteAsync(db.Db, actorUserId: 999, lone.Id, currentIsAdmin: true, newIsAdmin: false);
+        d.Should().Be(AdminUserGuard.Decision.LastActiveAdmin);
+    }
+
+    [Fact]
+    public async Task CanDemote_pending_setup_admin_does_not_count_as_active()
+    {
+        using var db = new TestDb();
+        var pending = MkUser("pending-admin", admin: true, pending: true);
+        var lone = MkUser("only", admin: true);
+        db.Db.Users.AddRange(pending, lone);
         await db.Db.SaveChangesAsync();
 
         var d = await AdminUserGuard.CanDemoteAsync(db.Db, actorUserId: 999, lone.Id, currentIsAdmin: true, newIsAdmin: false);

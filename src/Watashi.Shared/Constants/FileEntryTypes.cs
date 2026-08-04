@@ -29,4 +29,6 @@ public static class SettingKeys
     public const string SessionIdleMinutes = "SessionIdleMinutes";
     public const string AuditLogRetentionDays = "AuditLogRetentionDays";
     public const string MaxFailedLoginAttempts = "MaxFailedLoginAttempts";
+    /// <summary>初回パスワード設定を受け付ける日数。0 は無期限 (既定)。</summary>
+    public const string PasswordSetupExpiryDays = "PasswordSetupExpiryDays";
 }
