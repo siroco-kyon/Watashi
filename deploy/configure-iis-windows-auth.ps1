@@ -2,13 +2,18 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-  Watashi の初回パスワード設定 API だけに IIS Windows 認証を設定する。
+  Watashi の初回パスワード設定 API で IIS Windows 認証を利用できるようにする。
 
 .DESCRIPTION
   1. Windows Authentication の IIS 役割サービスを確認し、未導入ならインストール
   2. 現在の IIS 構成をバックアップ
-  3. サイト全体は匿名認証、/api/auth/win だけは Windows 認証に設定
-  4. 設定値を検証し、必要ならアプリケーションプールを再起動
+  3. サイト/アプリで匿名認証と Windows 認証を併用
+  4. 旧版が作成した /api/auth/win の場所別設定を削除
+  5. 設定値を検証し、必要ならアプリケーションプールを再起動
+
+  IIS では匿名認証を有効にしたまま Windows 認証も利用可能にする。
+  Windows 認証を必須にする範囲は Watashi.Server の認可ポリシーが
+  /api/auth/win/* だけに限定するため、通常 API や配布ページは匿名で到達できる。
 
   この設定は IIS の applicationHost.config に保存されるため、Watashi を再発行しても維持される。
 
@@ -21,7 +26,8 @@
   Watashi.Server を実行しているアプリケーションプール名。
 
 .PARAMETER WindowsAuthPath
-  SitePath から見た Windows 認証対象の URL パス。通常は変更しない。
+  SitePath から見た Windows 認証対象の URL パス。
+  旧版スクリプトが作成した場所別設定の移行と、確認 URL の表示に使う。通常は変更しない。
 
 .PARAMETER SkipWindowsFeatureInstall
   IIS の Windows Authentication 役割サービスの確認と自動インストールを省略する。
@@ -144,13 +150,56 @@ function Set-AuthenticationEnabled {
     Set-WebConfigurationProperty @setParams
 }
 
-Write-Host "[3/5] サイト全体を匿名認証に設定..."
+Write-Host "[3/5] 匿名認証と Windows 認証を併用するように設定..."
 Set-AuthenticationEnabled -Location $normalizedSitePath -Filter $anonymousFilter -Enabled $true
-Set-AuthenticationEnabled -Location $normalizedSitePath -Filter $windowsFilter -Enabled $false
+Set-AuthenticationEnabled -Location $normalizedSitePath -Filter $windowsFilter -Enabled $true
 
-Write-Host "[4/5] /$normalizedAuthPath だけを Windows 認証に設定..."
-Set-AuthenticationEnabled -Location $windowsAuthLocation -Filter $anonymousFilter -Enabled $false
-Set-AuthenticationEnabled -Location $windowsAuthLocation -Filter $windowsFilter -Enabled $true
+function Get-LegacyWindowsAuthLocation {
+    $locations = @(Get-WebConfigurationLocation `
+        -Name $windowsAuthLocation `
+        -PSPath $iisRoot `
+        -WarningAction SilentlyContinue)
+
+    return $locations |
+        Where-Object { $_.Name -eq $windowsAuthLocation } |
+        Select-Object -First 1
+}
+
+Write-Host "[4/5] 旧版の場所別認証設定を確認..."
+$legacyLocation = Get-LegacyWindowsAuthLocation
+if ($null -ne $legacyLocation) {
+    # 旧版は物理フォルダーではない API URL に location を作成していた。
+    # ASP.NET Core の web.config が持つ aspNetCore ハンドラーより StaticFile が選ばれ、
+    # API を物理ファイルとして探す 404.0 になる環境があるため、認証設定ごと撤去する。
+    Clear-WebConfiguration `
+        -PSPath $iisRoot `
+        -Location $windowsAuthLocation `
+        -Filter $anonymousFilter `
+        -WarningAction SilentlyContinue
+    Clear-WebConfiguration `
+        -PSPath $iisRoot `
+        -Location $windowsAuthLocation `
+        -Filter $windowsFilter `
+        -WarningAction SilentlyContinue
+
+    $legacyLocation = Get-LegacyWindowsAuthLocation
+    if ($null -ne $legacyLocation) {
+        $remainingSections = @($legacyLocation.Sections)
+        if ($remainingSections.Count -eq 0) {
+            Remove-WebConfigurationLocation `
+                -Name $windowsAuthLocation `
+                -PSPath $iisRoot `
+                -Confirm:$false
+            Write-Host "  旧版の空の構成場所 '$windowsAuthLocation' を削除しました。"
+        }
+        else {
+            throw "構成場所 '$windowsAuthLocation' に認証以外の設定が残っているため自動削除できません。バックアップ '$backupName' を保持したまま、IIS 構成を確認してください。"
+        }
+    }
+}
+else {
+    Write-Host "  旧版の場所別設定はありません。"
+}
 
 function Get-AuthenticationEnabled {
     param(
@@ -169,11 +218,13 @@ function Get-AuthenticationEnabled {
 
 $siteAnonymous = Get-AuthenticationEnabled -Location $normalizedSitePath -Filter $anonymousFilter
 $siteWindows = Get-AuthenticationEnabled -Location $normalizedSitePath -Filter $windowsFilter
-$pathAnonymous = Get-AuthenticationEnabled -Location $windowsAuthLocation -Filter $anonymousFilter
-$pathWindows = Get-AuthenticationEnabled -Location $windowsAuthLocation -Filter $windowsFilter
 
-if (-not $siteAnonymous -or $siteWindows -or $pathAnonymous -or -not $pathWindows) {
+if (-not $siteAnonymous -or -not $siteWindows) {
     throw "設定後の検証に失敗しました。バックアップ '$backupName' から復元できます。"
+}
+
+if ($null -ne (Get-LegacyWindowsAuthLocation)) {
+    throw "旧版の構成場所 '$windowsAuthLocation' が残っています。バックアップ '$backupName' を保持したまま、IIS 構成を確認してください。"
 }
 
 Write-Host "[5/5] 設定結果を確認..."
@@ -181,11 +232,9 @@ Write-Host "[5/5] 設定結果を確認..."
     Location = $normalizedSitePath
     AnonymousAuthentication = $siteAnonymous
     WindowsAuthentication = $siteWindows
-}, [pscustomobject]@{
-    Location = $windowsAuthLocation
-    AnonymousAuthentication = $pathAnonymous
-    WindowsAuthentication = $pathWindows
 } | Format-Table -AutoSize
+
+Write-Host "  Windows 認証を要求する範囲は Watashi.Server が /$normalizedAuthPath/* に限定します。"
 
 if (-not $SkipAppPoolRestart) {
     $poolState = (Get-WebAppPoolState -Name $AppPoolName).Value

@@ -301,20 +301,20 @@
     <main>
       <section id="overview">
         <h2>1. 何を設定するのか</h2>
-        <p>WatashiがWindows認証を使うのは、初回パスワード設定用の <code>/api/auth/win/*</code> だけです。通常API、ポータル、インストールページは匿名アクセスのまま維持します。</p>
+        <p>IISでは匿名認証とWindows認証を同時に有効にします。Windows認証を実際に要求するのはWatashi.Serverの認可ポリシーで、初回パスワード設定用の <code>/api/auth/win/*</code> だけです。通常API、ポータル、インストールページは匿名で到達できます。</p>
         <div class="result">
           <div>
-            <strong>サイト全体</strong>
+            <strong>IISのサイト／アプリ</strong>
             匿名認証: 有効<br>
-            Windows認証: 無効
-          </div>
-          <div>
-            <strong>/api/auth/win のみ</strong>
-            匿名認証: 無効<br>
             Windows認証: 有効
           </div>
+          <div>
+            <strong>Watashi.Serverの制御</strong>
+            <code>/api/auth/win/*</code>: Windows認証を要求<br>
+            その他: 従来の匿名／JWT認証
+          </div>
         </div>
-        <div class="callout danger"><strong>重要:</strong> IISマネージャーでサイト全体のWindows認証を有効にしないでください。ドメイン非参加PCからインストールページを開けなくなります。</div>
+        <div class="callout danger"><strong>重要:</strong> 匿名認証を無効にしないでください。また、IISに <code>/api/auth/win</code> の場所別Locationを作らないでください。場所別設定はASP.NET Coreのハンドラーを外し、APIを物理ファイルとして探す <code>404.0</code> の原因になります。</div>
         <p>このIIS設定はサーバーの <code>applicationHost.config</code> に保存されます。一度設定すれば、Watashiを再発行しても再実行は不要です。</p>
       </section>
 
@@ -350,7 +350,7 @@
           <tbody>
             <tr><td><code>SitePath</code></td><td><code>Watashi.Server</code></td><td>IISのサイト名が違う、またはサイト配下のアプリとして配置している</td></tr>
             <tr><td><code>AppPoolName</code></td><td><code>Watashi.Server</code></td><td>Watashiを実行するアプリケーションプール名が違う</td></tr>
-            <tr><td><code>WindowsAuthPath</code></td><td><code>api/auth/win</code></td><td>通常は変更しない</td></tr>
+            <tr><td><code>WindowsAuthPath</code></td><td><code>api/auth/win</code></td><td>旧版が作成した場所別設定の移行と確認URLの表示に使用。通常は変更しない</td></tr>
           </tbody>
         </table>
       </section>
@@ -372,7 +372,7 @@
           <pre><code>Set-ExecutionPolicy -Scope Process Bypass
 .\configure-iis-windows-auth.ps1</code></pre>
         </div>
-        <div class="callout success">スクリプトはWindows認証機能の導入、IIS構成バックアップ、パス別認証設定、設定検証、アプリケーションプール再起動まで実施します。</div>
+        <div class="callout success">スクリプトはWindows認証機能の導入、IIS構成バックアップ、匿名認証とWindows認証の併用設定、旧版の場所別設定の削除、設定検証、アプリケーションプール再起動まで実施します。</div>
 
         <h3>主なオプション</h3>
         <table>
@@ -408,8 +408,9 @@
         <div class="code-wrap">
           <button class="copy" type="button">コピー</button>
           <pre><code>whoami
-curl.exe -s --negotiate -u : https://watashi.internal/api/auth/win/whoami</code></pre>
+curl.exe -s -i --negotiate -u : https://watashi.internal/api/auth/win/whoami</code></pre>
         </div>
+        <div class="callout note">Negotiateの確認では、最初に <code>401 Unauthorized</code> が表示され、その後に <code>200 OK</code> とJSONが返ることがあります。最初の401は認証開始の合図で、最後のHTTPステータスが結果です。</div>
         <p>次の値になれば、Windows認証とユーザー登録は正常です。</p>
         <div class="code-wrap">
           <button class="copy" type="button">コピー</button>
@@ -432,7 +433,8 @@ curl.exe -s --negotiate -u : https://watashi.internal/api/auth/win/whoami</code>
           <thead><tr><th>結果・症状</th><th>確認すること</th></tr></thead>
           <tbody>
             <tr><td><code>401 Unauthorized</code></td><td>IISのWindows認証機能、スクリプトの実行結果、利用者PCがドメイン参加しているかを確認</td></tr>
-            <tr><td><code>404 Not Found</code></td><td>本番 <code>appsettings.json</code> の <code>Mode</code> が <code>IIS</code> か確認し、アプリケーションプールを再起動</td></tr>
+            <tr><td>IIS詳細エラーが <code>404.0</code>／ハンドラーが <code>StaticFile</code></td><td>旧版の <code>Watashi.Server/api/auth/win</code> Locationが残っている可能性があります。最新版のスクリプトを再実行し、場所別設定を削除します</td></tr>
+            <tr><td>JSON形式の <code>404 Not Found</code></td><td>要求はWatashi.Serverに届いています。本番 <code>appsettings.json</code> の <code>Mode</code> と <code>EnableDiagnostics</code> を確認し、アプリケーションプールを再起動します</td></tr>
             <tr><td><code>normalizedName</code> が想定外</td><td><code>rawAccountName</code> を確認。Watashiにはドメインを除いた名前だけを登録</td></tr>
             <tr><td><code>domainAllowed: false</code></td><td><code>DomainMatch</code> を確認。<code>IgnoreDomain</code> なら通常は <code>true</code></td></tr>
             <tr><td><code>watashiUserExists: false</code></td><td>管理画面の登録名を確認。例: <code>JP\0020h28809</code> ではなく <code>0020h28809</code></td></tr>
