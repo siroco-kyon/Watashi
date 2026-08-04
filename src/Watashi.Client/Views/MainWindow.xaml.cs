@@ -93,24 +93,42 @@ public partial class MainWindow : Window
         if (ok != MessageBoxResult.OK) return;
         var sp = ((App)Application.Current).Services;
         var session = sp.GetRequiredService<Services.SessionManager>();
-        if (session.RefreshTokenId is not null && session.RefreshToken is not null)
+        try
         {
-            try { await sp.GetRequiredService<Services.ApiClient>().LogoutAsync(session.RefreshTokenId, session.RefreshToken); } catch { }
+            var refresh = await session.GetRefreshTokenForLogoutAsync();
+            if (refresh is not null)
+                await sp.GetRequiredService<Services.ApiClient>().LogoutAsync(
+                    refresh.Value.RefreshTokenId,
+                    refresh.Value.RefreshToken);
         }
+        catch { }
         sp.GetRequiredService<Services.CredentialStore>().ClearDeviceToken();
+        // refresh の 401 は SessionExpired がメイン画面を閉じる。ここでも閉じると、
+        // キュー済み通知が次の LoginWindow に割り込んで閉じてしまう。
+        if (!session.IsAuthenticated) return;
         session.Clear();
         ((App)Application.Current).RequestLogout();
     }
 
     private void OnChangePassword(object sender, RoutedEventArgs e)
     {
-        var sp = ((App)Application.Current).Services;
-        var w = sp.GetRequiredService<Views.ChangePasswordWindow>();
-        w.ViewModel.IsMandatory = false;   // メニューからの任意変更。キャンセル可能にする。
-        w.Owner = this;
-        if (w.ShowDialog() == true)
+        var app = (App)Application.Current;
+        var completed = app.ShowChangePassword(mandatory: false, out var endedMandatory);
+        if (completed)
+        {
             MessageBox.Show("パスワードを変更しました。", "パスワード変更",
                             MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        else if (endedMandatory)
+        {
+            // 任意変更中に期限切れとなった場合は mcp セッションのまま戻さない。
+            var session = app.Services.GetRequiredService<Services.SessionManager>();
+            if (session.IsAuthenticated)
+            {
+                session.Clear();
+                app.RequestLogout();
+            }
+        }
     }
 
     private void OnAbout(object sender, RoutedEventArgs e)

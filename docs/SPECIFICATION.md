@@ -184,6 +184,7 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
   - 紐づく `TrustedDevice.IsRevoked` → 401
   - `User.MustChangePassword` → レスポンスにフラグ付与
 - パスワード変更時は既存リフレッシュトークンを無効化
+- access token の認証時にも `User.IsLocked` を都度確認し、ロック中は発行済み token も即時拒否
 
 ### 4.4 自動ログイン (信頼デバイス) の詳細
 
@@ -231,6 +232,8 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
   有効化するまで `/api/auth/win/*` は map されない
 - OS アカウント名は `DOMAIN\GID` / `GID@domain` / `GID` の 3 形態を正規化して照合。
   ドメイン部の扱いは `DomainMatch` (`IgnoreDomain` / `AllowList`) で切り替える
+  - `AllowList` はユーザー単位のドメイン紐付けではない。複数の独立ドメインを許可する場合、
+    GID は許可ドメイン全体で一意であること。同名 GID が存在し得る環境は管理者発行の初期 PW 経路を使う
 - **ユーザー列挙対策**: 本人確認できた未設定アカウント以外は、不明な ID も通常アカウントも
   一律 `mode=password` を返す。未設定ユーザーへの通常ログインも、存在しないユーザーと同一の応答
 - **未設定ユーザーは bcrypt 照合の手前で遮断する**。照合に任せると本人の試行で

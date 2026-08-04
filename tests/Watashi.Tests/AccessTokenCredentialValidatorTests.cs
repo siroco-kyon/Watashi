@@ -90,6 +90,34 @@ public class AccessTokenCredentialValidatorTests
     }
 
     [Fact]
+    public async Task Access_token_is_rejected_while_the_account_is_locked()
+    {
+        using var db = new TestDb();
+        var user = await SeedAsync(db);
+        var login = await Build(db).LoginAsync("alice", Password, clientIp: null);
+
+        user.IsLocked = true;
+        await db.Db.SaveChangesAsync();
+
+        (await AccessTokenCredentialValidator.IsCurrentAsync(
+            db.Db, Principal(login.Response!.AccessToken))).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Access_token_is_rejected_immediately_after_an_admin_role_change()
+    {
+        using var db = new TestDb();
+        var user = await SeedAsync(db);
+        var login = await Build(db).LoginAsync("alice", Password, clientIp: null);
+
+        UserAuthorizationVersion.ApplyAdminRole(user, true, DateTime.UtcNow).Should().BeTrue();
+        await db.Db.SaveChangesAsync();
+
+        (await AccessTokenCredentialValidator.IsCurrentAsync(
+            db.Db, Principal(login.Response!.AccessToken))).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Legacy_access_token_uses_not_before_for_deployment_compatibility()
     {
         using var db = new TestDb();
