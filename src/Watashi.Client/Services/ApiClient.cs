@@ -12,15 +12,6 @@ using Watashi.Shared.DTOs.Files;
 
 namespace Watashi.Client.Services;
 
-public class ApiException : Exception
-{
-    public HttpStatusCode StatusCode { get; }
-    public ApiException(HttpStatusCode code, string? message) : base(message ?? $"HTTP {(int)code}")
-    {
-        StatusCode = code;
-    }
-}
-
 public class ApiClient
 {
     private readonly HttpClient _http;
@@ -98,7 +89,7 @@ public class ApiClient
                 NewPassword = newPassword,
                 MachineName = Environment.MachineName,
             }, JsonOptions, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, ct, invalidateSessionOnUnauthorized: false);
         return (await res.Content.ReadFromJsonAsync<LoginResponse>(JsonOptions, ct))!;
     }
 
@@ -377,7 +368,7 @@ public class ApiClient
                 req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
         using var res = await _http.SendAsync(req, ct);
-        await ThrowIfErrorAsync(res, ct);
+        await ThrowIfErrorAsync(res, ct, invalidateSessionOnUnauthorized: !anonymous);
         var data = await res.Content.ReadFromJsonAsync<T>(JsonOptions, ct);
         return data!;
     }
@@ -406,7 +397,10 @@ public class ApiClient
         await ThrowIfErrorAsync(res, ct);
     }
 
-    private static async Task ThrowIfErrorAsync(HttpResponseMessage res, CancellationToken ct)
+    private async Task ThrowIfErrorAsync(
+        HttpResponseMessage res,
+        CancellationToken ct,
+        bool invalidateSessionOnUnauthorized = true)
     {
         if (res.IsSuccessStatusCode) return;
         string? msg = null;
@@ -437,6 +431,8 @@ public class ApiClient
             HttpStatusCode.ServiceUnavailable => "サーバーまたは実行ノードに接続できません。",
             _ => $"HTTP {(int)res.StatusCode}",
         };
+        if (invalidateSessionOnUnauthorized && res.StatusCode == HttpStatusCode.Unauthorized)
+            _session.ExpireSession(msg);
         throw new ApiException(res.StatusCode, msg);
     }
 

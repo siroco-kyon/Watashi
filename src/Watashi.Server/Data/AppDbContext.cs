@@ -48,7 +48,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>(b =>
         {
             b.HasIndex(u => u.Username).IsUnique();
-            b.Property(u => u.Username).IsRequired();
+            // Windows のアカウント名は大文字・小文字を区別しない。照合側だけを
+            // OrdinalIgnoreCase にすると KU_EM / ku_em を別ユーザーとして登録でき、
+            // 同じ OS アカウントが両方を初回設定できてしまうため DB 制約も揃える。
+            b.Property(u => u.Username).IsRequired().UseCollation("NOCASE");
             // 初回設定待ちでも PasswordHash には使用不能ハッシュが入るため NOT NULL を維持する
             // (PasswordSetup のコメント参照)。nullable 化はテーブル再構築を招くので行わない。
             b.Property(u => u.PasswordHash).IsRequired();

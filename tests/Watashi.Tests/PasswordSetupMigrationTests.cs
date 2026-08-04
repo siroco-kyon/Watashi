@@ -66,6 +66,10 @@ public class PasswordSetupMigrationTests
                 users[0].PasswordHash.Should().Be("HASH-ALICE");
                 users[1].PasswordHash.Should().Be("HASH-BOB");
                 users[0].IsAdmin.Should().BeTrue();
+                // 最新 migration まで適用した列は Windows アカウント名と同じく
+                // 大文字・小文字を区別せず検索できる。
+                (await db.Users.AsNoTracking().SingleAsync(u => u.Username == "ALICE"))
+                    .Username.Should().Be("alice");
 
                 // Cascade 参照している子テーブルが巻き添えで消えていないこと。
                 (await db.UserPermissions.CountAsync()).Should().Be(2);

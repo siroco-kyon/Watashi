@@ -51,10 +51,12 @@ public partial class LoginViewModel : ObservableObject
     // ID を編集し直したらパスワード段階を解除する。別の ID には別の判定が要るため。
     partial void OnUsernameChanged(string value)
     {
+        // 初回設定ダイアログをキャンセルした直後など、まだパスワード段階でなくても
+        // 別 ID の入力中に前の利用者向けメッセージを残さない。
+        StatusMessage = string.Empty;
         if (!IsPasswordStep) return;
         IsPasswordStep = false;
         Password = string.Empty;
-        StatusMessage = string.Empty;
     }
 
     /// <summary>
@@ -76,13 +78,18 @@ public partial class LoginViewModel : ObservableObject
             IsBusy = true;
             StatusMessage = string.Empty;
 
-            var prepared = await _api.PrepareLoginAsync(Username.Trim());
+            // 通信中に ID が編集されても、判定した ID と別の利用者を初回設定へ
+            // 渡さないよう、この操作で使う値を固定する。
+            var requestedUsername = Username.Trim();
+            var prepared = await _api.PrepareLoginAsync(requestedUsername);
+            if (!string.Equals(Username.Trim(), requestedUsername, StringComparison.Ordinal))
+                return;
             if (prepared.Mode == LoginModes.Setup)
             {
                 // 初回設定に成功するとサーバーがそのままログイン応答を返し、
                 // SessionManager も設定済みになる。以降は通常ログインと同じ扱いでよい。
                 // 「このPCを記憶」も設定完了後に呼び出し側が処理する。
-                var setupResult = PasswordSetupRequested?.Invoke(Username.Trim(), prepared.SetupExpiresAt);
+                var setupResult = PasswordSetupRequested?.Invoke(requestedUsername, prepared.SetupExpiresAt);
                 if (setupResult is not null)
                 {
                     LoggedIn?.Invoke(setupResult);
