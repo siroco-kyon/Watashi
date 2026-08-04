@@ -361,8 +361,23 @@
       <h2 id="users"><span class="num">3</span>ユーザー（タブ）</h2>
       <p>ユーザーアカウントの作成・削除・管理者フラグ・ロック解除・パスワードリセット・CSV一括取込／出力を行います。</p>
 
+      <div class="tip">
+        <strong>初期パスワードの配布は不要になりました</strong>
+        ユーザーを作成すると「初回設定待ち」になり、本人が初回ログイン時に自分でパスワードを決めます。本人確認は Windows のログオン情報（ログオン名＝GID＝Watashiのユーザー名）で自動的に行われます。管理者が伝えるのは「GID でログインしてください」だけです。
+      </div>
+
       <h4>一覧の列</h4>
-      <p><code>ID</code> ／ <code>ユーザー名</code> ／ <code>管理者</code> ／ <code>Lock</code>（ロック状態） ／ <code>PW期限</code> ／ <code>最終ログイン</code>。検索ボックスと並び替えで絞り込めます。</p>
+      <p><code>ID</code> ／ <code>ユーザー名</code> ／ <code>管理者</code> ／ <code>Lock</code>（ロック状態） ／ <code>PW状態</code> ／ <code>PW期限</code> ／ <code>最終ログイン</code>。検索ボックスと並び替えで絞り込めます。</p>
+
+      <table>
+        <thead><tr><th>PW状態</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td><strong>初回設定待ち</strong></td><td>まだパスワードが決まっていない。この状態ではログインできない</td></tr>
+          <tr><td>有効</td><td>通常</td></tr>
+          <tr><td>要変更</td><td>管理者が初期PWを発行した直後など。次回ログインで変更を強制される</td></tr>
+          <tr><td>期限切れ</td><td><code>PasswordExpiryDays</code> を過ぎた。次回ログインで変更を強制される</td></tr>
+        </tbody>
+      </table>
 
       <h4>ツールバーのボタン</h4>
       <table>
@@ -372,71 +387,96 @@
           <tr><td><span class="uibtn ghost">📥 CSV取込</span></td><td>CSVからユーザーを一括登録</td><td><span class="tag">ADMIN_USER_IMPORT</span></td></tr>
           <tr><td><span class="uibtn ghost">📤 CSV出力</span></td><td>ユーザー一覧をCSVで保存</td><td><span class="tag">ADMIN_USER_EXPORT</span></td></tr>
           <tr><td><span class="uibtn">🔓 ロック解除</span></td><td>連続失敗でロックされたユーザーを解除</td><td><span class="tag">ADMIN_USER_UNLOCK</span></td></tr>
-          <tr><td><span class="uibtn">🔑 PWリセット</span></td><td>新パスワードをダイアログで設定</td><td><span class="tag">ADMIN_USER_RESET_PW</span></td></tr>
+          <tr><td><span class="uibtn">🔑 初期PW発行</span></td><td>管理者がパスワードを決めて発行する（Windows認証が使えない端末向け）</td><td><span class="tag">ADMIN_USER_RESET_PW</span></td></tr>
+          <tr><td><span class="uibtn">↩ 初回設定に戻す</span></td><td>パスワードを破棄し、本人に再設定させる</td><td><span class="tag">ADMIN_USER_REQUIRE_SETUP</span></td></tr>
           <tr><td><span class="uibtn danger">🗑 削除</span></td><td>ユーザーを削除（確認あり）</td><td><span class="tag">ADMIN_USER_DELETE</span></td></tr>
         </tbody>
       </table>
 
       <h3>3-1. 新規ユーザーの作成</h3>
       <ol class="steps">
-        <li>右パネル「新規ユーザー」で <strong>ユーザー名</strong> を入力。</li>
-        <li><strong>初期パスワード</strong>を入力（👁 目玉アイコンで確認可。<strong>12文字以上／英大・英小・数字・記号を各1文字以上</strong>）。</li>
+        <li>右パネル「新規ユーザー」で <strong>ユーザー名（GID）</strong> を入力。Windows のログオン名と同じ GID にします。</li>
         <li>管理者にするなら「<strong>管理者として作成</strong>」にチェック。</li>
         <li><span class="uibtn">＋ 作成</span> を押す。</li>
       </ol>
       <div class="note">
-        <strong>新規・リセットしたユーザーは初回ログインで必ずパスワード変更</strong>
-        作成・リセットされたユーザーは <code>MustChangePassword=true</code> になり、初回ログイン時に強制的にパスワード変更画面が出ます。有効期限は「今 ＋ <code>PasswordExpiryDays</code>（既定90日）」で計算されます。
+        <strong>パスワード欄はありません</strong>
+        作成されたユーザーは <code>初回設定待ち</code> になります。DBには誰も知り得ないランダム値が入るため、この状態ではどんなパスワードでもログインできません。本人が初回ログイン時に決めたパスワードが、そのまま本パスワードになります（直後にもう一度変更させることはしません）。有効期限は本人が設定した時点で「今 ＋ <code>PasswordExpiryDays</code>（既定90日）」で計算されます。
       </div>
 
-      <h3>3-2. 管理者フラグの変更・ロック解除・PWリセット・削除</h3>
+      <h3>3-2. 初回パスワード設定の流れ</h3>
+      <table>
+        <thead><tr><th>利用者の環境</th><th>流れ</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>ドメイン参加端末</strong></td>
+            <td>利用者が Watashi を起動し GID を入力して「次へ」→ Windows のログオン情報で本人確認（自動）→「初回パスワードの設定」画面 → 本人がパスワードを決めて完了。<strong>管理者の作業はありません。</strong></td>
+          </tr>
+          <tr>
+            <td><strong>ドメイン非参加端末</strong><br>（Windows認証が使えない）</td>
+            <td>「次へ」を押すと通常のパスワード入力欄が出るが、まだパスワードが無いのでログインできない → 利用者から管理者へ連絡 → 管理者が <span class="uibtn">🔑 初期PW発行</span> でパスワードを決めて本人に伝える → 従来どおり初回ログインで強制変更。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <strong>サーバー側の設定が必要です</strong>
+        Windows 統合認証は既定で無効です。有効にする手順は <code>deploy/IIS-HOSTING.md</code> の「Windows 統合認証を有効にする」を参照してください。未設定の場合、全ユーザーが下段（管理者が初期PWを発行）の流れになります。
+      </div>
+
+      <h3>3-3. 管理者フラグの変更・ロック解除・パスワード関連・削除</h3>
       <ul>
         <li><strong>管理者フラグ</strong>：一覧でユーザーを選び、右パネルの「管理者」チェックを変更して <span class="uibtn ghost">保存</span>。</li>
         <li><strong>ロック解除</strong>：連続ログイン失敗（既定15回）でロックされたユーザーを選び <span class="uibtn">🔓 ロック解除</span>。</li>
-        <li><strong>PWリセット</strong>：ユーザーを選び <span class="uibtn">🔑 PWリセット</span> → ダイアログ（目玉アイコン付き）で新パスワードを入力。</li>
+        <li><strong>初期PW発行</strong>：ユーザーを選び <span class="uibtn">🔑 初期PW発行</span> → ダイアログ（目玉アイコン付き）で新パスワードを入力。<strong>Windows認証が使えない端末向けの代替手段</strong>です。</li>
+        <li><strong>初回設定に戻す</strong>：ユーザーを選び <span class="uibtn">↩ 初回設定に戻す</span>。パスワードを忘れた利用者に、自分で決め直してもらう場合に使います（パスワードを伝える必要がありません）。<strong>ログイン中のセッションと「このPCを記憶」も同時に失効します</strong>——端末の記憶を残すと自動ログインでパスワード無しに入れてしまうためです。</li>
         <li><strong>削除</strong>：ユーザーを選び <span class="uibtn danger">🗑 削除</span>。確認ダイアログ：<br>
-          <span class="msg">ユーザー "alice" を削除しますか？　このユーザーの権限・信頼デバイス・セッションも削除されます。</span></li>
+          <span class="msg">ユーザー "G012345" を削除しますか？　このユーザーの権限・信頼デバイス・セッションも削除されます。</span></li>
       </ul>
 
       <div class="danger">
         <strong>管理者ロックアウト防止（サーバが強制）</strong>
         次の操作は、サーバが <span class="msg err">400 Bad Request</span> で拒否します。締め出しを防ぐための仕様です。
         <ul style="margin-top:6px">
-          <li><strong>自分自身を削除</strong>する／<strong>自分自身の管理者フラグを外す</strong></li>
-          <li>他にアクティブな管理者がいない状況で、<strong>最後の管理者を削除／降格</strong>する</li>
+          <li><strong>自分自身を削除</strong>する／<strong>自分自身の管理者フラグを外す</strong>／<strong>自分自身を初回設定待ちに戻す</strong></li>
+          <li>他にアクティブな管理者がいない状況で、<strong>最後の管理者を削除／降格／初回設定待ちに戻す</strong></li>
         </ul>
-        ※「アクティブな管理者」はロック中ユーザーを除外して数えます。ロック中の管理者しかいない場合は、先にその管理者を<strong>ロック解除</strong>してから操作してください。万一全管理者が締め出された場合は<a href="#recovery">第16章</a>へ。
+        ※「アクティブな管理者」は<strong>ロック中のユーザーと初回設定待ちのユーザーを除外して</strong>数えます。どちらもログインできないため、数えてしまうと実際に使える最後の管理者を消せてしまいます。ロック中の管理者しかいない場合は、先にその管理者を<strong>ロック解除</strong>してから操作してください。万一全管理者が締め出された場合は<a href="#recovery">第16章</a>へ。
       </div>
 
-      <h3>3-3. CSV一括登録（インポート）</h3>
+      <h3>3-4. CSV一括登録（インポート）</h3>
       <p><span class="uibtn ghost">📥 CSV取込</span> → ファイル選択 → <strong>モード選択ダイアログ</strong>が出ます。</p>
-      <p><span class="msg">新規ユーザーのみ追加しますか？　[はい] 新規追加のみ（既存はスキップ）／[いいえ] 既存も上書き（PW再設定＋IsAdmin更新）／[キャンセル] 中止</span></p>
       <table>
         <thead><tr><th>モード</th><th>動作</th><th>用途</th></tr></thead>
         <tbody>
           <tr><td>新規追加のみ<br>（[はい]）</td><td>既存ユーザー名と衝突する行はスキップ</td><td>「追加する人だけ取り込みたい」</td></tr>
-          <tr><td>上書き<br>（[いいえ]）</td><td>既存のPW再設定＋IsAdmin更新、<code>MustChangePassword=true</code>、失敗ロックも解除</td><td>運用切替の一斉リセット</td></tr>
+          <tr><td>上書き<br>（[いいえ]）</td><td>既存ユーザーの <code>IsAdmin</code> のみ更新。<strong>パスワードには一切触れません</strong></td><td>管理者フラグの一括見直し</td></tr>
         </tbody>
       </table>
+      <div class="danger">
+        <strong>「上書き」の動作が変わりました</strong>
+        以前は既存ユーザーのパスワードも再設定していましたが、現在はしません。CSVを再取り込みしただけで全員が締め出される事故を防ぐためです。パスワードの再設定が必要な場合は <span class="uibtn">🔑 初期PW発行</span> か <span class="uibtn">↩ 初回設定に戻す</span> を明示的に使ってください。
+      </div>
       <h4>CSVフォーマット</h4>
-      <p>UTF-8（BOM推奨）、1行目はヘッダー必須。必須列 <code>Username</code>, <code>Password</code> ／ 任意列 <code>IsAdmin</code>（省略時 false）。列順は問いません。</p>
-      <pre class="code">Username,Password,IsAdmin
-alice,SecretP@ss1234!!,false
-bob,AdminP@ss5678!!,true
-carol,CarolP@ss9012!!,false</pre>
+      <p>UTF-8（BOM推奨）、1行目はヘッダー必須。必須列 <code>Username</code> ／ 任意列 <code>IsAdmin</code>（省略時 false）。列順は問いません。<strong>パスワードはCSVに書きません。</strong></p>
+      <pre class="code">Username,IsAdmin
+G012345,false
+G012346,true
+G012347,false</pre>
       <ul>
-        <li>パスワードはポリシー（12字＋大小数記号）を満たすこと。満たさない行は失敗として返り、<strong>他の行は処理されます</strong>（全行を1件ずつ処理）。</li>
+        <li>取り込まれた新規ユーザーは<strong>初回設定待ち</strong>になります。</li>
+        <li>旧形式（<code>Username,Password,IsAdmin</code>）もそのまま取り込めます。<code>Password</code> 列は<strong>無視され</strong>、完了ダイアログにその旨が出ます。手元の古いCSVを作り直す必要はありません（CSVに書かれたパスワードではログインできません）。</li>
         <li>値にカンマ・改行・ダブルクォートを含む場合は <code>"..."</code> で囲む（RFC4180風）。</li>
+        <li>全行を1件ずつ処理します。途中で失敗しても<strong>他の行は処理されます</strong>。</li>
         <li>完了ダイアログに <strong>追加 N / 更新 N / スキップ N / 失敗 N</strong> と、失敗行の理由（行番号＋ユーザー名＋メッセージ、先頭10件）が表示されます。</li>
       </ul>
 
-      <h3>3-4. CSVエクスポート（棚卸し用）</h3>
+      <h3>3-5. CSVエクスポート（棚卸し用）</h3>
       <p><span class="uibtn ghost">📤 CSV出力</span> → 保存先を指定。ファイル名は <code>watashi-users-YYYYMMDD-HHmmss.csv</code>。<br>
-      列：<code>Username, IsAdmin, IsLocked, MustChangePassword, PasswordExpiresAt, LastLoginAt, CreatedAt</code>。<strong>パスワード列は含まれません</strong>（DBに平文がないため）。BOM付きUTF-8でExcelでそのまま開けます（数式インジェクション対策済み）。</p>
+      列：<code>Username, IsAdmin, IsLocked, PasswordStatus, PasswordExpiresAt, LastLoginAt, CreatedAt</code>。<strong>パスワード列は含まれません</strong>（DBに平文がないため）。<code>PasswordStatus</code> は <code>PendingSetup</code> ／ <code>Active</code> ／ <code>MustChange</code> ／ <code>Expired</code> のいずれかです。BOM付きUTF-8でExcelでそのまま開けます（数式インジェクション対策済み）。</p>
 
       <div class="tip">
         <strong>退職者の扱い</strong>
-        削除でも構いませんが、監査ログとの紐付けが切れます。証跡を残すなら「<strong>全デバイス失効</strong>（第9章）＋<strong>PWリセット</strong>」で無効化する運用がおすすめです。
+        削除でも構いませんが、監査ログとの紐付けが切れます。証跡を残すなら「<strong>全デバイス失効</strong>（第9章）＋<strong>↩ 初回設定に戻す</strong>」で無効化する運用がおすすめです（パスワードが無効化され、端末とセッションも同時に失効します）。
       </div>
 
       <div class="shot">

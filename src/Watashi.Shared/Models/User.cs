@@ -13,6 +13,23 @@ public class User
     public DateTime PasswordChangedAt { get; set; }
     public DateTime PasswordExpiresAt { get; set; }
     public bool MustChangePassword { get; set; }
+    /// <summary>
+    /// 初回パスワード設定待ち。true の間は本人がまだパスワードを決めていないため、
+    /// 通常ログイン・自動ログインとも一切通さない。この状態のユーザーの
+    /// <see cref="PasswordHash"/> には誰も知り得ない使用不能ハッシュが入る
+    /// (詳細は Watashi.Server.Services.PasswordSetup)。
+    /// </summary>
+    public bool IsPasswordSetupPending { get; set; }
+    /// <summary>
+    /// 初回パスワード設定の受付期限。null は無期限 (既定)。
+    /// <see cref="IsPasswordSetupPending"/> が false のときは意味を持たない。
+    /// </summary>
+    public DateTime? PasswordSetupExpiresAt { get; set; }
+    /// <summary>
+    /// 初回パスワード設定時に Windows 統合認証で確認できた OS アカウント名 (例: DOMAIN\G012345)。
+    /// 本人確認が取れた記録として残す。設定経路が Windows 認証でなかった場合は null。
+    /// </summary>
+    public string? WindowsAccountName { get; set; }
     public DateTime? LastLoginAt { get; set; }
     /// <summary>最後にログインした際にクライアントが申告した Windows ユーザー名 (別人ログイン検知用)。</summary>
     public string? LastWindowsUsername { get; set; }

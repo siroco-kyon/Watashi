@@ -59,6 +59,19 @@ public class AuthService
             return new LoginResult(null, LoginFailureReason.AccountLocked);
         }
 
+        // 初回パスワード設定待ちのアカウントは、パスワード照合そのものを行わない。
+        // PasswordHash は使用不能ハッシュなので Verify は必ず false になるが、それに任せると
+        // 本人の試行で FailedLoginCount が積み上がり、設定前にロックされてしまう。
+        // 応答は「不明なユーザー」「パスワード不一致」と同一の InvalidCredentials に揃え、
+        // 未設定アカウントの存在を推測させない (ユーザー列挙対策)。
+        if (user.IsPasswordSetupPending)
+        {
+            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
+                user.Id, user.Username, "password_setup_pending", machineName, clientIp));
+            await _db.SaveChangesAsync(ct);
+            return new LoginResult(null, LoginFailureReason.InvalidCredentials);
+        }
+
         var passwordOk = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
         if (!passwordOk)
         {
@@ -274,6 +287,17 @@ public class AuthService
         if (user.IsLocked)
             return new LoginResult(null, LoginFailureReason.AccountLocked);
 
+        // 初回設定待ちのユーザーを、記憶済み端末からパスワード無しで通してはならない。
+        // ユーザーを未設定へ戻す操作は信頼済み端末も失効させるため通常ここには到達しないが、
+        // 到達した場合は不変条件が壊れているということなので監査ログに残す。
+        if (user.IsPasswordSetupPending)
+        {
+            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
+                user.Id, user.Username, "password_setup_pending", machineName, clientIp));
+            await _db.SaveChangesAsync(ct);
+            return new LoginResult(null, LoginFailureReason.InvalidCredentials);
+        }
+
         device.LastUsedAt = DateTime.UtcNow;
         user.LastLoginAt = DateTime.UtcNow;
         RecordLoginContext(user, windowsUsername, machineName, clientIp);
@@ -415,6 +439,143 @@ public class AuthService
         // 呼び出し直後にクライアントが再ログイン無しで動けるよう、新しい access/refresh token を発行して返す。
         var response = await IssueTokensAsync(user, deviceId: null, clientIp, ct);
         return (response, null);
+    }
+
+    /// <summary>
+    /// 初回パスワード設定を受け付けてよいかを判定する。
+    /// 受け付けてよいのは「Windows 認証済みの OS ユーザー = 対象 Watashi ユーザー」であり、
+    /// かつそのユーザーが未設定・未ロック・期限内のときだけ。
+    /// それ以外は理由を問わず一律 false を返し、呼び出し側も同じ応答を返すことで
+    /// 「その ID が存在するか」「未設定か」を推測させない。
+    /// </summary>
+    public async Task<(bool Eligible, DateTime? SetupExpiresAt)> PreparePasswordSetupAsync(
+        string requestedUsername, string? windowsAccountName, Auth.WindowsAuthOptions options,
+        string? clientIp, string? machineName, CancellationToken ct = default)
+    {
+        if (!Auth.WindowsIdentityMatcher.Matches(windowsAccountName, requestedUsername, options))
+        {
+            await LogSetupAuditAsync(Shared.Constants.AuthOperations.PasswordSetupIdentityMismatch,
+                userId: null, requestedUsername, Shared.Constants.AuditResults.Warning,
+                $"OS ユーザー '{windowsAccountName}' が '{requestedUsername}' として初回設定を要求",
+                clientIp, machineName, ct);
+            return (false, null);
+        }
+
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == requestedUsername, ct);
+        if (!IsSetupEligible(user)) return (false, null);
+
+        await LogSetupAuditAsync(Shared.Constants.AuthOperations.PasswordSetupRequested,
+            user!.Id, user.Username, Shared.Constants.AuditResults.Success,
+            $"OS ユーザー '{windowsAccountName}' を本人と確認", clientIp, machineName, ct);
+        return (true, user.PasswordSetupExpiresAt);
+    }
+
+    /// <summary>
+    /// 初回パスワードを確定させ、そのままログイン用のトークンを発行する。
+    /// 更新は PasswordHash ではなく IsPasswordSetupPending を条件にした 1 文で行い、
+    /// 二重送信・同時実行でも設定が成立するのは 1 回だけになるようにしている。
+    /// </summary>
+    public async Task<(LoginResponse? Response, string? Error)> CompletePasswordSetupAsync(
+        string requestedUsername, string newPassword, string? windowsAccountName,
+        Auth.WindowsAuthOptions options, string? clientIp, string? machineName, CancellationToken ct = default)
+    {
+        // 本人確認とアカウント状態の失敗は、内訳を返さず 1 種類のメッセージにまとめる。
+        const string genericError = "このユーザー名では初回パスワードを設定できません。管理者にお問い合わせください。";
+
+        if (!Auth.WindowsIdentityMatcher.Matches(windowsAccountName, requestedUsername, options))
+        {
+            await LogSetupAuditAsync(Shared.Constants.AuthOperations.PasswordSetupIdentityMismatch,
+                userId: null, requestedUsername, Shared.Constants.AuditResults.Warning,
+                $"OS ユーザー '{windowsAccountName}' が '{requestedUsername}' の初回設定を試行", clientIp, machineName, ct);
+            return (null, genericError);
+        }
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == requestedUsername, ct);
+        if (!IsSetupEligible(user))
+        {
+            await LogSetupAuditAsync(Shared.Constants.AuthOperations.PasswordSetupRejected,
+                user?.Id, requestedUsername, Shared.Constants.AuditResults.Failure,
+                "not_eligible", clientIp, machineName, ct);
+            return (null, genericError);
+        }
+
+        // パスワードポリシー違反だけは具体的に返す。本人が直せない指摘は意味が無い。
+        var (policyOk, policyError) = PasswordPolicy.Validate(newPassword);
+        if (!policyOk) return (null, policyError);
+
+        var now = DateTime.UtcNow;
+        var expiryDays = await GetPasswordExpiryDaysAsync(ct);
+        var hash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+        // IsPasswordSetupPending を条件に含めることで、先に確定した 1 件だけが成功する。
+        var applied = await _db.Users
+            .Where(u => u.Id == user!.Id && u.IsPasswordSetupPending)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.PasswordHash, hash)
+                .SetProperty(u => u.IsPasswordSetupPending, false)
+                .SetProperty(u => u.PasswordSetupExpiresAt, (DateTime?)null)
+                .SetProperty(u => u.MustChangePassword, false)
+                .SetProperty(u => u.PasswordChangedAt, now)
+                .SetProperty(u => u.PasswordExpiresAt, now.AddDays(expiryDays))
+                .SetProperty(u => u.WindowsAccountName, windowsAccountName)
+                .SetProperty(u => u.FailedLoginCount, 0), ct);
+
+        if (applied != 1)
+        {
+            // 同時に走ったもう一方が先に確定させた。二重設定は成立していない。
+            await LogSetupAuditAsync(Shared.Constants.AuthOperations.PasswordSetupRejected,
+                user!.Id, user.Username, Shared.Constants.AuditResults.Warning,
+                "already_completed", clientIp, machineName, ct);
+            return (null, genericError);
+        }
+
+        // ExecuteUpdate は ChangeTracker を更新しないため、トークン発行前に追跡中の
+        // エンティティを読み直す (古い PasswordExpiresAt で mcp claim が付くのを防ぐ)。
+        await _db.Entry(user!).ReloadAsync(ct);
+
+        // 未設定ユーザーに有効な refresh token がある状況は本来無いが、
+        // 「未設定に戻す」操作を経ている可能性を考えて念のため全て失効させる。
+        await RevokeAllRefreshTokensAsync(user!.Id, ct);
+
+        await LogSetupAuditAsync(Shared.Constants.AuthOperations.PasswordSetupSucceeded,
+            user.Id, user.Username, Shared.Constants.AuditResults.Success,
+            $"OS ユーザー '{windowsAccountName}' として設定", clientIp, machineName, ct);
+
+        user.LastLoginAt = now;
+        RecordLoginContext(user, Auth.WindowsIdentityMatcher.Normalize(windowsAccountName), machineName, clientIp);
+        var response = await IssueTokensAsync(user, deviceId: null, clientIp, ct);
+        return (response, null);
+    }
+
+    /// <summary>初回設定を受け付けてよい状態か (存在する・未設定・未ロック・期限内)。</summary>
+    private static bool IsSetupEligible(User? user)
+        => user is not null
+           && user.IsPasswordSetupPending
+           && !user.IsLocked
+           && (user.PasswordSetupExpiresAt is not DateTime due || due > DateTime.UtcNow);
+
+    private Task LogSetupAuditAsync(string operation, int? userId, string username, string result,
+        string? detail, string? clientIp, string? machineName, CancellationToken ct)
+    {
+        _db.AuditLogs.Add(new AuditLog
+        {
+            Timestamp = DateTime.UtcNow,
+            UserId = userId,
+            Username = username,
+            Operation = operation,
+            Result = result,
+            Path = detail,
+            ClientIp = clientIp,
+            ClientHostname = machineName,
+        });
+        return _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>初回設定の受付日数。0 以下は無期限として null を返す。</summary>
+    public async Task<DateTime?> ComputeSetupExpiryAsync(DateTime from, CancellationToken ct = default)
+    {
+        var days = await GetSettingIntAsync(Shared.Constants.SettingKeys.PasswordSetupExpiryDays, 0, 0, 36_500, ct);
+        return days <= 0 ? null : from.AddDays(days);
     }
 
     /// <summary>指定ユーザーの未失効 refresh token を全て失効させる。パスワード変更/リセット時に使う。</summary>

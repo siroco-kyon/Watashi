@@ -70,10 +70,11 @@
 ### 1. ユーザー
 - 一覧 / 追加 / 削除 / 管理者フラグ変更
 - ロック解除 (連続失敗ロックの解除)
-- パスワード強制リセット (12 字 + 大小数記号ポリシー検証)
-- すべての新規/リセットユーザーは初回 `MustChangePassword=true`
-- **CSV インポート (一括登録)**: `Username, Password, IsAdmin` 列の CSV を選んで一括登録。**新規追加のみ** (重複スキップ) と **上書き** (既存も PW 再設定) の 2 モード。行単位エラー詳細表示
-- **CSV エクスポート (棚卸し用)**: 現ユーザー一覧を `Username, IsAdmin, IsLocked, MustChangePassword, PasswordExpiresAt, LastLoginAt, CreatedAt` 形式の CSV (BOM 付き UTF-8) で保存
+- **新規ユーザーはパスワード未設定で作成**。本人が初回ログイン時に Windows 統合認証で本人確認され、自分で決める (初期パスワードの配布が不要)
+- 初期 PW 発行 (12 字 + 大小数記号ポリシー検証) — Windows 認証が使えない端末向けの第二経路。`MustChangePassword=true`
+- 初回設定に戻す — パスワードを破棄し本人に再設定させる。セッションと信頼済み端末も失効
+- **CSV インポート (一括登録)**: `Username, IsAdmin` 列の CSV を選んで一括登録 (新規は未設定で作成)。**新規追加のみ** (重複スキップ) と **上書き** (`IsAdmin` のみ更新) の 2 モード。旧形式の `Password` 列は無視。行単位エラー詳細表示
+- **CSV エクスポート (棚卸し用)**: 現ユーザー一覧を `Username, IsAdmin, IsLocked, PasswordStatus, PasswordExpiresAt, LastLoginAt, CreatedAt` 形式の CSV (BOM 付き UTF-8) で保存
 
 ### 2. ホスト (CIFS ファイルサーバー)
 - 一覧 / 追加 / 削除

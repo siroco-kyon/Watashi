@@ -54,6 +54,69 @@ public class ApiClient
             MachineName = Environment.MachineName,
         }, anonymous: true, ct);
 
+    /// <summary>
+    /// ログイン画面の 1 段目。入力された ID について「パスワードを訊く」か
+    /// 「初回パスワードを設定させる」かをサーバーに判定させる。
+    ///
+    /// この判定は Windows 統合認証で本人確認できたときにだけ setup を返す。
+    /// サーバー側が機能無効 (404)、Windows 認証が成立しない (401)、ドメイン非参加、
+    /// 旧バージョンのサーバー、通信不能 — いずれの場合も従来どおりのパスワード入力に
+    /// 落とすことで、環境を問わずログイン画面が使えなくならないようにする。
+    /// </summary>
+    public async Task<PrepareLoginResponse> PrepareLoginAsync(string username, CancellationToken ct = default)
+    {
+        var fallback = new PrepareLoginResponse { Mode = LoginModes.Password };
+        try
+        {
+            using var http = CreateWindowsAuthClient();
+            using var res = await http.PostAsJsonAsync("api/auth/win/prepare-login",
+                new PrepareLoginRequest { Username = username }, JsonOptions, ct);
+            if (!res.IsSuccessStatusCode) return fallback;
+            return await res.Content.ReadFromJsonAsync<PrepareLoginResponse>(JsonOptions, ct) ?? fallback;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
+    /// <summary>
+    /// 初回パスワードを確定する。成功するとそのままログイン済みのトークンが返る。
+    /// こちらは失敗を握りつぶさない。利用者が理由 (ポリシー違反など) を知る必要があるため。
+    /// </summary>
+    public async Task<LoginResponse> InitializePasswordAsync(string username, string newPassword, CancellationToken ct = default)
+    {
+        using var http = CreateWindowsAuthClient();
+        using var res = await http.PostAsJsonAsync("api/auth/win/initialize-password",
+            new InitializePasswordRequest
+            {
+                Username = username,
+                NewPassword = newPassword,
+                MachineName = Environment.MachineName,
+            }, JsonOptions, ct);
+        await ThrowIfErrorAsync(res, ct);
+        return (await res.Content.ReadFromJsonAsync<LoginResponse>(JsonOptions, ct))!;
+    }
+
+    /// <summary>
+    /// Windows 統合認証用の HttpClient。ログオン中の資格情報で Negotiate を行う。
+    /// 通常の API 用クライアントとは分ける (他のリクエストに資格情報を載せないため)。
+    /// </summary>
+    private HttpClient CreateWindowsAuthClient()
+    {
+        var http = _httpFactory.CreateClient(WindowsAuthClientName);
+        if (http.BaseAddress is null && _settings.IsConfigured)
+            http.BaseAddress = new Uri(_settings.ServerUrl.TrimEnd('/') + "/");
+        return http;
+    }
+
+    /// <summary>Windows 統合認証用の名前付き HttpClient 名。</summary>
+    public const string WindowsAuthClientName = "win-auth";
+
     public Task<LoginResponse> AutoLoginAsync(string machineName, string windowsUser, string deviceToken, CancellationToken ct = default) =>
         PostJsonAsync<LoginResponse>("api/auth/auto-login", new AutoLoginRequest { MachineName = machineName, WindowsUsername = windowsUser, DeviceToken = deviceToken }, anonymous: true, ct);
 
@@ -146,6 +209,9 @@ public class ApiClient
         PostJsonNoContentAsync($"api/admin/users/{id}/unlock", new { }, ct);
     public Task ResetPasswordAsync(int id, ResetPasswordRequest req, CancellationToken ct = default) =>
         PostJsonNoContentAsync($"api/admin/users/{id}/reset-password", req, ct);
+    /// <summary>パスワードを破棄し、本人による初回設定待ちへ戻す。</summary>
+    public Task RequireSetupAsync(int id, CancellationToken ct = default) =>
+        PostJsonNoContentAsync($"api/admin/users/{id}/require-setup", new { }, ct);
     public Task<List<DeviceDto>> GetDevicesAsync(int userId, CancellationToken ct = default) =>
         GetAsync<List<DeviceDto>>($"api/admin/users/{userId}/devices", ct);
     public Task<List<DeviceDto>> GetAllDevicesAsync(CancellationToken ct = default) =>

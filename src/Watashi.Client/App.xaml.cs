@@ -290,10 +290,24 @@ public partial class App : Application
             c.DefaultRequestHeaders.Add("X-Client-Hostname", Environment.MachineName);
         });
         services.AddHttpClient("settings-test", c => c.Timeout = TimeSpan.FromSeconds(5));
+        // 初回パスワード設定の本人確認だけに使う。ログオン中の Windows 資格情報で Negotiate する。
+        // Negotiate は接続単位の認証で HTTP/2 では成立しないため、DefaultRequestVersion は
+        // 既定の 1.1 のままにしておくこと。
+        services.AddHttpClient(ApiClient.WindowsAuthClientName, c =>
+        {
+            if (settings.IsConfigured)
+                c.BaseAddress = new Uri(settings.ServerUrl.TrimEnd('/') + "/");
+            c.Timeout = TimeSpan.FromSeconds(15);
+            c.DefaultRequestHeaders.Add("X-Client-Hostname", Environment.MachineName);
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            UseDefaultCredentials = true,
+        });
 
         services.AddTransient<ConnectionSettingsViewModel>();
         services.AddTransient<LoginViewModel>();
         services.AddTransient<ChangePasswordViewModel>();
+        services.AddTransient<InitialPasswordViewModel>();
         services.AddTransient<LocalPaneViewModel>();
         services.AddTransient<RemotePaneViewModel>();
         services.AddTransient<MainViewModel>();
@@ -301,6 +315,7 @@ public partial class App : Application
         services.AddTransient<ConnectionSettingsWindow>();
         services.AddTransient<LoginWindow>();
         services.AddTransient<ChangePasswordWindow>();
+        services.AddTransient<InitialPasswordWindow>();
         services.AddTransient<MainWindow>();
         services.AddTransient<Views.Admin.AdminWindow>();
 

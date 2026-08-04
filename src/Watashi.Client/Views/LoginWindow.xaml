@@ -32,10 +32,14 @@
                     <TextBlock Text="ユーザー名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
                     <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
 
-                    <TextBlock Text="パスワード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <ctl:PasswordRevealBox x:Name="PasswordBox"
-                                           Password="{Binding Password, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                                           Margin="0,0,0,10"/>
+                    <!-- 2 段目。ID を確定するまではパスワードを訊かない。初回設定待ちのユーザーには
+                         そもそもパスワードが無いため、先に ID で判定する必要がある。 -->
+                    <StackPanel Visibility="{Binding IsPasswordStep, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="パスワード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <ctl:PasswordRevealBox x:Name="PasswordBox"
+                                               Password="{Binding Password, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                               Margin="0,0,0,10"/>
+                    </StackPanel>
 
                     <CheckBox Content="このPCを記憶する"
                               IsChecked="{Binding RememberDevice}"
@@ -47,13 +51,24 @@
                                Foreground="{StaticResource DangerBrush}"
                                TextWrapping="Wrap" MinHeight="20" Margin="0,4,0,4"/>
 
+                    <Button Content="次へ"
+                            Command="{Binding ContinueCommand}"
+                            Style="{StaticResource PrimaryButton}"
+                            Height="36"
+                            FontWeight="SemiBold"
+                            IsDefault="{Binding IsEnteringUsername}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource NotBool}}"
+                            Visibility="{Binding IsEnteringUsername, Converter={StaticResource BoolToVis}}"
+                            Margin="0,6,0,0"/>
+
                     <Button Content="ログイン"
                             Command="{Binding LoginCommand}"
                             Style="{StaticResource PrimaryButton}"
                             Height="36"
                             FontWeight="SemiBold"
-                            IsDefault="True"
+                            IsDefault="{Binding IsPasswordStep}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource NotBool}}"
+                            Visibility="{Binding IsPasswordStep, Converter={StaticResource BoolToVis}}"
                             Margin="0,6,0,0"/>
                 </StackPanel>
             </Border>

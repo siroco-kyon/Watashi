@@ -49,7 +49,10 @@ public class AppDbContext : DbContext
         {
             b.HasIndex(u => u.Username).IsUnique();
             b.Property(u => u.Username).IsRequired();
+            // 初回設定待ちでも PasswordHash には使用不能ハッシュが入るため NOT NULL を維持する
+            // (PasswordSetup のコメント参照)。nullable 化はテーブル再構築を招くので行わない。
             b.Property(u => u.PasswordHash).IsRequired();
+            b.Property(u => u.IsPasswordSetupPending).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<SystemSetting>(b =>
