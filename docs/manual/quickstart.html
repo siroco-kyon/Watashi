@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watashi かんたんガイド ｜ はじめて使う方へ</title>
+<!--
+  ============================================================
+  資料作成者向けメモ
+  ・この資料は「利用者マニュアル(index.html)」の要約版です。
+    詳しい手順は書かず、マニュアルへ誘導する方針で作っています。
+  ・スクリーンショットは images フォルダに置くだけで表示されます
+    （マニュアルと同じ images フォルダを共有しています）。
+      images/02-login.png  … ログイン画面
+      images/03-main.png   … メイン画面の全体
+    画像が無いときは、点線のカメラ枠（差し替え案内）が出ます。
+  ・枠を増やしたいときは、次の1行を貼り付けてください。
+      <div class="shot"><img class="shot-img" src="images/05-xxx.png" data-desc="説明"></div>
+  ・第2章ステップ1の <a class="apply-link"> は、社内のユーザー登録申請ページの
+    URL に書き換えてください（初期値は "#" ＝未設定）。
+  ============================================================
+-->
+<style>
+  /* ===== ブランドカラー (マニュアル index.html と共通) ===== */
+  :root{
+    --accent:#C73E1D;        /* 鳥居の朱色 */
+    --accent-hover:#A83216;
+    --accent-deep:#5C1A0B;
+    --accent-soft:#F9E5E0;
+    --header:#1B2A41;        /* 深い藍 */
+    --header-alt:#243B5C;
+    --bg:#F6F7F9;
+    --surface:#FFFFFF;
+    --surface-alt:#F0F2F5;
+    --border:#D5D9DE;
+    --border-strong:#9CA3AF;
+    --text:#1F2328;
+    --text-2:#4A535C;
+    --muted:#6B7280;
+    --danger:#CF222E;
+    --danger-soft:#FFE9EA;
+    --warning:#BF8700;
+    --warning-soft:#FFF6E0;
+    --success:#1F883D;
+    --success-soft:#E6F5EB;
+    --info:#0969DA;
+    --info-soft:#E6F0FB;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(15,27,45,.06), 0 6px 20px rgba(15,27,45,.05);
+    --maxw:900px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+    color:var(--text); background:var(--bg); line-height:1.85; font-size:16px;
+  }
+  code,kbd,.mono{font-family:"Consolas","SFMono-Regular",Menlo,monospace;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px;}
+
+  /* ===== ヒーロー ===== */
+  .hero{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; padding:44px 28px 40px; position:relative; overflow:hidden;
+  }
+  .hero::after{content:""; position:absolute; top:0; left:0; right:0; height:6px; background:var(--accent);}
+  .hero .torii-big{position:absolute; right:-16px; bottom:-34px; opacity:.13;}
+  .hero .badge{
+    display:inline-block; font-size:12px; letter-spacing:2px; color:#9fb0c9;
+    border:1px solid #3a4f70; border-radius:20px; padding:3px 14px; margin-bottom:14px;
+  }
+  .hero h1{font-size:31px; margin:0 0 10px; font-weight:800; line-height:1.4;}
+  .hero p{font-size:16px; color:#c8d3e3; margin:0 0 18px; max-width:640px;}
+  .hero .tomanual{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--accent); color:#fff; text-decoration:none;
+    border-radius:24px; padding:9px 20px; font-size:14px; font-weight:700;
+  }
+  .hero .tomanual:hover{background:var(--accent-hover);}
+
+  /* ===== 見出し ===== */
+  h2{
+    font-size:24px; margin:50px 0 14px; padding-bottom:10px;
+    border-bottom:3px solid var(--accent); scroll-margin-top:14px;
+    display:flex; align-items:center; gap:10px; line-height:1.4;
+  }
+  h2 .num{
+    background:var(--accent); color:#fff; font-size:15px; font-weight:700;
+    min-width:34px; height:34px; border-radius:8px;
+    display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
+  h3{font-size:18px; margin:28px 0 8px; color:var(--accent-deep);}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0; padding-left:24px;}
+  li{margin:5px 0;}
+  a{color:var(--accent);}
+  .lead{font-size:17px; color:var(--text-2);}
+
+  /* ===== ステップ ===== */
+  ol.steps{counter-reset:step; list-style:none; padding-left:0; margin:18px 0;}
+  ol.steps>li{counter-increment:step; position:relative; padding:4px 0 16px 52px; margin:0;}
+  ol.steps>li::before{
+    content:counter(step); position:absolute; left:0; top:2px;
+    width:34px; height:34px; border-radius:50%;
+    background:var(--accent); color:#fff; font-weight:700;
+    display:flex; align-items:center; justify-content:center; font-size:15px;
+  }
+  ol.steps>li::after{content:""; position:absolute; left:16px; top:38px; bottom:0; width:2px; background:var(--border);}
+  ol.steps>li:last-child::after{display:none;}
+  ol.steps>li strong{color:var(--accent-deep);}
+
+  /* ===== コールアウト ===== */
+  .note,.tip,.warn,.key{
+    border-radius:var(--radius); padding:14px 18px; margin:18px 0;
+    border:1px solid var(--border); position:relative; padding-left:52px; font-size:15px;
+  }
+  .note::before,.tip::before,.warn::before,.key::before{position:absolute; left:16px; top:13px; font-size:20px;}
+  .note{background:var(--info-soft); border-color:#bcd6f5;} .note::before{content:"ℹ️";}
+  .tip{background:var(--success-soft); border-color:#bfe3cb;} .tip::before{content:"💡";}
+  .warn{background:var(--warning-soft); border-color:#f0dca0;} .warn::before{content:"⚠️";}
+  .key{background:var(--accent-soft); border-color:#e7c3ba;} .key::before{content:"⛩";}
+  /* 各ボックスの1行目（見出し）だけブロック表示にする */
+  .note>strong:first-child,.tip>strong:first-child,.warn>strong:first-child,.key>strong:first-child{display:block; margin-bottom:2px;}
+
+  /* ===== できることカード ===== */
+  .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin:22px 0;}
+  @media(max-width:860px){.cards{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:560px){.cards{grid-template-columns:1fr;}}
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-top:4px solid var(--accent);
+    border-radius:var(--radius); padding:16px 18px; box-shadow:var(--shadow);
+  }
+  .card .ico{font-size:26px; line-height:1.2;}
+  .card h4{margin:6px 0 4px; font-size:16px; color:var(--header);}
+  .card p{margin:0; font-size:13.5px; color:var(--text-2); line-height:1.75;}
+  .card .more{display:inline-block; margin-top:8px; font-size:12px; color:var(--accent); text-decoration:none;}
+  .card .more:hover{text-decoration:underline;}
+
+  /* ===== テーブル ===== */
+  table{border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px; background:var(--surface); box-shadow:var(--shadow); border-radius:8px; overflow:hidden;}
+  th,td{border:1px solid var(--border); padding:9px 12px; text-align:left; vertical-align:top;}
+  th{background:var(--surface-alt); font-weight:700; color:var(--header);}
+  tbody tr:nth-child(even){background:#fafbfc;}
+  .tblwrap{overflow-x:auto;}
+
+  kbd{
+    background:#fff; border:1px solid var(--border-strong); border-bottom-width:2px;
+    border-radius:5px; padding:1px 7px; font-size:13px; white-space:nowrap;
+    box-shadow:0 1px 0 rgba(0,0,0,.04);
+  }
+  code{background:var(--surface-alt); padding:1px 6px; border-radius:4px; font-size:14px; color:var(--accent-deep);}
+  .uibtn{display:inline-block; background:var(--accent); color:#fff; border-radius:6px; padding:2px 10px; font-size:13px; font-weight:600; white-space:nowrap;}
+  .uibtn.ghost{background:#fff; color:var(--text); border:1px solid var(--border-strong);}
+
+  /* ===== 図 (SVG) ===== */
+  figure{margin:22px 0; text-align:center;}
+  figure svg{max-width:100%; height:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow);}
+  figcaption{font-size:13px; color:var(--muted); margin-top:8px;}
+
+  /* ===== スクリーンショット枠（images に置くだけで差し替わる） ===== */
+  .shot{margin:22px 0;}
+  .shot img.shot-img{max-width:100%; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); display:block; margin:0 auto;}
+  .shot-ph{
+    border:2px dashed var(--accent); border-radius:var(--radius);
+    background:repeating-linear-gradient(45deg,#fff,#fff 12px,var(--accent-soft) 12px,var(--accent-soft) 24px);
+    padding:30px 20px; text-align:center; color:var(--text);
+  }
+  .shot-ph-inner{display:inline-flex; flex-direction:column; align-items:center; gap:6px; background:rgba(255,255,255,.92); padding:18px 26px; border-radius:8px; max-width:560px;}
+  .shot-ph .cam{font-size:34px;}
+  .shot-ph strong{color:var(--accent); font-size:15px;}
+  .shot-ph .fn{font-family:"Consolas",monospace; background:var(--surface-alt); border:1px solid var(--border); border-radius:5px; padding:3px 10px; font-size:13px;}
+  .shot-ph .hint{font-size:13.5px; color:var(--text-2);}
+  .shot-ph .note2{font-size:12px; color:var(--muted);}
+
+  /* ===== 最後の「マニュアルへ」カード ===== */
+  .manual-cta{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; border-radius:14px; padding:26px 28px; margin:26px 0 10px; box-shadow:var(--shadow);
+  }
+  .manual-cta h3{margin:0 0 6px; color:#fff; font-size:20px;}
+  .manual-cta p{color:#c8d3e3; font-size:14.5px; margin:0 0 16px;}
+  .manual-cta .btn{
+    display:inline-flex; align-items:center; gap:8px; background:var(--accent); color:#fff;
+    text-decoration:none; border-radius:24px; padding:10px 22px; font-size:15px; font-weight:700;
+  }
+  .manual-cta .btn:hover{background:var(--accent-hover);}
+  .manual-cta .chips{margin-top:16px; display:flex; flex-wrap:wrap; gap:8px;}
+  .manual-cta .chips a{
+    background:rgba(255,255,255,.08); border:1px solid #3a4f70; color:#cfd8e6;
+    text-decoration:none; border-radius:16px; padding:4px 14px; font-size:12.5px;
+  }
+  .manual-cta .chips a:hover{background:rgba(255,255,255,.16); color:#fff;}
+
+  hr.sec{border:none; border-top:1px dashed var(--border); margin:40px 0;}
+  footer.end{text-align:center; color:var(--muted); font-size:13px; padding:30px 0 70px;}
+
+  .totop{position:fixed; right:22px; bottom:22px; background:var(--accent); color:#fff; width:46px; height:46px; border-radius:50%; display:none; align-items:center; justify-content:center; text-decoration:none; font-size:20px; box-shadow:var(--shadow); z-index:50;}
+  .totop.show{display:flex;}
+
+  @media print{
+    .totop{display:none;}
+    body{background:#fff;}
+    h2{break-after:avoid;}
+    table,figure,.shot,.card,.manual-cta{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== ヒーロー ===== -->
+<header class="hero">
+  <svg class="torii-big" width="230" height="230" viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
+    <rect x="22" y="34" width="9" height="54" fill="#fff"/>
+    <rect x="69" y="34" width="9" height="54" fill="#fff"/>
+    <rect x="16" y="40" width="68" height="8" fill="#fff"/>
+  </svg>
+  <div class="wrap">
+    <span class="badge">はじめて使う方へ</span>
+    <h1>⛩ Watashi かんたんガイド</h1>
+    <p>Watashi は、社内のファイルサーバーとのあいだでファイルをやりとりするためのアプリです。<br>
+       この資料では、<strong>使い始めるまでの手順</strong>と<strong>できること</strong>だけを説明します。操作の詳しい手順は利用者マニュアルをご覧ください。</p>
+    <a class="tomanual" href="index.html">📖 利用者マニュアル（詳しい使い方）</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ========================================================= -->
+  <h2><span class="num">1</span>Watashi とは</h2>
+
+  <p class="lead">Watashi（わたし）は、<strong>社内のファイルサーバー（共有フォルダ）にあるファイルを、あなたのパソコンから安全に出し入れするためのアプリ</strong>です。</p>
+  <p>画面は左右2つに分かれていて、<strong>左が自分のパソコン</strong>、<strong>右が社内のファイルサーバー</strong>です。この2つの間でファイルを<strong>アップロード（送る）・ダウンロード（受け取る）</strong>するのが基本の使い方です。</p>
+
+  <figure>
+    <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="あなたのパソコンと社内ファイルサーバーの関係図">
+      <!-- ローカル -->
+      <text x="125" y="56" text-anchor="middle" font-size="15" font-weight="700" fill="#1B2A41">💻 ローカル</text>
+      <rect x="30" y="70" width="190" height="90" rx="10" fill="#F0F2F5" stroke="#9CA3AF" stroke-width="2"/>
+      <text x="125" y="112" text-anchor="middle" font-size="14" fill="#1F2328">あなたのパソコン</text>
+      <text x="125" y="136" text-anchor="middle" font-size="11.5" fill="#6B7280">画面の「左側」</text>
+
+      <!-- 中央サーバー -->
+      <rect x="300" y="80" width="160" height="70" rx="10" fill="#1B2A41"/>
+      <text x="380" y="112" text-anchor="middle" font-size="13.5" font-weight="700" fill="#ffffff">中央サーバー</text>
+      <text x="380" y="132" text-anchor="middle" font-size="11" fill="#9fb0c9">自動で中継します</text>
+
+      <!-- リモート -->
+      <text x="635" y="56" text-anchor="middle" font-size="15" font-weight="700" fill="#5C1A0B">⛩ リモート</text>
+      <rect x="540" y="70" width="190" height="90" rx="10" fill="#F9E5E0" stroke="#C73E1D" stroke-width="2"/>
+      <text x="635" y="112" text-anchor="middle" font-size="13.5" fill="#1F2328">社内ファイルサーバー</text>
+      <text x="635" y="136" text-anchor="middle" font-size="11.5" fill="#6B7280">画面の「右側」</text>
+
+      <!-- 矢印（左→中央） -->
+      <line x1="226" y1="115" x2="292" y2="115" stroke="#6B7280" stroke-width="2"/>
+      <polygon points="298,115 288,110 288,120" fill="#6B7280"/>
+      <polygon points="220,115 230,110 230,120" fill="#6B7280"/>
+      <!-- 矢印（中央→右） -->
+      <line x1="466" y1="115" x2="532" y2="115" stroke="#6B7280" stroke-width="2"/>
+      <polygon points="538,115 528,110 528,120" fill="#6B7280"/>
+      <polygon points="460,115 470,110 470,120" fill="#6B7280"/>
+
+      <text x="380" y="196" text-anchor="middle" font-size="12" fill="#6B7280">接続先やつなぎ方は管理者が設定済みです。利用者はアップロードとダウンロードを行うだけです。</text>
+    </svg>
+    <figcaption>図1：あなたのパソコン（ローカル）と社内サーバー（リモート）の関係</figcaption>
+  </figure>
+
+  <div class="note">
+    <strong>接続先を入力する画面はありません（それで正常です）</strong>
+    どのサーバーにつなぐか、どの機能を使えるかは、配布時に<strong>管理者があらかじめ固定</strong>しています。「サーバーアドレスはどこに入れるの？」と探す必要はありません。
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="num">2</span>使えるようになるまで（4ステップ）</h2>
+
+  <figure>
+    <svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="利用申請からインストール、起動、ログインまでの4ステップ">
+      <!-- STEP 1 -->
+      <rect x="10" y="30" width="166" height="150" rx="10" fill="#FFFFFF" stroke="#D5D9DE" stroke-width="2"/>
+      <circle cx="93" cy="62" r="17" fill="#C73E1D"/>
+      <text x="93" y="68" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">1</text>
+      <text x="93" y="106" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">利用申請</text>
+      <text x="93" y="128" text-anchor="middle" font-size="10.5" fill="#4A535C">管理者にユーザー登録を</text>
+      <text x="93" y="145" text-anchor="middle" font-size="10.5" fill="#4A535C">申請します</text>
+      <text x="93" y="168" text-anchor="middle" font-size="10.5" fill="#C73E1D">※ いちばん最初に</text>
+
+      <!-- 矢印 -->
+      <line x1="180" y1="105" x2="190" y2="105" stroke="#9CA3AF" stroke-width="2"/>
+      <polygon points="196,105 186,100 186,110" fill="#9CA3AF"/>
+
+      <!-- STEP 2 -->
+      <rect x="200" y="30" width="166" height="150" rx="10" fill="#FFFFFF" stroke="#D5D9DE" stroke-width="2"/>
+      <circle cx="283" cy="62" r="17" fill="#C73E1D"/>
+      <text x="283" y="68" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">2</text>
+      <text x="283" y="106" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">インストール</text>
+      <text x="283" y="128" text-anchor="middle" font-size="10.5" fill="#4A535C">案内されたURLを</text>
+      <text x="283" y="145" text-anchor="middle" font-size="10.5" fill="#4A535C">ブラウザで開きます</text>
+      <text x="283" y="168" text-anchor="middle" font-size="10.5" fill="#C73E1D">※ 初回だけ</text>
+
+      <!-- 矢印 -->
+      <line x1="370" y1="105" x2="380" y2="105" stroke="#9CA3AF" stroke-width="2"/>
+      <polygon points="386,105 376,100 376,110" fill="#9CA3AF"/>
+
+      <!-- STEP 3 -->
+      <rect x="390" y="30" width="166" height="150" rx="10" fill="#FFFFFF" stroke="#D5D9DE" stroke-width="2"/>
+      <circle cx="473" cy="62" r="17" fill="#C73E1D"/>
+      <text x="473" y="68" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">3</text>
+      <text x="473" y="106" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">起動</text>
+      <text x="473" y="128" text-anchor="middle" font-size="10.5" fill="#4A535C">スタートメニューの</text>
+      <text x="473" y="145" text-anchor="middle" font-size="10.5" fill="#4A535C">「Watashi」をクリック</text>
+      <text x="473" y="168" text-anchor="middle" font-size="10.5" fill="#C73E1D">※ 更新は自動</text>
+
+      <!-- 矢印 -->
+      <line x1="560" y1="105" x2="570" y2="105" stroke="#9CA3AF" stroke-width="2"/>
+      <polygon points="576,105 566,100 566,110" fill="#9CA3AF"/>
+
+      <!-- STEP 4 -->
+      <rect x="580" y="30" width="166" height="150" rx="10" fill="#FFFFFF" stroke="#D5D9DE" stroke-width="2"/>
+      <circle cx="663" cy="62" r="17" fill="#C73E1D"/>
+      <text x="663" y="68" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">4</text>
+      <text x="663" y="106" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">ログイン</text>
+      <text x="663" y="128" text-anchor="middle" font-size="10.5" fill="#4A535C">ユーザー名（GID）と</text>
+      <text x="663" y="145" text-anchor="middle" font-size="10.5" fill="#4A535C">パスワードを入力</text>
+      <text x="663" y="168" text-anchor="middle" font-size="10.5" fill="#C73E1D">※ 初回は自分で決めます</text>
+    </svg>
+    <figcaption>図2：はじめて使うときの流れ。2回目からは「起動 → ログイン」だけです。</figcaption>
+  </figure>
+
+  <ol class="steps">
+    <li><strong>利用申請（ユーザー登録の依頼）</strong><br>
+      Watashi を使うには、あらかじめ<strong>ユーザー登録</strong>が必要です。まず管理者に<strong>利用申請</strong>をしてください。<br>
+      登録が済むと、<strong>ユーザー名（GID）</strong>と<strong>インストール用のURL</strong>が案内されます。
+      <!-- ▼ 申請ページのURL：社内の申請窓口（ワークフロー・申請フォーム等）のURLに書き換えてください -->
+      <div class="note" style="margin:10px 0 0;">
+        <strong>申請のしかた</strong>
+        申請ページ： <a href="#" class="apply-link">ユーザー登録の申請フォーム</a><br>
+        <span style="font-size:13px;color:var(--muted);">※ リンク先URLは、社内の申請窓口に合わせて管理者が設定します（未設定の場合は管理者にお問い合わせください）。</span><br>
+        <span style="font-size:13px;color:var(--muted);">※ 管理者の方へ：登録の操作手順は <a href="admin.html#users">管理者マニュアル 第3章「ユーザー」</a> を参照してください。</span>
+      </div></li>
+    <li><strong>インストール（初回だけ）</strong><br>
+      案内された<strong>インストール用のURL</strong>をブラウザ（Edge など）で開き、画面の指示どおりに進めます。完了するとスタートメニューに「Watashi」が追加されます。</li>
+    <li><strong>起動</strong><br>
+      スタートメニュー（またはデスクトップ）の <strong>「Watashi」</strong> から起動します。新しい版があれば起動時に自動で適用されるので、更新作業は不要です。</li>
+    <li><strong>ログイン</strong><br>
+      <strong>ユーザー名（GID）</strong> を入力して「次へ」を押し、続けてパスワードを入力します。<br>
+      はじめての方は<strong>「初回パスワードの設定」画面</strong>が出るので、自分でパスワードを決めてください（管理者から初期パスワードを受け取る必要はありません）。</li>
+  </ol>
+
+  <div class="key">
+    <strong>パスワードのルール</strong>
+    <strong>12文字以上</strong>で、<strong>英大文字・英小文字・数字・記号</strong>をすべて含めてください。<br>
+    OK例： <code>Spring2026!Welcome</code> ／ NG例： <code>password123</code>（記号・大文字なし）
+  </div>
+
+  <div class="shot">
+    <img class="shot-img" src="images/02-login.png" data-desc="ログイン画面" alt="ログイン画面">
+  </div>
+
+  <div class="tip">
+    <strong>毎回の入力を省きたいときは「このPCを記憶する」</strong>
+    ログイン画面でチェックを入れておくと、次回から自動でログインします（1人につき1台まで）。共有パソコンでは使わないでください。
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="num">3</span>画面の見かた</h2>
+
+  <p>覚えることは3つだけです。<strong>左が自分のパソコン</strong>、<strong>右が社内のファイルサーバー</strong>、<strong>上のボタンでアップロード・ダウンロード</strong>。</p>
+
+  <ul>
+    <li><strong>左のペイン（💻 ローカル）</strong>… 自分のパソコンの中身が表示されます。</li>
+    <li><strong>右のペイン（⛩ リモート）</strong>… 社内のファイルサーバーの中身が表示されます。「場所」を選ぶと、見る共有フォルダを切り替えられます。</li>
+    <li><strong>上のボタン</strong>… <span class="uibtn">⬆ アップロード</span> <span class="uibtn">⬇ ダウンロード</span> のほか、新規フォルダの作成や削除ができます。</li>
+    <li><strong>下のバー</strong>… 転送の進み具合と、接続状態・直前の操作結果が表示されます。</li>
+  </ul>
+
+  <p>フォルダは<strong>ダブルクリック</strong>で中に入り、<code>..</code> を選ぶと1つ上のフォルダに戻ります。</p>
+
+  <div class="shot">
+    <img class="shot-img" src="images/03-main.png" data-desc="実際のメイン画面全体" alt="メイン画面">
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="num">4</span>できること</h2>
+
+  <div class="cards">
+    <div class="card">
+      <div class="ico">⬇</div>
+      <h4>ダウンロード</h4>
+      <p>サーバーのファイルを自分のパソコンへ取り出します。途中で失敗しても、中途半端なファイルが残ることはありません。</p>
+      <a class="more" href="index.html#download">マニュアル 第9章 →</a>
+    </div>
+    <div class="card">
+      <div class="ico">⬆</div>
+      <h4>アップロード</h4>
+      <p>自分が作った資料をサーバーへ送ります。同じ名前のファイルがあるときは、上書きの確認が表示されます。</p>
+      <a class="more" href="index.html#upload">マニュアル 第8章 →</a>
+    </div>
+    <div class="card">
+      <div class="ico">🖱</div>
+      <h4>ドラッグ＆ドロップ</h4>
+      <p>ファイルをマウスでつかみ、反対側のペインに落とすだけでも転送できます（管理者の設定によっては使えません）。</p>
+      <a class="more" href="index.html#dragdrop">マニュアル 第10章 →</a>
+    </div>
+    <div class="card">
+      <div class="ico">📁</div>
+      <h4>フォルダの整理</h4>
+      <p>新しいフォルダの作成、名前の変更（<kbd>F2</kbd>）、削除ができます。フォルダごと転送も可能です。</p>
+      <a class="more" href="index.html#newfolder">マニュアル 第12〜14章 →</a>
+    </div>
+    <div class="card">
+      <div class="ico">🔎</div>
+      <h4>絞り込み・並べ替え</h4>
+      <p>名前で絞り込んだり、名前・サイズ・更新日時で並べ替えたりして、目当てのファイルを探せます。</p>
+      <a class="more" href="index.html#search">マニュアル 第7章 →</a>
+    </div>
+    <div class="card">
+      <div class="ico">🗂</div>
+      <h4>まとめて転送</h4>
+      <p><kbd>Ctrl</kbd>＋クリックや <kbd>Shift</kbd>＋クリックで複数選び、一度にまとめて転送できます。</p>
+      <a class="more" href="index.html#multi">マニュアル 第11章 →</a>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="num">5</span>ここだけ注意</h2>
+
+  <div class="warn">
+    <strong>ファイルはダブルクリックでは開けません</strong>
+    サーバー上のファイルを直接開く機能はありません。中身を見たいときは、<strong>いったんダウンロードしてから</strong>自分のパソコンで開いてください。（→ <a href="index.html#openfile">マニュアル 第6章</a>）
+  </div>
+
+  <div class="note">
+    <strong>見えるフォルダ・できる操作は人によって違います</strong>
+    どの共有フォルダが見えるか、読むだけか書き込みまでできるかは<strong>管理者が設定</strong>しています。右側に何も表示されないときや、操作がエラーになるときは、権限が割り当てられていない可能性があります。管理者にご相談ください。（→ <a href="index.html#perm">マニュアル 第16章</a>）
+  </div>
+
+  <div class="note">
+    <strong>しばらく操作しないと自動でログアウトします</strong>
+    初期設定では<strong>30分</strong>（社内の方針で変わることがあります）。もう一度ログインすれば続けて使えます。離席・終業時は <span class="uibtn ghost">⏻</span> から手動でログアウトしてください。
+  </div>
+
+  <h3>覚えておくと便利なキー</h3>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th style="width:34%">キー</th><th>できること</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>ダブルクリック</kbd> / <kbd>Enter</kbd></td><td>フォルダの中に入る</td></tr>
+        <tr><td><kbd>Backspace</kbd></td><td>ひとつ上のフォルダへ戻る</td></tr>
+        <tr><td><kbd>F5</kbd></td><td>左右の一覧を最新に更新する</td></tr>
+        <tr><td><kbd>F2</kbd></td><td>名前を変更する</td></tr>
+        <tr><td><kbd>Delete</kbd></td><td>削除する（確認あり）</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="num">6</span>困ったときは</h2>
+
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th style="width:44%">こんなとき</th><th>どうする</th></tr></thead>
+      <tbody>
+        <tr><td>ユーザー名（GID）を入力しても先に進めない</td><td>まだユーザー登録が済んでいない可能性があります。<strong>利用申請の状況を管理者に確認</strong>してください。</td></tr>
+        <tr><td>パスワードを忘れた／<br>「アカウントがロックされています」と出る</td><td><strong>管理者に連絡</strong>してください。ロック解除、またはパスワードの再設定をしてもらえます。</td></tr>
+        <tr><td>右側（リモート）に何も表示されない</td><td>権限が割り当てられていない可能性があります。<strong>管理者に依頼</strong>してください。</td></tr>
+        <tr><td>「パスワードが違います」が続く</td><td>大文字小文字の違いと <kbd>CapsLock</kbd> を確認。何度も失敗するとロックされます。</td></tr>
+        <tr><td>操作の途中で「再ログインしてください」と出た</td><td>安全のための自動ログアウトです。もう一度ログインすれば続けられます。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>上記以外のエラーメッセージや操作の詳細は、マニュアルの<a href="index.html#trouble">「第21章 困ったとき（トラブル＆エラー集）」</a>にまとめてあります。</p>
+
+  <hr class="sec">
+
+  <!-- ========================================================= -->
+  <div class="manual-cta">
+    <h3>📖 詳しい使い方は「利用者マニュアル」へ</h3>
+    <p>画面ごとの操作手順、権限のしくみ、エラーメッセージの意味まで、ひとつずつ丁寧に説明しています。</p>
+    <a class="btn" href="index.html">利用者マニュアルを開く →</a>
+    <div class="chips">
+      <a href="index.html#login">2. ログイン</a>
+      <a href="index.html#main">4. メイン画面の見かた</a>
+      <a href="index.html#upload">8. アップロード</a>
+      <a href="index.html#download">9. ダウンロード</a>
+      <a href="index.html#perm">16. 権限（できること）</a>
+      <a href="index.html#trouble">21. 困ったとき</a>
+    </div>
+  </div>
+
+  <footer class="end">
+    ⛩ Watashi かんたんガイド<br>
+    不明点は管理者までお問い合わせください。
+  </footer>
+
+</div><!-- /wrap -->
+
+<a href="#" class="totop" id="totop" aria-label="ページ先頭へ">↑</a>
+
+<script>
+  // ===== スクリーンショット枠：画像が無いときは差し替え案内を表示 =====
+  document.querySelectorAll('img.shot-img').forEach(function(img){
+    img.addEventListener('error', function(){
+      var ph = document.createElement('div');
+      ph.className = 'shot-ph';
+      var src = img.getAttribute('src') || '';
+      var desc = img.getAttribute('data-desc') || '';
+      ph.innerHTML =
+        '<div class="shot-ph-inner">' +
+          '<span class="cam">📷</span>' +
+          '<strong>スクリーンショットをここに差し込めます</strong>' +
+          '<span class="fn">' + src + '</span>' +
+          (desc ? '<span class="hint">撮る画面：' + desc + '</span>' : '') +
+          '<span class="note2">この名前の画像を images フォルダに置いて再読み込みすると、ここに表示されます</span>' +
+        '</div>';
+      img.replaceWith(ph);
+    });
+  });
+
+  // ===== ページ先頭へ戻るボタン =====
+  var totop = document.getElementById('totop');
+  window.addEventListener('scroll', function(){
+    totop.classList.toggle('show', window.scrollY > 400);
+  }, {passive:true});
+</script>
+</body>
+</html>
