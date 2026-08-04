@@ -42,6 +42,13 @@ public class UserDto
 
     /// <summary>画面表示用のラベル。</summary>
     public string PasswordStatusLabel => PasswordStatuses.ToLabel(PasswordStatus);
+
+    /// <summary>
+    /// 一覧の「PW期限」列に出す値。初回設定待ちのユーザーはまだパスワードを持たないため、
+    /// 期限を出すと「その日に切れる」と誤読される。空欄にする。
+    /// </summary>
+    public DateTime? PasswordExpiresAtForDisplay =>
+        PasswordStatus == PasswordStatuses.PendingSetup ? null : PasswordExpiresAt;
 }
 
 /// <summary>

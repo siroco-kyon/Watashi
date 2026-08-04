@@ -16,25 +16,9 @@ public static class AdminUserEndpoints
 
         group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
         {
-            var now = DateTime.UtcNow;
-            var items = await db.Users.AsNoTracking().Select(u => new UserDto
-            {
-                Id = u.Id,
-                Username = u.Username,
-                IsAdmin = u.IsAdmin,
-                IsLocked = u.IsLocked,
-                LastLoginAt = u.LastLoginAt,
-                PasswordExpiresAt = u.PasswordExpiresAt,
-                MustChangePassword = u.MustChangePassword,
-                PasswordStatus =
-                    u.IsPasswordSetupPending ? PasswordStatuses.PendingSetup
-                    : u.PasswordExpiresAt <= now ? PasswordStatuses.Expired
-                    : u.MustChangePassword ? PasswordStatuses.MustChange
-                    : PasswordStatuses.Active,
-                PasswordSetupExpiresAt = u.PasswordSetupExpiresAt,
-                WindowsAccountName = u.WindowsAccountName,
-                CreatedAt = u.CreatedAt,
-            }).ToListAsync(ct);
+            var items = await db.Users.AsNoTracking()
+                .Select(UserProjections.ToDto(DateTime.UtcNow))
+                .ToListAsync(ct);
             return Results.Ok(items);
         });
 
@@ -228,18 +212,9 @@ public static class AdminUserEndpoints
         // Password 列はあえて含めない (DB に平文無いので)
         group.MapGet("/export.csv", async (AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
-            var now = DateTime.UtcNow;
             var users = await db.Users.AsNoTracking()
                 .OrderBy(u => u.Username)
-                .Select(u => new
-                {
-                    u.Username, u.IsAdmin, u.IsLocked, u.PasswordExpiresAt, u.LastLoginAt, u.CreatedAt,
-                    Status =
-                        u.IsPasswordSetupPending ? PasswordStatuses.PendingSetup
-                        : u.PasswordExpiresAt <= now ? PasswordStatuses.Expired
-                        : u.MustChangePassword ? PasswordStatuses.MustChange
-                        : PasswordStatuses.Active,
-                })
+                .Select(UserProjections.ToDto(DateTime.UtcNow))
                 .ToListAsync(ct);
             ctx.Response.Headers.ContentDisposition = "attachment; filename=watashi-users.csv";
             ctx.Response.ContentType = "text/csv; charset=utf-8";
@@ -251,7 +226,7 @@ public static class AdminUserEndpoints
                     CsvEscape(u.Username),
                     u.IsAdmin ? "true" : "false",
                     u.IsLocked ? "true" : "false",
-                    u.Status,
+                    u.PasswordStatus,
                     u.PasswordExpiresAt.ToString("o"),
                     u.LastLoginAt?.ToString("o") ?? "",
                     u.CreatedAt.ToString("o")));

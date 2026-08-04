@@ -221,7 +221,9 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
-                PermitLimit = windowsAuth.SetupPerMinutePerIp,
+                // PermitLimit は 1 以上でなければ実行時に例外になる。設定ミスでサーバー全体が
+                // 落ちないよう下限を切る。
+                PermitLimit = Math.Max(1, windowsAuth.SetupPerMinutePerIp),
                 QueueLimit = 0,
                 AutoReplenishment = true,
             }));

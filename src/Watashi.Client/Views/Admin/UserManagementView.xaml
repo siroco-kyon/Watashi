@@ -13,20 +13,27 @@
         <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0">
             <DockPanel>
                 <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
-                    <DockPanel>
-                        <TextBlock Text="ユーザー一覧" Style="{StaticResource H3}" DockPanel.Dock="Left"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="🔄 再読み込み" Command="{Binding RefreshCommand}" Style="{StaticResource GhostButton}" Margin="0,0,6,0"/>
-                            <Button Content="📥 CSV取込" Command="{Binding ImportCsvCommand}" ToolTip="CSV ファイルからユーザーを一括登録" Margin="0,0,6,0"/>
-                            <Button Content="📤 CSV出力" Command="{Binding ExportCsvCommand}" ToolTip="ユーザー一覧を CSV として保存" Style="{StaticResource GhostButton}" Margin="0,0,6,0"/>
-                            <Button Content="🔓 ロック解除" Command="{Binding UnlockCommand}" Margin="0,0,6,0"/>
-                            <Button Content="🔑 初期PW発行" Click="OnResetPw" Margin="0,0,6,0"
+                    <!-- ボタンが増えて 1 行に収まらなくなると、StackPanel では見出しに重なってしまう。
+                         WrapPanel にして、幅が足りないときは折り返させる。 -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="ユーザー一覧" Style="{StaticResource H3}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="🔄 再読み込み" Command="{Binding RefreshCommand}" Style="{StaticResource GhostButton}" Margin="0,2,6,2"/>
+                            <Button Content="📥 CSV取込" Command="{Binding ImportCsvCommand}" ToolTip="CSV ファイルからユーザーを一括登録" Margin="0,2,6,2"/>
+                            <Button Content="📤 CSV出力" Command="{Binding ExportCsvCommand}" ToolTip="ユーザー一覧を CSV として保存" Style="{StaticResource GhostButton}" Margin="0,2,6,2"/>
+                            <Button Content="🔓 ロック解除" Command="{Binding UnlockCommand}" Margin="0,2,6,2"/>
+                            <Button Content="🔑 初期PW発行" Click="OnResetPw" Margin="0,2,6,2"
                                     ToolTip="Windows 認証が使えない端末向け。管理者が初期パスワードを決めて本人に伝えます。"/>
-                            <Button Content="↩ 初回設定に戻す" Command="{Binding RequireSetupCommand}" Margin="0,0,6,0"
+                            <Button Content="↩ 初回設定に戻す" Command="{Binding RequireSetupCommand}" Margin="0,2,6,2"
                                     ToolTip="パスワードを破棄し、本人に再度設定させます。セッションと記憶済み端末も失効します。"/>
-                            <Button Content="🗑 削除" Command="{Binding DeleteCommand}" Style="{StaticResource DangerButton}"/>
-                        </StackPanel>
-                    </DockPanel>
+                            <Button Content="🗑 削除" Command="{Binding DeleteCommand}" Style="{StaticResource DangerButton}" Margin="0,2,0,2"/>
+                        </WrapPanel>
+                    </Grid>
                 </Border>
                 <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
                     <ComboBox DockPanel.Dock="Right"
@@ -53,7 +60,7 @@
                                 <GridViewColumn Header="管理者" DisplayMemberBinding="{Binding IsAdmin}" Width="64"/>
                                 <GridViewColumn Header="Lock" DisplayMemberBinding="{Binding IsLocked}" Width="60"/>
                                 <GridViewColumn Header="PW状態" DisplayMemberBinding="{Binding PasswordStatusLabel}" Width="100"/>
-                                <GridViewColumn Header="PW期限" DisplayMemberBinding="{Binding PasswordExpiresAt, Converter={StaticResource Utc}}" Width="160"/>
+                                <GridViewColumn Header="PW期限" DisplayMemberBinding="{Binding PasswordExpiresAtForDisplay, Converter={StaticResource Utc}}" Width="160"/>
                                 <GridViewColumn Header="最終ログイン" DisplayMemberBinding="{Binding LastLoginAt, Converter={StaticResource Utc}}" Width="160"/>
                             </GridView>
                         </ListView.View>
