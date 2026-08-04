@@ -4,6 +4,49 @@
 
 ---
 
+## 2026-08-04 — 初回パスワードを本人が設定する方式へ
+
+初期パスワードを管理者が決めて配布する手順を廃止した。ユーザー作成後、本人が初回ログイン時に Windows のログオン情報で本人確認され、自分でパスワードを決める。
+
+### 機能追加
+
+- **パスワード未設定状態を追加** — ユーザー作成時にパスワードを設定せず「初回設定待ち」で登録する。この状態では通常ログイン・自動ログインのいずれも通らない。
+  - 未設定を `PasswordHash = NULL` で表さず、誰も知り得ないランダム値の bcrypt ハッシュ (使用不能ハッシュ) + `IsPasswordSetupPending` フラグで表す。NULL 化は SQLite でテーブル再構築を招き、`Users` を Cascade 参照する `UserPermissions` などを巻き添えで削除する危険があるため。判定漏れがあっても照合が false になるだけで済む fail-closed な構造にもなる。
+  - migration は `ALTER TABLE ADD COLUMN` 3 本のみ。既存データへの影響なし。
+- **Windows 統合認証による本人確認** — `POST /api/auth/win/prepare-login` / `POST /api/auth/win/initialize-password` を追加。「Windows ログオン名 = GID = Watashi ユーザー名」という既存の運用ルールを使い、本人だけが自分の初回パスワードを設定できる。
+  - `Auth:WindowsAuth:Mode` (`None` / `IIS` / `Negotiate`) で有効化。**既定は `None`** なので、設定を入れるまで挙動は変わらない。
+  - ドメイン照合は `IgnoreDomain` / `AllowList` を設定で切り替え可能。
+  - `GET /api/auth/win/whoami` で導入時の疎通確認ができる (既定オフ)。
+- **`POST /api/admin/users/{id}/require-setup`** — パスワードを破棄して本人に再設定させる。パスワードを忘れた利用者への対応に、パスワードを人づてに伝える必要がなくなる。
+- **クライアントのログインを二段階化** — ID を入力して「次へ」→ 未設定なら初回設定画面、設定済みならパスワード入力。判定 API が使えない環境 (ドメイン非参加・機能無効・旧サーバー・通信不能) では黙って従来のパスワード入力に落ちる。
+
+### セキュリティ
+
+- **ユーザー列挙対策** — 本人確認できた未設定アカウント以外は、不明な ID も通常アカウントも一律「パスワードを入力」を返す。未設定ユーザーへの通常ログインも、存在しないユーザーと同一の応答にした。
+- **`IISServerOptions.AutomaticAuthentication` を常に false に** — IIS で Windows 認証を有効にすると、既定 (true) では IIS が `HttpContext.User` を Windows プリンシパルで埋めるため、JWT 無しのリクエストが `RequireAuthorization()` を通過してしまう。
+- **CSV の上書きが既存パスワードを再設定しなくなった** — 従来は upsert で既存ユーザーのパスワードを無条件に書き換えていたため、CSV を再取り込みしただけで全員が締め出される事故が起こりうる状態だった。現在は `IsAdmin` のみ更新する。
+- **管理者ロックアウト防止の強化** — 「アクティブな管理者」の判定から初回設定待ちの管理者を除外した。ログインできない管理者を数えると、実際に使える最後の管理者を削除・降格できてしまうため。`require-setup` にも同じガードを掛けた。
+- 初回設定の要求・本人不一致・成功・拒否をすべて監査ログに記録 (`PASSWORD_SETUP_*`)。初回設定エンドポイントは `login` とは別枠のレート制限にした (Negotiate のハンドシェイクが複数リクエストを消費するため)。
+
+### 修正
+
+- **自動ログインに未設定チェックを追加** — 記憶済み端末が残っていると、未設定ユーザーがパスワード無しでログインできてしまう経路があった。`require-setup` は信頼済み端末と refresh token の両方を失効させる。
+
+### 破壊的変更
+
+- `POST /api/admin/users` は `Password` を受け取らなくなった。
+- ユーザー CSV の形式が `Username,IsAdmin` になった。旧形式 (`Username,Password,IsAdmin`) も取り込めるが `Password` 列は無視される。
+- ユーザー CSV エクスポートの `MustChangePassword` 列が `PasswordStatus` 列に変わった。
+
+### 文書
+
+- `docs/ADMIN-GUIDE.md` / `docs/manual/admin.html` — 初回パスワード設定の流れ、PW状態の見方、CSV 形式変更、ロックアウト防止の条件を更新。
+- `docs/USER-GUIDE.md` — 二段階ログインと初回設定画面を追記。
+- `deploy/IIS-HOSTING.md` — 「Windows 統合認証を有効にする」章を新設 (認証を `/api/auth/win` だけに限定する手順、SPN、受け入れ確認)。
+- `deploy/site/index.html` / `request.html` — 初期パスワードの配布を前提とした記述を削除。
+
+---
+
 ## 2026-07-06 — ブランド名一括置換スクリプト
 
 ### 文書 / ツール

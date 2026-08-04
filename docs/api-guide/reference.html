@@ -471,7 +471,14 @@
 
       <div class="note">
         <strong>本書の対象外の Auth エンドポイント</strong>
-        <code>/api/auth/auto-login</code> と <code>/api/auth/trust-device</code> は、WPF クライアントの「このPCを記憶する」機能（Windowsユーザー名＋端末固有トークンでの自動ログイン）専用です。ファイルをAPIで操作する用途では、通常の <code>/api/auth/login</code> のみで完結します。
+        <code>/api/auth/auto-login</code> と <code>/api/auth/trust-device</code> は、WPF クライアントの「このPCを記憶する」機能（Windowsユーザー名＋端末固有トークンでの自動ログイン）専用です。<br>
+        <code>/api/auth/win/prepare-login</code> と <code>/api/auth/win/initialize-password</code> は、利用者が初回パスワードを自分で設定するための経路で、Windows 統合認証（Negotiate）を要求します。<br>
+        ファイルをAPIで操作する用途では、通常の <code>/api/auth/login</code> のみで完結します。
+      </div>
+
+      <div class="danger">
+        <strong>パスワード未設定のアカウントはログインできません</strong>
+        管理者が作成した直後のユーザーは「初回設定待ち」で、本人が Watashi クライアントから初回パスワードを設定するまで <code>/api/auth/login</code> は <span class="msg err">401 Unauthorized</span> を返します（存在しないユーザー名と同じ応答です）。API 連携用のアカウントを使う場合は、先にクライアントで初回設定を済ませるか、管理者に初期パスワードを発行してもらってください。
       </div>
 
       <!-- ===================================================== 5 : HOSTS -->

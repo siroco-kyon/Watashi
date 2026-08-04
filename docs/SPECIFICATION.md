@@ -203,7 +203,7 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 - 履歴チェックなし (運用ポリシーで補完想定)
 - 有効期限デフォルト **90 日** (設定変更可)、残り **14 日**以内で警告
 - NG 例: `password123`, `Short1!` / OK 例: `Spring2026!Welcome`
-- 期限切れ / 初回 / 管理者リセット時は**パスワード変更画面を強制表示** (`MustChangePassword`)
+- 期限切れ / 管理者リセット時は**パスワード変更画面を強制表示** (`MustChangePassword`)
 
 ### 4.6 アカウント保護
 
@@ -212,7 +212,40 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 - **ログインレート制限**: `/api/auth/login` と `/api/auth/auto-login` に
   **IP 単位の固定ウィンドウ (デフォルト 10 回/分、`login-ip`)**。超過で 429
 
-### 4.7 アイドルタイムアウト・ログアウト
+### 4.7 初回パスワード設定 (本人による設定)
+
+管理者が初期パスワードを決めて配布する手順を持たない。ユーザーは**パスワード未設定**
+(`IsPasswordSetupPending=true`) で作成され、本人が初回ログイン時に自分で決める。
+
+**本人確認**: 「Windows ログオン名 = 社内 GID = Watashi ユーザー名」という運用ルールを使い、
+Windows 統合認証で認証された OS アカウント名と対象ユーザー名を照合する。
+サーバーが受け取る自己申告値ではなく、Kerberos/NTLM で認証された ID を使う。
+
+| エンドポイント | 用途 |
+|---|---|
+| `POST /api/auth/win/prepare-login` | ID から次の画面 (パスワード入力 / 初回設定) を判定 |
+| `POST /api/auth/win/initialize-password` | 初回パスワードを確定し、そのままトークンを発行 |
+| `GET /api/auth/win/whoami` | 導入時の疎通確認 (既定オフ) |
+
+- 設定値は `Auth:WindowsAuth` 配下。`Mode` (`None`/`IIS`/`Negotiate`) が既定 `None` で、
+  有効化するまで `/api/auth/win/*` は map されない
+- OS アカウント名は `DOMAIN\GID` / `GID@domain` / `GID` の 3 形態を正規化して照合。
+  ドメイン部の扱いは `DomainMatch` (`IgnoreDomain` / `AllowList`) で切り替える
+- **ユーザー列挙対策**: 本人確認できた未設定アカウント以外は、不明な ID も通常アカウントも
+  一律 `mode=password` を返す。未設定ユーザーへの通常ログインも、存在しないユーザーと同一の応答
+- **未設定ユーザーは bcrypt 照合の手前で遮断する**。照合に任せると本人の試行で
+  `FailedLoginCount` が積み上がり、設定前にロックされてしまう
+- 確定は `IsPasswordSetupPending` を条件にした 1 文の更新で行い、二重送信・同時実行でも
+  成立するのは 1 回だけ
+- 受付期限は `PasswordSetupExpiryDays` (既定 0 = 無期限)
+- 監査ログ: `PASSWORD_SETUP_REQUESTED` / `PASSWORD_SETUP_IDENTITY_MISMATCH` /
+  `PASSWORD_SETUP_SUCCEEDED` / `PASSWORD_SETUP_REJECTED`
+
+**第二経路 (Windows 認証が使えない場合)**: ドメイン非参加端末などでは、管理者が
+`POST /api/admin/users/{id}/reset-password` で初期パスワードを発行し、従来どおり
+`MustChangePassword=true` で初回ログイン時に変更させる。
+
+### 4.8 アイドルタイムアウト・ログアウト
 
 - アイドルタイムアウトはサーバーの `SessionIdleMinutes` (デフォルト 30 分) 由来。
   ログイン応答で `IdleMinutes` をクライアントへ伝え、無操作で自動ログアウト
@@ -363,10 +396,11 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 管理ウィンドウは TabControl 構成。**全 admin 操作は監査ログ (`ADMIN_*`) に記録される。**
 
 ### 8.1 ユーザー
-一覧 / 追加 / 削除 / 管理者フラグ変更 / ロック解除 / パスワード強制リセット。
-新規・リセットユーザーは必ず `MustChangePassword=true`。
-**CSV インポート** (`Username,Password,IsAdmin`、新規のみ/上書きの 2 モード、行単位エラー表示) と
-**CSV エクスポート** (棚卸し用、BOM 付き UTF-8)。
+一覧 / 追加 / 削除 / 管理者フラグ変更 / ロック解除 / 初期 PW 発行 / 初回設定に戻す。
+**新規ユーザーはパスワードを持たず、`IsPasswordSetupPending=true` で作成される** (§4.7)。
+管理者リセット (`初期PW発行`) の場合のみ `MustChangePassword=true`。
+**CSV インポート** (`Username,IsAdmin`、新規のみ/上書きの 2 モード、行単位エラー表示。上書きは `IsAdmin` のみ更新しパスワードには触れない) と
+**CSV エクスポート** (棚卸し用、BOM 付き UTF-8、`PasswordStatus` 列付き)。
 
 ### 8.2 ホスト (CIFS ファイルサーバー)
 表示名 / ホスト名・IP / ポート (デフォルト 445) / CIFS 資格情報 / 実行ノード。
@@ -552,7 +586,14 @@ CSV エクスポート (BOM 付き UTF-8、`AsNoTracking` + `Select` 射影で�
 
 ### User
 `Id` / `Username` / `PasswordHash` `[JsonIgnore]` / `IsAdmin` / `IsLocked` /
-`FailedLoginAttempts` / `MustChangePassword` / `PasswordExpiresAt` / `LastLoginAt` / `CreatedAt`
+`FailedLoginAttempts` / `MustChangePassword` / `PasswordExpiresAt` / `LastLoginAt` / `CreatedAt` /
+`IsPasswordSetupPending` / `PasswordSetupExpiresAt` / `WindowsAccountName`
+
+`PasswordHash` は NOT NULL を維持する。初回設定待ちのユーザーには誰も知り得ないランダム値から
+作った bcrypt ハッシュ (使用不能ハッシュ) が入る。NULL 化しないのは、SQLite で NOT NULL 制約を
+外す migration がテーブル再構築を伴い、`Users` を Cascade 参照する `UserPermissions` /
+`RefreshTokens` / `TrustedDevices` を巻き添えで削除する危険があるため。
+判定漏れがあっても照合が必ず false になる fail-closed な構造にもなっている。
 
 ### RefreshToken
 `Id` / `UserId` / `TokenHash` `[JsonIgnore]` / `ExpiresAt` / `IsRevoked` / `RevokedAt` /

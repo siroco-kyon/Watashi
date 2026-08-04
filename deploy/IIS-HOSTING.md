@@ -475,6 +475,122 @@ Watashi.Client の配布物に同梱する `deployment.json` の `serverUrl` に
 
 `Auth:AllowHttpForAutoLogin` は `false` のままで構いません。IIS/ASP.NET Core Module 経由のホストでは、外側が HTTPS ならアプリ側でも HTTPS として扱われます。
 
+## 11.5 Windows 統合認証を有効にする (初回パスワード設定)
+
+この章は任意です。設定しない場合、ユーザーの初回パスワードは従来どおり管理者が発行します (管理画面の「🔑 初期PW発行」)。
+
+有効にすると、利用者が Watashi に GID を入力した時点で Windows のログオン情報による本人確認が行われ、**本人が自分で初回パスワードを決められる**ようになります。管理者が初期パスワードを配布する手順がなくなります。
+
+前提: 「Windows のログオンユーザー名 = 社内 GID = Watashi のユーザー名」という運用ルールが成立していること。
+
+### 11.5.1 IIS の Windows 認証機能を入れる
+
+```powershell
+Install-WindowsFeature Web-Windows-Auth
+```
+
+### 11.5.2 認証を `/api/auth/win` だけに限定する
+
+⚠️ **サイト全体で Windows 認証を有効にしてはいけません。** 同じサイトでポータル・`/install/` (ClickOnce)・`/manual/` を配信している場合、ドメイン非参加 PC からインストールページが開けなくなります。
+
+Watashi 側で Windows 認証が要るのは `/api/auth/win/*` だけです。ここだけ Windows 認証、他は匿名のままにします。
+
+```powershell
+Import-Module WebAdministration
+
+$site = "Watashi.Server"
+$loc  = "$site/api/auth/win"
+
+# サイト全体は匿名のまま (既定)
+Set-WebConfigurationProperty -PSPath "IIS:\" -Location $site `
+  -Filter "/system.webServer/security/authentication/anonymousAuthentication" -Name enabled -Value $true
+Set-WebConfigurationProperty -PSPath "IIS:\" -Location $site `
+  -Filter "/system.webServer/security/authentication/windowsAuthentication" -Name enabled -Value $false
+
+# /api/auth/win だけ Windows 認証
+Set-WebConfigurationProperty -PSPath "IIS:\" -Location $loc `
+  -Filter "/system.webServer/security/authentication/anonymousAuthentication" -Name enabled -Value $false
+Set-WebConfigurationProperty -PSPath "IIS:\" -Location $loc `
+  -Filter "/system.webServer/security/authentication/windowsAuthentication" -Name enabled -Value $true
+```
+
+物理フォルダが無いパスでも指定できます (ASP.NET Core のルートに対して効きます)。
+
+> この設定を `web.config` に書く方法もありますが、`system.webServer/security/authentication` は既定でサーバーレベルにロックされているため、そのままだと `500.19` になります。上記のように applicationHost.config 側 (`-PSPath "IIS:\" -Location ...`) に書けばロック解除は不要です。
+
+### 11.5.3 appsettings.json に設定を足す
+
+```json
+"Auth": {
+  "AllowHttpForAutoLogin": false,
+  "LoginPerMinutePerIp": 10,
+  "WindowsAuth": {
+    "Mode": "IIS",
+    "DomainMatch": "IgnoreDomain",
+    "AllowedDomains": [],
+    "EnableDiagnostics": true,
+    "SetupPerMinutePerIp": 30
+  }
+}
+```
+
+| キー | 既定 | 説明 |
+|---|---|---|
+| `Mode` | `None` | `None` = 機能オフ。IIS ホストなら `IIS`、Kestrel 直受けなら `Negotiate`。**`None` のままなら挙動は一切変わりません** |
+| `AllowHttp` | `false` | HTTP でも初回設定を許すか。ローカル開発専用。本番では `false` のまま |
+| `DomainMatch` | `IgnoreDomain` | `IgnoreDomain` = ドメイン部を見ず GID だけで照合。`AllowList` = 許可ドメインからのみ受け付ける |
+| `AllowedDomains` | `[]` | `AllowList` のときに許可するドメイン (NetBIOS 名・DNS 名どちらでも)。空のままだと全て拒否されます |
+| `EnableDiagnostics` | `false` | `GET /api/auth/win/whoami` を有効にする。導入確認が済んだら `false` に戻す |
+| `SetupPerMinutePerIp` | `30` | 初回設定エンドポイントの IP あたり毎分許可数 |
+
+複数ドメインが混在する環境で、別ドメインの同名アカウントによる乗っ取りを防ぎたい場合は `AllowList` にします。
+
+```json
+"DomainMatch": "AllowList",
+"AllowedDomains": [ "CORP", "corp.example.com" ]
+```
+
+設定後、アプリプールを再起動します。
+
+```powershell
+Restart-WebAppPool Watashi.Server
+```
+
+### 11.5.4 Kerberos の SPN
+
+IIS のホストヘッダ (`watashi.internal`) がサーバーのマシン名と異なる場合、Kerberos が成立するにはその名前の SPN が必要です。無い場合は NTLM にフォールバックします (動作はしますが Kerberos より弱い)。
+
+```powershell
+# 現状確認
+setspn -Q HTTP/watashi.internal
+
+# 無ければマシンアカウントに登録 (ドメイン管理者権限が必要)
+setspn -S HTTP/watashi.internal <サーバーのコンピューター名>
+```
+
+App Pool をドメインユーザー ID で動かしている場合は、マシンアカウントではなくそのユーザーに登録し、サイトの `useAppPoolCredentials` を `true` にします。
+
+### 11.5.5 受け入れ確認
+
+導入後、以下を順に確認してください。**6 が最重要です。**
+
+| # | 確認 | 期待 |
+|---|---|---|
+| 1 | ドメイン非参加 PC から `https://watashi.internal/install/publish.htm` を開く | 認証を求められず表示される |
+| 2 | `curl.exe -s -o NUL -w "%{http_code}" https://watashi.internal/health` | `200` |
+| 3 | `curl.exe -s -i https://watashi.internal/api/auth/win/whoami` | `401` + `WWW-Authenticate: Negotiate` |
+| 4 | `curl.exe -s --negotiate -u : https://watashi.internal/api/auth/win/whoami` | 自分の `DOMAIN\GID` が返り、`normalizedName` が GID、`domainAllowed` が `true` |
+| 5 | 通常ログイン (`POST /api/auth/login`) | 従来どおり成功する |
+| 6 | **JWT を付けずに** `curl.exe -s -o NUL -w "%{http_code}" --negotiate -u : https://watashi.internal/api/hosts` | **`401`**。`200` なら Windows 認証が API 全体に効いてしまっている (設定 11.5.2 を見直す) |
+| 7 | テスト用ユーザーを 1 件作り、本人の PC から初回設定を通す | 「初回パスワードの設定」画面が出て、設定後そのままログインできる |
+
+確認が済んだら `EnableDiagnostics` を `false` に戻してアプリプールを再起動します。
+
+### 11.5.6 使えない構成
+
+- **ARR などの単純なリバースプロキシ経由**: Negotiate は接続単位の認証なのでプロキシを越えられません。この手順の「IIS の ASP.NET Core Module でホストする」方式を使ってください。
+- **HTTP/2**: Negotiate は HTTP/2 では成立しません。Watashi.Client は HTTP/1.1 で接続するため通常は問題ありません。
+
 ## 12. 動作確認
 
 サーバー自身で確認:

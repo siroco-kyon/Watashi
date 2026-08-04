@@ -773,7 +773,8 @@ HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いま
 | ☐ | Server HTTPS 証明書を社内 CA 発行のものに ([deploy/CERTIFICATE.md](../deploy/CERTIFICATE.md) でストア参照 / ファイル指定どちらかを選ぶ) |
 | ☐ | (ストア参照方式の場合) 秘密キーへのサービスアカウントの Read 権限を付与 |
 | ☐ | クライアント PC に社内 CA ルート証明書を配布 |
-| ☐ | admin の初期パスワード変更 |
+| ☐ | admin の初期パスワード変更 (シード admin `admin` / `Admin123!@#` は従来どおりパスワード付きで作られる。この 1 アカウントだけは必ず手動で変更する) |
+| ☐ | (任意) Windows 統合認証を有効化して初期パスワードの配布を廃止 ([deploy/IIS-HOSTING.md](../deploy/IIS-HOSTING.md) の「Windows 統合認証を有効にする」)。未設定の場合は管理者が「初期PW発行」で配布する運用のまま |
 | ☐ | (モード A の場合) Agent クライアント証明書を発行して `ExecutionNode.ClientCertificateThumbprint` に登録 |
 | ☐ | (モード A の場合) Agent 側 `Auth:CentralCertificateThumbprint` に中央が Agent へ提示するクライアント証明書サムプリント設定 |
 | ☐ | (モード B の場合) `Routing:SharedSecret` を両側に同じ値で設定 |
