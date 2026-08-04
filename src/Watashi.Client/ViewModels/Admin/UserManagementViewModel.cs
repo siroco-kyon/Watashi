@@ -21,6 +21,7 @@ public partial class UserManagementViewModel : AdminViewModelBase
         new("ID", nameof(UserDto.Id)),
         new("管理者", nameof(UserDto.IsAdmin), ListSortDirection.Descending),
         new("ロック", nameof(UserDto.IsLocked), ListSortDirection.Descending),
+        new("PW状態", nameof(UserDto.PasswordStatus)),
         new("PW期限", nameof(UserDto.PasswordExpiresAt)),
         new("最終ログイン", nameof(UserDto.LastLoginAt), ListSortDirection.Descending),
     };
@@ -28,7 +29,6 @@ public partial class UserManagementViewModel : AdminViewModelBase
     [ObservableProperty] private string searchText = string.Empty;
     [ObservableProperty] private AdminSortOption? selectedSortOption;
     [ObservableProperty] private string newUsername = string.Empty;
-    [ObservableProperty] private string newPassword = string.Empty;
     [ObservableProperty] private bool newIsAdmin;
     [ObservableProperty] private bool editIsAdmin;
 
@@ -40,7 +40,7 @@ public partial class UserManagementViewModel : AdminViewModelBase
         ItemsView = CollectionViewSource.GetDefaultView(Items);
         ItemsView.Filter = item => item is UserDto u && MatchesSearch(
             SearchText, u.Id, u.Username, u.IsAdmin ? "管理者 admin" : "一般 user", u.IsLocked ? "ロック locked" : "有効 active",
-            u.PasswordExpiresAt, u.LastLoginAt);
+            u.PasswordStatus, u.PasswordStatusLabel, u.PasswordExpiresAt, u.LastLoginAt);
         SelectedSortOption = SortOptions[0];
         ApplySort(ItemsView, SelectedSortOption);
     }
@@ -82,8 +82,10 @@ public partial class UserManagementViewModel : AdminViewModelBase
         var mode = System.Windows.MessageBox.Show(
             "新規ユーザーのみ追加しますか？\n\n" +
             "[はい] 新規追加のみ (既存ユーザーはスキップ)\n" +
-            "[いいえ] 既存ユーザーも上書き (パスワード再設定 + IsAdmin 更新)\n" +
-            "[キャンセル] 中止",
+            "[いいえ] 既存ユーザーの管理者フラグも更新する\n" +
+            "[キャンセル] 中止\n\n" +
+            "※ CSV の形式は Username,IsAdmin です。どちらのモードでも既存ユーザーの\n" +
+            "　 パスワードには影響しません。",
             "CSV インポートモード",
             System.Windows.MessageBoxButton.YesNoCancel,
             System.Windows.MessageBoxImage.Question);
@@ -94,6 +96,8 @@ public partial class UserManagementViewModel : AdminViewModelBase
         await using var fs = File.OpenRead(open.FileName);
         var result = await _api.ImportUsersCsvAsync(fs, Path.GetFileName(open.FileName), importMode);
         var msg = $"完了: 追加 {result.Created} / 更新 {result.Updated} / スキップ {result.Skipped} / 失敗 {result.Failed}";
+        if (result.Warnings.Count > 0)
+            msg += "\n\n" + string.Join("\n", result.Warnings);
         if (result.Errors.Count > 0)
         {
             msg += "\n\nエラー詳細 (最初の 10 件):\n" +
@@ -119,11 +123,10 @@ public partial class UserManagementViewModel : AdminViewModelBase
     public Task CreateAsync() => SafeAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(NewUsername)) { StatusMessage = "ユーザー名を入力してください。"; return; }
-        if (string.IsNullOrWhiteSpace(NewPassword)) { StatusMessage = "初期パスワードを入力してください。"; return; }
-        await _api.CreateUserAsync(new CreateUserRequest { Username = NewUsername, Password = NewPassword, IsAdmin = NewIsAdmin });
-        NewUsername = NewPassword = string.Empty; NewIsAdmin = false;
+        await _api.CreateUserAsync(new CreateUserRequest { Username = NewUsername, IsAdmin = NewIsAdmin });
+        NewUsername = string.Empty; NewIsAdmin = false;
         await RefreshAsync();
-    }, successMessage: "ユーザーを作成しました。");
+    }, successMessage: "ユーザーを作成しました。本人が初回ログイン時にパスワードを設定します。");
 
     [RelayCommand]
     public Task SaveAsync() => SafeAsync(async () =>
@@ -158,5 +161,21 @@ public partial class UserManagementViewModel : AdminViewModelBase
     {
         if (Selected is null || string.IsNullOrWhiteSpace(newPw)) return;
         await _api.ResetPasswordAsync(Selected.Id, new ResetPasswordRequest { NewPassword = newPw });
-    }, successMessage: "リセットしました。");
+        await RefreshAsync();
+    }, successMessage: "初期パスワードを発行しました。本人に安全な方法で伝えてください。");
+
+    [RelayCommand]
+    public Task RequireSetupAsync() => SafeAsync(async () =>
+    {
+        if (Selected is null) { StatusMessage = "対象のユーザーを選択してください。"; return; }
+        var confirm = System.Windows.MessageBox.Show(
+            $"ユーザー \"{Selected.Username}\" のパスワードを破棄し、初回設定待ちに戻しますか？\n\n" +
+            "・現在のパスワードは使えなくなります\n" +
+            "・ログイン中のセッションと「このPCを記憶」も失効します\n" +
+            "・本人が Windows 認証で確認されると、自分で新しいパスワードを設定できます",
+            "初回設定に戻す", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
+        if (confirm != System.Windows.MessageBoxResult.OK) return;
+        await _api.RequireSetupAsync(Selected.Id);
+        await RefreshAsync();
+    }, successMessage: "初回設定待ちに戻しました。");
 }

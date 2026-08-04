@@ -16,6 +16,7 @@ public static class AdminUserEndpoints
 
         group.MapGet("/", async (AppDbContext db, CancellationToken ct) =>
         {
+            var now = DateTime.UtcNow;
             var items = await db.Users.AsNoTracking().Select(u => new UserDto
             {
                 Id = u.Id,
@@ -25,28 +26,38 @@ public static class AdminUserEndpoints
                 LastLoginAt = u.LastLoginAt,
                 PasswordExpiresAt = u.PasswordExpiresAt,
                 MustChangePassword = u.MustChangePassword,
+                PasswordStatus =
+                    u.IsPasswordSetupPending ? PasswordStatuses.PendingSetup
+                    : u.PasswordExpiresAt <= now ? PasswordStatuses.Expired
+                    : u.MustChangePassword ? PasswordStatuses.MustChange
+                    : PasswordStatuses.Active,
+                PasswordSetupExpiresAt = u.PasswordSetupExpiresAt,
+                WindowsAccountName = u.WindowsAccountName,
                 CreatedAt = u.CreatedAt,
             }).ToListAsync(ct);
             return Results.Ok(items);
         });
 
-        group.MapPost("/", async (CreateUserRequest req, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
+        // 初期パスワードは受け取らない。作成されたユーザーは初回設定待ちになり、
+        // 本人が Windows 認証を通してから自分でパスワードを決める。
+        group.MapPost("/", async (CreateUserRequest req, AppDbContext db, AuthService auth, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
-            if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
-                return Results.BadRequest(new { error = "Username/Password は必須です。" });
-            var (ok, err) = PasswordPolicy.Validate(req.Password);
-            if (!ok) return Results.BadRequest(new { error = err });
+            if (string.IsNullOrWhiteSpace(req.Username))
+                return Results.BadRequest(new { error = "Username は必須です。" });
 
             var days = await GetExpiryDaysAsync(db, ct);
             var now = DateTime.UtcNow;
             var u = new User
             {
-                Username = req.Username,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
+                Username = req.Username.Trim(),
+                // 未設定でも PasswordHash は NOT NULL。誰も知り得ない値を入れて照合が必ず失敗するようにする。
+                PasswordHash = PasswordSetup.CreateUnusableHash(),
                 IsAdmin = req.IsAdmin,
+                IsPasswordSetupPending = true,
+                PasswordSetupExpiresAt = await auth.ComputeSetupExpiryAsync(now, ct),
                 PasswordChangedAt = now,
                 PasswordExpiresAt = now.AddDays(days),
-                MustChangePassword = true,
+                MustChangePassword = false,
                 CreatedAt = now,
             };
             db.Users.Add(u);
@@ -113,6 +124,8 @@ public static class AdminUserEndpoints
             return Results.NoContent();
         });
 
+        // Windows 認証が使えない端末 (ドメイン非参加など) 向けの第二経路。
+        // 管理者が初期パスワードを発行し、従来どおり初回ログイン時に強制変更させる。
         group.MapPost("/{id:int}/reset-password", async (int id, ResetPasswordRequest req, AppDbContext db, AuthService auth, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
@@ -127,10 +140,50 @@ public static class AdminUserEndpoints
             u.MustChangePassword = true;
             u.FailedLoginCount = 0;
             u.IsLocked = false;
+            // 初回設定待ちのユーザーに発行した場合は、その状態を解除する。
+            u.IsPasswordSetupPending = false;
+            u.PasswordSetupExpiresAt = null;
             // 管理者リセットも既存 refresh token を全て失効。盗まれた refresh が変更後に使われるのを防ぐ。
             await auth.RevokeAllRefreshTokensAsync(u.Id, ct);
             await db.SaveChangesAsync(ct);
             await audit.LogAdminAsync(principal, ctx, AdminOperations.UserResetPassword, $"user:{id}", ct: ct);
+            return Results.NoContent();
+        });
+
+        // ユーザーを初回設定待ちへ戻す (パスワードを失念した本人に、再度自分で決めさせる)。
+        // 戻した瞬間からログイン不能になるため、削除・降格と同じロックアウト防止ガードを掛ける。
+        group.MapPost("/{id:int}/require-setup", async (int id, AppDbContext db, AuthService auth, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
+        {
+            var u = await db.Users.FindAsync(new object?[] { id }, ct);
+            if (u is null) return Results.NotFound();
+
+            var decision = await AdminUserGuard.CanRequireSetupAsync(db, principal.GetUserId(), id, u.IsAdmin, ct);
+            if (decision == AdminUserGuard.Decision.SelfTarget)
+                return Results.BadRequest(new { error = "自分自身を初回設定待ちに戻すことはできません。" });
+            if (decision == AdminUserGuard.Decision.LastActiveAdmin)
+                return Results.BadRequest(new { error = "他にアクティブな管理者がいないため、この管理者を初回設定待ちに戻せません。" });
+
+            var now = DateTime.UtcNow;
+            u.PasswordHash = PasswordSetup.CreateUnusableHash();
+            u.IsPasswordSetupPending = true;
+            u.PasswordSetupExpiresAt = await auth.ComputeSetupExpiryAsync(now, ct);
+            u.MustChangePassword = false;
+            u.FailedLoginCount = 0;
+            u.IsLocked = false;
+            // 次の設定時に改めて本人確認するので、前回の確認結果は持ち越さない。
+            u.WindowsAccountName = null;
+
+            // ログイン手段を残さないため、セッションと記憶済み端末の両方を失効させる。
+            // 端末を残すと自動ログインでパスワード無しに入れてしまう。
+            await auth.RevokeAllRefreshTokensAsync(u.Id, ct);
+            await db.TrustedDevices.Where(d => d.UserId == id && !d.IsRevoked)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(d => d.IsRevoked, true)
+                    .SetProperty(d => d.RevokedAt, now)
+                    .SetProperty(d => d.RevokedReason, "password_setup_required"), ct);
+            await db.SaveChangesAsync(ct);
+
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserRequireSetup, $"user:{id}", ct: ct);
             return Results.NoContent();
         });
 
@@ -171,25 +224,34 @@ public static class AdminUserEndpoints
         });
 
         // ===== CSV エクスポート =====
-        // Username, IsAdmin, IsLocked, MustChangePassword, PasswordExpiresAt, LastLoginAt, CreatedAt
+        // Username, IsAdmin, IsLocked, PasswordStatus, PasswordExpiresAt, LastLoginAt, CreatedAt
         // Password 列はあえて含めない (DB に平文無いので)
         group.MapGet("/export.csv", async (AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
+            var now = DateTime.UtcNow;
             var users = await db.Users.AsNoTracking()
                 .OrderBy(u => u.Username)
-                .Select(u => new { u.Username, u.IsAdmin, u.IsLocked, u.MustChangePassword, u.PasswordExpiresAt, u.LastLoginAt, u.CreatedAt })
+                .Select(u => new
+                {
+                    u.Username, u.IsAdmin, u.IsLocked, u.PasswordExpiresAt, u.LastLoginAt, u.CreatedAt,
+                    Status =
+                        u.IsPasswordSetupPending ? PasswordStatuses.PendingSetup
+                        : u.PasswordExpiresAt <= now ? PasswordStatuses.Expired
+                        : u.MustChangePassword ? PasswordStatuses.MustChange
+                        : PasswordStatuses.Active,
+                })
                 .ToListAsync(ct);
             ctx.Response.Headers.ContentDisposition = "attachment; filename=watashi-users.csv";
             ctx.Response.ContentType = "text/csv; charset=utf-8";
             await using var w = new StreamWriter(ctx.Response.Body, new System.Text.UTF8Encoding(true));
-            await w.WriteLineAsync("Username,IsAdmin,IsLocked,MustChangePassword,PasswordExpiresAt,LastLoginAt,CreatedAt");
+            await w.WriteLineAsync("Username,IsAdmin,IsLocked,PasswordStatus,PasswordExpiresAt,LastLoginAt,CreatedAt");
             foreach (var u in users)
             {
                 await w.WriteLineAsync(string.Join(",",
                     CsvEscape(u.Username),
                     u.IsAdmin ? "true" : "false",
                     u.IsLocked ? "true" : "false",
-                    u.MustChangePassword ? "true" : "false",
+                    u.Status,
                     u.PasswordExpiresAt.ToString("o"),
                     u.LastLoginAt?.ToString("o") ?? "",
                     u.CreatedAt.ToString("o")));
@@ -200,7 +262,13 @@ public static class AdminUserEndpoints
 
         // ===== CSV インポート =====
         // multipart/form-data: file=<CSV>, mode=add-only|upsert (default add-only)
-        // CSV format: Username,Password,IsAdmin
+        // CSV format: Username,IsAdmin   (IsAdmin は任意)
+        //
+        // 新規ユーザーは初回設定待ちで登録され、パスワードは CSV に一切載せない。
+        // 旧形式の Password 列があっても取り込みは通し、無視した旨を Warnings で返す。
+        // upsert でも既存ユーザーのパスワードには触れない。CSV の再取り込みで
+        // 全員のパスワードが吹き飛ぶ事故を防ぐため、パスワード再設定は
+        // reset-password / require-setup という明示的な操作だけに限定する。
         group.MapPost("/import.csv", async (HttpContext ctx, AppDbContext db, AuthService auth, AuditLogService audit, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             if (!ctx.Request.HasFormContentType)
@@ -216,6 +284,7 @@ public static class AdminUserEndpoints
 
             var days = await GetExpiryDaysAsync(db, ct);
             var now = DateTime.UtcNow;
+            var setupExpiresAt = await auth.ComputeSetupExpiryAsync(now, ct);
             var result = new UserImportResultDto();
             using var reader = new StreamReader(file.OpenReadStream(), new System.Text.UTF8Encoding(true));
             string? line; var lineNo = 0;
@@ -228,33 +297,30 @@ public static class AdminUserEndpoints
             int idxUser = Array.FindIndex(header, h => string.Equals(h, "Username", StringComparison.OrdinalIgnoreCase));
             int idxPw   = Array.FindIndex(header, h => string.Equals(h, "Password", StringComparison.OrdinalIgnoreCase));
             int idxAdm  = Array.FindIndex(header, h => string.Equals(h, "IsAdmin",  StringComparison.OrdinalIgnoreCase));
-            if (idxUser < 0 || idxPw < 0)
-                return Results.BadRequest(new { error = "ヘッダーに Username,Password 列が必要です (IsAdmin は任意)。" });
+            if (idxUser < 0)
+                return Results.BadRequest(new { error = "ヘッダーに Username 列が必要です (IsAdmin は任意)。" });
+            if (idxPw >= 0)
+            {
+                // 旧形式をそのまま読み込めるようにするが、値は使わない。
+                result.Warnings.Add(
+                    "Password 列は無視しました。パスワードは本人が初回ログイン時に設定します " +
+                    "(Windows 認証が使えない場合は、作成後に「初期パスワードを発行」してください)。");
+            }
 
             while ((line = await reader.ReadLineAsync(ct)) is not null)
             {
                 lineNo++;
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 var cols = ParseCsvLine(line);
-                if (cols.Length <= idxUser || cols.Length <= idxPw) {
+                if (cols.Length <= idxUser) {
                     result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Error = "列数が足りません" });
                     continue;
                 }
                 var username = cols[idxUser].Trim();
-                var password = cols[idxPw];
                 var isAdmin  = idxAdm >= 0 && idxAdm < cols.Length
                     && bool.TryParse(cols[idxAdm].Trim(), out var b) && b;
                 if (string.IsNullOrWhiteSpace(username)) {
                     result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Error = "Username が空" });
-                    continue;
-                }
-                if (string.IsNullOrEmpty(password)) {
-                    result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Username = username, Error = "Password が空" });
-                    continue;
-                }
-                var (ok, err) = PasswordPolicy.Validate(password);
-                if (!ok) {
-                    result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Username = username, Error = err ?? "パスワードポリシー違反" });
                     continue;
                 }
                 var existing = await db.Users.FirstOrDefaultAsync(x => x.Username == username, ct);
@@ -281,15 +347,9 @@ public static class AdminUserEndpoints
                         });
                         continue;
                     }
-                    existing.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+                    // upsert が触るのは IsAdmin だけ。パスワード・ロック状態・初回設定待ちの
+                    // いずれも変更しない (CSV の再取り込みで既存ユーザーが締め出されないように)。
                     existing.IsAdmin = newIsAdmin;
-                    existing.MustChangePassword = true;
-                    existing.PasswordChangedAt = now;
-                    existing.PasswordExpiresAt = now.AddDays(days);
-                    existing.IsLocked = false;
-                    existing.FailedLoginCount = 0;
-                    // upsert もパスワード変更扱い: 既存 refresh token を全て失効。
-                    await auth.RevokeAllRefreshTokensAsync(existing.Id, ct);
                     try { await db.SaveChangesAsync(ct); result.Updated++; }
                     catch (DbUpdateException ex) {
                         db.ChangeTracker.Clear();
@@ -302,9 +362,11 @@ public static class AdminUserEndpoints
                     var u = new User
                     {
                         Username = username,
-                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                        PasswordHash = PasswordSetup.CreateUnusableHash(),
                         IsAdmin = isAdmin,
-                        MustChangePassword = true,
+                        IsPasswordSetupPending = true,
+                        PasswordSetupExpiresAt = setupExpiresAt,
+                        MustChangePassword = false,
                         PasswordChangedAt = now,
                         PasswordExpiresAt = now.AddDays(days),
                         CreatedAt = now,

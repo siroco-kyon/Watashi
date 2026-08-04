@@ -20,7 +20,10 @@
                             <Button Content="📥 CSV取込" Command="{Binding ImportCsvCommand}" ToolTip="CSV ファイルからユーザーを一括登録" Margin="0,0,6,0"/>
                             <Button Content="📤 CSV出力" Command="{Binding ExportCsvCommand}" ToolTip="ユーザー一覧を CSV として保存" Style="{StaticResource GhostButton}" Margin="0,0,6,0"/>
                             <Button Content="🔓 ロック解除" Command="{Binding UnlockCommand}" Margin="0,0,6,0"/>
-                            <Button Content="🔑 PWリセット" Click="OnResetPw" Margin="0,0,6,0"/>
+                            <Button Content="🔑 初期PW発行" Click="OnResetPw" Margin="0,0,6,0"
+                                    ToolTip="Windows 認証が使えない端末向け。管理者が初期パスワードを決めて本人に伝えます。"/>
+                            <Button Content="↩ 初回設定に戻す" Command="{Binding RequireSetupCommand}" Margin="0,0,6,0"
+                                    ToolTip="パスワードを破棄し、本人に再度設定させます。セッションと記憶済み端末も失効します。"/>
                             <Button Content="🗑 削除" Command="{Binding DeleteCommand}" Style="{StaticResource DangerButton}"/>
                         </StackPanel>
                     </DockPanel>
@@ -49,6 +52,7 @@
                                 <GridViewColumn Header="ユーザー名" DisplayMemberBinding="{Binding Username}" Width="180"/>
                                 <GridViewColumn Header="管理者" DisplayMemberBinding="{Binding IsAdmin}" Width="64"/>
                                 <GridViewColumn Header="Lock" DisplayMemberBinding="{Binding IsLocked}" Width="60"/>
+                                <GridViewColumn Header="PW状態" DisplayMemberBinding="{Binding PasswordStatusLabel}" Width="100"/>
                                 <GridViewColumn Header="PW期限" DisplayMemberBinding="{Binding PasswordExpiresAt, Converter={StaticResource Utc}}" Width="160"/>
                                 <GridViewColumn Header="最終ログイン" DisplayMemberBinding="{Binding LastLoginAt, Converter={StaticResource Utc}}" Width="160"/>
                             </GridView>
@@ -106,13 +110,13 @@
 
                     <TextBlock Text="新規ユーザー" Style="{StaticResource H3}" Margin="0,0,0,12"/>
 
-                    <TextBlock Text="ユーザー名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding NewUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
-
-                    <TextBlock Text="初期パスワード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <ctl:PasswordRevealBox Password="{Binding NewPassword, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Margin="0,0,0,4"/>
+                    <TextBlock Text="ユーザー名 (GID)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding NewUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
-                               Text="12文字以上 / 英大・英小・数字・記号 を各1文字以上含む"/>
+                               Text="Windows のログオン名と同じ GID にしてください。初回ログイン時の本人確認に使われます。"/>
+
+                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
+                               Text="初期パスワードの設定は不要です。本人が初回ログイン時に自分で決めます。Windows 認証が使えない端末の場合は、作成後に「初期PW発行」を使ってください。"/>
 
                     <CheckBox Content="管理者として作成" IsChecked="{Binding NewIsAdmin}" Margin="0,0,0,12"/>
 

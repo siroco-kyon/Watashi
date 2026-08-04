@@ -146,6 +146,9 @@ public class ApiClient
         PostJsonNoContentAsync($"api/admin/users/{id}/unlock", new { }, ct);
     public Task ResetPasswordAsync(int id, ResetPasswordRequest req, CancellationToken ct = default) =>
         PostJsonNoContentAsync($"api/admin/users/{id}/reset-password", req, ct);
+    /// <summary>パスワードを破棄し、本人による初回設定待ちへ戻す。</summary>
+    public Task RequireSetupAsync(int id, CancellationToken ct = default) =>
+        PostJsonNoContentAsync($"api/admin/users/{id}/require-setup", new { }, ct);
     public Task<List<DeviceDto>> GetDevicesAsync(int userId, CancellationToken ct = default) =>
         GetAsync<List<DeviceDto>>($"api/admin/users/{userId}/devices", ct);
     public Task<List<DeviceDto>> GetAllDevicesAsync(CancellationToken ct = default) =>

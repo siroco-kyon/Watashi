@@ -45,6 +45,20 @@ public static class AdminUserGuard
     }
 
     /// <summary>
+    /// ユーザーを初回設定待ちへ戻してよいかを判定する。戻したユーザーはログインできなくなるため、
+    /// 削除・降格と同じロックアウト条件で守る。
+    /// </summary>
+    public static async Task<Decision> CanRequireSetupAsync(
+        AppDbContext db, int? actorUserId, int targetUserId, bool targetIsAdmin, CancellationToken ct = default)
+    {
+        if (actorUserId.HasValue && actorUserId.Value == targetUserId)
+            return Decision.SelfTarget;
+        if (targetIsAdmin && !await HasOtherActiveAdminAsync(db, targetUserId, ct))
+            return Decision.LastActiveAdmin;
+        return Decision.Allow;
+    }
+
+    /// <summary>
     /// 他に「実際にログインできる」管理者が居るかを判定する。
     /// ロック中の管理者に加え、初回パスワード設定待ちの管理者もログイン不能なのでカウントしない。
     /// これを数えてしまうと、実在の管理者を最後の 1 人であるにもかかわらず削除・降格でき、

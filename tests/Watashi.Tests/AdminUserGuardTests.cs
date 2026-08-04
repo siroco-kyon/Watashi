@@ -170,6 +170,61 @@ public class AdminUserGuardTests
             .Should().Be(AdminUserGuard.Decision.Allow);
     }
 
+    // ===== CanRequireSetupAsync =====
+
+    [Fact]
+    public async Task CanRequireSetup_rejects_self_target()
+    {
+        // 自分を初回設定待ちに戻すと、その場でログイン手段を失う。
+        using var db = new TestDb();
+        var alice = MkUser("alice", admin: true);
+        var bob = MkUser("bob", admin: true);
+        db.Db.Users.AddRange(alice, bob);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanRequireSetupAsync(db.Db, alice.Id, alice.Id, alice.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.SelfTarget);
+    }
+
+    [Fact]
+    public async Task CanRequireSetup_rejects_the_last_active_admin()
+    {
+        using var db = new TestDb();
+        var lone = MkUser("only", admin: true);
+        var guest = MkUser("guest", admin: false);
+        db.Db.Users.AddRange(lone, guest);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanRequireSetupAsync(db.Db, actorUserId: 999, lone.Id, lone.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.LastActiveAdmin);
+    }
+
+    [Fact]
+    public async Task CanRequireSetup_allows_a_non_admin()
+    {
+        using var db = new TestDb();
+        var admin = MkUser("admin", admin: true);
+        var guest = MkUser("guest", admin: false);
+        db.Db.Users.AddRange(admin, guest);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanRequireSetupAsync(db.Db, admin.Id, guest.Id, guest.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.Allow);
+    }
+
+    [Fact]
+    public async Task CanRequireSetup_allows_an_admin_when_another_active_admin_exists()
+    {
+        using var db = new TestDb();
+        var a = MkUser("a", admin: true);
+        var b = MkUser("b", admin: true);
+        db.Db.Users.AddRange(a, b);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanRequireSetupAsync(db.Db, a.Id, b.Id, b.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.Allow);
+    }
+
     [Fact]
     public async Task CanDemote_allows_no_op_change()
     {

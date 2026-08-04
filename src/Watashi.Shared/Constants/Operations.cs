@@ -39,6 +39,8 @@ public static class AdminOperations
     public const string UserDelete = "ADMIN_USER_DELETE";
     public const string UserUnlock = "ADMIN_USER_UNLOCK";
     public const string UserResetPassword = "ADMIN_USER_RESET_PW";
+    /// <summary>ユーザーを初回パスワード設定待ちへ戻した。</summary>
+    public const string UserRequireSetup = "ADMIN_USER_REQUIRE_SETUP";
     public const string UserRevokeDevices = "ADMIN_USER_REVOKE_DEVICES";
     public const string UserImport = "ADMIN_USER_IMPORT";
     public const string UserExport = "ADMIN_USER_EXPORT";
