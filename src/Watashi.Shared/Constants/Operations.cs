@@ -22,6 +22,14 @@ public static class AuthOperations
     public const string LoginFailed = "LOGIN_FAILED";
     /// <summary>連続ログイン失敗によりアカウントがロックされた。</summary>
     public const string LoginLockedOut = "LOGIN_LOCKED_OUT";
+    /// <summary>初回パスワード設定の要求 (本人確認に成功し、設定画面を返した)。</summary>
+    public const string PasswordSetupRequested = "PASSWORD_SETUP_REQUESTED";
+    /// <summary>初回パスワード設定で、Windows 認証済みの OS ユーザーと対象 Watashi ユーザーが一致しなかった。</summary>
+    public const string PasswordSetupIdentityMismatch = "PASSWORD_SETUP_IDENTITY_MISMATCH";
+    /// <summary>初回パスワード設定が完了した。</summary>
+    public const string PasswordSetupSucceeded = "PASSWORD_SETUP_SUCCEEDED";
+    /// <summary>初回パスワード設定を拒否した (期限切れ / 設定済み / ポリシー違反 / 二重送信)。</summary>
+    public const string PasswordSetupRejected = "PASSWORD_SETUP_REJECTED";
 }
 
 public static class AdminOperations

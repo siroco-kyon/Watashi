@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
@@ -30,7 +31,15 @@ const long DefaultMaxRequestBodySize = 10L * 1024 * 1024 * 1024;
 var maxRequestBodySize = builder.Configuration.GetValue<long?>("Kestrel:Limits:MaxRequestBodySize")
     ?? DefaultMaxRequestBodySize;
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = maxRequestBodySize);
-builder.Services.Configure<IISServerOptions>(o => o.MaxRequestBodySize = maxRequestBodySize);
+builder.Services.Configure<IISServerOptions>(o =>
+{
+    o.MaxRequestBodySize = maxRequestBodySize;
+    // IIS で Windows 認証を有効にすると、既定 (true) では IIS が HttpContext.User を
+    // Windows プリンシパルで埋める。JWT 認証が失敗しても User はそのまま残るため、
+    // JWT 無しのリクエストが RequireAuthorization() を通過してしまう。
+    // 認証は /api/auth/win/* のポリシーで明示的に要求するので、自動適用は常に切っておく。
+    o.AutomaticAuthentication = false;
+});
 
 builder.Host.UseSerilog((ctx, lc) => lc
     .ReadFrom.Configuration(ctx.Configuration)
@@ -98,7 +107,27 @@ if (useMtls)
     });
 }
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+// === Windows 統合認証 (初回パスワード設定の本人確認) ===
+// 既定は Mode=None (無効)。有効化するまでサーバーの挙動は一切変わらない。
+// 認証スキームはホスティング方式で異なるため設定で選ぶ:
+//   IIS       … IIS/ASP.NET Core Module がハンドシェイクを処理する (本番構成)
+//   Negotiate … Kestrel 直受け。アプリ内で Negotiate/NTLM を処理する
+var windowsAuth = new WindowsAuthOptions();
+builder.Configuration.GetSection("Auth:WindowsAuth").Bind(windowsAuth);
+builder.Services.AddSingleton(windowsAuth);
+var windowsAuthScheme = windowsAuth.Mode switch
+{
+    var m when string.Equals(m, WindowsAuthModes.IIS, StringComparison.OrdinalIgnoreCase)
+        => Microsoft.AspNetCore.Server.IIS.IISServerDefaults.AuthenticationScheme,
+    var m when string.Equals(m, WindowsAuthModes.Negotiate, StringComparison.OrdinalIgnoreCase)
+        => NegotiateDefaults.AuthenticationScheme,
+    _ => null,
+};
+if (windowsAuth.IsEnabled && windowsAuthScheme is null)
+    throw new InvalidOperationException(
+        $"Auth:WindowsAuth:Mode の値 '{windowsAuth.Mode}' は不正です。None / IIS / Negotiate のいずれかを指定してください。");
+
+var authBuilder = builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.MapInboundClaims = false;
@@ -133,6 +162,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+// Negotiate は Kestrel 直受けのときだけ登録する。IIS ホストではハンドシェイクを IIS が行い、
+// アプリ側は IIS が用意する "Windows" スキームを参照するだけでよい。
+if (string.Equals(windowsAuth.Mode, WindowsAuthModes.Negotiate, StringComparison.OrdinalIgnoreCase))
+    authBuilder.AddNegotiate();
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("Admin", policy => policy.RequireClaim(AuthClaims.Role, AuthClaims.Admin));
@@ -141,6 +175,16 @@ builder.Services.AddAuthorization(options =>
         policy.AuthenticationSchemes = new[] { CertificateAuthenticationDefaults.AuthenticationScheme };
         policy.Requirements.Add(new AgentOrSharedSecretRequirement());
     });
+    if (windowsAuthScheme is not null)
+    {
+        // 既定スキーム (JWT) ではなく Windows スキームを明示的に要求する。
+        // このポリシーが付くのは /api/auth/win/* だけ。
+        options.AddPolicy(WindowsAuthEndpoints.PolicyName, policy =>
+        {
+            policy.AuthenticationSchemes = new[] { windowsAuthScheme };
+            policy.RequireAuthenticatedUser();
+        });
+    }
 });
 
 builder.Services.AddRateLimiter(options =>
@@ -165,6 +209,19 @@ builder.Services.AddRateLimiter(options =>
             {
                 Window = TimeSpan.FromMinutes(1),
                 PermitLimit = builder.Configuration.GetValue<int?>("Auth:RefreshPerMinutePerIp") ?? 60,
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
+    // 初回設定は login より緩い上限にする。UseRateLimiter は UseAuthentication より前に走るため、
+    // Kestrel 直受け構成では NTLM ハンドシェイクの各レグ (1 試行あたり 2〜3 リクエスト) も
+    // ここでカウントされる。login と同じ 10/分だと数回の試行で 429 になってしまう。
+    options.AddPolicy(WindowsAuthEndpoints.RateLimitPolicy, ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = windowsAuth.SetupPerMinutePerIp,
                 QueueLimit = 0,
                 AutoReplenishment = true,
             }));
@@ -231,6 +288,7 @@ app.MapGet("/", () => Results.Ok(new
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", at = DateTime.UtcNow }));
 app.MapAuthEndpoints();
+app.MapWindowsAuthEndpoints(windowsAuth);
 app.MapHostEndpoints();
 app.MapFileEndpoints();
 app.MapAdminTemplateEndpoints();
