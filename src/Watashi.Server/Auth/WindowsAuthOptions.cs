@@ -49,4 +49,20 @@ public class WindowsAuthOptions
     public int SetupPerMinutePerIp { get; set; } = 30;
 
     public bool IsEnabled => !string.Equals(Mode, WindowsAuthModes.None, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>有効時の設定値を検証する。未知の値を既定動作へ暗黙フォールバックさせない。</summary>
+    public void Validate()
+    {
+        if (!IsEnabled) return;
+
+        if (!string.Equals(Mode, WindowsAuthModes.IIS, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(Mode, WindowsAuthModes.Negotiate, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Auth:WindowsAuth:Mode の値 '{Mode}' は不正です。None / IIS / Negotiate のいずれかを指定してください。");
+
+        if (!string.Equals(DomainMatch, WindowsAuthDomainMatchModes.IgnoreDomain, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(DomainMatch, WindowsAuthDomainMatchModes.AllowList, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Auth:WindowsAuth:DomainMatch の値 '{DomainMatch}' は不正です。IgnoreDomain / AllowList のいずれかを指定してください。");
+    }
 }

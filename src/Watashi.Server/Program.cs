@@ -114,6 +114,7 @@ if (useMtls)
 //   Negotiate … Kestrel 直受け。アプリ内で Negotiate/NTLM を処理する
 var windowsAuth = new WindowsAuthOptions();
 builder.Configuration.GetSection("Auth:WindowsAuth").Bind(windowsAuth);
+windowsAuth.Validate();
 builder.Services.AddSingleton(windowsAuth);
 var windowsAuthScheme = windowsAuth.Mode switch
 {
@@ -123,9 +124,6 @@ var windowsAuthScheme = windowsAuth.Mode switch
         => NegotiateDefaults.AuthenticationScheme,
     _ => null,
 };
-if (windowsAuth.IsEnabled && windowsAuthScheme is null)
-    throw new InvalidOperationException(
-        $"Auth:WindowsAuth:Mode の値 '{windowsAuth.Mode}' は不正です。None / IIS / Negotiate のいずれかを指定してください。");
 
 var authBuilder = builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -143,6 +141,17 @@ var authBuilder = builder.Services.AddAuthentication(JwtBearerDefaults.Authentic
             ClockSkew = TimeSpan.FromSeconds(30),
             NameClaimType = "name",
             RoleClaimType = AuthClaims.Role,
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var db = ctx.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                if (ctx.Principal is null ||
+                    !await AccessTokenCredentialValidator.IsCurrentAsync(
+                        db, ctx.Principal, ctx.HttpContext.RequestAborted))
+                    ctx.Fail("credential_state_changed");
+            },
         };
     })
     .AddCertificate(CertificateAuthenticationDefaults.AuthenticationScheme, options =>

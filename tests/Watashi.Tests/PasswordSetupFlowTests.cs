@@ -228,6 +228,9 @@ public class PasswordSetupFlowTests
         db.Db.ChangeTracker.Clear();
         var fresh = await db.Db.Users.AsNoTracking().FirstAsync(x => x.Id == u.Id);
         fresh.IsPasswordSetupPending.Should().BeTrue();
+        var log = await db.Db.AuditLogs.AsNoTracking()
+            .SingleAsync(l => l.Operation == AuthOperations.PasswordSetupRejected);
+        log.Path.Should().Be("password_policy_violation");
     }
 
     [Fact]

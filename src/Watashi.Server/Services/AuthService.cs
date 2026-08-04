@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -501,7 +502,13 @@ public class AuthService
 
         // パスワードポリシー違反だけは具体的に返す。本人が直せない指摘は意味が無い。
         var (policyOk, policyError) = PasswordPolicy.Validate(newPassword);
-        if (!policyOk) return (null, policyError);
+        if (!policyOk)
+        {
+            await LogSetupAuditAsync(Shared.Constants.AuthOperations.PasswordSetupRejected,
+                user!.Id, user.Username, Shared.Constants.AuditResults.Failure,
+                "password_policy_violation", clientIp, machineName, ct);
+            return (null, policyError);
+        }
 
         var now = DateTime.UtcNow;
         var expiryDays = await GetPasswordExpiryDaysAsync(ct);
@@ -593,6 +600,8 @@ public class AuthService
         {
             new(Shared.Constants.AuthClaims.UserId, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Name, user.Username),
+            new(Shared.Constants.AuthClaims.CredentialVersion,
+                user.PasswordChangedAt.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture)),
         };
         if (user.IsAdmin)
             claims.Add(new Claim(Shared.Constants.AuthClaims.Role, Shared.Constants.AuthClaims.Admin));

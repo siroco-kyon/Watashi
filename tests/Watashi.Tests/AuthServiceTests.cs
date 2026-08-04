@@ -411,6 +411,19 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task AccessToken_includes_the_current_credential_version()
+    {
+        using var db = new TestDb();
+        var user = await SeedUserAsync(db);
+        var login = await Build(db).LoginAsync("alice", "Admin123!@#", clientIp: null);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(login.Response!.AccessToken);
+
+        jwt.Claims.Should().Contain(c =>
+            c.Type == AuthClaims.CredentialVersion &&
+            c.Value == user.PasswordChangedAt.ToUniversalTime().Ticks.ToString());
+    }
+
+    [Fact]
     public async Task AccessToken_includes_mcp_claim_when_password_expired()
     {
         using var db = new TestDb();
