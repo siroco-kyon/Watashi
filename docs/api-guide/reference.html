@@ -362,12 +362,12 @@
       <p>すべて <code>/api/auth</code> 配下。</p>
 
       <div class="ep"><span class="method post">POST</span><span class="path">/api/auth/login</span><span class="badge free">認証不要</span></div>
-      <p>ユーザー名・パスワードでログインし、アクセストークン一式を発行します。IP単位で 1分間 <strong>10回</strong>（既定値、<code>Auth:LoginPerMinutePerIp</code>）までのレート制限あり。</p>
+      <p>ユーザー名・パスワードでログインし、アクセストークン一式を発行します。ユーザー名は ASCII の大文字・小文字を区別しません。IP単位で 1分間 <strong>10回</strong>（既定値、<code>Auth:LoginPerMinutePerIp</code>）までのレート制限あり。</p>
       <h4>リクエストボディ</h4>
       <table>
         <thead><tr><th>フィールド</th><th>型</th><th>必須</th><th>説明</th></tr></thead>
         <tbody>
-          <tr><td><code>username</code></td><td>string</td><td class="yes">○</td><td>ユーザー名</td></tr>
+          <tr><td><code>username</code></td><td>string</td><td class="yes">○</td><td>ユーザー名。ASCII の大文字・小文字は区別しない</td></tr>
           <tr><td><code>password</code></td><td>string</td><td class="yes">○</td><td>パスワード</td></tr>
           <tr><td><code>windowsUsername</code></td><td>string?</td><td>-</td><td>クライアントの Windows ログオン名。監査・別人ログイン検知用（省略可）</td></tr>
           <tr><td><code>machineName</code></td><td>string?</td><td>-</td><td>クライアントの端末名。監査・端末変更検知用（省略可）</td></tr>
@@ -418,7 +418,7 @@
         <thead><tr><th>ステータス</th><th>error 値</th><th>意味</th></tr></thead>
         <tbody>
           <tr><td><span class="msg err">400</span></td><td>-</td><td>必須フィールド欠落</td></tr>
-          <tr><td rowspan="4"><span class="msg err">401</span></td><td><code>password_changed</code></td><td>パスワードが変更済み</td></tr>
+          <tr><td rowspan="4"><span class="msg err">401</span></td><td><code>password_changed</code></td><td>パスワード、初回設定状態、管理者フラグなど資格情報の世代が変更済み</td></tr>
           <tr><td><code>token_reuse_detected</code></td><td>失効済みトークンの再利用を検知（ファミリー全失効）</td></tr>
           <tr><td><code>account_locked</code></td><td>アカウントロック中</td></tr>
           <tr><td><code>device_revoked</code></td><td>信頼デバイスが失効済み</td></tr>
@@ -428,6 +428,7 @@
 
       <div class="ep"><span class="method post">POST</span><span class="path">/api/auth/logout</span><span class="badge need">要 Bearer</span></div>
       <p>指定した <code>refreshTokenId</code> を失効させます。自分（トークンの持ち主）が所有するものだけ失効できます。</p>
+      <p>refresh と logout が並行し得るクライアントは、先に refresh を完了し、ローテーション後の最新 <code>accessToken</code> と <code>refreshTokenId</code> で logout してください。</p>
       <h4>リクエストボディ (RefreshRequest)</h4>
       <table class="compact">
         <thead><tr><th>フィールド</th><th>必須</th><th>備考</th></tr></thead>
@@ -472,13 +473,18 @@
       <div class="note">
         <strong>本書の対象外の Auth エンドポイント</strong>
         <code>/api/auth/auto-login</code> と <code>/api/auth/trust-device</code> は、WPF クライアントの「このPCを記憶する」機能（Windowsユーザー名＋端末固有トークンでの自動ログイン）専用です。<br>
-        <code>/api/auth/win/prepare-login</code> と <code>/api/auth/win/initialize-password</code> は、利用者が初回パスワードを自分で設定するための経路で、Windows 統合認証（Negotiate）を要求します。<br>
+        <code>/api/auth/win/prepare-login</code> と <code>/api/auth/win/initialize-password</code> は、利用者が初回パスワードを自分で設定するための経路で、IIS または Negotiate による Windows 統合認証を要求します。診断用の <code>/api/auth/win/whoami</code> は <code>Auth:WindowsAuth:EnableDiagnostics=true</code> のときだけ公開されます。<br>
         ファイルをAPIで操作する用途では、通常の <code>/api/auth/login</code> のみで完結します。
       </div>
 
       <div class="danger">
         <strong>パスワード未設定のアカウントはログインできません</strong>
         管理者が作成した直後のユーザーは「初回設定待ち」で、本人が Watashi クライアントから初回パスワードを設定するまで <code>/api/auth/login</code> は <span class="msg err">401 Unauthorized</span> を返します（存在しないユーザー名と同じ応答です）。API 連携用のアカウントを使う場合は、先にクライアントで初回設定を済ませるか、管理者に初期パスワードを発行してもらってください。
+      </div>
+
+      <div class="warn">
+        <strong>発行済みアクセストークンも現在状態で検証されます</strong>
+        パスワード変更、初回設定への差し戻し、管理者フラグ変更、アカウントロック後は、変更前に発行したアクセストークンとリフレッシュトークンを継続利用できません。保護された API は資格情報世代を DB と照合し、不一致なら <span class="msg err">401 Unauthorized</span> を返します。
       </div>
 
       <!-- ===================================================== 5 : HOSTS -->
@@ -705,6 +711,7 @@
         <thead><tr><th>API群</th><th>用途</th><th>認証</th></tr></thead>
         <tbody>
           <tr><td><code>/api/auth/auto-login</code>, <code>/api/auth/trust-device</code></td><td>WPFクライアントの「このPCを記憶する」自動ログイン</td><td>端末トークン</td></tr>
+          <tr><td><code>/api/auth/win/prepare-login</code>, <code>/api/auth/win/initialize-password</code>, <code>/api/auth/win/whoami</code></td><td>初回パスワード設定と Windows 認証診断 (<code>whoami</code> は設定時のみ)</td><td>Windows 統合認証</td></tr>
           <tr><td><code>/api/admin/*</code></td><td>ユーザー・ホスト・共有・権限・実行ノード・監査ログ・システム設定の管理</td><td>Bearer + Admin ロール</td></tr>
           <tr><td><code>/api/internal/*</code></td><td>中央サーバー ⇔ Agent 間の内部通信</td><td>mTLS クライアント証明書または共有シークレット</td></tr>
         </tbody>

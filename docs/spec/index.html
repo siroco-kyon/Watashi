@@ -909,10 +909,12 @@
     <table>
       <thead><tr><th style="width:200px">方式</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td><b>手動ログイン</b></td><td>ユーザー名 + パスワード。パスワード欄は目のアイコンで平文表示とマスクを切り替えられる (打ち間違いの確認用)</td></tr>
+        <tr><td><b>手動ログイン</b></td><td>ユーザー名を先に送る 2 段階方式。通常アカウントなら次にパスワードを入力する。パスワード欄は目のアイコンで平文表示とマスクを切り替えられる (打ち間違いの確認用)</td></tr>
+        <tr><td><b>初回パスワード設定</b></td><td>管理者が追加した「初回設定待ち」の利用者は、入力した GID と Windows ログオン名が一致した場合に限り、自分で最初のパスワードを設定してそのままログインする。Windows 統合認証を利用できない構成では、管理者が初期パスワードを発行する運用へ切り替えられる</td></tr>
         <tr><td><b>自動ログイン</b><br><span class="fn">(信頼デバイス)</span></td><td>PC 名 + Windows ユーザー名 + デバイストークンの組で、次回から入力なしでログインする。ログイン画面のチェックボックスで有効化する</td></tr>
       </tbody>
     </table>
+    <p class="fn">利用者名 (GID) は ASCII の大文字・小文字を区別せず一意です。<code>taro</code> と <code>TARO</code> は同じ利用者として扱われます。複数ドメインで同じ GID が存在する場合は、重複しない命名規則を運用側で設けてください。</p>
 
     <h3>8.2 トークンのライフサイクル</h3>
 
@@ -993,12 +995,15 @@
     <table>
       <thead><tr><th style="width:200px">項目</th><th style="width:130px">既定値</th><th>補足</th></tr></thead>
       <tbody>
-        <tr><td>アクセストークン</td><td>15 分</td><td>JWT (HS256)。<code>Authorization: Bearer</code> で送る。クレームに利用者 ID と役割 (<code>Admin</code> / <code>User</code>) を含む。設定キーは <code>Jwt:AccessTokenMinutes</code></td></tr>
+        <tr><td>アクセストークン</td><td>15 分</td><td>JWT (HS256)。<code>Authorization: Bearer</code> で送る。クレームに利用者 ID、役割 (<code>Admin</code> / <code>User</code>)、資格情報世代 (<code>cv</code>) を含み、保護された API ごとに DB の現在状態と照合する。設定キーは <code>Jwt:AccessTokenMinutes</code></td></tr>
         <tr><td>リフレッシュトークン</td><td>30 日</td><td>DB には bcrypt ハッシュのみ保存。設定キーは <code>Jwt:RefreshTokenDays</code></td></tr>
         <tr><td>アイドルタイムアウト</td><td>30 分</td><td>サーバーのシステム設定 <code>SessionIdleMinutes</code> 由来。ログイン応答でクライアントへ伝えられる</td></tr>
         <tr><td>起動時の自動ログイン</td><td>8 秒でタイムアウト</td><td>サーバー応答が遅くても起動画面が固まらないようにするため</td></tr>
       </tbody>
     </table>
+    <div class="note">
+      <b>発行済みセッションも現在状態で検証します。</b> パスワード変更、初回設定への差し戻し、管理者フラグ変更、アカウントロックが行われると、変更前のアクセストークンとリフレッシュトークンは直ちに利用できなくなります。クライアントはセッション世代を持ち、古い画面から遅れて届いた 401 や更新結果が新しいログインを終了・上書きしないようにします。ログアウト時は先に最新トークンへ更新してから失効させ、ローテーション済みのセッションも残しません。
+    </div>
 
     <h3>8.3 自動ログイン (信頼デバイス) の詳細</h3>
     <ul>
@@ -1017,7 +1022,7 @@
         <tr><td><b>文字種</b></td><td>英大文字・英小文字・数字・記号を<b>それぞれ 1 文字以上</b></td></tr>
         <tr><td><b>有効期限</b></td><td>既定 90 日 (<code>PasswordExpiryDays</code>)。残り 14 日以内 (<code>PasswordWarningDays</code>) で警告表示</td></tr>
         <tr><td><b>履歴チェック</b></td><td>なし (過去のパスワードの再利用は技術的には可能。運用ポリシーで補完する前提)</td></tr>
-        <tr><td><b>強制変更</b></td><td>初回ログイン時・期限切れ時・管理者によるリセット後は、変更画面から先へ進めない</td></tr>
+        <tr><td><b>強制変更</b></td><td>管理者発行の初期パスワードによる初回ログイン時・期限切れ時・管理者によるリセット後は、変更画面から先へ進めない。Windows 本人確認による初回設定では現在のパスワードを要求しない</td></tr>
         <tr><td><b>例</b></td><td>不可: <code>password123</code> / <code>Short1!</code>　　可: <code>Spring2026!Welcome</code></td></tr>
       </tbody>
     </table>
@@ -1026,7 +1031,7 @@
     <table>
       <thead><tr><th style="width:220px">対策</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td><b>連続失敗によるロック</b></td><td>既定 15 回 (<code>MaxFailedLoginAttempts</code>、管理画面で変更可) 連続で失敗するとアカウントを自動ロック。解除は管理者のみ</td></tr>
+        <tr><td><b>連続失敗によるロック</b></td><td>既定 15 回 (<code>MaxFailedLoginAttempts</code>、管理画面で変更可) 連続で失敗するとアカウントを自動ロック。解除は管理者のみ。ロックされた時点で既存のアクセストークンも拒否される</td></tr>
         <tr><td><b>利用者名の推測対策</b></td><td>存在しない利用者名ではロックせず、エラーメッセージも共通にする (存在の有無を漏らさない)</td></tr>
         <tr><td><b>レート制限</b></td><td>ログインと自動ログインに <b>IP 単位で 1 分あたり 10 回</b>の固定ウィンドウ制限 (<code>Auth:LoginPerMinutePerIp</code>)。超過は 429</td></tr>
         <tr><td><b>異常の記録</b></td><td>ログイン失敗・ロック・前回と異なる端末からのログイン・Windows ログオン名との不一致を監査ログに記録する (§10.2)</td></tr>
@@ -1572,7 +1577,7 @@
     <table class="sm">
       <thead><tr><th style="width:150px">タブ</th><th style="width:300px">できること</th><th>仕様上のポイント</th></tr></thead>
       <tbody>
-        <tr><td><b>① ユーザー</b></td><td>一覧 / 追加 / 削除 / 管理者フラグ変更 / ロック解除 / パスワード強制リセット / CSV 一括登録 / CSV 出力</td><td>新規作成とリセット後は必ず初回パスワード変更が必要になる。CSV 一括登録は「新規のみ」「上書き」の 2 モードで、失敗した行は行番号付きで表示される。自分自身の削除・降格と、最後の有効な管理者の削除・降格はサーバー側で拒否される</td></tr>
+        <tr><td><b>① ユーザー</b></td><td>一覧 / 追加 / 削除 / 管理者フラグ変更 / ロック解除 / 初回設定に戻す / パスワード強制リセット / CSV 一括登録 / CSV 出力</td><td>新規利用者は初回設定待ちで作成され、Windows 本人確認で自分の最初のパスワードを設定する。利用できない環境では管理者が初期パスワードを発行する。管理者フラグを変更すると変更前のアクセストークンとリフレッシュトークンは直ちに無効になる。CSV 一括登録は「新規のみ」「上書き」の 2 モードで、更新対象は管理者フラグに限定される。自分自身と最後の有効な管理者に対する削除・降格・初回設定への差し戻しはサーバー側で拒否される</td></tr>
         <tr><td><b>② ホスト</b></td><td>ファイルサーバーの登録 (表示名 / アドレス / ポート / 資格情報 / 実行ノード) と接続テスト</td><td>資格情報は AES-256-GCM で暗号化して保存し、API 応答には決して含まれない。接続テストは登録済みの共有を 1 つ使って SMB 接続を試みる</td></tr>
         <tr><td><b>③ 共有</b></td><td>ホストに紐づく SMB 共有名と表示名の登録</td><td>同一ホスト内で共有名は一意</td></tr>
         <tr><td><b>④ テンプレート</b></td><td>権限テンプレートの作成・編集・削除</td><td>強い順に表示される。使用中のテンプレートは削除できない</td></tr>
@@ -1612,6 +1617,9 @@
       <thead><tr><th style="width:80px">Method</th><th style="width:250px">Path</th><th>用途</th><th style="width:150px">認証</th></tr></thead>
       <tbody>
         <tr><td><span class="m post">POST</span></td><td><code>/api/auth/login</code></td><td>手動ログイン</td><td><span class="pill ok">不要</span> <span class="fn">10 回/分/IP</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/auth/win/prepare-login</code></td><td>GID と Windows 本人情報を照合し、初回設定の可否を確認</td><td><span class="pill warn">Windows 認証</span></td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/auth/win/initialize-password</code></td><td>初回パスワードを確定してトークンを発行</td><td><span class="pill warn">Windows 認証</span></td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/auth/win/whoami</code></td><td>Windows 認証の診断 (<code>EnableDiagnostics=true</code> のときのみ)</td><td><span class="pill warn">Windows 認証</span></td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/auth/auto-login</code></td><td>信頼デバイスによる自動ログイン</td><td><span class="pill ok">不要</span> <span class="fn">10 回/分/IP</span></td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/auth/trust-device</code></td><td>この端末を信頼デバイスとして登録</td><td><span class="pill info">Bearer</span></td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/auth/refresh</code></td><td>アクセストークンの更新 (ローテーション)</td><td><span class="pill ok">不要</span> <span class="fn">リフレッシュトークン</span></td></tr>
@@ -1657,11 +1665,12 @@
       <tbody>
         <tr class="gh"><td colspan="3"><span class="badge">利用者</span>アカウントとデバイスの管理</td></tr>
         <tr><td><span class="m get">GET</span></td><td><code>/api/admin/users</code></td><td>一覧</td></tr>
-        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/users</code></td><td>追加 (初回パスワード変更が必須になる)</td></tr>
-        <tr><td><span class="m patch">PATCH</span></td><td><code>/api/admin/users/{id}</code></td><td>管理者フラグなどの変更</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/users</code></td><td>追加 (初回パスワード設定待ちで作成)</td></tr>
+        <tr><td><span class="m patch">PATCH</span></td><td><code>/api/admin/users/{id}</code></td><td>管理者フラグなどの変更 (変更前のセッションを無効化)</td></tr>
         <tr><td><span class="m del">DELETE</span></td><td><code>/api/admin/users/{id}</code></td><td>削除 (自分自身と最後の管理者は拒否)</td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/admin/users/{id}/unlock</code></td><td>ロック解除</td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/admin/users/{id}/reset-password</code></td><td>パスワードの強制リセット</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/users/{id}/require-setup</code></td><td>パスワードと信頼デバイスを失効し、初回設定待ちへ戻す</td></tr>
         <tr><td><span class="m get">GET</span></td><td><code>/api/admin/users/{id}/devices</code></td><td>その利用者の信頼デバイス一覧</td></tr>
         <tr><td><span class="m del">DELETE</span></td><td><code>/api/admin/users/{id}/devices</code></td><td>信頼デバイスの一括失効</td></tr>
         <tr><td><span class="m get">GET</span></td><td><code>/api/admin/users/export.csv</code></td><td>利用者一覧の CSV 出力 (棚卸し用)</td></tr>

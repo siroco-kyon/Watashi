@@ -42,13 +42,18 @@
 | Enter キー (パス欄) | パス直接入力で移動 |
 
 ### 認証
-- **手動ログイン**: ユーザー名 / パスワード
+- **二段階ログイン**: 1 段目でユーザー名 (GID) を入力し、2 段目をサーバーが判定
+  - 初回設定待ち: Windows 統合認証で OS ユーザーを確認し、本人が最初のパスワードを設定
+  - 設定済み: 通常のパスワード入力。Windows 認証が無効・不成立でもこの経路へ安全にフォールバック
+  - ユーザー名の英字は大文字小文字を区別せず、検索と一意制約を SQLite `NOCASE` に統一
   - **パスワード可視化トグル (👁 目玉アイコン)** — 入力欄右端のボタンで PasswordBox (マスク) と TextBox (平文) を一発切替。打ち間違い確認に便利
 - **自動ログイン (デバイス記憶)**: PC 名 + Windows ユーザー名 + デバイストークン
   - **HTTP/HTTPS どちらでも利用可** (HTTP は平文なので警告ツールチップ付き、サーバー側 `Auth:AllowHttpForAutoLogin` で最終判定)
   - チェックボックスで有効化、Credential Manager に保存
   - 1 ユーザー = 1 デバイスのみ (新規登録で旧トークン失効)
-- **パスワード変更**: 期限切れ/初回ログインで強制画面、12 字 + 大小数記号ポリシーヒント表示。3 つの入力欄 (現在 / 新規 / 確認) すべてに目玉アイコン
+- **パスワード変更**: ヘッダーの 🔑 からいつでも変更可能。期限切れ/管理者発行 PW では強制画面、12 字 + 大小数記号ポリシーヒント表示。3 つの入力欄 (現在 / 新規 / 確認) すべてに目玉アイコン
+- **セッション失効からの復帰**: 認証済み API / refresh の 401 を検知し、メイン画面表示前も含めて安全にログイン画面へ戻る。遅延した旧リクエストは新しいログインを失効させない
+- **期限到達の即時案内**: アプリを開いたままパスワード期限を迎えた場合も、次の token refresh で強制変更画面へ遷移
 - **アイドルタイムアウト**: サーバ `SystemSettings.SessionIdleMinutes` 由来（デフォルト 30 分、設定変更可）
 - **ログアウト**: ヘッダー右上の ⏻ ボタン (確認ダイアログ付き)。Credential Manager もクリア
 
@@ -75,6 +80,7 @@
 - 初回設定に戻す — パスワードを破棄し本人に再設定させる。セッションと信頼済み端末も失効
 - **CSV インポート (一括登録)**: `Username, IsAdmin` 列の CSV を選んで一括登録 (新規は未設定で作成)。**新規追加のみ** (重複スキップ) と **上書き** (`IsAdmin` のみ更新) の 2 モード。旧形式の `Password` 列は無視。行単位エラー詳細表示
 - **CSV エクスポート (棚卸し用)**: 現ユーザー一覧を `Username, IsAdmin, IsLocked, PasswordStatus, PasswordExpiresAt, LastLoginAt, CreatedAt` 形式の CSV (BOM 付き UTF-8) で保存
+- ユーザー名は英字の大文字小文字を区別せず一意。管理者フラグ変更時は旧 role claim を持つ access/refresh token を即時失効
 
 ### 2. ホスト (CIFS ファイルサーバー)
 - 一覧 / 追加 / 削除
@@ -156,6 +162,8 @@
   - User.IsLocked → 401
   - 紐づく TrustedDevice.IsRevoked → 401
   - User.MustChangePassword → レスポンスにフラグ付与
+- access token の認証時にも DB の資格情報バージョン・初回設定状態・ロック状態を照合。パスワード変更、管理者権限変更、初回設定への差し戻し、アカウントロックを既存セッションへ即時反映
+- クライアントは session generation を token snapshot と各認証済みリクエストに結び付け、古い refresh/401 が新しいログイン状態を上書きしない
 - 連続失敗で自動アカウントロック (既定 15 回、`MaxFailedLoginAttempts` で変更可)
 - **ログインレート制限**: `/api/auth/login` `/api/auth/auto-login` に IP 単位固定ウィンドウ (デフォルト 10/分)
 
@@ -287,7 +295,7 @@
 ## セキュリティ
 
 ### 通信
-- Client ↔ Server: HTTP / HTTPS 選択式 (自動ログインは HTTPS 必須)
+- Client ↔ Server: HTTP / HTTPS 選択式。自動ログインは両方に対応するが、HTTP は `Auth:AllowHttpForAutoLogin=true` の場合だけ許可し、本番は HTTPS を推奨
 - Server ↔ Agent: HTTP / HTTPS、**mTLS で双方向の証明書認証**
 - Server / Agent → CIFS: SMB2/3 (SMBLibrary)
 

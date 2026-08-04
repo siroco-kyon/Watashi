@@ -172,7 +172,9 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 
 - **アクセストークン**: JWT (HS256)、有効期限 **15 分**。クライアントが `Authorization: Bearer` で付与
 - **リフレッシュトークン**: 有効期限 **30 日**。アクセストークン失効時に自動更新
-- クライアント (`SessionManager`) は `GetValidAccessTokenAsync` でトークンの自動リフレッシュとアイドルタイマーを管理
+- access token には `PasswordChangedAt` の ticks を資格情報バージョン (`cv`) として含め、認証時に DB の現在値と照合
+- クライアント (`SessionManager`) は token + session generation の snapshot で自動リフレッシュとアイドルタイマーを管理
+- 認証済みリクエストにも session generation を記録し、遅れて返った旧セッションの 401 が再ログイン後の状態を消さない
 - クレーム: `uid` (ユーザー ID)、`role` (`Admin` / `User`) など
 
 ### 4.3 リフレッシュトークンのローテーション + 盗難検知
@@ -185,6 +187,7 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
   - `User.MustChangePassword` → レスポンスにフラグ付与
 - パスワード変更時は既存リフレッシュトークンを無効化
 - access token の認証時にも `User.IsLocked` を都度確認し、ロック中は発行済み token も即時拒否
+- 管理者フラグ変更時も資格情報バージョンを進め、昇格前/降格前の access・refresh token を即時失効
 
 ### 4.4 自動ログイン (信頼デバイス) の詳細
 
@@ -234,6 +237,8 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
   ドメイン部の扱いは `DomainMatch` (`IgnoreDomain` / `AllowList`) で切り替える
   - `AllowList` はユーザー単位のドメイン紐付けではない。複数の独立ドメインを許可する場合、
     GID は許可ドメイン全体で一意であること。同名 GID が存在し得る環境は管理者発行の初期 PW 経路を使う
+- Watashi の `Username` は SQLite `NOCASE` の検索・一意制約で、英字の大文字小文字を区別しない。
+  既存 DB に大小文字だけ異なる重複がある場合、移行はデータを選別せず安全に停止する
 - **ユーザー列挙対策**: 本人確認できた未設定アカウント以外は、不明な ID も通常アカウントも
   一律 `mode=password` を返す。未設定ユーザーへの通常ログインも、存在しないユーザーと同一の応答
 - **未設定ユーザーは bcrypt 照合の手前で遮断する**。照合に任せると本人の試行で
@@ -252,7 +257,11 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 
 - アイドルタイムアウトはサーバーの `SessionIdleMinutes` (デフォルト 30 分) 由来。
   ログイン応答で `IdleMinutes` をクライアントへ伝え、無操作で自動ログアウト
-- ログアウト: リフレッシュトークン失効 + Credential Manager のデバイストークン削除 → ログイン画面へ
+- ログアウト前に access token の更新を完了し、ローテーション後の最新 refresh token を失効させる。
+  その後 Credential Manager のデバイストークンを削除してログイン画面へ戻る
+- アイドル通知は session generation と操作 generation を再照合し、操作再開後や再ログイン後に残った古い timer callback を無視
+- 認証済み API / refresh が 401 を返した場合は、メイン画面の表示前後を問わずローカル状態を破棄して再ログインへ戻る
+- アプリを開いたままパスワード期限へ到達した場合は、次の refresh で強制変更画面を表示。任意変更画面を開いている最中なら同じ画面を強制モードへ切り替える
 
 ---
 

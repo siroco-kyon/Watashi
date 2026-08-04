@@ -87,6 +87,7 @@ dotnet run
 - **ダウンロードは `.part` 一時ファイル経由 → 完了時に rename**。途中失敗時は不完全ファイルが残らない
 - パス入力 + Enter で直接移動、Delete キーで削除 (確認ダイアログ付き)
 - **パスワード入力に目玉アイコン** — ログイン・パスワード変更・管理画面のパスワード欄で、目玉ボタンを押すと入力中のパスワードを一時的に平文表示。タイプミス確認に便利
+- **二段階ログイン + 本人による初回設定** — GID を入力して「次へ」。初回設定待ちなら Windows 統合認証で本人確認して自分でパスワードを決め、設定済みなら通常のパスワード入力へ進む
 - 自動ログイン (信頼デバイス, **HTTP/HTTPS 両対応**)、アイドルタイムアウト (デフォルト 30 分、設定変更可)
 - 非管理者には管理ボタン非表示、アクセス可能な共有が無いときは「管理者に依頼してください」ガイダンス表示
 - **接続先・更新確認先・機能の配布時固定 (`deployment.json`)**: 管理者がアプリ同梱の読み取り専用 `deployment.json` で接続先サーバ、ClickOnce 更新マニフェスト URL、D&D 可否を固定。利用者 (クライアント) からは変更不可。ログイン画面では「接続テスト」(疎通確認) のみ可能
@@ -103,6 +104,7 @@ dotnet run
 ### セキュリティ
 - bcrypt パスワード、ログイン **レート制限**（IP 単位 10/分）
 - **リフレッシュトークンのローテーション**＋再利用検知（漏洩トークン提示でファミリー全失効）
+- 発行済みトークンも、パスワード・管理者権限・初回設定状態・アカウントロックの変更を次の API 呼び出しで検知して再ログインへ戻す
 - CIFS 資格情報は AES-256-GCM で暗号化、JWT は HS256
 - **mTLS** 対応（Server↔Agent 双方向、`ExecutionNode.ClientCertificateThumbprint` で照合）
 - 機微フィールド（パスワードハッシュ、トークンハッシュ、暗号化資格情報）は API レスポンスから自動除外
@@ -130,7 +132,7 @@ src/
 ├── Watashi.Server/    # 中央サーバー (ASP.NET Core 8, Windows Service)
 ├── Watashi.Agent/     # エージェント (踏み台に配置、Windows Service)
 └── Watashi.Client/    # WPF デスクトップアプリ
-tests/Watashi.Tests/   # xUnit (256 ケース: PathHelper / Permission / Auth / Crypto / CSV / AdminGuard / Session / AuditLog 等)
+tests/Watashi.Tests/   # xUnit (Auth / Session / Migration / Permission / Crypto / CSV / AuditLog 等)
 deploy/                # Windows Service インストーラ、ClickOnce 設定、IIS MIME
 docs/                  # 本ドキュメント群
 ```
