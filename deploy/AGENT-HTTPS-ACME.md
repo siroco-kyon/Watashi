@@ -8,7 +8,13 @@
 - プログラム (バイナリ) の変更は不要、設定ファイルと証明書まわりの作業のみ
 - 認証は引き続き `SharedSecret` (X-Watashi-Secret ヘッダ) を使用します。証明書は暗号化のみの担当です
 
+> **HTML 版があります**: 「どのスクリプトをどのマシンで実行するのか」を先に示し、CA に到達できない
+> Agent への **PFX 代理取得・配布** を中心に整理した [AGENT-HTTPS-ACME.html](AGENT-HTTPS-ACME.html)
+> を用意しました。初めて作業する場合はそちらを先に読むことを推奨します
+> (本ファイルは同じ内容のテキスト版として残しています)。
+
 関連ドキュメント:
+- [AGENT-HTTPS-ACME.html](AGENT-HTTPS-ACME.html) — 本手順の HTML 版 (スクリプトの使い分け / 代理取得を重点解説)
 - [CERTIFICATE.md](CERTIFICATE.md) — 証明書全般 (ストア参照方式、IIS と共存する中央サーバ向けはこちら)
 - [README.md](README.md) — デプロイ全体の手順
 
@@ -346,7 +352,23 @@ ACME を使わず、社内 CA の通常の発行フロー (CSR 提出や管理 G
 
 Watashi 側の設定は ACME 取得時と完全に同じです。違いは**更新が自動化されない**ことだけなので、
 有効期限を資産管理台帳などに記録し、期限前の再発行 → 再配置 → サービス再起動を運用に
-組み込んでください (配置と再起動は方式 1 の `deploy-pfx-to-remote-agent.ps1` が使えます)。
+組み込んでください。
+
+入れ替え作業には `deploy\agent-https\replace-agent-pfx.ps1` を対象 Agent 上で実行します
+(PFX の事前検証 → 既存のバックアップ → 配置 → ACL 設定 → サービス再起動 → `/health` 確認、
+失敗時は自動ロールバック)。
+
+```powershell
+.\replace-agent-pfx.ps1 -PfxPath D:\agent-b.internal.pfx `
+    -PfxPassword (Read-Host -AsSecureString "PFX パスワード") `
+    -TargetPath "C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx" `
+    -ExpectedHostName agent-b.internal
+```
+
+**ファイアウォールで自動配布 (SMB / WinRM) だけが塞がれている場合**は、代理マシン側の
+win-acme を `--installation none` で登録しておけば「取得は自動・運搬だけ手動」にできます。
+手順・期限管理の仕組み・作業チェックリストは
+[AGENT-HTTPS-ACME.html の 5 章](AGENT-HTTPS-ACME.html) にまとめています。
 
 ### 方式 3: A → B 間は HTTP のままにする
 
