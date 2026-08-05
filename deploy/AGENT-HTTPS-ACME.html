@@ -236,17 +236,29 @@
     pre .cmt { color: #93a4b5; }
     pre .hl { color: #ffd479; font-weight: 700; }
 
-    .diagram {
+    figure.fig {
       overflow-x: auto;
-      margin: 18px 0;
-      padding: 18px 20px;
-      color: #2c3542;
+      margin: 20px 0;
+      padding: 18px 20px 14px;
       background: #fbfaf8;
       border: 1px solid var(--line);
       border-radius: 12px;
+    }
+    figure.fig svg {
+      display: block;
+      width: 100%;
+      min-width: 620px;
+      max-width: 880px;
+      height: auto;
+      margin: 0 auto;
+    }
+    figure.fig figcaption {
+      margin: 12px auto 0;
+      max-width: 640px;
+      color: var(--muted);
+      text-align: center;
       font-size: 13px;
-      line-height: 1.5;
-      white-space: pre;
+      line-height: 1.6;
     }
 
     .copy {
@@ -333,7 +345,7 @@
       .lead, .eyebrow { color: #333; }
       .layout { display: block; width: 100%; margin: 20px 0; }
       nav, .copy { display: none; }
-      section { break-inside: avoid; box-shadow: none; }
+      section, figure.fig { break-inside: avoid; box-shadow: none; }
       pre { color: #111; background: #f4f4f4; border: 1px solid #ccc; }
       pre .cmt { color: #555; }
       pre .hl { color: #111; }
@@ -468,26 +480,74 @@ New-Item -ItemType Directory -Force -Path C:\ProgramData\WatashiAgent\logs    | 
         <h2>2. どのパターンに当てはまるか</h2>
         <p>判定基準は<strong>「どの経路がファイアウォールで塞がれているか」</strong>だけです。上から順に見て、最初に当てはまったものが答えです。</p>
 
-        <div class="diagram">証明書を入れたい Agent は…
+        <figure class="fig">
+          <svg viewBox="0 0 880 400" role="img" aria-label="どの経路がファイアウォールで塞がれているかを 4 つの質問でたどり、パターン1・パターン1'・パターン2・パターン3 のいずれかに行き着く判定フロー図">
+            <defs>
+              <marker id="fa-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
 
-  ┌─ その Agent 自身から CA (ACME URL) に到達できる？
-  │
-  ├── YES ──┬─ CA → その Agent の TCP 80 も通る？
-  │         │
-  │         ├── YES → 【パターン1】その Agent で register-agent-acme.ps1
-  │         │          （HTTP-01 検証・いちばん簡単）
-  │         │
-  │         └── NO  → 【パターン1'】同じ Agent で、検証だけ DNS-01 に変更
-  │
-  └── NO ───┬─ DNS の TXT レコードを自動登録できる (DNS-01 が使える)？
-            │
-            ├── YES ─┬─ 代理マシン → 対象 Agent の SMB(445)/WinRM(5985) が通る？
-            │        │
-            │        ├── YES → 【パターン2】代理取得 → 自動配布（完全無人）
-            │        │
-            │        └── NO  → 【パターン3】代理取得 → 手で運んで入れ替え
-            │
-            └── NO  → 【パターン3】CA から通常発行 → 手で運んで入れ替え</div>
+            <!-- 接続線 -->
+            <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55" marker-end="url(#fa-arrow)">
+              <polyline points="93,160 93,76 210,76"/>
+              <polyline points="93,224 93,284 210,284"/>
+              <line x1="384" y1="66" x2="426" y2="42"/>
+              <line x1="384" y1="88" x2="426" y2="97"/>
+              <line x1="384" y1="270" x2="426" y2="234"/>
+              <line x1="384" y1="300" x2="426" y2="346"/>
+              <line x1="610" y1="222" x2="646" y2="211"/>
+              <line x1="610" y1="248" x2="646" y2="269"/>
+            </g>
+
+            <!-- YES / NO -->
+            <g font-size="11" fill="currentColor" opacity=".7">
+              <text x="101" y="70">YES</text>
+              <text x="101" y="278">NO</text>
+              <text x="394" y="48">YES</text>
+              <text x="392" y="112">NO</text>
+              <text x="394" y="248">YES</text>
+              <text x="378" y="330" text-anchor="end">NO</text>
+              <text x="612" y="206">YES</text>
+              <text x="612" y="284">NO</text>
+            </g>
+
+            <!-- 質問 -->
+            <g fill="#ffffff" stroke="currentColor" stroke-width="1.5" opacity=".85">
+              <rect x="14" y="160" width="158" height="64" rx="9"/>
+              <rect x="214" y="44" width="170" height="64" rx="9"/>
+              <rect x="214" y="252" width="170" height="64" rx="9"/>
+              <rect x="430" y="200" width="180" height="64" rx="9"/>
+            </g>
+            <g font-size="12.5" fill="currentColor" text-anchor="middle">
+              <text x="93" y="186">対象 Agent 自身が</text>
+              <text x="93" y="205">CA に到達できる？</text>
+              <text x="299" y="70">CA → その Agent の</text>
+              <text x="299" y="89">TCP 80 が通る？</text>
+              <text x="299" y="278">DNS の TXT を</text>
+              <text x="299" y="297">自動登録できる？</text>
+              <text x="520" y="226">代理マシン → Agent の</text>
+              <text x="520" y="245">SMB / WinRM が通る？</text>
+            </g>
+
+            <!-- 結論 -->
+            <g fill="#fff1ed" stroke="#a9342b" stroke-width="1.5">
+              <rect x="430" y="14" width="300" height="46" rx="9"/>
+              <rect x="430" y="76" width="300" height="46" rx="9"/>
+              <rect x="650" y="186" width="225" height="46" rx="9"/>
+              <rect x="650" y="248" width="225" height="46" rx="9"/>
+              <rect x="430" y="326" width="300" height="46" rx="9"/>
+            </g>
+            <g font-size="12.5" fill="#6e211d" text-anchor="middle">
+              <text x="580" y="42"><tspan font-weight="700">パターン1</tspan>　その Agent で取得</text>
+              <text x="580" y="104"><tspan font-weight="700">パターン1'</tspan>　検証だけ DNS-01 に</text>
+              <text x="762" y="214"><tspan font-weight="700">パターン2</tspan>　自動配布</text>
+              <text x="762" y="276"><tspan font-weight="700">パターン3</tspan>　手で運ぶ</text>
+              <text x="580" y="354"><tspan font-weight="700">パターン3</tspan>　CA 通常発行 → 手で運ぶ</text>
+            </g>
+          </svg>
+          <figcaption>塞がれている経路を上から順にたどると、取るべきパターンが決まる。「取得」が塞がれているか「配布」が塞がれているかで分岐先が変わる。</figcaption>
+        </figure>
 
         <div class="table-wrap">
           <table>
@@ -575,23 +635,130 @@ New-Item -ItemType Directory -Force -Path C:\ProgramData\WatashiAgent\logs    | 
 
         <p>チェーン構成 (<code>Server → Agent A → Agent B → CIFS</code>) の Agent B のように、隔離セグメントにいて CA と通信できない Agent が対象です。</p>
 
-        <div class="diagram">           ① DNS-01 で B の証明書を要求          ② PFX をコピー
-   ┌──────────────┐              ┌──────────────┐      ┌──────────────┐
-   │ 社内 ACME CA │ ◄──────────  │  Agent A     │ ───► │  Agent B     │
-   └──────┬───────┘              │  (代理取得)  │      │  (隔離)      │
-          │                      └──────┬───────┘      └──────┬───────┘
-          │ TXT を確認                  │                      │
-          ▼                             │ ③ サービス再起動     │
-   ┌──────────────┐                     └─────────────────────►┘
-   │  社内 DNS    │ ◄── TXT 登録 ───────┘
-   │ _acme-challenge.agent-b.internal
-   └──────────────┘
+        <figure class="fig">
+          <svg viewBox="0 0 880 350" role="img" aria-label="Agent A が DNS-01 検証で Agent B 用の証明書を CA から取得し、PFX をファイアウォール越しに Agent B へコピーしてサービスを再起動する流れ。Agent B は CA とも DNS とも通信しない">
+            <defs>
+              <marker id="nw-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+              <marker id="nw-arrow-back" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M10,0 L0,5 L10,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
 
-   ※ B は CA とも DNS 登録とも一切通信しない。B が受け取るのは「PFX ファイル」だけ。</div>
+            <!-- ファイアウォール境界 -->
+            <line x1="585" y1="14" x2="585" y2="320" stroke="currentColor" stroke-width="1.5"
+                  stroke-dasharray="7 6" opacity=".45"/>
+            <text x="585" y="338" text-anchor="middle" font-size="11.5" fill="currentColor" opacity=".65">ファイアウォール</text>
+
+            <!-- B から CA へは届かない -->
+            <polyline points="700,132 700,22 604,22" fill="none" stroke="#a9342b" stroke-width="1.5"
+                      stroke-dasharray="5 5" opacity=".8"/>
+            <text x="586" y="29" text-anchor="middle" font-size="17" fill="#a9342b"
+                  paint-order="stroke" stroke="#fbfaf8" stroke-width="4" stroke-linejoin="round">✕</text>
+            <text x="700" y="50" text-anchor="middle" font-size="11.5" fill="#a9342b"
+                  paint-order="stroke" stroke="#fbfaf8" stroke-width="4" stroke-linejoin="round">B は CA にも DNS にも届かない</text>
+
+            <!-- 通信線 (直交ルーティング) -->
+            <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6">
+              <polyline points="330,158 252,158 252,59 204,59"
+                        marker-start="url(#nw-arrow-back)" marker-end="url(#nw-arrow)"/>
+              <polyline points="330,190 290,190 290,275 200,275" marker-end="url(#nw-arrow)"/>
+              <line x1="108" y1="88" x2="108" y2="244" marker-end="url(#nw-arrow)"/>
+              <line x1="500" y1="152" x2="654" y2="152" marker-end="url(#nw-arrow)"/>
+              <line x1="500" y1="190" x2="654" y2="190" marker-end="url(#nw-arrow)"/>
+            </g>
+            <g font-size="11.5" fill="currentColor">
+              <text x="262" y="98">① agent-b の名前で要求</text>
+              <text x="262" y="118">④ PFX を発行</text>
+              <text x="298" y="236">② TXT を登録</text>
+              <text x="118" y="170">③ TXT を確認</text>
+              <text x="562" y="142" text-anchor="middle"
+                    paint-order="stroke" stroke="#fbfaf8" stroke-width="4" stroke-linejoin="round">⑤ PFX をコピー</text>
+              <text x="562" y="212" text-anchor="middle"
+                    paint-order="stroke" stroke="#fbfaf8" stroke-width="4" stroke-linejoin="round">⑥ サービス再起動</text>
+            </g>
+
+            <!-- ノード -->
+            <g fill="#ffffff" stroke="currentColor" stroke-width="1.5" opacity=".85">
+              <rect x="18" y="30" width="180" height="58" rx="10"/>
+              <rect x="18" y="246" width="180" height="58" rx="10"/>
+              <rect x="330" y="132" width="170" height="78" rx="10"/>
+              <rect x="656" y="132" width="200" height="78" rx="10"/>
+            </g>
+            <g font-size="13" fill="currentColor" text-anchor="middle">
+              <text x="108" y="64" font-weight="700">社内 ACME CA</text>
+              <text x="108" y="272" font-weight="700">社内 DNS</text>
+              <text x="415" y="166" font-weight="700">Agent A</text>
+              <text x="756" y="166" font-weight="700">Agent B</text>
+            </g>
+            <g font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".75">
+              <text x="108" y="290">_acme-challenge.agent-b</text>
+              <text x="415" y="188">代理取得する</text>
+              <text x="756" y="188">隔離セグメント</text>
+            </g>
+          </svg>
+          <figcaption>①〜④ が「発行してもらう」工程、⑤⑥ が「届ける」工程。B が受け取るのは PFX ファイルだけで、B 自身は CA とも DNS とも一切通信しない。</figcaption>
+        </figure>
 
         <div class="callout note">
-          <p><strong>なぜ DNS-01 なのか。</strong>ACME の所有確認には「そのホスト名を本当に持っているか」を示す必要があります。HTTP-01 は <u>そのホスト名の 80 番に置いたファイル</u>で示すので、実行マシン = 検証対象マシンでなければなりません。DNS-01 は <u>DNS の TXT レコード</u>で示すため、<strong>どのマシンから要求しても構いません</strong>。これが代理取得が成立する唯一の理由です。</p>
+          <p><strong>なぜ DNS-01 なのか。</strong>CA は「名乗っただけ」では証明書を出さず、必ず「そのホスト名の持ち主か」を確認します。win-acme は全自動で動くため<u>機械が自動判定できる方法</u>でしか確認できず、その手段は実質 2 つしかありません。下図のとおり HTTP-01 は<strong>実行マシン = 検証対象マシン</strong>でなければ成立しないので、代理取得では DNS-01 だけが残ります。</p>
         </div>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 250" role="img" aria-label="HTTP-01 は CA が対象ホスト名の 80 番へ合言葉を取りに来るため、合言葉を持つ実行マシンと検証対象が一致していないと失敗する。DNS-01 は CA が DNS の TXT レコードを引くだけなので、実行マシンがどこでも成立する">
+            <defs>
+              <marker id="cm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <line x1="440" y1="18" x2="440" y2="238" stroke="currentColor" stroke-width="1" opacity=".2"/>
+
+            <!-- 左: HTTP-01 -->
+            <text x="215" y="34" text-anchor="middle" font-size="13" font-weight="700" fill="#6e211d">HTTP-01 — 代理取得では成立しない</text>
+            <line x1="152" y1="88" x2="264" y2="88" fill="none" stroke="currentColor" stroke-width="1.5"
+                  opacity=".6" marker-end="url(#cm-arrow)"/>
+            <text x="208" y="78" text-anchor="middle" font-size="11" fill="currentColor">合言葉を取りに来る</text>
+            <line x1="220" y1="170" x2="302" y2="120" stroke="#a9342b" stroke-width="1.5"
+                  stroke-dasharray="5 5" opacity=".85"/>
+            <text x="262" y="152" text-anchor="middle" font-size="17" fill="#a9342b"
+                  paint-order="stroke" stroke="#fbfaf8" stroke-width="4" stroke-linejoin="round">✕</text>
+            <g fill="#ffffff" stroke="currentColor" stroke-width="1.5" opacity=".85">
+              <rect x="30" y="62" width="120" height="52" rx="9"/>
+              <rect x="266" y="62" width="144" height="52" rx="9"/>
+              <rect x="110" y="170" width="190" height="56" rx="9"/>
+            </g>
+            <g font-size="12.5" fill="currentColor" text-anchor="middle">
+              <text x="90" y="93">社内 CA</text>
+              <text x="338" y="86">agent-b:80</text>
+              <text x="205" y="194">Agent A（wacs 実行）</text>
+            </g>
+            <text x="338" y="105" text-anchor="middle" font-size="11" fill="#a9342b">合言葉が無い</text>
+            <text x="205" y="214" text-anchor="middle" font-size="11" fill="#a9342b">合言葉はここにある</text>
+
+            <!-- 右: DNS-01 -->
+            <text x="665" y="34" text-anchor="middle" font-size="13" font-weight="700" fill="#17643a">DNS-01 — どのマシンから要求してもよい</text>
+            <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6" marker-end="url(#cm-arrow)">
+              <line x1="634" y1="192" x2="704" y2="192"/>
+              <line x1="778" y1="116" x2="778" y2="166"/>
+            </g>
+            <text x="669" y="182" text-anchor="middle" font-size="11" fill="currentColor">TXT を書く</text>
+            <text x="788" y="146" font-size="11" fill="currentColor">TXT を引く</text>
+            <g fill="#ffffff" stroke="currentColor" stroke-width="1.5" opacity=".85">
+              <rect x="708" y="62" width="140" height="52" rx="9"/>
+              <rect x="708" y="170" width="140" height="56" rx="9"/>
+              <rect x="470" y="170" width="164" height="56" rx="9"/>
+            </g>
+            <g font-size="12.5" fill="currentColor" text-anchor="middle">
+              <text x="778" y="93">社内 CA</text>
+              <text x="778" y="202">社内 DNS</text>
+              <text x="552" y="194">Agent A（wacs 実行）</text>
+            </g>
+            <text x="552" y="214" text-anchor="middle" font-size="11" fill="#17643a">どのマシンでもよい</text>
+          </svg>
+          <figcaption>HTTP-01 は「その名前の 80 番」に置いた合言葉で所有を示すため、実行マシンと検証対象が一致している必要がある。DNS-01 は DNS のレコードで示すので、A から B の名前の証明書を取れる。</figcaption>
+        </figure>
 
         <h3>4-0. 事前に用意するもの</h3>
         <div class="table-wrap">
