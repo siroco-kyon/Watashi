@@ -29,7 +29,8 @@ Agent は 1 台構成に加えて、共有秘密認証の `Server → Agent A �
 | **[docs/OVERVIEW-FOR-MANAGERS.md](docs/OVERVIEW-FOR-MANAGERS.md)** | ツール紹介 — 管理職・非技術者向けの概要 |
 | **[docs/SPECIFICATION.md](docs/SPECIFICATION.md)** | 機能仕様書 (Markdown 版) — 全機能を 1 文書に統合した詳細仕様 |
 | **[docs/FEATURES.md](docs/FEATURES.md)** | 機能カタログ — 何ができるか |
-| **[docs/SETUP.md](docs/SETUP.md)** | 環境構築 — 0 から動かすまで (3 通りのネットワーク構成) |
+| **[docs/SETUP.html](docs/SETUP.html)** | **環境構築ガイド (HTML)** — 0 から動かすまで。構成図・通信モード比較・証明書の使い分けを図解 |
+| [docs/SETUP.md](docs/SETUP.md) | 上記のテキスト版 |
 | **[docs/USER-GUIDE.md](docs/USER-GUIDE.md)** | 利用者ガイド — ログインからファイル操作まで |
 | **[docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md)** | 管理者ガイド — ユーザー / ホスト / 権限 / ノード管理 |
 | **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | 開発者ガイド — ローカル開発、HTTPS dev cert、ビルド/テスト |

@@ -1,0 +1,1565 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watashi 環境構築ガイド</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #586474;
+      --paper: #fffdf9;
+      --surface: #ffffff;
+      --line: #e7dfd4;
+      --red: #a9342b;
+      --red-dark: #6e211d;
+      --red-soft: #fff1ed;
+      --gold: #ba7a1a;
+      --gold-soft: #fff8e7;
+      --green: #17643a;
+      --green-soft: #edf8f1;
+      --blue: #185d8f;
+      --blue-soft: #edf6fc;
+      --shadow: 0 18px 50px rgba(60, 44, 30, .08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(186, 122, 26, .10), transparent 30rem),
+        linear-gradient(180deg, #faf5ed 0, var(--paper) 28rem);
+      font-family: "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+      line-height: 1.75;
+    }
+
+    a { color: var(--blue); }
+    code, pre { font-family: "Cascadia Mono", Consolas, monospace; }
+    code {
+      padding: .12em .38em;
+      border-radius: 5px;
+      background: #f2eee8;
+      font-size: .92em;
+    }
+
+    .hero {
+      color: white;
+      background:
+        linear-gradient(120deg, rgba(74, 13, 13, .96), rgba(145, 40, 31, .94)),
+        repeating-linear-gradient(90deg, transparent 0 44px, rgba(255,255,255,.04) 44px 45px);
+      border-bottom: 5px solid var(--gold);
+    }
+
+    .hero-inner {
+      width: min(1120px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 60px 0 54px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #f6cf91;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-size: clamp(30px, 5vw, 52px);
+      line-height: 1.22;
+      letter-spacing: -.03em;
+    }
+
+    .lead {
+      max-width: 780px;
+      margin: 18px 0 0;
+      color: #f6e9e3;
+      font-size: 17px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 34px;
+      width: min(1120px, calc(100% - 36px));
+      margin: 34px auto 70px;
+    }
+
+    nav {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      padding: 18px;
+      background: rgba(255,255,255,.86);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    nav strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--red-dark);
+      font-size: 13px;
+      letter-spacing: .08em;
+    }
+
+    nav a {
+      display: block;
+      padding: 7px 9px;
+      color: #3f4854;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    nav a:hover { color: var(--red-dark); background: var(--red-soft); }
+
+    main { min-width: 0; }
+    section {
+      margin: 0 0 26px;
+      padding: 30px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      color: var(--red-dark);
+      font-size: 25px;
+      line-height: 1.35;
+    }
+
+    h3 {
+      margin: 30px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--red-soft);
+      font-size: 18px;
+      line-height: 1.45;
+    }
+
+    h4 { margin: 22px 0 6px; font-size: 15px; }
+
+    p { margin: 10px 0; }
+    ul, ol { padding-left: 1.5em; }
+    li + li { margin-top: 6px; }
+
+    .callout {
+      margin: 18px 0;
+      padding: 15px 17px;
+      border-left: 5px solid;
+      border-radius: 10px;
+    }
+    .callout p:first-child { margin-top: 0; }
+    .callout p:last-child { margin-bottom: 0; }
+    .danger { color: #64231f; background: var(--red-soft); border-color: var(--red); }
+    .note { color: #27495e; background: var(--blue-soft); border-color: var(--blue); }
+    .success { color: #1d5132; background: var(--green-soft); border-color: var(--green); }
+    .warning { color: #60450e; background: var(--gold-soft); border-color: var(--gold); }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+      margin: 18px 0;
+      counter-reset: step;
+    }
+    .step {
+      position: relative;
+      min-height: 54px;
+      padding: 14px 16px 14px 62px;
+      background: #fbfaf8;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      counter-increment: step;
+    }
+    .step::before {
+      content: counter(step);
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      color: white;
+      background: var(--red);
+      border-radius: 50%;
+      font-weight: 800;
+    }
+
+    .code-wrap { position: relative; margin: 14px 0 18px; }
+    pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 18px 20px;
+      color: #f5f1eb;
+      background: #20252d;
+      border-radius: 12px;
+      line-height: 1.6;
+      font-size: 13px;
+      white-space: pre;
+    }
+    pre code { padding: 0; color: inherit; background: none; font-size: inherit; }
+    pre .cmt { color: #93a4b5; }
+    pre .hl { color: #ffd479; font-weight: 700; }
+
+    .copy {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      padding: 6px 10px;
+      color: #e8edf3;
+      background: #353d48;
+      border: 1px solid #566170;
+      border-radius: 7px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
+    .copy:hover { background: #46515f; }
+
+    figure.fig {
+      overflow-x: auto;
+      margin: 20px 0;
+      padding: 18px 20px 14px;
+      background: #fbfaf8;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    figure.fig svg {
+      display: block;
+      width: 100%;
+      min-width: 620px;
+      max-width: 880px;
+      height: auto;
+      margin: 0 auto;
+    }
+    figure.fig figcaption {
+      margin: 12px auto 0;
+      max-width: 660px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      min-width: 480px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--red-dark); background: #faf5ef; }
+    td.req { color: var(--red-dark); font-weight: 700; white-space: nowrap; }
+    td.opt { color: var(--muted); white-space: nowrap; }
+    tbody tr:nth-child(even) { background: #fdfcfa; }
+
+    .check td:first-child { width: 46px; text-align: center; font-size: 16px; }
+
+    .result {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .result > div {
+      padding: 15px;
+      background: #fbfaf8;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      font-size: 14px;
+    }
+    .result strong { display: block; color: var(--red-dark); }
+
+    .machine {
+      display: inline-block;
+      margin: 0 0 10px;
+      padding: 4px 12px;
+      color: white;
+      background: var(--blue);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .machine.dev { background: #6b4a9c; }
+    .machine.agent { background: var(--green); }
+
+    footer {
+      width: min(1120px, calc(100% - 36px));
+      margin: -38px auto 32px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: static; max-height: none; }
+      nav a { display: inline-block; }
+      section { padding: 23px 20px; }
+      .result { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      body { background: white; }
+      .hero { color: black; background: white; border-bottom: 2px solid #555; }
+      .hero-inner { padding: 20px 0; }
+      .lead, .eyebrow { color: #333; }
+      .layout { display: block; width: 100%; margin: 20px 0; }
+      nav, .copy { display: none; }
+      section, figure.fig { break-inside: avoid; box-shadow: none; }
+      pre { color: #111; background: #f4f4f4; border: 1px solid #ccc; }
+      pre .cmt { color: #555; }
+      pre .hl { color: #111; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Watashi setup guide</p>
+      <h1>Watashi 環境構築ガイド</h1>
+      <p class="lead">開発機での 5 分動作確認から本番デプロイまで。「どのマシンで何をするのか」を各章の先頭に示し、通信構成の選択・設定ファイルの書き方・投入前チェックまでを通しでまとめています。</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="ページ内メニュー">
+      <strong>CONTENTS</strong>
+      <a href="#overview">1. 全体像と前提条件</a>
+      <a href="#quickstart">2. 5 分で動かす</a>
+      <a href="#network">3. 通信モードを決める</a>
+      <a href="#server">4. 中央サーバーを立てる</a>
+      <a href="#clickonce">5. 配布サーバー (ClickOnce)</a>
+      <a href="#agent">6. エージェント (踏み台)</a>
+      <a href="#initial">7. 初期データ登録</a>
+      <a href="#checklist">8. 本番投入チェックリスト</a>
+      <a href="#operation">9. 運用</a>
+      <a href="#trouble">10. トラブルシューティング</a>
+    </nav>
+
+    <main>
+      <section id="overview">
+        <h2>1. 全体像と前提条件</h2>
+
+        <p>Watashi は 4 つの登場人物からなります。まず何がどこと通信するのかを押さえてください。<strong>設定でつまずく箇所のほとんどは、この図のどの線の話なのかが分かれば解決します。</strong></p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 264" role="img" aria-label="クライアントは配布サーバーから ClickOnce でインストールされ、中央サーバーへ区間 A で接続する。中央サーバーは区間 B でエージェントへ接続し、エージェントが SMB で CIFS ファイルサーバーへ接続する構成図">
+            <defs>
+              <marker id="ov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <!-- 配布サーバーへの経路 -->
+            <polyline points="81,152 81,61 242,61" fill="none" stroke="currentColor" stroke-width="1.5"
+                      opacity=".55" marker-end="url(#ov-arrow)"/>
+            <text x="160" y="52" text-anchor="middle" font-size="11.5" fill="currentColor">インストール / 自動更新</text>
+
+            <!-- 区間 A -->
+            <line x1="158" y1="186" x2="242" y2="186" fill="none" stroke="currentColor" stroke-width="1.5"
+                  opacity=".55" marker-end="url(#ov-arrow)"/>
+            <text x="200" y="172" text-anchor="middle" font-size="12" font-weight="700" fill="#6e211d">区間 A</text>
+            <text x="200" y="206" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">HTTPS</text>
+
+            <!-- 区間 B (往復) -->
+            <line x1="398" y1="176" x2="482" y2="176" fill="none" stroke="currentColor" stroke-width="1.5"
+                  opacity=".55" marker-end="url(#ov-arrow)"/>
+            <line x1="482" y1="202" x2="398" y2="202" fill="none" stroke="currentColor" stroke-width="1.5"
+                  opacity=".4" stroke-dasharray="5 4" marker-end="url(#ov-arrow)"/>
+            <text x="440" y="164" text-anchor="middle" font-size="12" font-weight="700" fill="#6e211d">区間 B</text>
+            <text x="440" y="222" text-anchor="middle" font-size="11" fill="currentColor" opacity=".7">heartbeat</text>
+
+            <!-- SMB -->
+            <line x1="638" y1="186" x2="722" y2="186" fill="none" stroke="currentColor" stroke-width="1.5"
+                  opacity=".55" marker-end="url(#ov-arrow)"/>
+            <text x="680" y="172" text-anchor="middle" font-size="11.5" fill="currentColor">SMB 445</text>
+
+            <!-- ノード -->
+            <g fill="#ffffff" stroke="currentColor" stroke-width="1.5" opacity=".85">
+              <rect x="242" y="34" width="150" height="54" rx="10"/>
+              <rect x="8" y="152" width="150" height="68" rx="10"/>
+              <rect x="242" y="152" width="156" height="68" rx="10"/>
+              <rect x="482" y="152" width="156" height="68" rx="10"/>
+              <rect x="722" y="152" width="150" height="68" rx="10"/>
+            </g>
+            <g font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">
+              <text x="317" y="58">配布サーバー</text>
+              <text x="83" y="182">クライアント PC</text>
+              <text x="320" y="182">中央サーバー</text>
+              <text x="560" y="182">エージェント</text>
+              <text x="797" y="182">CIFS サーバー</text>
+            </g>
+            <g font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">
+              <text x="317" y="76">IIS / ClickOnce</text>
+              <text x="83" y="202">Watashi.Client</text>
+              <text x="320" y="202">Watashi.Server :8443</text>
+              <text x="560" y="202">Watashi.Agent :8081</text>
+              <text x="797" y="202">ファイル共有 :445</text>
+            </g>
+          </svg>
+          <figcaption>ファイル操作の要求は左から右へ流れる。中央サーバーは常に発信側で、エージェントから中央への通信は heartbeat とログ同期だけ。</figcaption>
+        </figure>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>登場人物</th><th>実体</th><th>置く場所</th><th>役割</th></tr></thead>
+            <tbody>
+              <tr><td>クライアント</td><td><code>Watashi.Client</code> (WPF)</td><td>利用者の Windows PC</td><td>画面。ClickOnce で配布・自動更新される</td></tr>
+              <tr><td>配布サーバー</td><td>IIS</td><td>社内 Web サーバー</td><td>ClickOnce の発行物を置く。中央サーバーと同居可</td></tr>
+              <tr><td>中央サーバー</td><td><code>Watashi.Server</code></td><td>Windows Server</td><td>認証・権限・監査ログ・DB (SQLite)。ファイル操作の司令塔</td></tr>
+              <tr><td>エージェント</td><td><code>Watashi.Agent</code></td><td>踏み台サーバー</td><td>CIFS へ実際に SMB 接続する実行役。不要なら省略可</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout note"><strong>エージェントは必須ではありません。</strong>中央サーバーから CIFS に直接 SMB 接続できる構成なら、seed 済みの <code>Direct (Local)</code> ノードだけで動きます。ネットワークセグメントが分かれていて中央から直接届かない場合にエージェントを置きます。</div>
+
+        <h3>前提条件</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>項目</th><th>要件</th></tr></thead>
+            <tbody>
+              <tr><td>OS (Server / Agent)</td><td>Windows Server 2019 以降 (Windows Service として常駐)</td></tr>
+              <tr><td>OS (Client)</td><td>Windows 10 / 11</td></tr>
+              <tr><td>.NET ランタイム</td><td>8.0 (いずれも <code>net8.0</code>。self-contained 発行ならランタイム導入不要)</td></tr>
+              <tr><td>ネットワーク</td><td>閉域網 (社内 LAN / VPN 内) を想定</td></tr>
+              <tr><td>同時接続</td><td>50 ユーザー程度を想定</td></tr>
+              <tr><td>権限</td><td>サービス登録には管理者権限の PowerShell が必要</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>作業の順番</h3>
+        <p>本番構築は次の順で進めます。<strong>3 章 (通信モードの決定) を先に済ませておくと、4〜6 章の設定ファイルで迷いません。</strong></p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>章</th><th>やること</th><th>作業マシン</th></tr></thead>
+            <tbody>
+              <tr><td>2</td><td>開発機で動くことを確認する (任意だが推奨)</td><td>開発機</td></tr>
+              <tr><td>3</td><td>区間 A / 区間 B の通信モードを決める</td><td>—— (設計)</td></tr>
+              <tr><td>4</td><td>中央サーバーをビルド・配置・サービス登録</td><td>CI / 開発機 → 中央サーバー</td></tr>
+              <tr><td>5</td><td>クライアントを ClickOnce で発行</td><td>CI / 開発機 → 配布サーバー</td></tr>
+              <tr><td>6</td><td>エージェントをビルド・配置・ノード登録</td><td>CI / 開発機 → 踏み台</td></tr>
+              <tr><td>7</td><td>ホスト・共有・ユーザー・権限を登録</td><td>管理画面</td></tr>
+              <tr><td>8</td><td>本番投入チェックリストで確認</td><td>—— (確認)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="quickstart">
+        <h2>2. 5 分で動かす (開発機での動作確認)</h2>
+        <span class="machine dev">作業マシン: 開発機</span>
+        <p>CIFS サーバーが無くても、ログイン・認証・DB 自動生成までは確認できます。本番構築の前に一度通しておくと、後の切り分けが楽になります。</p>
+
+        <h3>2-1. 中央サーバーを起動</h3>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>cd src\Watashi.Server
+dotnet run
+<span class="cmt"># → http://127.0.0.1:18080 で起動</span>
+<span class="cmt"># ASPNETCORE_ENVIRONMENT=Development は launchSettings.json で自動設定されるため、環境変数の手動指定は不要</span></code></pre>
+        </div>
+
+        <h3>2-2. 疎通とログインを確認</h3>
+        <p>別ウィンドウで実行します。</p>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># 疎通確認 (ブラウザで http://127.0.0.1:18080/ を開くとエンドポイント一覧が見える)</span>
+Invoke-RestMethod http://127.0.0.1:18080/health
+<span class="cmt"># → {"status":"ok","at":"..."}</span>
+
+<span class="cmt"># ログイン (admin / Admin123!@#)</span>
+$body = @{ username = 'admin'; password = 'Admin123!@#' } | ConvertTo-Json
+$login = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:18080/api/auth/login `
+    -ContentType 'application/json' -Body $body
+$login.mustChangePassword   <span class="cmt"># → True (初回はパスワード変更が必要)</span>
+$login.accessToken          <span class="cmt"># → JWT</span></code></pre>
+        </div>
+
+        <div class="callout warning">
+          <p><strong>PowerShell の <code>curl</code> に注意。</strong><code>curl</code> は <code>Invoke-WebRequest</code> のエイリアスなので、<code>curl -X POST -H ...</code> のような Unix 構文は通りません。Unix 系の例をそのまま使いたい場合は <code>curl.exe</code> と明示してください (Windows 10 以降に本物の curl が同梱されています)。</p>
+        </div>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>curl.exe -X POST http://127.0.0.1:18080/api/auth/login `
+    -H "Content-Type: application/json" `
+    -d '{\"username\":\"admin\",\"password\":\"Admin123!@#\"}'</code></pre>
+        </div>
+
+        <h3>2-3. WPF クライアントを起動</h3>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>cd ..\Watashi.Client
+<span class="cmt"># 接続先と更新確認先は同梱の deployment.json で固定される。</span>
+<span class="cmt"># 開発機では serverUrl を http://127.0.0.1:18080 に書き換えてから起動する。</span>
+dotnet run
+<span class="cmt"># → ログイン: admin / Admin123!@# → パスワード変更画面 → メイン画面</span></code></pre>
+        </div>
+
+        <p>ホストが未登録ならリモートペインは空です。ホストの登録手順は <a href="ADMIN-GUIDE.md">ADMIN-GUIDE.md</a> を参照してください (実 CIFS サーバーが必要)。</p>
+
+        <div class="result">
+          <div><strong>開発時のポート</strong><code>src\Watashi.Server\appsettings.Development.json</code> の <code>Kestrel:Endpoints:Http:Url</code> で設定。HTTPS (<code>https://localhost:18443</code>) も併設済みで、dev-cert を信頼すれば HTTPS でも検証できます (手順: <a href="DEVELOPMENT.md#https-開発環境のセットアップ">DEVELOPMENT.md</a>)。</div>
+          <div><strong>DB ファイルの場所</strong>開発: <code>src\Watashi.Server\watashi-dev.db</code><br>本番: <code>C:\ProgramData\Watashi\watashi.db</code></div>
+        </div>
+      </section>
+
+      <section id="network">
+        <h2>3. 通信モードを決める</h2>
+
+        <p>通信経路は <strong>区間 A (Client ↔ Server)</strong> と <strong>区間 B (Server ↔ Agent)</strong> の 2 つがあり、<strong>それぞれ独立に HTTP / HTTPS を選べます</strong>。組み合わせで 3 つの標準モードを用意しています。</p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 300" role="img" aria-label="モード A は区間 A も区間 B も HTTPS で区間 B は mTLS、モード B は区間 A が HTTPS で区間 B は HTTP と共有秘密、モード C は両区間とも HTTP という 3 モードの比較図">
+            <defs>
+              <marker id="md-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="#a9342b"/>
+              </marker>
+              <marker id="md-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="#17643a"/>
+              </marker>
+              <marker id="md-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="#ba7a1a"/>
+              </marker>
+            </defs>
+
+            <g font-size="12" font-weight="700" fill="currentColor" opacity=".6">
+              <text x="14" y="26">モード</text>
+              <text x="300" y="26">区間 A</text>
+              <text x="530" y="26">区間 B</text>
+              <text x="700" y="26">想定環境</text>
+            </g>
+            <line x1="14" y1="36" x2="866" y2="36" stroke="currentColor" stroke-width="1" opacity=".2"/>
+
+            <!-- モード A -->
+            <text x="14" y="82" font-size="13" font-weight="700" fill="#17643a">A: 全 HTTPS + mTLS</text>
+            <text x="14" y="100" font-size="11" fill="currentColor" opacity=".7">本番の標準</text>
+            <line x1="236" y1="84" x2="316" y2="84" stroke="#17643a" stroke-width="2" marker-end="url(#md-green)"/>
+            <text x="276" y="74" text-anchor="middle" font-size="11" fill="#17643a">HTTPS</text>
+            <line x1="436" y1="84" x2="516" y2="84" stroke="#17643a" stroke-width="2" marker-end="url(#md-green)"/>
+            <text x="476" y="74" text-anchor="middle" font-size="11" fill="#17643a">HTTPS</text>
+            <text x="476" y="106" text-anchor="middle" font-size="10.5" fill="#17643a">+ mTLS</text>
+            <text x="700" y="88" font-size="11.5" fill="currentColor">踏み台が別セキュリティゾーン</text>
+
+            <!-- モード B -->
+            <text x="14" y="168" font-size="13" font-weight="700" fill="#ba7a1a">B: 混在</text>
+            <text x="14" y="186" font-size="11" fill="currentColor" opacity=".7">現実的な落としどころ</text>
+            <line x1="236" y1="170" x2="316" y2="170" stroke="#17643a" stroke-width="2" marker-end="url(#md-green)"/>
+            <text x="276" y="160" text-anchor="middle" font-size="11" fill="#17643a">HTTPS</text>
+            <line x1="436" y1="170" x2="516" y2="170" stroke="#ba7a1a" stroke-width="2" marker-end="url(#md-gold)"/>
+            <text x="476" y="160" text-anchor="middle" font-size="11" fill="#ba7a1a">HTTP</text>
+            <text x="476" y="192" text-anchor="middle" font-size="10.5" fill="#ba7a1a">+ 共有秘密</text>
+            <text x="700" y="174" font-size="11.5" fill="currentColor">中央と踏み台が同一信頼ゾーン</text>
+
+            <!-- モード C -->
+            <text x="14" y="254" font-size="13" font-weight="700" fill="#a9342b">C: 全 HTTP</text>
+            <text x="14" y="272" font-size="11" fill="currentColor" opacity=".7">本番では使わない</text>
+            <line x1="236" y1="256" x2="316" y2="256" stroke="#a9342b" stroke-width="2" marker-end="url(#md-red)"/>
+            <text x="276" y="246" text-anchor="middle" font-size="11" fill="#a9342b">HTTP</text>
+            <line x1="436" y1="256" x2="516" y2="256" stroke="#a9342b" stroke-width="2" marker-end="url(#md-red)"/>
+            <text x="476" y="246" text-anchor="middle" font-size="11" fill="#a9342b">HTTP</text>
+            <text x="700" y="260" font-size="11.5" fill="currentColor">検証 / 内部ラボ専用</text>
+
+            <!-- ノード (各行) -->
+            <g fill="#ffffff" stroke="currentColor" stroke-width="1.5" opacity=".85">
+              <rect x="176" y="62" width="60" height="44" rx="8"/>
+              <rect x="316" y="62" width="120" height="44" rx="8"/>
+              <rect x="516" y="62" width="70" height="44" rx="8"/>
+              <rect x="176" y="148" width="60" height="44" rx="8"/>
+              <rect x="316" y="148" width="120" height="44" rx="8"/>
+              <rect x="516" y="148" width="70" height="44" rx="8"/>
+              <rect x="176" y="234" width="60" height="44" rx="8"/>
+              <rect x="316" y="234" width="120" height="44" rx="8"/>
+              <rect x="516" y="234" width="70" height="44" rx="8"/>
+            </g>
+            <g font-size="11.5" fill="currentColor" text-anchor="middle">
+              <text x="206" y="89">Client</text>
+              <text x="376" y="89">Server</text>
+              <text x="551" y="89">Agent</text>
+              <text x="206" y="175">Client</text>
+              <text x="376" y="175">Server</text>
+              <text x="551" y="175">Agent</text>
+              <text x="206" y="261">Client</text>
+              <text x="376" y="261">Server</text>
+              <text x="551" y="261">Agent</text>
+            </g>
+          </svg>
+          <figcaption>違いは 2 本の線だけ。区間 A は機密データが流れるため常に HTTPS が前提で、選択の実質は区間 B をどう守るか。</figcaption>
+        </figure>
+
+        <div class="callout danger">
+          <p>CIFS 資格情報とファイル内容がネットワークを流れるため、<strong>区間 A (Client ↔ Server) は HTTPS 必須</strong>です。区間 B が社内 LAN 内で完結するなら HTTP でも実用上問題ありませんが、PCI / 個人情報など規制対象を扱う場合は mTLS にしてください。</p>
+        </div>
+
+        <h3>3-1. モード A: 全 HTTPS + mTLS</h3>
+        <h4>Server <code>appsettings.json</code></h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "Kestrel": {
+    "Endpoints": {
+      "Https": {
+        "Url": "https://0.0.0.0:8443",
+        "Certificate": { "Path": "server.pfx", "Password": "..." }
+      }
+    }
+  },
+  "Routing": {
+    "UseMtls": true,
+    "ClientCertificatePath": "central-client.pfx",
+    "ClientCertificatePassword": "..."
+  }
+}</code></pre>
+        </div>
+        <div class="callout note"><code>UseMtls=true</code> のとき、サーバー Kestrel は <code>ClientCertificateMode.AllowCertificate</code> で起動し、<code>/api/internal/*</code> は <code>Agent</code> ポリシーで証明書サムプリント検証が必須になります。サムプリントは <code>ExecutionNode.ClientCertificateThumbprint</code> と照合されます。</div>
+
+        <h4>Agent <code>appsettings.json</code></h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "Agent": {
+    "AgentId": "bastion-a",
+    "CentralUrl": "https://central.internal:8443",
+    "MaxConcurrency": 20
+  },
+  "Certificate": {
+    "Path": "agent.pfx",
+    "Password": "..."
+  },
+  "Auth": {
+    "CentralCertificateThumbprint": "&lt;中央サーバが Agent へ提示するクライアント証明書 Thumbprint&gt;",
+    "SharedSecret": ""
+  },
+  "Routing": { "UseMtls": true },
+  "Kestrel": {
+    "Endpoints": {
+      "Https": {
+        "Url": "https://0.0.0.0:8443",
+        "Certificate": { "Path": "agent.pfx", "Password": "..." }
+      }
+    }
+  }
+}</code></pre>
+        </div>
+
+        <h4>中央 DB の ExecutionNodes</h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>Endpoint = https://bastion-a:8443
+ClientCertificateThumbprint = &lt;Agent が提示するクライアント証明書 Thumbprint&gt;</code></pre>
+        </div>
+
+        <h4>Client の接続先 (同梱 <code>deployment.json</code>、発行前に編集)</h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">// exe と同じ場所に置かれる。利用者は変更不可</span>
+{
+  "serverUrl": "https://watashi.internal:8443",
+  "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application",
+  "enableDragDrop": true
+}</code></pre>
+        </div>
+
+        <h3>3-2. モード B: 混在 (区間 A は HTTPS、区間 B は HTTP + 共有秘密)</h3>
+        <p><strong>現実的な落としどころ</strong>です。中央と踏み台が同一データセンタ / 同一信頼ゾーンにあり、クライアント PC は事務 LAN や VPN 越しという構成に向きます。</p>
+
+        <h4>Server <code>appsettings.json</code> (mTLS 無効)</h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "Kestrel": {
+    "Endpoints": {
+      "Https": {
+        "Url": "https://0.0.0.0:8443",
+        "Certificate": { "Path": "server.pfx", "Password": "..." }
+      }
+    }
+  },
+  "Routing": {
+    "UseMtls": false,
+    "SharedSecret": "&lt;32 バイト以上のランダム値。Agent と同じ値&gt;"
+  }
+}</code></pre>
+        </div>
+
+        <h4>Agent <code>appsettings.json</code></h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "Agent": {
+    "AgentId": "bastion-a",
+    "CentralUrl": "https://central.internal:8443",
+    "MaxConcurrency": 20
+  },
+  "Auth": {
+    "CentralCertificateThumbprint": "",
+    "SharedSecret": "&lt;Server と同じ値&gt;"
+  },
+  "Routing": { "UseMtls": false },
+  "Kestrel": {
+    "Endpoints": { "Http": { "Url": "http://0.0.0.0:8081" } }
+  }
+}</code></pre>
+        </div>
+
+        <div class="callout note"><code>SharedSecret</code> を両側に設定すると、Agent は <code>X-Watashi-Secret</code> ヘッダで中央サーバーを認証します。中央サーバーも Agent からの heartbeat / ログ同期を同じ共有秘密で認証します。mTLS が使えない場合の最低限の保護です。<strong>ExecutionNodes の Endpoint は <code>http://bastion-a:8081</code>、ClientCertificateThumbprint は空</strong>で構いません。</div>
+
+        <h3>3-3. モード C: 全 HTTP</h3>
+        <p>検証・ラボでのみ使います。Server の <code>appsettings.json</code> から <code>Https</code> セクションを削除して <code>Http</code> のみ残し、Agent もすべて HTTP、Client も HTTP で接続します。</p>
+        <div class="callout danger">HTTP モードでも「このPCを記憶する」(信頼デバイス) は利用できますが、<strong>デバイストークン交換が平文で流れます</strong>。Production の <code>appsettings.json</code> で <code>Auth:AllowHttpForAutoLogin</code> を <code>true</code> にしない限り、サーバーは HTTP の auto-login を 401 で拒否します (Dev は既に <code>true</code>)。</div>
+
+        <h3>3-4. ファイアウォールは片方向でよい</h3>
+        <p>中央サーバーは Agent への接続を<strong>発信側</strong>として行います。踏み台のファイアウォールで <strong>Agent のポート (8081 / 8443) を中央サーバーの IP からのみ許可</strong>すれば足ります。Agent → 中央は heartbeat とログ送信に限定されます。</p>
+
+        <h3>3-5. ポート番号の変更</h3>
+        <p>Server / Agent とも <strong><code>Kestrel:Endpoints</code> の URL の <code>:port</code> を変えるだけ</strong>で変更できます。</p>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">// Server (appsettings.json / appsettings.Development.json)</span>
+"Kestrel": {
+  "Endpoints": {
+    "Http":  { "Url": "http://0.0.0.0:8080" },
+    "Https": { "Url": "https://0.0.0.0:8443" }
+  }
+}
+
+<span class="cmt">// Agent (appsettings.json)</span>
+"Kestrel": {
+  "Endpoints": {
+    "Http": { "Url": "http://0.0.0.0:8081" }
+  }
+}</code></pre>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>よくあるケース</th><th>対処</th></tr></thead>
+            <tbody>
+              <tr><td>80 / 443 が IIS や Skype 等で使用中</td><td>8080 / 8443 / 18080 / 18443 など空きポートに変更</td></tr>
+              <tr><td>同一マシンで複数インスタンスを起動</td><td>各 <code>appsettings.json</code> で別ポートを割り当て</td></tr>
+              <tr><td>社内ファイアウォールが特定範囲のみ許可</td><td>その範囲内のポートに合わせる</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># 起動前に、そのポートが空いているか確認</span>
+netstat -ano | findstr :8080
+Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue</code></pre>
+        </div>
+
+        <div class="callout warning">
+          <p>ポートが埋まっていると起動時に次のエラーになります。別ポートに変更してください。</p>
+          <p><code>System.IO.IOException: Failed to bind to address http://0.0.0.0:80: address already in use.</code></p>
+          <p><strong>ポートを変えたら <code>ExecutionNode.Endpoint</code> も忘れず更新</strong>してください。中央 DB の Agent ノードの Endpoint に反映されていないと繋がりません。</p>
+        </div>
+      </section>
+
+      <section id="server">
+        <h2>4. 中央サーバーを立てる</h2>
+        <span class="machine">作業マシン: CI / 開発機 → 中央サーバー</span>
+
+        <h3>4-1. ビルド (CI / 開発機で実施)</h3>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>dotnet publish src\Watashi.Server\Watashi.Server.csproj `
+    -c Release -r win-x64 --self-contained `
+    -o D:\publish\WatashiServer</code></pre>
+        </div>
+
+        <h3>4-2. <code>appsettings.json</code> を設定</h3>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "ConnectionStrings": {
+    <span class="cmt">// ローカル SSD 必須。ネットワーク共有は不可</span>
+    "Default": "Data Source=C:\\ProgramData\\Watashi\\watashi.db;Cache=Shared;Foreign Keys=True;"
+  },
+  "Jwt": {
+    <span class="cmt">// 32 バイト以上のランダム値に必ず変更。Production で "CHANGE-ME" のままだと起動拒否</span>
+    "Secret": "&lt;4-3 の方法で生成。48 バイトの Base64 推奨&gt;",
+    "Issuer": "Watashi",
+    "Audience": "Watashi",
+    "AccessTokenMinutes": 15,
+    "RefreshTokenDays": 30
+  },
+  "Encryption": {
+    <span class="cmt">// 32 バイトの Base64 (= 44 文字)。CIFS パスワード暗号化に使用</span>
+    <span class="cmt">// 紛失すると全 CIFS 資格情報が復号不能になるので厳重管理</span>
+    "MasterKey": "&lt;4-3 の方法で生成&gt;"
+  },
+  "Auth": {
+    "AllowHttpForAutoLogin": false,
+    "LoginPerMinutePerIp": 10,
+    "WindowsAuth": {
+      "Mode": "IIS",
+      "AllowHttp": false,
+      "DomainMatch": "IgnoreDomain",
+      "AllowedDomains": [],
+      "EnableDiagnostics": true,
+      "SetupPerMinutePerIp": 30
+    }
+  },
+  "Cifs": {
+    "SessionIdleSeconds": 60,
+    "MaxSessionsPerKey": 4
+  },
+  "Kestrel": {
+    "Endpoints": {
+      "Https": {
+        "Url": "https://0.0.0.0:8443",
+        "Certificate": { "Path": "C:\\Apps\\Watashi\\server.pfx", "Password": "..." }
+      }
+    }
+  },
+  <span class="cmt">// モード A の場合のみ</span>
+  "Routing": {
+    "UseMtls": true,
+    "ClientCertificatePath": "C:\\Apps\\Watashi\\central-client.pfx",
+    "ClientCertificatePassword": "...",
+    "SharedSecret": ""
+  }
+}</code></pre>
+        </div>
+
+        <div class="callout note">
+          <p><strong>HTTPS 証明書の指定方法は 2 通りあります。</strong>上記は PFX ファイル指定ですが、社内 PKI から配布された証明書 (= IIS のバインドで選んでいる証明書) を<strong>ファイル化せずそのまま使う</strong>こともでき、Windows 上では一般にこちらの方が運用が楽です。証明書ストア参照モードへの書き換え、秘密キーへのアクセス権付与、エクスポート可否の判定、更新時の流れは <a href="../deploy/CERTIFICATE.md">deploy/CERTIFICATE.md</a> を参照してください。</p>
+        </div>
+
+        <div class="callout danger">
+          <p><strong>起動時に検証される項目。</strong><code>Jwt:Secret</code> が <code>CHANGE-ME</code> で始まり <code>ASPNETCORE_ENVIRONMENT=Production</code> の場合は例外で起動拒否されます。<code>Encryption:MasterKey</code> も <code>REPLACE-WITH</code> プレフィックスを検出します (Dev / Stg では警告のみ)。</p>
+          <p><code>Encryption:MasterKey</code> は <strong>Base64 でデコードして 32 バイトになる値</strong>が必須です。プレースホルダ以外でも、Base64 として無効な文字列や長さ不足だと、<strong>起動時ではなく CIFS ホスト登録時</strong>に <code>Encryption:MasterKey は Base64 でエンコードされた値である必要があります</code> で 500 エラーになります。</p>
+        </div>
+
+        <h3>4-3. <code>Jwt:Secret</code> / <code>Encryption:MasterKey</code> を生成する</h3>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># Windows PowerShell 5.1 / 7 どちらでも動く</span>
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+
+<span class="cmt"># Jwt:Secret 用 (48 バイト推奨)</span>
+$bytes = New-Object byte[] 48
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+
+<span class="cmt"># Encryption:MasterKey 用 (32 バイト固定)</span>
+$bytes = New-Object byte[] 32
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)</code></pre>
+        </div>
+        <p>PowerShell 7+ (<code>pwsh.exe</code>) なら 1 行で書けます。Git for Windows が入っていれば openssl も使えます。</p>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>[Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+
+& "C:\Program Files\Git\usr\bin\openssl.exe" rand -base64 32</code></pre>
+        </div>
+
+        <div class="callout danger">
+          <p><strong>★ MasterKey の保管が最重要です。</strong>32 バイト Base64 (44 文字、末尾 <code>=</code> 1 個) を生成したら、<strong>パスワードマネージャや金庫に、DB バックアップとは別の場所へバックアップ</strong>してください。鍵を紛失すると DB 内の CIFS 接続パスワードが全部復号不能になり、ホスト登録のやり直しになります。運用開始後の鍵変更も既存暗号データが読めなくなるため、要計画です。</p>
+          <p>ファイル流出リスクを下げるなら、<code>appsettings.json</code> に書かず環境変数で渡せます:<br>
+          <code>setx WATASHI_MASTER_KEY "&lt;生成した値&gt;" /M</code></p>
+        </div>
+
+        <h3>4-4. Windows サービスとして登録</h3>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># 管理者 PowerShell で実行</span>
+.\deploy\install-server-service.ps1 -PublishDir D:\publish\WatashiServer
+
+<span class="cmt"># 既定の動作:</span>
+<span class="cmt">#   - C:\Program Files\Watashi\Server に配置</span>
+<span class="cmt">#   - サービス名 Watashi.Server、自動起動、LocalSystem アカウント</span>
+<span class="cmt">#   - 異常終了時の自動再起動 (5s → 30s → 60s)</span></code></pre>
+        </div>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># 専用サービスアカウントを使う場合</span>
+.\deploy\install-server-service.ps1 `
+    -PublishDir D:\publish\WatashiServer `
+    -ServiceAccount "DOMAIN\svc-watashi"
+<span class="cmt"># パスワードプロンプトは sc.exe の制約上未対応。設定後 services.msc で資格情報を入れる</span>
+
+<span class="cmt"># アンインストール</span>
+.\deploy\uninstall-service.ps1 -ServiceName Watashi.Server</code></pre>
+        </div>
+
+        <div class="callout success">初回起動で <code>C:\ProgramData\Watashi\watashi.db</code> が自動生成され、<code>admin</code> / <code>Admin123!@#</code> でログインできるようになります。<strong>最初のログインで必ずパスワードを変更してください。</strong></div>
+
+        <h3>4-5. Server <code>appsettings.json</code> キー一覧</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>キー</th><th>必須</th><th>設定する値</th><th>補足</th></tr></thead>
+            <tbody>
+              <tr><td><code>ConnectionStrings:Default</code></td><td class="req">必須</td><td>SQLite DB の保存先</td><td>例: <code>C:\ProgramData\Watashi\watashi.db</code>。サービスアカウントが親フォルダを作成・読み書きできること</td></tr>
+              <tr><td><code>Jwt:Secret</code></td><td class="req">必須</td><td>32 バイト以上のランダム文字列</td><td>Production で <code>CHANGE-ME</code> のままだと起動拒否</td></tr>
+              <tr><td><code>Jwt:Issuer</code> / <code>Jwt:Audience</code></td><td class="opt">推奨</td><td>通常は <code>Watashi</code></td><td>JWT 検証用。通常変更不要</td></tr>
+              <tr><td><code>Jwt:AccessTokenMinutes</code></td><td class="opt">推奨</td><td>アクセストークン分数</td><td>短いほど漏えい時の影響が小さい。既定 15</td></tr>
+              <tr><td><code>Jwt:RefreshTokenDays</code></td><td class="opt">推奨</td><td>再ログイン不要期間</td><td>既定 30</td></tr>
+              <tr><td><code>Encryption:MasterKey</code></td><td class="req">必須</td><td>32 バイト Base64</td><td>CIFS パスワード暗号化用。紛失すると既存ホスト資格情報を復号できない</td></tr>
+              <tr><td><code>Auth:AllowHttpForAutoLogin</code></td><td class="opt">任意</td><td><code>false</code> 推奨</td><td>HTTP 接続で「このPCを記憶する」を許可するか。Production は false</td></tr>
+              <tr><td><code>Auth:LoginPerMinutePerIp</code></td><td class="opt">任意</td><td>1 分あたり試行数</td><td>同一 NAT で誤検知する場合だけ増やす。既定 10</td></tr>
+              <tr><td><code>Auth:WindowsAuth:*</code></td><td class="req">IIS 構成で必須</td><td>初回設定の Windows 本人確認</td><td>同梱設定は <code>Mode=IIS</code>。設定手順は <a href="../deploy/IIS-WINDOWS-AUTH-SETUP.html">HTML ガイド</a> と <a href="../deploy/IIS-HOSTING.md">IIS-HOSTING.md</a></td></tr>
+              <tr><td><code>Routing:UseMtls</code></td><td class="opt">構成依存</td><td><code>true</code> / <code>false</code></td><td>区間 B を mTLS で相互認証するなら true</td></tr>
+              <tr><td><code>Routing:ClientCertificatePath</code></td><td class="req">mTLS 時必須</td><td>中央が Agent へ提示する PFX</td><td>Server → Agent の呼び出しに使うクライアント証明書</td></tr>
+              <tr><td><code>Routing:ClientCertificatePassword</code></td><td class="req">mTLS 時必須</td><td>上記 PFX のパスワード</td><td>環境変数での上書きも可</td></tr>
+              <tr><td><code>Routing:SharedSecret</code></td><td class="req">共有秘密時必須</td><td>32 バイト以上のランダム値</td><td>Server と Agent の両方に同じ値。mTLS 本番では空推奨</td></tr>
+              <tr><td><code>Cifs:SessionIdleSeconds</code></td><td class="opt">任意</td><td>SMB セッション再利用秒数</td><td>長くすると再接続は減るが、セッション保持時間が伸びる</td></tr>
+              <tr><td><code>Cifs:MaxSessionsPerKey</code></td><td class="opt">任意</td><td>接続キーごとの最大セッション数</td><td>同時転送が多い環境で増やす</td></tr>
+              <tr><td><code>Kestrel:Endpoints</code></td><td class="req">必須</td><td>Listen URL と証明書</td><td>HTTP / HTTPS ポート、HTTPS 証明書を定義</td></tr>
+              <tr><td><code>Serilog:WriteTo</code></td><td class="opt">推奨</td><td>Console / File</td><td>既定で <code>C:\ProgramData\Watashi\logs\server-.log</code> に日次ローテーション</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="clickonce">
+        <h2>5. 配布サーバー (ClickOnce)</h2>
+        <span class="machine">作業マシン: CI / 開発機 → 配布サーバー (IIS)</span>
+        <p>クライアントは ClickOnce で配布します。</p>
+
+        <div class="steps">
+          <div class="step">
+            <code>src\Watashi.Client\Properties\PublishProfiles\ClickOnceProfile.pubxml</code> を編集します。<br>
+            <code>&lt;PublishUrl&gt;</code> = 発行先 (例: <code>\\fileserver\share\Watashi\</code>)、
+            <code>&lt;InstallUrl&gt;</code> = 利用者が開く URL (例: <code>https://watashi.internal/install/</code>)、
+            <code>&lt;ManifestCertificateThumbprint&gt;</code> = Code Signing 証明書のサムプリント。
+          </div>
+          <div class="step"><strong>接続先・更新確認先・機能を <code>src\Watashi.Client\deployment.json</code> に設定します (発行前に必ず編集)。</strong></div>
+          <div class="step">発行します。</div>
+          <div class="step">IIS 側で MIME 設定を行います → <a href="../deploy/IIS-MIME.md">deploy/IIS-MIME.md</a></div>
+          <div class="step">クライアント PC で <code>https://watashi.internal/install/Watashi.Client.application</code> を開くとインストールが始まります。</div>
+          <div class="step">初回起動でそのまま<strong>ログイン画面</strong>が表示されます。接続先は <code>deployment.json</code> で確定済みのため、利用者が入力する項目はありません (ログイン画面下の「接続テスト」で疎通確認のみ可能)。</div>
+          <div class="step">以降、起動時に ClickOnce とアプリ本体の両方でバージョンチェックが走り、更新があれば自動でダウンロードされます。</div>
+        </div>
+
+        <h4><code>deployment.json</code></h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "serverUrl": "https://watashi.internal:8443",                                    <span class="cmt">// 接続する中央サーバ</span>
+  "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application", <span class="cmt">// 起動時に確認する ClickOnce マニフェスト</span>
+  "enableDragDrop": true                                                           <span class="cmt">// ドラッグ＆ドロップ転送の可否</span>
+}</code></pre>
+        </div>
+        <ul>
+          <li>このファイルは発行物に同梱され、起動時にこの値で接続先・更新確認先・機能が<strong>固定</strong>されます。利用者からは変更できません</li>
+          <li><code>%LocalAppData%\Watashi\settings.json</code> より優先されます</li>
+        </ul>
+
+        <h4>発行コマンド</h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>dotnet publish src\Watashi.Client\Watashi.Client.csproj `
+    -c Release -p:PublishProfile=ClickOnceProfile</code></pre>
+        </div>
+
+        <div class="callout danger">
+          <p><strong>接続先や D&amp;D を変更したいときは、<code>deployment.json</code> を編集して「再発行」してください。</strong>ClickOnce はマニフェストでファイルのハッシュを検証するため、発行後に配布物の <code>deployment.json</code> を直接書き換えるとインストール / 更新に失敗します (必ず再発行・再署名)。この仕組みによって「クライアントから接続先を変えさせない」運用が保証されます。</p>
+        </div>
+      </section>
+
+      <section id="agent">
+        <h2>6. エージェント (踏み台)</h2>
+        <span class="machine agent">作業マシン: CI / 開発機 → 踏み台サーバー</span>
+
+        <h3>6-1. ビルドとサービス登録</h3>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># ビルド</span>
+dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
+    -c Release -r win-x64 --self-contained `
+    -o D:\publish\WatashiAgent
+
+<span class="cmt"># 踏み台サーバーで appsettings.json を編集してから、管理者 PowerShell で登録</span>
+.\deploy\install-agent-service.ps1 -PublishDir D:\publish\WatashiAgent</code></pre>
+        </div>
+        <div class="callout note"><code>deploy/install-agent.ps1</code> (従来スクリプト、appsettings 生成 + 旧式 <code>sc.exe</code> 登録) も残していますが、新規はサービス専用の <code>install-agent-service.ps1</code> を推奨します。<strong>旧スクリプトで HTTP 共有秘密モードを入れる場合は必ず <code>-SharedSecret</code> を指定</strong>してください。未指定だと Agent は証明書も <code>X-Watashi-Secret</code> も送れず、heartbeat と転送リクエストが認証に失敗します。</div>
+
+        <h3>6-2. 中央側で ExecutionNode を登録</h3>
+        <p>管理画面 → 実行ノードタブで登録します。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>項目</th><th>値</th><th>注意</th></tr></thead>
+            <tbody>
+              <tr><td>Name</td><td><code>bastion-a</code></td><td><strong>Agent の <code>AgentId</code> と完全一致させる</strong> (ハートビート紐付けに使用。大文字小文字も一致させること)</td></tr>
+              <tr><td>NodeType</td><td><code>Agent</code></td><td>—</td></tr>
+              <tr><td>Endpoint</td><td><code>http://bastion-a:8081</code> (モード B)<br><code>https://bastion-a:8443</code> (モード A)</td><td>ポートを変更した場合はここも合わせる</td></tr>
+              <tr><td>ClientCertificateThumbprint</td><td>モード A のみ</td><td>Agent が提示する証明書の Thumbprint</td></tr>
+              <tr><td>MaxConcurrency</td><td><code>20</code></td><td>heartbeat 応答で Agent 側に反映される</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>ハートビートが届けば <code>HealthStatus</code> が <code>Healthy</code> に切り替わります (15 秒間隔チェック、90 秒未着で <code>Unhealthy</code>)。</p>
+
+        <h3>6-3. Agent <code>appsettings.json</code> キー一覧</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>キー</th><th>必須</th><th>設定する値</th><th>補足</th></tr></thead>
+            <tbody>
+              <tr><td><code>Agent:AgentId</code></td><td class="req">必須</td><td>Agent の一意名</td><td>中央の <code>ExecutionNodes.Name</code> と完全一致。例: <code>bastion-a</code></td></tr>
+              <tr><td><code>Agent:CentralUrl</code></td><td class="req">必須</td><td>中央 Server の URL</td><td>例: <code>https://central.internal:8443</code></td></tr>
+              <tr><td><code>Agent:MaxConcurrency</code></td><td class="opt">任意</td><td>Agent 側の同時処理上限</td><td>起動時の初期値。以後は中央の設定が heartbeat 応答で反映される</td></tr>
+              <tr><td><code>ConnectionStrings:Buffer</code></td><td class="req">必須</td><td>Agent ローカル SQLite</td><td>中央へログ同期できない時の一時バッファ。例: <code>C:\ProgramData\WatashiAgent\agent_buffer.db</code></td></tr>
+              <tr><td><code>Certificate:Path</code></td><td class="req">mTLS 時必須</td><td>Agent が中央へ提示する PFX</td><td>heartbeat / ログ同期で使うクライアント証明書</td></tr>
+              <tr><td><code>Certificate:Password</code></td><td class="req">mTLS 時必須</td><td>上記 PFX のパスワード</td><td>HTTPS の Kestrel 証明書と同じ PFX でも動くが、本番は用途別に分ける方が望ましい</td></tr>
+              <tr><td><code>Auth:CentralCertificateThumbprint</code></td><td class="req">mTLS 時必須</td><td>中央が Agent へ提示する証明書の Thumbprint</td><td>Server → Agent の <code>/agent/*</code> 呼び出しを Agent 側で検証する</td></tr>
+              <tr><td><code>Auth:SharedSecret</code></td><td class="req">共有秘密時必須</td><td>Server の <code>Routing:SharedSecret</code> と同じ値</td><td>両方向で <code>X-Watashi-Secret</code> として使う</td></tr>
+              <tr><td><code>Routing:UseMtls</code></td><td class="opt">構成依存</td><td><code>true</code> / <code>false</code></td><td>true なら中央からの mTLS クライアント証明書を受け付ける</td></tr>
+              <tr><td><code>Kestrel:Endpoints</code></td><td class="req">必須</td><td>Agent が待ち受ける URL</td><td>HTTP なら <code>http://0.0.0.0:8081</code>、HTTPS なら証明書設定も入れる</td></tr>
+              <tr><td><code>Cifs:*</code></td><td class="opt">任意</td><td>SMB セッションプール設定</td><td>Agent 経由の CIFS 接続に適用</td></tr>
+              <tr><td><code>Serilog:WriteTo</code></td><td class="opt">推奨</td><td>Console / File</td><td>既定で <code>C:\ProgramData\WatashiAgent\logs\agent-.log</code> に日次ローテーション</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warning"><strong>HTTP + 共有秘密モードでは <code>Certificate:Path</code> / <code>Certificate:Password</code> は空で構いません。</strong>Agent の待受も <code>Kestrel:Endpoints:Http</code> を使うため、Agent 側に HTTPS サーバー証明書は不要です。証明書が必要になるのは、区間 A を HTTPS にする中央サーバー側と、<code>Routing:UseMtls=true</code> で mTLS を使う場合だけです。<strong><code>UseMtls=false</code> かつ <code>Auth:SharedSecret</code> が空だと、Agent は起動時に設定エラーで停止します。</strong></div>
+
+        <h3>6-4. 設定例 1: Agent 1 台 (HTTP + 共有秘密)</h3>
+        <p>区間 A は HTTPS、区間 B は閉域網内 HTTP とし、Agent 認証は共有秘密で行う構成です。<code>SharedSecret</code> は Server と Agent で同じ値にします。</p>
+
+        <h4>Server <code>appsettings.json</code> 抜粋</h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "Kestrel": {
+    "Endpoints": {
+      "Https": {
+        "Url": "https://0.0.0.0:8443",
+        "Certificate": {
+          "Subject": "watashi.internal",
+          "Store": "My",
+          "Location": "LocalMachine",
+          "AllowInvalid": false
+        }
+      }
+    }
+  },
+  "Routing": {
+    "UseMtls": false,
+    "ClientCertificatePath": "",
+    "ClientCertificatePassword": "",
+    "SharedSecret": "BASE64-OR-LONG-RANDOM-SECRET-SAME-AS-AGENT"
+  }
+}</code></pre>
+        </div>
+
+        <h4>Agent A <code>appsettings.json</code> 抜粋</h4>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "Agent": {
+    "AgentId": "agent-a",
+    "CentralUrl": "https://watashi.internal:8443",
+    "MaxConcurrency": 20
+  },
+  "ConnectionStrings": {
+    "Buffer": "Data Source=C:\\ProgramData\\WatashiAgent\\agent_buffer.db;Cache=Shared;Foreign Keys=True;"
+  },
+  "Certificate": { "Path": "", "Password": "" },
+  "Auth": {
+    "CentralCertificateThumbprint": "",
+    "SharedSecret": "BASE64-OR-LONG-RANDOM-SECRET-SAME-AS-SERVER"
+  },
+  "Routing": { "UseMtls": false },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": { "Url": "http://0.0.0.0:8081" }
+    }
+  }
+}</code></pre>
+        </div>
+
+        <div class="result">
+          <div><strong>管理画面 → 実行ノード</strong>
+            名前: <code>agent-a</code><br>
+            種別: <code>Agent</code><br>
+            Endpoint: <code>http://agent-a:8081</code><br>
+            経由 Agent: 未設定<br>
+            MaxConcurrency: <code>20</code>
+          </div>
+          <div><strong>管理画面 → ホスト</strong>
+            表示名: <code>fileserver01</code><br>
+            ホスト名/IP: CIFS サーバの FQDN/IP<br>
+            ポート: <code>445</code><br>
+            CIFS ユーザー / パスワード: 接続用サービスアカウント<br>
+            実行ノード: <code>agent-a</code>
+          </div>
+        </div>
+        <p>この設定では Server が <code>http://agent-a:8081/agent/files/*</code> に依頼し、Agent A が CIFS へ SMB 接続します。</p>
+
+        <h3>6-5. 設定例 2: 1 段チェーン (HTTP + 共有秘密)</h3>
+        <p>Server が Agent A にしか到達できず、Agent A から Agent B へ、Agent B から CIFS へ届く、という構成です。</p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 250" role="img" aria-label="1 段チェーンでは、ホストの実行ノードに agent-b を指定し、agent-b の経由 Agent に agent-a を設定する。Server は実際には agent-a にリクエストを送り、agent-a が agent-b へ転送する">
+            <defs>
+              <marker id="ch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+              <marker id="ch-arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="#a9342b"/>
+              </marker>
+            </defs>
+
+            <!-- 経路 -->
+            <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6" marker-end="url(#ch-arrow)">
+              <line x1="172" y1="76" x2="246" y2="76"/>
+              <line x1="402" y1="76" x2="476" y2="76"/>
+              <line x1="632" y1="76" x2="706" y2="76"/>
+            </g>
+            <g font-size="11" fill="currentColor" text-anchor="middle">
+              <text x="209" y="66">HTTP 8081</text>
+              <text x="439" y="66">HTTP 8081</text>
+              <text x="439" y="52">転送</text>
+              <text x="669" y="66">SMB 445</text>
+            </g>
+
+            <!-- ノード -->
+            <g fill="#ffffff" stroke="currentColor" stroke-width="1.5" opacity=".85">
+              <rect x="22" y="46" width="150" height="60" rx="10"/>
+              <rect x="246" y="46" width="156" height="60" rx="10"/>
+              <rect x="476" y="46" width="156" height="60" rx="10"/>
+              <rect x="706" y="46" width="150" height="60" rx="10"/>
+            </g>
+            <g font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">
+              <text x="97" y="72">中央サーバー</text>
+              <text x="324" y="72">Agent A</text>
+              <text x="554" y="72">Agent B</text>
+              <text x="781" y="72">CIFS</text>
+            </g>
+            <g font-size="11" fill="currentColor" text-anchor="middle" opacity=".75">
+              <text x="324" y="92">agent-a</text>
+              <text x="554" y="92">agent-b</text>
+            </g>
+
+            <!-- 設定の対応 -->
+            <text x="324" y="132" text-anchor="middle" font-size="11.5" fill="#185d8f">Server が実際に送る先</text>
+            <text x="554" y="132" text-anchor="middle" font-size="11.5" fill="#a9342b">ホストの「実行ノード」に指定</text>
+            <polyline points="554,146 554,172 324,172 324,150" fill="none" stroke="#a9342b" stroke-width="1.5"
+                      stroke-dasharray="5 4" opacity=".85" marker-end="url(#ch-arrow-red)"/>
+            <text x="439" y="196" text-anchor="middle" font-size="12" fill="#a9342b">agent-b の「経由 Agent」に agent-a を設定しておく</text>
+            <text x="439" y="220" text-anchor="middle" font-size="11.5" fill="currentColor" opacity=".75">Server はこの設定を見て、送り先を agent-a に読み替える</text>
+          </svg>
+          <figcaption>ホストに紐づけるのは最終的に SMB 接続する Agent B。Server は agent-b の「経由 Agent」を見て、実際のリクエストは Agent A へ送る。</figcaption>
+        </figure>
+
+        <div class="callout warning">
+          <p><strong>制限</strong></p>
+          <ul>
+            <li>対応するチェーンは <strong>1 段のみ</strong> (<code>Server → Agent A → Agent B → CIFS</code>)。<code>Agent C</code> を挟む 2 段以上は非対応</li>
+            <li>Agent A / B 間の認証は<strong>共有秘密のみ</strong>対応 (mTLS 非対応)。Endpoint は <code>http://</code> / <code>https://</code> どちらも指定可 (HTTPS 化の手順は <a href="../deploy/AGENT-HTTPS-ACME.html">AGENT-HTTPS-ACME.html</a>)</li>
+            <li>Agent A と Agent B の <code>Auth:SharedSecret</code> は Server の <code>Routing:SharedSecret</code> と同じ値にする</li>
+          </ul>
+        </div>
+
+        <h4>Agent B <code>appsettings.json</code> 抜粋</h4>
+        <p>Agent A は 6-4 と同じです。B は中央へ直接届かなくてもよい点だけが異なります。</p>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "Agent": {
+    "AgentId": "agent-b",
+    <span class="cmt">// 中央へ直接到達できない場合は空でよい。Heartbeat / LogSync はスキップされる</span>
+    "CentralUrl": "",
+    "MaxConcurrency": 20
+  },
+  "Certificate": { "Path": "", "Password": "" },
+  "Auth": {
+    "CentralCertificateThumbprint": "",
+    "SharedSecret": "BASE64-OR-LONG-RANDOM-SECRET-SAME-FOR-A-AND-B"
+  },
+  "Routing": { "UseMtls": false },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": { "Url": "http://0.0.0.0:8081" }
+    }
+  }
+}</code></pre>
+        </div>
+
+        <h4>管理画面 → 実行ノード</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>順</th><th>名前</th><th>種別</th><th>Endpoint</th><th>経由 Agent</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td><code>agent-a</code></td><td><code>Agent</code></td><td><code>http://agent-a:8081</code></td><td>未設定</td></tr>
+              <tr><td>2</td><td><code>agent-b</code></td><td><code>Agent</code></td><td><code>http://agent-b:8081</code></td><td><code>agent-a</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>管理画面 → ホストの「実行ノード」には <code>agent-b</code></strong> を選びます。Server は <code>agent-b</code> に <code>経由 Agent=agent-a</code> が設定されていることを見て、実際の HTTP リクエストを Agent A に送り、Agent A が Agent B へ転送します。</p>
+
+        <h4>必要なファイアウォール許可</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>経路</th><th>必要</th></tr></thead>
+            <tbody>
+              <tr><td>Client → Server</td><td>HTTPS 8443 など</td></tr>
+              <tr><td>Server → Agent A</td><td>HTTP 8081</td></tr>
+              <tr><td>Agent A → Agent B</td><td>HTTP 8081</td></tr>
+              <tr><td>Agent B → CIFS</td><td>SMB 445</td></tr>
+              <tr><td>Agent B → Server</td><td>任意。許可できるなら heartbeat 用に HTTPS 8443</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout note">Agent B が Server へ直接到達できない場合、管理画面の Health は <code>Unknown</code> のままになることがあります。<strong>この状態でも <code>agent-b</code> が有効で <code>agent-a → agent-b</code> が HTTP 到達可能ならファイル操作は実行できます。</strong>到達不可の場合は操作時に 503 または Agent HTTP エラーになります。</div>
+
+        <h3>6-6. 「Agent の証明書」は 3 種類ある</h3>
+        <p>Watashi で「Agent の証明書」と呼ぶものには 3 種類あり、<strong>守る通信も設定先も違います</strong>。混同しやすいので、下図で「どの線を守るものか」を確認してください。</p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 310" role="img" aria-label="Agent の HTTPS サーバ証明書は Server から Agent への TLS を、Agent クライアント証明書は Agent から Server への接続でどの Agent かを、中央クライアント証明書は Server から Agent への呼び出しが中央からのものかを、それぞれ証明する">
+            <defs>
+              <marker id="ce-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6" marker-end="url(#ce-arrow)">
+              <line x1="234" y1="96" x2="642" y2="96"/>
+              <line x1="642" y1="166" x2="234" y2="166"/>
+              <line x1="234" y1="236" x2="642" y2="236"/>
+            </g>
+
+            <g text-anchor="middle">
+              <text x="438" y="86" font-size="12" font-weight="700" fill="#6e211d">① Agent の HTTPS サーバ証明書</text>
+              <text x="438" y="114" font-size="10.5" fill="currentColor" opacity=".75">Agent: Kestrel:Endpoints:Https:Certificate</text>
+
+              <text x="438" y="156" font-size="12" font-weight="700" fill="#6e211d">② Agent クライアント証明書</text>
+              <text x="438" y="184" font-size="10.5" fill="currentColor" opacity=".75">Agent: Certificate:Path</text>
+              <text x="438" y="198" font-size="10.5" fill="currentColor" opacity=".75">Server: ExecutionNode.ClientCertificateThumbprint</text>
+
+              <text x="438" y="226" font-size="12" font-weight="700" fill="#6e211d">③ 中央クライアント証明書</text>
+              <text x="438" y="254" font-size="10.5" fill="currentColor" opacity=".75">Server: Routing:ClientCertificatePath</text>
+              <text x="438" y="268" font-size="10.5" fill="currentColor" opacity=".75">Agent: Auth:CentralCertificateThumbprint</text>
+            </g>
+
+            <g fill="#ffffff" stroke="currentColor" stroke-width="1.5" opacity=".85">
+              <rect x="24" y="56" width="210" height="236" rx="12"/>
+              <rect x="642" y="56" width="212" height="236" rx="12"/>
+            </g>
+            <g font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">
+              <text x="129" y="40">中央サーバー</text>
+              <text x="748" y="40">Agent (踏み台)</text>
+            </g>
+            <g font-size="11" fill="currentColor" text-anchor="middle" opacity=".7">
+              <text x="129" y="100">TLS で接続する</text>
+              <text x="129" y="170">/api/internal/* を受ける</text>
+              <text x="129" y="240">/agent/* を呼ぶ</text>
+              <text x="748" y="100">HTTPS で待ち受ける</text>
+              <text x="748" y="170">heartbeat / ログ同期</text>
+              <text x="748" y="240">呼び出し元を検証する</text>
+            </g>
+          </svg>
+          <figcaption>①は「通信を暗号化する」ための証明書、②③は「相手が誰かを証明する」ための証明書。モード B ではこの 3 つの代わりに共有秘密を使う。</figcaption>
+        </figure>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>用途</th><th>設定先</th><th>何を守るか</th></tr></thead>
+            <tbody>
+              <tr><td>① Agent の HTTPS サーバ証明書</td><td>Agent <code>Kestrel:Endpoints:Https:Certificate</code></td><td>Server が Agent の HTTPS endpoint に接続するときの TLS</td></tr>
+              <tr><td>② Agent クライアント証明書</td><td>Agent <code>Certificate:Path</code> / Server <code>ExecutionNode.ClientCertificateThumbprint</code></td><td>Agent が中央の <code>/api/internal/*</code> に接続するとき、どの Agent かを証明する</td></tr>
+              <tr><td>③ 中央クライアント証明書</td><td>Server <code>Routing:ClientCertificatePath</code> / Agent <code>Auth:CentralCertificateThumbprint</code></td><td>Server が Agent の <code>/agent/*</code> に接続するとき、中央からの呼び出しかを Agent が検証する</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout note">
+          <p>検証環境では同じ PFX を複数用途に流用しても動きますが、<strong>本番では「HTTPS サーバ証明書」と「クライアント認証証明書」を分ける方が更新・失効・監査が楽</strong>です。</p>
+          <p><strong>HTTP + 共有秘密モードでは、上記 3 つはいずれも使いません。</strong>ただし「共有秘密のまま通信だけ TLS 化する」(Agent の待受を <code>https://</code> にする) ことはでき、その場合は ① だけを使います (手順: <a href="../deploy/AGENT-HTTPS-ACME.html">AGENT-HTTPS-ACME.html</a>)。</p>
+        </div>
+
+        <h3>6-7. 複数 Agent / 複数踏み台</h3>
+        <p>複数の踏み台サーバーに Agent を配置できます。各 Agent で <code>Agent:AgentId</code> を一意にし、中央の管理画面で同じ名前の ExecutionNode を登録してください。CIFS ホスト登録時にどの ExecutionNode から接続するかを選ぶため、<strong>ネットワークセグメントごとに Agent を分けられます</strong>。</p>
+      </section>
+
+      <section id="initial">
+        <h2>7. 初期データ登録</h2>
+        <p>ログイン後、管理者として以下を順に登録します。</p>
+        <div class="steps">
+          <div class="step"><strong>ノード</strong>: <code>Direct (Local)</code> は seed 済み。Agent を使うならここで登録します。</div>
+          <div class="step"><strong>ホスト</strong>: CIFS ファイルサーバーの情報 (アドレス + 資格情報 + どのノードから接続するか)。</div>
+          <div class="step"><strong>共有</strong>: ホストに紐づく SMB 共有名。</div>
+          <div class="step"><strong>テンプレート</strong>: 「読取のみ」「読取+書込」「フルアクセス」は seed 済み。必要なら追加します。</div>
+          <div class="step"><strong>ユーザー</strong>: 一般ユーザーを追加 (作成時は <code>IsPasswordSetupPending=true</code> の「初回設定待ち」)。Windows 統合認証を使わない端末には「初期PW発行」を行います。</div>
+          <div class="step"><strong>ユーザー権限</strong>: ユーザー × 共有 × サブパス × テンプレートで権限を付与します。</div>
+        </div>
+        <p>詳細手順は <a href="ADMIN-GUIDE.md">ADMIN-GUIDE.md</a> を参照してください。</p>
+      </section>
+
+      <section id="checklist">
+        <h2>8. 本番投入チェックリスト</h2>
+
+        <h3>鍵と証明書</h3>
+        <div class="table-wrap">
+          <table class="check">
+            <tbody>
+              <tr><td>☐</td><td><code>Jwt:Secret</code> を本番値 (32 バイト以上のランダム) に差し替えた (プレースホルダのままだと Production で起動拒否)</td></tr>
+              <tr><td>☐</td><td><code>Encryption:MasterKey</code> を本番値 (32 バイト Base64) に差し替え、<strong>DB とは別の場所にバックアップした</strong></td></tr>
+              <tr><td>☐</td><td>Server の HTTPS 証明書を社内 CA 発行のものにした (<a href="../deploy/CERTIFICATE.md">CERTIFICATE.md</a> でストア参照 / ファイル指定を選択)</td></tr>
+              <tr><td>☐</td><td>(ストア参照方式の場合) 秘密キーへのサービスアカウントの Read 権限を付与した</td></tr>
+              <tr><td>☐</td><td>クライアント PC に社内 CA ルート証明書を配布した</td></tr>
+              <tr><td>☐</td><td>ClickOnce 用 Code Signing 証明書のサムプリントを <code>ClickOnceProfile.pubxml</code> に設定した</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>アカウント</h3>
+        <div class="table-wrap">
+          <table class="check">
+            <tbody>
+              <tr><td>☐</td><td><strong>admin の初期パスワードを変更した</strong> (seed admin <code>admin</code> / <code>Admin123!@#</code> はパスワード付きで作られる。この 1 アカウントだけは必ず手動変更)</td></tr>
+              <tr><td>☐</td><td>(任意) Windows 統合認証を有効化して初期パスワードの配布を廃止した (<a href="../deploy/IIS-HOSTING.md">IIS-HOSTING.md</a>)。未設定なら管理者が「初期PW発行」で配布する運用のまま</td></tr>
+              <tr><td>☐</td><td>複数の独立ドメインを許可する場合、GID が全許可ドメインを通して一意か確認した (同名 GID があり得るなら管理者発行の初期 PW 経路を使う)</td></tr>
+              <tr><td>☐</td><td>既存 DB をアップグレードする場合、大文字小文字だけが異なる重複ユーザー (例: <code>alice</code> / <code>ALICE</code>) がないことを確認した</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>通信構成</h3>
+        <div class="table-wrap">
+          <table class="check">
+            <tbody>
+              <tr><td>☐</td><td>(モード A) Agent クライアント証明書を発行し <code>ExecutionNode.ClientCertificateThumbprint</code> に登録した</td></tr>
+              <tr><td>☐</td><td>(モード A) Agent 側 <code>Auth:CentralCertificateThumbprint</code> に中央のクライアント証明書サムプリントを設定した</td></tr>
+              <tr><td>☐</td><td>(モード B) <code>Routing:SharedSecret</code> / <code>Auth:SharedSecret</code> を両側に同じ値で設定した</td></tr>
+              <tr><td>☐</td><td>ファイアウォールで必要な経路のみ開放した</td></tr>
+              <tr><td>☐</td><td>IIS で <code>.application</code> <code>.manifest</code> <code>.deploy</code> の MIME を登録した</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>サービスと運用</h3>
+        <div class="table-wrap">
+          <table class="check">
+            <tbody>
+              <tr><td>☐</td><td><code>install-server-service.ps1</code> でサービス登録し、自動再起動を確認した</td></tr>
+              <tr><td>☐</td><td><code>install-agent-service.ps1</code> で各踏み台にサービス登録した</td></tr>
+              <tr><td>☐</td><td><code>Auth:LoginPerMinutePerIp</code> を環境に応じて調整した (既定 10)</td></tr>
+              <tr><td>☐</td><td><code>Cifs:MaxSessionsPerKey</code> を環境に応じて調整した (既定 4)</td></tr>
+              <tr><td>☐</td><td>日次 DB バックアップタスクを登録した</td></tr>
+              <tr><td>☐</td><td>管理画面 (システム設定) で <code>AuditLogRetentionDays</code> を運用ポリシーに合わせた (既定 365 日、0 = 永久保管)</td></tr>
+              <tr><td>☐</td><td>Server / Agent のログローテーションを確認した (Serilog <code>rollingInterval=Day</code>)</td></tr>
+              <tr><td>☐</td><td>Server / Agent の <code>/health</code> を死活監視に登録した</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger"><strong>監査ログの削除タスクは作らないでください。</strong>削除はサーバー内蔵の <code>AuditLogPurgeService</code> が自動で行います。タスクスケジューラで別途削除すると、設定した保管ポリシーと食い違います。</div>
+      </section>
+
+      <section id="operation">
+        <h2>9. 運用</h2>
+
+        <h3>9-1. バックアップ (日次)</h3>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># C:\Apps\Watashi\backup.ps1</span>
+$src  = "C:\ProgramData\Watashi\watashi.db"
+$dest = "D:\Backup\Watashi\watashi-$(Get-Date -Format yyyyMMdd).db"
+$asm = [Reflection.Assembly]::LoadFile((Get-ChildItem "C:\Program Files\Watashi\Server\Microsoft.Data.Sqlite.dll").FullName)
+$conSrc = New-Object Microsoft.Data.Sqlite.SqliteConnection("Data Source=$src")
+$conDst = New-Object Microsoft.Data.Sqlite.SqliteConnection("Data Source=$dest")
+$conSrc.Open(); $conDst.Open()
+$conSrc.BackupDatabase($conDst)
+$conSrc.Close(); $conDst.Close()
+
+<span class="cmt"># 古い世代の削除 (7 日分のみ保持)</span>
+Get-ChildItem D:\Backup\Watashi\watashi-*.db |
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } | Remove-Item</code></pre>
+        </div>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>schtasks.exe /Create /SC DAILY /TN "Watashi DB Backup" `
+    /TR "powershell.exe -File C:\Apps\Watashi\backup.ps1" /ST 02:00 /RL HIGHEST</code></pre>
+        </div>
+
+        <h3>9-2. 監査ログの保管期間</h3>
+        <p>監査ログ (<code>AuditLogs</code>) の削除はサーバー内蔵の <code>AuditLogPurgeService</code> が自動で行います (起動 30 秒後 + 以降 24 時間ごと)。保管日数は <code>appsettings.json</code> ではなく<strong>管理画面の「システム設定」</strong>で変更する DB 格納の設定値です。</p>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># 例: 管理者トークン取得後、保管日数を 180 日に変更 (サーバー再起動は不要)</span>
+Invoke-RestMethod -Method Put -Uri "$u/api/admin/settings/AuditLogRetentionDays" `
+    -ContentType 'application/json' -Body (@{Value='180'} | ConvertTo-Json) -Headers $adminHeaders</code></pre>
+        </div>
+        <p><code>0</code> を設定すると自動削除が止まり永久保管になります。</p>
+        <div class="callout danger"><strong>外部の <code>schtasks</code> / <code>sqlite3.exe</code> で <code>DELETE FROM AuditLogs ...</code> を別途スケジュールしないでください。</strong>内蔵パージと二重に動作し、特に <code>AuditLogRetentionDays=0</code> (永久保管) を設定していても外部タスクが古いログを消してしまい、保管ポリシーの保証が崩れます。</div>
+
+        <p>月次で VACUUM を回す場合:</p>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>schtasks.exe /Create /SC MONTHLY /TN "Watashi VACUUM" `
+    /TR "sqlite3.exe C:\ProgramData\Watashi\watashi.db \"VACUUM;\"" /ST 04:00</code></pre>
+        </div>
+
+        <h3>9-3. 死活監視・サービス操作</h3>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># 5 分間隔で監視</span>
+curl --fail --max-time 10 https://watashi.internal:8443/health
+curl --fail --max-time 10 http://bastion-a:8081/health
+
+<span class="cmt"># サービス状態確認</span>
+Get-Service Watashi.Server, Watashi.Agent | Format-Table
+
+<span class="cmt"># 手動再起動</span>
+Restart-Service Watashi.Server</code></pre>
+        </div>
+        <p><code>HealthStatus=Unhealthy</code> が長時間続く Agent ノードは、管理画面 → ノードタブで確認してください。</p>
+      </section>
+
+      <section id="trouble">
+        <h2>10. トラブルシューティング</h2>
+
+        <h3>起動できない</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>症状</th><th>原因と対処</th></tr></thead>
+            <tbody>
+              <tr><td>「<code>Jwt:Secret</code> がデフォルトのプレースホルダ値のままです」</td><td>Production では実値必須。Dev / Stg なら警告だけで起動継続</td></tr>
+              <tr><td>「<code>Jwt:Secret</code> が設定されていません」</td><td><code>appsettings.json</code> または環境変数を確認</td></tr>
+              <tr><td>「<code>Encryption:MasterKey</code> は 32 バイト...」</td><td>Base64 文字列が正しく 32 バイトにデコードされるか確認 (下の確認コマンド参照)</td></tr>
+              <tr><td>DB ファイルパスの親フォルダが作れない</td><td>起動ユーザー (サービスアカウント) の権限を確認</td></tr>
+              <tr><td>Windows Service が起動しない</td><td>イベントビューアの Application ログ、または直接実行してエラーを確認</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
+& "C:\Program Files\Watashi\Server\Watashi.Server.exe"</code></pre>
+        </div>
+
+        <h3>ホスト登録 (CIFS 登録) で HTTP 500</h3>
+        <p>例外が <code>Encryption:MasterKey は Base64 でエンコードされた値である必要があります</code> の場合、<code>MasterKey</code> がプレースホルダのままか、Base64 ではない値です。</p>
+        <div class="callout note">EncryptionService は Singleton + 初回利用時解決のため、<strong>サーバーの起動自体は通り、CIFS パスワード暗号化が初めて走るホスト登録時に失敗します。</strong>4-3 で 32 バイト Base64 を生成して差し替え、サーバーを再起動してください。</div>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>$key = "&lt;appsettings.json に入れている値&gt;"
+try { $b = [Convert]::FromBase64String($key); "OK: $($b.Length) bytes" } catch { "NG: $($_.Exception.Message)" }
+<span class="cmt"># → "OK: 32 bytes" でないと受理されない</span></code></pre>
+        </div>
+
+        <h3>ログインできない</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>症状</th><th>原因と対処</th></tr></thead>
+            <tbody>
+              <tr><td>ロックされている</td><td>連続失敗 (既定 15 回) でロック。管理画面で解除、または DB を直接更新:<br><code>UPDATE Users SET IsLocked=0, FailedLoginCount=0 WHERE Username='alice';</code></td></tr>
+              <tr><td>パスワード期限切れ</td><td><code>MustChangePassword=true</code> になりレスポンスにフラグが付く。クライアントは強制変更画面へ遷移する</td></tr>
+              <tr><td><code>429 Too Many Requests</code></td><td>ログイン試行が 1 分あたり 10 回を超えた。<code>Auth:LoginPerMinutePerIp</code> を緩めるか時間を空ける</td></tr>
+              <tr><td>初回設定待ちなのにパスワード入力へ進む</td><td>Windows 統合認証が無効・不成立のときの安全なフォールバック。IIS で匿名認証と Windows 認証が両方有効か確認し、<code>/api/auth/win</code> の場所別 Location は作成しない</td></tr>
+              <tr><td>大文字小文字違いのユーザー名</td><td>同一ユーザーとして扱う。アップグレード migration が重複を検出して停止した場合は、該当ユーザーを統合してから再実行</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>自動ログイン / トークン関連</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>症状</th><th>原因と対処</th></tr></thead>
+            <tbody>
+              <tr><td>自動ログインが効かない</td><td>① 接続が HTTP で <code>Auth:AllowHttpForAutoLogin=false</code> → HTTPS に切り替える。② Credential Manager から消えている → 再度「このPCを記憶する」をチェック。③ 管理者がデバイスを失効済み → 管理画面 → 信頼デバイスで確認</td></tr>
+              <tr><td><code>token_reuse_detected</code> でリフレッシュ失敗</td><td>失効済みリフレッシュトークンが提示された。ファミリー全体が失効するため再ログインが必要。同じトークンを別端末から使った / ログアウト後に再生された等が原因。該当ユーザーの全 active セッションが切断されるので、頻発する場合は配布ログを確認</td></tr>
+              <tr><td>操作中に「再ログインしてください」</td><td>パスワード変更・初回設定への差し戻し・管理者権限変更・アカウントロックは、発行済み access token にも次の API 呼び出しで反映される。理由 (<code>password_changed</code> / <code>account_locked</code> / <code>device_revoked</code> / <code>token_reuse_detected</code>) を確認</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Agent 関連</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>症状</th><th>原因と対処</th></tr></thead>
+            <tbody>
+              <tr><td>Agent が Unhealthy のまま</td><td>① サービス起動確認 (<code>Get-Service Watashi.Agent</code>)。② Agent 側ログで heartbeat 送信を確認。③ Agent → 中央の送信がファイアウォールで許可されているか。④ <strong><code>ExecutionNodes.Name</code> と <code>Agent:AgentId</code> が大文字小文字含めて一致しているか</strong>。⑤ (mTLS) サムプリントの一致</td></tr>
+              <tr><td>Agent から 401 / 403 が返る</td><td>(mTLS) <code>Auth:CentralCertificateThumbprint</code> が中央の提示する証明書と一致しているか。(HTTP) <code>SharedSecret</code> を両側で同じ値にしたか。<strong>いずれも未設定だと匿名アクセスは拒否されます</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>ファイル操作</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>症状</th><th>原因と対処</th></tr></thead>
+            <tbody>
+              <tr><td>ファイル一覧が空 / 403</td><td>① ユーザー権限が登録されているか (管理画面 → ユーザー権限)。② AllowedPath とリクエストパスの関係。③ CIFS 資格情報 (管理画面 → ホスト → 接続テスト)</td></tr>
+              <tr><td>操作が遅い / SMB ハンドシェイクが頻発</td><td><code>Cifs:SessionIdleSeconds</code> を伸ばす (60 → 120)。<code>Cifs:MaxSessionsPerKey</code> を増やす (4 → 8)</td></tr>
+              <tr><td>「リネームでは親ディレクトリを変更できません」</td><td>仕様。同一フォルダ内でのリネームのみ許可し、フォルダ間の移動は禁止 (DELETE 権限の抜け穴対策)</td></tr>
+              <tr><td>転送中にキャンセルしたい</td><td>現状クライアントから明示的なキャンセルボタンは未実装。アプリ終了で接続が切断される</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>関連ドキュメント</h3>
+        <ul>
+          <li><a href="ADMIN-GUIDE.md">ADMIN-GUIDE.md</a> — ホスト・共有・ユーザー・権限の登録手順</li>
+          <li><a href="DEVELOPMENT.md">DEVELOPMENT.md</a> — 開発環境、HTTPS 開発証明書</li>
+          <li><a href="../deploy/CERTIFICATE.md">deploy/CERTIFICATE.md</a> — HTTPS 証明書 (ストア参照 / ファイル指定)</li>
+          <li><a href="../deploy/AGENT-HTTPS-ACME.html">deploy/AGENT-HTTPS-ACME.html</a> — Agent の HTTPS 化 (Win-ACME、代理取得、手動入れ替え)</li>
+          <li><a href="../deploy/IIS-HOSTING.md">deploy/IIS-HOSTING.md</a> / <a href="../deploy/IIS-WINDOWS-AUTH-SETUP.html">IIS-WINDOWS-AUTH-SETUP.html</a> — IIS ホスティングと Windows 統合認証</li>
+          <li><a href="../deploy/IIS-MIME.md">deploy/IIS-MIME.md</a> — ClickOnce 配信のための MIME 設定</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <footer>Watashi — Setup Guide</footer>
+
+  <script>
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+      }
+
+      var area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      var copied = document.execCommand('copy');
+      document.body.removeChild(area);
+      return copied ? Promise.resolve() : Promise.reject(new Error('copy failed'));
+    }
+
+    document.querySelectorAll('.copy').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var code = button.parentElement.querySelector('code').innerText;
+        copyText(code).then(function () {
+          var original = button.textContent;
+          button.textContent = 'コピー済み';
+          setTimeout(function () { button.textContent = original; }, 1400);
+        }).catch(function () {
+          button.textContent = '選択してコピー';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
