@@ -357,7 +357,7 @@
       <a href="#which">2. どのパターンか判定</a>
       <a href="#direct">3. パターン1: 自分で取得</a>
       <a href="#proxy" class="key">4. パターン2: 代理取得 ★</a>
-      <a href="#manual">5. パターン3: ACME を使わない</a>
+      <a href="#manual" class="key">5. パターン3: 手動入れ替え ★</a>
       <a href="#appsettings">6. appsettings.json</a>
       <a href="#renew">7. 自動更新の仕組み</a>
       <a href="#verify">8. 動作確認</a>
@@ -384,6 +384,10 @@
           証明書は 60〜90 日で失効し、win-acme が自動更新します。更新されるのは<u>代理マシン側の PFX</u>なので、更新のたびに B へコピーし直さないと B は古い証明書のまま期限切れになります。この「更新 → コピー → B のサービス再起動」を無人化するのが <code>deploy-pfx-to-remote-agent.ps1</code> です。</p>
         </div>
 
+        <div class="callout note">
+          <p><strong>ファイアウォールで自動化そのものが塞がれている場合は、上の 2 つは考えなくてよくなります。</strong>代わりに「定期的に人が入れ替える」運用になります。作業内容はご認識のとおり <u>PFX を持っていって置いて再起動するだけ</u>で、Agent 側の設定も何も変わりません。<strong>唯一の実質的な課題は「期限切れの前に確実に人が動く仕組みを作ること」</strong>です。作業手順・チェックリスト・期限管理は <a href="#manual">5章</a> にまとめました。</p>
+        </div>
+
         <h3>代理取得で変わるのはこの 5 行だけ</h3>
         <div class="table-wrap">
           <table>
@@ -404,7 +408,7 @@
 
       <section id="scripts">
         <h2>1. どのスクリプトを使うのか</h2>
-        <p>スクリプトは <code>deploy\agent-https\</code> に 4 本あります。<strong>用途とスクリプトは 1 対 1 です</strong>ので、下表で自分の役割を決めてから読み進めてください。</p>
+        <p>スクリプトは <code>deploy\agent-https\</code> に 5 本あります。<strong>用途とスクリプトは 1 対 1 です</strong>ので、下表で自分の役割を決めてから読み進めてください。</p>
 
         <div class="table-wrap">
           <table>
@@ -427,6 +431,12 @@
                 <td>代理で取得するマシン (Agent A など)</td>
                 <td>初回は手動で動作確認 →<br>以後 win-acme が自動実行</td>
                 <td>PFX を管理共有経由でリモート Agent にコピーし、リモートのサービスを再起動する。<strong>パターン2 の本体</strong></td>
+              </tr>
+              <tr>
+                <td><code>replace-agent-pfx.ps1</code></td>
+                <td>証明書を入れ替える Agent 自身</td>
+                <td>定期作業のたびに手動<br>(60〜90 日ごと等)</td>
+                <td>持ち込んだ PFX を検証 → 既存をバックアップ → 配置 → ACL 設定 → 再起動 → <code>/health</code> 確認。失敗したら自動でロールバック。<strong>パターン3 の本体</strong></td>
               </tr>
               <tr>
                 <td><code>test-agent-https.ps1</code></td>
@@ -456,38 +466,44 @@ New-Item -ItemType Directory -Force -Path C:\ProgramData\WatashiAgent\logs    | 
 
       <section id="which">
         <h2>2. どのパターンに当てはまるか</h2>
-        <p>判定基準はひとつだけ、<strong>「その Agent 自身が社内 ACME CA と通信できるか」</strong>です。</p>
+        <p>判定基準は<strong>「どの経路がファイアウォールで塞がれているか」</strong>だけです。上から順に見て、最初に当てはまったものが答えです。</p>
 
         <div class="diagram">証明書を入れたい Agent は…
 
-  ┌─ その Agent 自身から CA (ACME URL) に HTTPS で到達できる？
+  ┌─ その Agent 自身から CA (ACME URL) に到達できる？
   │
-  ├── YES ──┬─ CA → Agent の TCP 80 も通る？
+  ├── YES ──┬─ CA → その Agent の TCP 80 も通る？
   │         │
   │         ├── YES → 【パターン1】その Agent で register-agent-acme.ps1
   │         │          （HTTP-01 検証・いちばん簡単）
   │         │
-  │         └── NO  → 【パターン2】DNS-01 検証にする
-  │                    （その Agent 自身で取ってもよいし、代理でもよい）
+  │         └── NO  → 【パターン1'】同じ Agent で、検証だけ DNS-01 に変更
   │
-  └── NO ───┬─ DNS の TXT レコードを自動登録できる？
+  └── NO ───┬─ DNS の TXT レコードを自動登録できる (DNS-01 が使える)？
             │
-            ├── YES → 【パターン2】代理マシンで取得 → PFX を配布 ★本命
+            ├── YES ─┬─ 代理マシン → 対象 Agent の SMB(445)/WinRM(5985) が通る？
+            │        │
+            │        ├── YES → 【パターン2】代理取得 → 自動配布（完全無人）
+            │        │
+            │        └── NO  → 【パターン3】代理取得 → 手で運んで入れ替え
             │
-            └── NO  → 【パターン3】CA から通常発行 (手動更新運用)</div>
+            └── NO  → 【パターン3】CA から通常発行 → 手で運んで入れ替え</div>
 
         <div class="table-wrap">
           <table>
-            <thead><tr><th></th><th>パターン1<br>自分で取得</th><th>パターン2<br>代理取得 + 配布</th><th>パターン3<br>ACME を使わない</th></tr></thead>
+            <thead><tr><th></th><th>パターン1<br>自分で取得</th><th>パターン2<br>代理取得 + 自動配布</th><th>パターン3<br>定期手動入れ替え</th></tr></thead>
             <tbody>
-              <tr><td>前提</td><td>Agent ⇔ CA が疎通<br>CA → Agent:80 が疎通</td><td>代理マシンが CA と疎通<br>DNS-01 が使える</td><td>社内 CA に CSR / GUI 発行の窓口がある</td></tr>
-              <tr><td>自動更新</td><td>◎ 完全無人</td><td>◎ 配布まで無人化可</td><td>× 期限管理と手作業が必要</td></tr>
+              <tr><td>前提</td><td>Agent ⇔ CA が疎通<br>CA → Agent:80 が疎通</td><td>代理マシンが CA と疎通<br>DNS-01 が使える<br>代理 → Agent の管理共有が通る</td><td>とくになし<br>(人が PFX を運べればよい)</td></tr>
+              <tr><td>自動更新</td><td>◎ 完全無人</td><td>◎ 配布まで無人</td><td>× 期限管理と手作業が必要</td></tr>
               <tr><td>手間 (初回)</td><td>小</td><td>中 (DNS-01 の設定分)</td><td>小</td></tr>
-              <tr><td>手間 (継続)</td><td>なし</td><td>なし</td><td>大 (60〜90 日ごと)</td></tr>
-              <tr><td>主な用途</td><td>中央サーバから直接見える Agent A</td><td>隔離セグメントの Agent B</td><td>DNS を触れない・ACME 未対応の環境</td></tr>
+              <tr><td>手間 (継続)</td><td>なし</td><td>なし</td><td>大 (証明書の有効期間ごと)</td></tr>
+              <tr><td>主なリスク</td><td>—</td><td>フックの経路が長く、黙って失敗しうる</td><td><strong>入れ替え忘れによる期限切れ</strong></td></tr>
+              <tr><td>主な用途</td><td>中央サーバから直接見える Agent A</td><td>隔離セグメントの Agent B</td><td><strong>FW で ACME も管理共有も塞がれている環境</strong></td></tr>
             </tbody>
           </table>
         </div>
+
+        <div class="callout warning"><strong>FW で塞がれていて自動化できない場合はパターン3 です。</strong>パターン2 と 3 は「PFX の入手方法」が同じで「届け方」だけが違います (自動配布か、人が運ぶか)。したがって、後から FW が開いた時点でパターン2 へ移行するのも、逆に一時的に 3 へ退避するのも、Agent 側は無変更でできます。</div>
 
         <div class="callout note">区間ごとに別パターンでも構いません。<code>Server → Agent A</code> はパターン1、<code>Agent A → Agent B</code> はパターン2、という混在が実際いちばん多い構成です。http / https も区間ごとに独立して選べるので段階移行できます。</div>
       </section>
@@ -738,21 +754,227 @@ Remove-DnsServerResourceRecord -ComputerName $dns -ZoneName $zone `
         <div class="callout danger"><strong>順序に注意:</strong> ノード Endpoint の <code>https://</code> 化は、必ず Agent 側の HTTPS 設定を済ませた<u>後</u>に行ってください。逆順にすると HTTP で待ち受けている Agent に HTTPS で繋ぎに行き、ノードが Unhealthy になります。</div>
       </section>
 
-      <section id="manual">
-        <h2>5. パターン3: ACME を使わずに手動配置する</h2>
-        <p>DNS-01 が使えない、社内 CA が ACME 未対応、といった場合。社内 CA の通常の発行フロー (CSR 提出 / 管理 GUI) で <strong>秘密鍵込みの PFX</strong> を受け取り、B に置くだけです。</p>
+      <section id="manual" class="spotlight">
+        <h2>5. パターン3: 定期的に手動で入れ替える (FW で自動化できない場合)</h2>
 
-        <div class="steps">
-          <div class="step">社内 CA に <code>agent-b.internal</code> のサーバ証明書を <strong>PFX (秘密鍵込み)</strong> で発行依頼する。</div>
-          <div class="step">PFX を <code>C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx</code> に配置 (配置と再起動は <code>deploy-pfx-to-remote-agent.ps1</code> をそのまま使えます)。</div>
-          <div class="step"><code>appsettings.json</code> を設定 (パスワードは発行時に指定したもの) → <code>Restart-Service Watashi.Agent</code>。</div>
-          <div class="step"><strong>有効期限を台帳に記録</strong>し、期限前の再発行 → 再配置 → 再起動を運用手順に組み込む。</div>
+        <p>ファイアウォールで ACME 通信や管理共有が塞がれていて、取得・配布を自動化できない場合の運用です。<strong>入れ替え作業そのものは「PFX を持っていって、置いて、再起動」だけ</strong>で、Agent 側の設定 (<code>appsettings.json</code>) もパターン1/2 とまったく同じです。</p>
+
+        <div class="callout danger">
+          <p><strong>この方式の唯一にして最大のリスクは「入れ替え忘れ」です。</strong>期限が切れると、Server → Agent の TLS 検証が失敗してノードが Unhealthy になり、<u>そのノード配下のファイル操作が全部止まります</u>。手順そのものは 10 分で終わるので、<strong>手順書より先に「期限管理の仕組み」(<a href="#ledger">5-6</a>) を決めてください。</strong></p>
         </div>
 
-        <div class="callout note">Watashi 側の設定は ACME で取った場合と完全に同一です。違いは<strong>更新が自動化されない</strong>ことだけ。逆に言えば、ACME 化はいつでも後から差し替えられます (PFX の出どころが変わるだけで、B は何も変わらないため)。</div>
+        <h3>5-1. どこが塞がれていると、何が自動化できなくなるか</h3>
+        <p>「証明書の<strong>取得</strong>」と「対象 Agent への<strong>配布</strong>」は別の問題です。片方だけ自動化できるケースが多いので、まず自分がどれに当たるか確認してください。</p>
 
-        <h3>参考: どうしても HTTPS 化が難しい区間</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>塞がれている経路</th><th>できなくなること</th><th>取れる手</th></tr></thead>
+            <tbody>
+              <tr><td>対象 Agent → CA (ACME API / 443)</td><td>その Agent 自身での証明書取得</td><td>代理マシンで取得 (4章) / CA から通常発行</td></tr>
+              <tr><td>CA → 対象 Agent の TCP 80</td><td>HTTP-01 検証</td><td>DNS-01 検証に変更</td></tr>
+              <tr><td>DNS の TXT 自動登録ができない</td><td>ACME 自体の無人化</td><td>CA から通常発行 (完全手動)</td></tr>
+              <tr><td>代理マシン → 対象 Agent の<br>SMB (445) / WinRM (5985)</td><td><strong>自動配布のみ</strong><br>(取得は自動のままでよい)</td><td><strong>取得は自動、運搬だけ人がやる</strong><br>← いちばん現実的</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout success">
+          <p><strong>最後の行に当てはまる場合は、期限管理がかなり楽になります。</strong>代理マシン (Agent A) 側の win-acme は放っておいても自動更新を続けるので、<u>A の PFX は常に最新</u>です。人がやるのは「A から最新の PFX を取ってきて B に入れる」だけ。取りに行くのを忘れても、A のフォルダには新しい証明書が揃っている状態が保たれます。</p>
+        </div>
+
+        <h3>5-2. PFX をどこから入手するか</h3>
+
+        <h4>入手方法 (a): 代理マシンの win-acme で取得する (DNS-01 が使える場合)</h4>
+        <p>4章の 4-2 (DNS-01 の準備) までは同じで、<strong>配布フックを付けずに登録する</strong>だけです。<code>--installation</code> を <code>none</code> にします。</p>
+        <span class="machine">実行マシン: 代理マシン (Agent A)</span>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>wacs.exe --source manual --host agent-b.internal `
+    --baseuri https://ca.internal/acme/directory `
+    --validationmode dns-01 --validation script `
+    --dnscreatescript "C:\ProgramData\WatashiAgent\scripts\dns-create.ps1" `
+    --dnsdeletescript "C:\ProgramData\WatashiAgent\scripts\dns-delete.ps1" `
+    --dnscreatescriptarguments "{Identifier} {RecordName} {Token}" `
+    --dnsdeletescriptarguments "{Identifier} {RecordName} {Token}" `
+    --store pfxfile `
+    --pfxfilepath C:\ProgramData\WatashiAgent\certs\ `
+    --pfxpassword "&lt;B の appsettings.json に書くパスワード&gt;" `
+    <span class="hl">--installation none `</span>
+    --accepttos</code></pre>
+        </div>
+        <p>これで A の <code>certs\</code> フォルダに最新の PFX が自動更新され続けます。人はここから取ってくるだけです。<strong>パスワードは毎回同じ値になる</strong>ので、B の <code>appsettings.json</code> は初回に設定したら以後変更不要です。</p>
+
+        <h4>入手方法 (b): 社内 CA から通常発行してもらう</h4>
+        <p>ACME 未対応、DNS も触れない場合。CSR 提出や管理 GUI といった通常の発行フローで受け取ります。依頼時には次を伝えてください。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>項目</th><th>指定する値</th><th>理由</th></tr></thead>
+            <tbody>
+              <tr><td>コモンネーム (CN) / SAN</td><td><code>agent-b.internal</code></td><td><strong>中央サーバのノード Endpoint に書くホスト名と完全一致</strong>させる。ここがずれると検証エラー</td></tr>
+              <tr><td>用途 (EKU)</td><td>サーバ認証 (Server Authentication)</td><td>クライアント認証用テンプレートで発行されると TLS サーバとして使えない</td></tr>
+              <tr><td>形式</td><td>PFX (PKCS#12)、<strong>秘密鍵込み</strong>、中間 CA 同梱</td><td>秘密鍵が無い PFX / CER では Kestrel が起動できない</td></tr>
+              <tr><td>鍵</td><td>RSA 2048 以上</td><td>—</td></tr>
+              <tr><td>有効期間</td><td><strong>可能な限り長く</strong></td><td>手動運用では有効期間の長さがそのまま作業回数になる</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout warning"><strong>有効期間は交渉する価値があります。</strong>手動入れ替えでは 90 日証明書なら年 4 回、1 年証明書なら年 1 回の作業です。社内 CA なら長め (1 年など) の発行に対応できることが多いので、ポリシーを確認してください。ACME 系は 90 日固定であることがほとんどです。</div>
+
+        <h3>5-3. 運搬時の注意</h3>
+        <div class="callout danger">
+          <p><strong>PFX には秘密鍵が入っています。漏れたらそのホスト名を偽装できます。</strong></p>
+          <ul>
+            <li>メール・チャット・全社共有フォルダには<strong>絶対に置かない</strong></li>
+            <li><strong>PFX とパスワードは別経路で</strong>運ぶ (パスワードはパスワード管理ツールに保管し、台帳には「保管場所」だけ書く)</li>
+            <li>USB や作業用フォルダに置いた一時コピーは<strong>作業後に必ず削除</strong>する</li>
+            <li>入手元マシン (代理マシン) 側の PFX フォルダも ACL を絞っておく</li>
+          </ul>
+        </div>
+
+        <h3>5-4. 入れ替え作業</h3>
+        <span class="machine b">実行マシン: 入れ替える Agent 自身 (管理者 PowerShell)</span>
+        <p>持ち込んだ PFX を指定して <code>replace-agent-pfx.ps1</code> を実行します。検証・バックアップ・配置・ACL・再起動・確認・失敗時のロールバックまで 1 本で行います。</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># ① まず中身を確認するだけ (何も変更しない)</span>
+.\replace-agent-pfx.ps1 -PfxPath D:\agent-b.internal.pfx `
+    -PfxPassword (Read-Host -AsSecureString "PFX パスワード") `
+    -TargetPath "C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx" `
+    -ExpectedHostName agent-b.internal `
+    -WhatIf
+
+<span class="cmt"># ② 問題なければ -WhatIf を外して実行</span>
+.\replace-agent-pfx.ps1 -PfxPath D:\agent-b.internal.pfx `
+    -PfxPassword (Read-Host -AsSecureString "PFX パスワード") `
+    -TargetPath "C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx" `
+    -ExpectedHostName agent-b.internal</code></pre>
+        </div>
+
+        <p>スクリプトが行うのは次の 6 つです。手作業でやる場合の対応コマンドも併記します。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>処理</th><th>手作業でやるなら</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td><strong>事前検証</strong>: パスワードで開けるか、秘密鍵があるか、期限内か、指定ホスト名が Subject/SAN に入っているか</td><td><code>certutil -dump &lt;pfx&gt; -p &lt;password&gt;</code></td></tr>
+              <tr><td>2</td><td>既存 PFX を <code>certs\backup\</code> にタイムスタンプ付きで退避</td><td><code>Copy-Item &lt;target&gt; &lt;target&gt;.bak</code></td></tr>
+              <tr><td>3</td><td>新しい PFX を配置先に上書き</td><td><code>Copy-Item D:\新.pfx &lt;target&gt; -Force</code></td></tr>
+              <tr><td>4</td><td>ACL を SYSTEM / Administrators の読み取りのみに設定</td><td><code>icacls &lt;target&gt; /inheritance:r /grant "SYSTEM:R" /grant "Administrators:R"</code></td></tr>
+              <tr><td>5</td><td>サービス再起動</td><td><code>Restart-Service Watashi.Agent -Force</code></td></tr>
+              <tr><td>6</td><td><code>/health</code> 確認 → <strong>失敗したら自動でバックアップに戻して再起動</strong></td><td><code>curl.exe -k https://localhost:8081/health</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>パラメータ</th><th>既定値</th><th>説明</th></tr></thead>
+            <tbody>
+              <tr><td><code>-PfxPath</code></td><td>(必須)</td><td>持ち込んだ新しい PFX のパス</td></tr>
+              <tr><td><code>-PfxPassword</code></td><td>(省略可)</td><td>SecureString。省略すると事前検証をスキップするので<strong>基本は必ず指定</strong></td></tr>
+              <tr><td><code>-TargetPath</code></td><td><code>…\certs\agent.pfx</code></td><td><strong><code>appsettings.json</code> に書いてあるパスと同じ値</strong>を指定する。ここがずれると古い証明書のまま起動する</td></tr>
+              <tr><td><code>-ExpectedHostName</code></td><td>(空)</td><td>指定すると Subject / SAN と照合し、違えば配置前に中止する。指定推奨</td></tr>
+              <tr><td><code>-HealthUrl</code></td><td><code>https://localhost:8081/health</code></td><td>ポートを変えている場合は合わせる</td></tr>
+              <tr><td><code>-BackupDir</code></td><td><code>…\certs\backup</code></td><td>退避先。世代が溜まるので年 1 回程度は古いものを削除</td></tr>
+              <tr><td><code>-SkipRestart</code></td><td>—</td><td>配置だけ行い再起動しない。<strong>業務時間中に配置だけ済ませ、夜間に再起動する</strong>場合に使う</td></tr>
+              <tr><td><code>-WhatIf</code></td><td>—</td><td>検証と表示だけ行い、実際には何も変更しない</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout note">サービス再起動で<strong>数秒のサービス断</strong>が発生します。実行中のファイル転送がその瞬間に当たると失敗するため、業務時間外に実施するか <code>-SkipRestart</code> で配置と再起動を分けてください。</div>
+
+        <h3>5-5. うまくいかなかったときに戻す</h3>
+        <p><code>/health</code> 確認に失敗した場合はスクリプトが自動でバックアップに戻して再起動します (ログに「ロールバック完了」と出ます)。手で戻す場合は次のとおりです。</p>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>dir C:\ProgramData\WatashiAgent\certs\backup\
+
+Copy-Item "C:\ProgramData\WatashiAgent\certs\backup\agent-b.internal.pfx.20260805-231500.bak" `
+          "C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx" -Force
+Restart-Service Watashi.Agent -Force
+curl.exe -k https://localhost:8081/health</code></pre>
+        </div>
+        <div class="callout warning"><strong>元の証明書が既に期限切れの場合、ロールバックしても TLS 検証は通りません。</strong>その場合は正しい PFX を入手し直すまでの暫定策として、区間を <code>http://</code> に戻す (Agent の <code>appsettings.json</code> を <code>Http</code> に戻し、ノード Endpoint も <code>http://</code> に戻す) 判断が必要になることがあります。<strong>だからこそ期限が切れる前に作業してください。</strong></div>
+
+        <h3 id="ledger">5-6. 期限管理 (この方式ではここが本体)</h3>
+
+        <h4>台帳に記録する項目</h4>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>項目</th><th>記入例</th></tr></thead>
+            <tbody>
+              <tr><td>ホスト名</td><td><code>agent-b.internal</code></td></tr>
+              <tr><td>PFX の配置パス</td><td><code>C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx</code></td></tr>
+              <tr><td>入手元</td><td>Agent A の <code>certs\</code> (win-acme 自動更新) / 社内 CA 通常発行</td></tr>
+              <tr><td>パスワードの保管場所</td><td>パスワード管理ツールの該当エントリ名 (<strong>値そのものは書かない</strong>)</td></tr>
+              <tr><td>発行日 / 有効期限</td><td>2026-08-05 / 2026-11-03</td></tr>
+              <tr><td><strong>次回作業予定日</strong></td><td><strong>2026-10-20 (期限の 2 週間前)</strong></td></tr>
+              <tr><td>担当 / 前回作業日</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>稼働中の証明書の期限をまとめて確認する</h4>
+        <p>台帳と実機がずれることがあるので、<strong>実際に Agent が出している証明書</strong>を見るのが確実です。対象 Agent に接続できるマシン (中央サーバ、または隔離セグメントなら Agent A) で実行します。</p>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>@("agent-a.internal:8081", "agent-b.internal:8081") | ForEach-Object {
+    $h, $p = $_ -split ":"
+    $tcp = New-Object System.Net.Sockets.TcpClient
+    $ssl = $null
+    try {
+        $tcp.Connect($h, [int]$p)
+        $ssl = New-Object System.Net.Security.SslStream($tcp.GetStream(), $false, { $true })
+        $ssl.AuthenticateAsClient($h)
+        $c = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($ssl.RemoteCertificate)
+        [pscustomobject]@{
+            ホスト   = $h
+            有効期限 = $c.NotAfter.ToString("yyyy-MM-dd")
+            残り日数 = [int]($c.NotAfter - (Get-Date)).TotalDays
+        }
+    }
+    catch {
+        [pscustomobject]@{ ホスト = $h; 有効期限 = "接続失敗"; 残り日数 = $null }
+    }
+    finally {
+        if ($ssl) { $ssl.Dispose() }
+        $tcp.Dispose()
+    }
+} | Format-Table -AutoSize</code></pre>
+        </div>
+
+        <p>手元の PFX ファイルの期限を見るだけなら:</p>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>$pw = Read-Host -AsSecureString "PFX パスワード"
+$c = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
+        "C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx", $pw)
+"{0}  期限 {1:yyyy-MM-dd}  残り {2} 日" -f $c.Subject, $c.NotAfter, [int]($c.NotAfter - (Get-Date)).TotalDays</code></pre>
+        </div>
+
+        <h4>忘れないための仕掛け (最低限どれか 1 つ)</h4>
+        <div class="steps">
+          <div class="step"><strong>作業日をカレンダー / チケットに登録する</strong>。入れ替え直後に、次回分 (期限の 2 週間前) を必ず登録する。<code>replace-agent-pfx.ps1</code> は完了時に次回期限と推奨作業日を表示するので、それをそのまま登録すればよい。</div>
+          <div class="step"><strong>月次で上の一覧コマンドを回す</strong>。運用の定例作業に「証明書残日数の確認」を 1 行入れておく。</div>
+          <div class="step"><strong>残り 30 日を切ったら監視に上げる</strong>。上の一覧コマンドをタスクスケジューラで月次実行し、閾値を切ったら <code>Write-EventLog</code> で Windows イベントログに警告を出せば、既存の監視で拾えます (事前に <code>New-EventLog -LogName Application -Source "Watashi"</code> が必要)。</div>
+        </div>
+
+        <h3>5-7. 作業当日チェックリスト</h3>
+        <div class="steps">
+          <div class="step">新しい PFX とパスワードを入手した (パスワードは別経路)。</div>
+          <div class="step"><code>-WhatIf</code> で中身を確認: ホスト名・有効期限・秘密鍵あり。</div>
+          <div class="step">業務時間外である / 実行中の転送がないことを確認した。</div>
+          <div class="step"><code>replace-agent-pfx.ps1</code> を実行し、「入れ替え完了」と <code>/health</code> OK を確認した。</div>
+          <div class="step"><strong>接続元のマシンから</strong> <code>test-agent-https.ps1</code> を実行し、証明書検証込みで疎通することを確認した。</div>
+          <div class="step">クライアントツールからそのノード経由のホストに接続テストし、ファイル一覧が取得できた。</div>
+          <div class="step">台帳の有効期限・作業日を更新し、<strong>次回の作業予定を登録した</strong>。</div>
+          <div class="step">USB / 作業フォルダの PFX 一時コピーを削除した。</div>
+        </div>
+
+        <h3>5-8. 参考: どうしても HTTPS 化が難しい区間</h3>
         <p><code>Server → Agent A</code> だけ HTTPS 化し、<code>Agent A → Agent B</code> は <code>http://</code> のまま運用することもできます。A/B 間が物理的・論理的に隔離された専用セグメントで、セキュリティポリシー上許容できる場合の選択肢です。認証は全区間とも共有秘密 (<code>X-Watashi-Secret</code>) のままなので、暗号化の有無だけの差になります。</p>
+        <div class="callout note">Watashi 側の設定は、証明書を ACME で取ろうが CA から通常発行してもらおうが完全に同一です。したがって、<strong>いま手動で始めて、後から FW が開いた時点で自動化に移行する</strong>ことも、Agent 側は無変更でできます (PFX の出どころが変わるだけ)。</div>
       </section>
 
       <section id="appsettings">
@@ -847,6 +1069,14 @@ curl.exe -k https://localhost:8081/health
           <li>動作確認は <code>wacs.exe --renew --force</code>。PFX のタイムスタンプ更新と、ログ (<code>cert-renew.log</code> / <code>cert-deploy.log</code>) を確認します</li>
         </ul>
 
+        <div class="result">
+          <div style="grid-column: 1 / -1;">
+            <strong>パターン3 (手動入れ替え)</strong>
+            自動更新は回りません。<code>replace-agent-pfx.ps1</code> を人が実行するまで証明書は変わらないため、<strong>期限管理の仕組みだけが頼り</strong>です → <a href="#ledger">5-6</a>。
+            なお「代理マシンでの取得だけは自動、運搬だけ手動」という中間形が取れる場合は、A 側の win-acme が最新の PFX を用意し続けてくれるので、実質的に運搬作業だけの運用になります。
+          </div>
+        </div>
+
         <div class="callout warning"><strong>期限切れは静かに来ます。</strong>代理取得はフックの経路が長い (A の更新 → コピー → B の再起動) ぶん、どこか 1 箇所が黙って失敗すると気づけません。四半期に一度でよいので <code>test-agent-https.ps1</code> を回して、有効期限が伸びているかを目視確認する運用をおすすめします。</div>
       </section>
 
@@ -909,6 +1139,9 @@ curl.exe -k https://localhost:8081/health
               <tr><td>サービス起動に失敗 (イベントログに証明書エラー)</td><td><code>appsettings.json</code> の PFX パス / パスワードの誤り。<code>certutil -dump &lt;pfx&gt; -p &lt;password&gt;</code> で実際に開けるか確認</td></tr>
               <tr><td>ノードが Unhealthy になる</td><td>Endpoint の https 化を Agent 側の設定より先に行った。順序は必ず「Agent 側 → ノード Endpoint」</td></tr>
               <tr><td>heartbeat は通るのにファイル操作が失敗する</td><td>heartbeat は Agent → Server の逆方向なので、Agent の HTTPS 化と無関係に通ります。Server → Agent 方向の証明書検証エラーを疑い、中央サーバの Serilog (<code>C:\ProgramData\Watashi\logs\server-*.log</code>) を確認</td></tr>
+              <tr><td>ある日突然ノードが Unhealthy になり、直前に何も変更していない</td><td><strong>証明書の期限切れ</strong>を最初に疑ってください。<code>test-agent-https.ps1</code> の 3/4 で有効期限が確認できます。手動入れ替え運用なら <a href="#manual">5章</a> の手順で入れ替えます</td></tr>
+              <tr><td>入れ替えたのに古い証明書のまま応答する</td><td>① 配置先パスが <code>appsettings.json</code> の <code>Path</code> とずれている。② サービスを再起動していない (Kestrel は起動時にしか PFX を読みません)</td></tr>
+              <tr><td>入れ替え後に起動しなくなった</td><td>PFX のパスワードが前回と違う場合は <code>appsettings.json</code> の <code>Password</code> も更新が必要です。<code>replace-agent-pfx.ps1</code> は health 失敗時に自動でロールバックするので、まず元に戻っているか確認してください</td></tr>
               <tr><td>チェーン転送で 400 が返る</td><td>Agent A のビルドが古い。チェーン転送の https 対応は 2026-06 の改修以降のビルドが必要で、それ以前の A は転送先が <code>http://</code> 以外だと 400 を返します</td></tr>
             </tbody>
           </table>
@@ -921,6 +1154,7 @@ curl.exe -k https://localhost:8081/health
             <tbody>
               <tr><td>更新後フック (ローカル再起動)</td><td><code>C:\ProgramData\WatashiAgent\logs\cert-renew.log</code></td><td><code>after-renew.ps1</code></td></tr>
               <tr><td>PFX 配布 (代理取得)</td><td><code>C:\ProgramData\WatashiAgent\logs\cert-deploy.log</code></td><td><code>deploy-pfx-to-remote-agent.ps1</code></td></tr>
+              <tr><td>PFX 手動入れ替え</td><td><code>C:\ProgramData\WatashiAgent\logs\cert-replace.log</code></td><td><code>replace-agent-pfx.ps1</code></td></tr>
               <tr><td>win-acme 本体</td><td><code>%ProgramData%\win-acme\…\Log\</code></td><td><code>wacs.exe</code></td></tr>
               <tr><td>中央サーバ</td><td><code>C:\ProgramData\Watashi\logs\server-*.log</code></td><td>Watashi.Server</td></tr>
             </tbody>

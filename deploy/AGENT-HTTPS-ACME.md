@@ -352,7 +352,23 @@ ACME を使わず、社内 CA の通常の発行フロー (CSR 提出や管理 G
 
 Watashi 側の設定は ACME 取得時と完全に同じです。違いは**更新が自動化されない**ことだけなので、
 有効期限を資産管理台帳などに記録し、期限前の再発行 → 再配置 → サービス再起動を運用に
-組み込んでください (配置と再起動は方式 1 の `deploy-pfx-to-remote-agent.ps1` が使えます)。
+組み込んでください。
+
+入れ替え作業には `deploy\agent-https\replace-agent-pfx.ps1` を対象 Agent 上で実行します
+(PFX の事前検証 → 既存のバックアップ → 配置 → ACL 設定 → サービス再起動 → `/health` 確認、
+失敗時は自動ロールバック)。
+
+```powershell
+.\replace-agent-pfx.ps1 -PfxPath D:\agent-b.internal.pfx `
+    -PfxPassword (Read-Host -AsSecureString "PFX パスワード") `
+    -TargetPath "C:\ProgramData\WatashiAgent\certs\agent-b.internal.pfx" `
+    -ExpectedHostName agent-b.internal
+```
+
+**ファイアウォールで自動配布 (SMB / WinRM) だけが塞がれている場合**は、代理マシン側の
+win-acme を `--installation none` で登録しておけば「取得は自動・運搬だけ手動」にできます。
+手順・期限管理の仕組み・作業チェックリストは
+[AGENT-HTTPS-ACME.html の 5 章](AGENT-HTTPS-ACME.html) にまとめています。
 
 ### 方式 3: A → B 間は HTTP のままにする
 

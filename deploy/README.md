@@ -42,6 +42,7 @@
 | `agent-https\after-renew.ps1`         | 証明書更新後に Agent サービスを再起動するフック |
 | `agent-https\test-agent-https.ps1`    | 中央サーバから Agent への HTTPS 疎通・証明書検証 |
 | `agent-https\deploy-pfx-to-remote-agent.ps1` | CA に到達できない Agent へ PFX を配布しサービス再起動 (チェーン構成の Agent B 向け) |
+| `agent-https\replace-agent-pfx.ps1`   | FW 等で自動化できない環境で、PFX を定期的に手動入れ替え (検証・バックアップ・配置・再起動・失敗時ロールバック) |
 
 ## 1. 中央サーバー (Watashi.Server)
 
