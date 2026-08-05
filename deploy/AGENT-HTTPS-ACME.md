@@ -8,7 +8,13 @@
 - プログラム (バイナリ) の変更は不要、設定ファイルと証明書まわりの作業のみ
 - 認証は引き続き `SharedSecret` (X-Watashi-Secret ヘッダ) を使用します。証明書は暗号化のみの担当です
 
+> **HTML 版があります**: 「どのスクリプトをどのマシンで実行するのか」を先に示し、CA に到達できない
+> Agent への **PFX 代理取得・配布** を中心に整理した [AGENT-HTTPS-ACME.html](AGENT-HTTPS-ACME.html)
+> を用意しました。初めて作業する場合はそちらを先に読むことを推奨します
+> (本ファイルは同じ内容のテキスト版として残しています)。
+
 関連ドキュメント:
+- [AGENT-HTTPS-ACME.html](AGENT-HTTPS-ACME.html) — 本手順の HTML 版 (スクリプトの使い分け / 代理取得を重点解説)
 - [CERTIFICATE.md](CERTIFICATE.md) — 証明書全般 (ストア参照方式、IIS と共存する中央サーバ向けはこちら)
 - [README.md](README.md) — デプロイ全体の手順
 
