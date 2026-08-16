@@ -49,12 +49,20 @@ public static class AdminPermissionBundleEndpoints
                 .Where(x => x.Id == id)
                 .Select(x => new PermissionBundleDto
                 {
-                    Id = x.Id, Name = x.Name, Description = x.Description, CreatedAt = x.CreatedAt,
+                    Id = x.Id,
+                    Name = x.Name,
+                    Description = x.Description,
+                    CreatedAt = x.CreatedAt,
                     Entries = x.Entries.Select(e => new PermissionBundleEntryDto
                     {
-                        Id = e.Id, ShareId = e.ShareId, ShareName = e.Share!.DisplayName,
-                        HostName = e.Share.Host!.Name, TemplateId = e.TemplateId,
-                        TemplateName = e.Template!.Name, AllowedPath = e.AllowedPath, DisplayName = e.DisplayName,
+                        Id = e.Id,
+                        ShareId = e.ShareId,
+                        ShareName = e.Share!.DisplayName,
+                        HostName = e.Share.Host!.Name,
+                        TemplateId = e.TemplateId,
+                        TemplateName = e.Template!.Name,
+                        AllowedPath = e.AllowedPath,
+                        DisplayName = e.DisplayName,
                     }).ToList(),
                 })
                 .FirstOrDefaultAsync(ct);
@@ -106,8 +114,10 @@ public static class AdminPermissionBundleEndpoints
                 foreach (var e in req.Entries)
                     bundle.Entries.Add(new PermissionBundleEntry
                     {
-                        ShareId = e.ShareId, TemplateId = e.TemplateId,
-                        AllowedPath = PathHelper.NormalizePath(e.AllowedPath), DisplayName = e.DisplayName,
+                        ShareId = e.ShareId,
+                        TemplateId = e.TemplateId,
+                        AllowedPath = PathHelper.NormalizePath(e.AllowedPath),
+                        DisplayName = e.DisplayName,
                     });
             }
             try { await db.SaveChangesAsync(ct); }
@@ -148,6 +158,9 @@ public static class AdminPermissionBundleEndpoints
             var result = new ApplyPermissionBundleResult();
             var now = DateTime.UtcNow;
             var createdBy = principal.GetUserId();
+            var applyReason = $"権限セット '{bundle.Name}' を適用";
+            if (applyReason.Length > CreateUserPermissionRequest.MaxReasonLength)
+                applyReason = applyReason[..CreateUserPermissionRequest.MaxReasonLength];
             foreach (var e in bundle.Entries)
             {
                 var norm = PathHelper.NormalizePath(e.AllowedPath);
@@ -159,15 +172,26 @@ public static class AdminPermissionBundleEndpoints
                     var tracked = await db.UserPermissions.FirstAsync(p => p.Id == dup.Id, ct);
                     tracked.TemplateId = e.TemplateId;
                     tracked.DisplayName = e.DisplayName;
+                    // Bundle 自体は期間情報を持たないため、上書き適用は無期限の権限として復元する。
+                    // 期限切れ行へ適用しても失効したまま、という見えにくい失敗を避ける。
+                    tracked.ValidFrom = null;
+                    tracked.ExpiresAt = null;
+                    tracked.Reason = applyReason;
+                    tracked.TicketNumber = null;
                     result.Updated++;
                 }
                 else
                 {
                     db.UserPermissions.Add(new UserPermission
                     {
-                        UserId = req.UserId, ShareId = e.ShareId, TemplateId = e.TemplateId,
-                        AllowedPath = norm, DisplayName = e.DisplayName,
-                        CreatedAt = now, CreatedBy = createdBy,
+                        UserId = req.UserId,
+                        ShareId = e.ShareId,
+                        TemplateId = e.TemplateId,
+                        AllowedPath = norm,
+                        DisplayName = e.DisplayName,
+                        Reason = applyReason,
+                        CreatedAt = now,
+                        CreatedBy = createdBy,
                     });
                     result.Created++;
                 }

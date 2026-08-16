@@ -28,6 +28,7 @@ public partial class AdminWindow : Window
                 vm.Devices.RefreshAsync(),
                 vm.Nodes.RefreshAsync(),
                 vm.Logs.RefreshAsync(),
+                vm.Operations.RefreshAsync(),
                 vm.Settings.RefreshAsync());
             _initialLoadCompleted = true;
         }
@@ -81,6 +82,9 @@ public partial class AdminWindow : Window
                 break;
             case SystemSettingsViewModel settings:
                 await settings.RefreshAsync();
+                break;
+            case OperationsViewModel operations:
+                await operations.RefreshAsync();
                 break;
         }
     }

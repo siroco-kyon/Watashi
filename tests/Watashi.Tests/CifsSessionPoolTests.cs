@@ -49,4 +49,34 @@ public class CifsSessionPoolTests
         firstKey.Should().NotContain("secret-one");
         secondKey.Should().NotContain("secret-two");
     }
+
+    [Fact]
+    public void WaitForSlot_times_out_instead_of_waiting_forever()
+    {
+        using var gate = new SemaphoreSlim(0, 1);
+
+        Action act = () => CifsSessionPool.WaitForSlot(gate, TimeSpan.FromMilliseconds(20), CancellationToken.None);
+
+        act.Should().Throw<TimeoutException>().WithMessage("*取得できませんでした*");
+    }
+
+    [Fact]
+    public void WaitForSlot_honors_cancellation()
+    {
+        using var gate = new SemaphoreSlim(0, 1);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Action act = () => CifsSessionPool.WaitForSlot(gate, TimeSpan.FromSeconds(1), cts.Token);
+
+        act.Should().Throw<OperationCanceledException>();
+    }
+
+    [Fact]
+    public void Non_positive_acquire_timeout_is_rejected()
+    {
+        Action act = () => new CifsSessionPool(acquireTimeout: TimeSpan.Zero);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
 }

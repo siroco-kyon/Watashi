@@ -193,11 +193,14 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 
 - **HTTP/HTTPS どちらでも利用可**。ただし HTTP は平文のため警告ツールチップを表示し、
   サーバー側 `Auth:AllowHttpForAutoLogin` が `false` なら HTTP 自動ログインを拒否
-- **1 ユーザー = 1 デバイスのみ**。別 PC でチェック ON にすると旧トークンが失効
-  (`TrustDevice` は serializable トランザクションで原子的に切替)
+- **1 ユーザー = 既定3デバイス**（`TrustedDeviceLimit` で1〜20）。同じ端末・Windowsユーザーを
+  再登録したときだけ旧トークンを失効し、異なる端末は上限まで併存する
+  (`TrustDevice` は serializable トランザクションで原子的に登録/ローテーション)
 - デバイストークンは 256bit ランダム → サーバーでは **bcrypt 保存** (`DeviceTokenHash` は `[JsonIgnore]`)、
   平文は **Windows Credential Manager** にユーザー単位で暗号化保存 (他 Windows ユーザーから読めない)
 - 管理者の「全デバイス失効」で無効化 (退職者対応など)、失効理由 (`admin_revoked`) と日時を記録
+- 利用者は `GET/DELETE /api/auth/devices` で自分の端末だけを一覧・個別失効できる
+- `Auth:WindowsAuth:EnableSso=true` では許可ドメインのWindows本人情報から通常JWTを発行。パスワード経路は維持
 - 起動時の自動ログインは **8 秒タイムアウト**で UI フリーズを防止
 
 ### 4.5 パスワードポリシー
@@ -323,24 +326,26 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 
 | 操作 | API | 補足 |
 |---|---|---|
-| 一覧 | `GET /api/files` | 1 ページ **200 件** + ソート (名前/日付/サイズ) |
+| 一覧 | `GET /api/files/incremental` | 200件ずつの安定snapshot cursor + ソート |
+| 横断検索 | `POST /api/files/search` | 全許可ルート、取消/走査件数/時間/結果上限付き |
 | ダウンロード | `GET /api/files/download` | ストリーミング |
 | アップロード | `POST /api/files/upload` | ストリーミング |
-| 削除 | `DELETE /api/files` | 確認ダイアログ付き |
+| 削除 | `DELETE /api/files` | 管理ごみ箱へ移動、保管期間内は復元可能 |
 | リネーム | `POST /api/files/rename` | 同一親限定 |
 | フォルダ作成 | `POST /api/files/mkdir` | |
+| コピー | `POST /api/files/copy` | コピー元を保持。フォルダー間移動は非搭載 |
 
-### 6.2 ストリーミング転送
+### 6.2 再開可能な転送
 
-- ダウンロード: SMB → クライアントへ **4 MB バッファ**でパススルー
-- アップロード: クライアント → SMB へ 4 MB バッファでパススルー
-- Agent 経由時も `HttpCompletionOption.ResponseHeadersRead` で全件メモリ展開を回避
-- `SmbWriteStream` は `ArrayPool<byte>.Shared` を利用し、**LOH (Large Object Heap) 圧迫を排除**。ファイルサイズは無制限
+- v1ストリーミングAPIとの互換を維持しつつ、クライアント転送はv2 upload session/rangeを使用
+- 最大8MiB chunk、chunk SHA-256、全体SHA-256、ETag、offset、冪等keyで通信断/再起動後に再開
+- 永続キューは同一コピー先を直列化し、一時障害だけを指数バックオフで自動再試行
+- Direct / Agent / Gateway の全経路で同じ整合性検証を行う
 
 ### 6.3 ダウンロードの完全性 (.part 方式)
 
-ダウンロードはまず `<ファイル名>.part` に書き出し、完了時に正式名へリネームする。
-通信断やキャンセル時は `.part` を自動削除し、壊れた半端ファイルを残さない。
+ダウンロードはジョブ固有の一時ファイルに書き、全体SHA-256検証後に正式名へ原子的に切り替える。
+一時停止/通信断では確定済みoffsetを保持する。ジョブ削除時は一時ファイルを回収する。
 
 ### 6.4 ローカル I/O の非ブロッキング
 
@@ -437,7 +442,8 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 部署/役割単位で権限行をまとめて登録 → ユーザーへ一括適用 (§5.3)。
 
 ### 8.7 信頼デバイス
-ユーザーごとの自動ログインデバイス一覧 / 「全デバイス失効」(`ExecuteUpdateAsync` で原子的)。
+ユーザーごとの複数自動ログインデバイス一覧 / 「全デバイス失効」(`ExecuteUpdateAsync` で原子的)。
+利用者自身にも自分の端末だけを一覧・個別失効する画面を提供する。
 
 ### 8.8 実行ノード
 一覧 / 追加 / 削除 / 共有秘密の再生成 / 状態確認。
@@ -445,8 +451,8 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 削除前にホストでの使用チェック。mTLS モードでは `ClientCertificateThumbprint` で識別。
 
 ### 8.9 操作ログ
-フィルタ (ユーザー名 / 操作種別 / 期間)、1 ページ 100 件降順、
-CSV エクスポート (BOM 付き UTF-8、`AsNoTracking` + `Select` 射影でストリーミング)。
+フィルタ (ユーザー/カテゴリ/操作/結果/ホスト/共有/パス/端末/IP/期間)、1 ページ 100 件降順、
+先頭/前/次/末尾と総件数を表示。CSVは画面と同じ条件でストリーミング出力する。
 ファイル操作 (`READ/WRITE/DELETE/RENAME`) と管理操作 (`ADMIN_*`) の両方。
 
 ### 8.10 システム設定
@@ -497,8 +503,9 @@ CSV エクスポート (BOM 付き UTF-8、`AsNoTracking` + `Select` 射影で�
 中央が一時的に到達不能でも操作を継続できるよう、Agent のローカル SQLite にバッファ:
 
 - **10 秒毎**に中央 `POST /api/internal/audit-logs/batch` へ送信を試行
-- 成功で `ExecuteDelete` 一括削除、失敗で `ExecuteUpdate` で `AttemptCount` をインクリメント
-- 連続失敗時は**指数バックオフ (最大 5 分)**、`AttemptCount >= 50` で送信対象外 (dead-letter)
+- central はレコード単位のaccepted/rejectedを返し、Agentはacceptedだけを削除
+- 通信障害ではレコードを破棄せず**指数バックオフ (最大 5 分)**。形式不正のrejectedだけをdead-letterとして保持
+- `AuditLog.EventId` を決定的に補完し、応答喪失後の再送を一意制約で冪等化
 
 ### 9.7 SMB セッションプール (`Watashi.Shared.Cifs.CifsSessionPool`)
 
@@ -521,6 +528,8 @@ CSV エクスポート (BOM 付き UTF-8、`AsNoTracking` + `Select` 射影で�
 | POST | `/api/auth/login` | 手動ログイン | - (レート制限 `login-ip`) |
 | POST | `/api/auth/auto-login` | 自動ログイン | - (レート制限 `login-ip`) |
 | POST | `/api/auth/trust-device` | 信頼デバイス登録 | Bearer |
+| GET/DELETE | `/api/auth/devices[/{id}]` | 自分の信頼端末一覧 / 個別失効 | Bearer |
+| POST | `/api/auth/win/sso` | 任意のWindows SSO | Windows認証 |
 | POST | `/api/auth/refresh` | トークン更新 (ローテーション) | - (リフレッシュトークン) |
 | POST | `/api/auth/logout` | ログアウト (トークン失効) | Bearer |
 | POST | `/api/auth/change-password` | パスワード変更 | Bearer |
@@ -538,6 +547,9 @@ CSV エクスポート (BOM 付き UTF-8、`AsNoTracking` + `Select` 射影で�
 | DELETE | `/api/files` | 削除 |
 | POST | `/api/files/rename` | リネーム (同一親限定) |
 | POST | `/api/files/mkdir` | フォルダ作成 |
+| POST | `/api/files/copy` | リモートコピー（移動はしない） |
+| GET | `/api/files/incremental` | cursor型増分一覧 |
+| POST | `/api/files/search` | 権限内横断検索 |
 
 ### 10.3 ホスト `/api/hosts` (Bearer)
 
@@ -647,7 +659,7 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 `Key` / `Value` (5 キー、§13.3)
 
 ### PendingLog (Agent ローカル)
-`Id` / バッファした監査ログ内容 / `AttemptCount` (>=50 で dead-letter)
+`Id` / バッファした監査ログ内容 / `AttemptCount`（centralが形式不正として拒否した回数。>=50でdead-letter、削除しない）
 
 ---
 
@@ -738,7 +750,10 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 - システム設定: 90 / 14 / 20 / 30 / 365
 - テンプレート: フルアクセス (Id=1) / 読取+書込 / 読取のみ
 - 実行ノード: `Direct (Local)`
-- 管理者: `admin` / `Admin123!@#` / `MustChangePassword=true`
+- 管理者は自動シードしない。サーバー端末で `--bootstrap-admin` を明示実行したときだけ、
+  CSPRNG で生成した一時パスワードを標準出力へ一度表示し、`MustChangePassword=true` の管理者を作る
+- 未使用 (`LastLoginAt=null`) の bootstrap 管理者は、表示を失った場合に限り再実行で旧値を無効化して再発行できる。
+  初回ログイン後または利用可能な管理者が既に存在する場合は拒否する
 
 ---
 
@@ -752,7 +767,7 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 
 ### 14.2 DB
 
-- 初回起動時に `MigrateAsync()` で自動生成 + シード (`DataSeeder`)
+- 初回起動時に `MigrateAsync()` で自動生成 + 非機密データをシード (`DataSeeder`)
 - WAL モード + 推奨 PRAGMA (`busy_timeout`, `cache_size`, `foreign_keys=ON`)
 - バックアップ: `SqliteConnection.BackupDatabase()`、日次 7 世代 + 月次 4 世代
 
@@ -780,7 +795,7 @@ IIS リバースプロキシ構成は [deploy/IIS-HOSTING.md](../deploy/IIS-HOST
 | **サブパス (SubPath)** | 共有内の許可されたディレクトリ。権限のもう 1 つの単位 |
 | **テンプレート** | READ/WRITE/DELETE/RENAME の許可集合 |
 | **権限セット (Bundle)** | 複数の権限行をまとめた配布単位 |
-| **信頼デバイス** | 自動ログインを許可された PC (1 ユーザー 1 台) |
+| **信頼デバイス** | 自動ログインを許可された PC (既定1ユーザー3台、設定1〜20台) |
 | **deployment.json** | 配布時に管理者が固定する接続先・機能設定 (利用者変更不可) |
 | **ClickOnce** | クライアントの配布・自動更新の仕組み |
 | **mTLS** | Server↔Agent 間の双方向 TLS クライアント証明書認証 |

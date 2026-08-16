@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.VisualBasic.FileIO;
 using Watashi.Client.Services;
 using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Files;
@@ -37,6 +38,17 @@ public partial class LocalPaneViewModel : ObservableObject
         !_all.Any(e => FileEntryFilter.Matches(e, FilterText));
 
     public bool IsFolderEmpty => string.IsNullOrWhiteSpace(FilterText) && _all.Count == 0;
+    public bool UseRecycleBinForDeletes
+    {
+        get => _settings.UseRecycleBinForLocalDeletes;
+        set
+        {
+            if (_settings.UseRecycleBinForLocalDeletes == value) return;
+            _settings.UseRecycleBinForLocalDeletes = value;
+            _settings.Save();
+            OnPropertyChanged();
+        }
+    }
 
     public LocalPaneViewModel(LocalFileService files, AppSettings settings)
     {
@@ -186,10 +198,22 @@ public partial class LocalPaneViewModel : ObservableObject
         {
             await Task.Run(() =>
             {
-                if (isDir) Directory.Delete(full, recursive: true);
+                if (UseRecycleBinForDeletes)
+                {
+                    if (isDir)
+                        FileSystem.DeleteDirectory(
+                            full, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin,
+                            UICancelOption.ThrowException);
+                    else
+                        FileSystem.DeleteFile(
+                            full, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin,
+                            UICancelOption.ThrowException);
+                }
+                else if (isDir) Directory.Delete(full, recursive: true);
                 else File.Delete(full);
             });
             await RefreshAsync();
+            StatusMessage = UseRecycleBinForDeletes ? "ごみ箱へ移動しました。" : "完全に削除しました。";
         }
         catch (Exception ex) { StatusMessage = ex.Message; }
     }

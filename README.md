@@ -44,28 +44,33 @@ Agent は 1 台構成に加えて、共有秘密認証の `Server → Agent A �
 開発機 (Windows + .NET 8 SDK) で動作確認:
 
 ```powershell
-# 1. 中央サーバーをローカルで起動
+# 1. 初回だけ bootstrap 管理者を発行 (DB 作成後、資格情報を表示して終了)
 cd src\Watashi.Server
+dotnet run -- --bootstrap-admin
+# → Username とランダムな One-time password がこの端末にだけ表示されるので控える
+
+# 2. 中央サーバーをローカルで起動
 dotnet run
 # → http://127.0.0.1:18080 (HTTP) と https://localhost:18443 (HTTPS, dev-certs) の両方で起動
 # → watashi-dev.db が同フォルダに自動生成
-# → admin / Admin123!@# でログイン可能 (初回パスワード変更が必要)
 
-# 2. 別ウィンドウで動作確認
+# 3. 別ウィンドウで動作確認
 # PowerShell では curl は Invoke-WebRequest のエイリアスなので、curl.exe を明示するか
 # Invoke-RestMethod を使う。以下は PowerShell ネイティブ例:
 Invoke-RestMethod http://127.0.0.1:18080/        # 利用可能エンドポイント一覧
 Invoke-RestMethod http://127.0.0.1:18080/health  # {"status":"ok",...}
-$body = @{ username = 'admin'; password = 'Admin123!@#' } | ConvertTo-Json
+$secure = Read-Host '表示された One-time password' -AsSecureString
+$password = [Net.NetworkCredential]::new('', $secure).Password
+$body = @{ username = 'admin'; password = $password } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:18080/api/auth/login `
     -ContentType 'application/json' -Body $body
 
-# 3. WPF クライアントを起動
+# 4. WPF クライアントを起動
 cd ..\..\src\Watashi.Client
 # 接続先と更新確認先は同梱の deployment.json で固定。
 # dev では serverUrl を http://127.0.0.1:18080 に書き換えてから起動する。
 dotnet run
-# 起動 → ログイン画面 → admin でログイン
+# 起動 → ログイン画面 → 表示された資格情報でログイン → パスワードを変更
 ```
 
 詳細手順 (本番デプロイ含む) は [docs/SETUP.md](docs/SETUP.md) を参照。

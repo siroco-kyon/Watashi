@@ -7,17 +7,19 @@ namespace Watashi.Tests;
 
 public class AdminUserGuardTests
 {
-    private static User MkUser(string name, bool admin, bool locked = false, bool pending = false) => new()
-    {
-        Username = name,
-        PasswordHash = "x",
-        IsAdmin = admin,
-        IsLocked = locked,
-        IsPasswordSetupPending = pending,
-        PasswordChangedAt = DateTime.UtcNow,
-        PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
-        CreatedAt = DateTime.UtcNow,
-    };
+    private static User MkUser(
+        string name, bool admin, bool locked = false, bool pending = false, bool disabled = false) => new()
+        {
+            Username = name,
+            PasswordHash = "x",
+            IsAdmin = admin,
+            IsLocked = locked,
+            IsDisabled = disabled,
+            IsPasswordSetupPending = pending,
+            PasswordChangedAt = DateTime.UtcNow,
+            PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
+            CreatedAt = DateTime.UtcNow,
+        };
 
     // ===== CanDeleteAsync =====
 
@@ -88,6 +90,19 @@ public class AdminUserGuardTests
 
         var d = await AdminUserGuard.CanDeleteAsync(db.Db, actorUserId: 999, lone.Id, lone.IsAdmin);
         d.Should().Be(AdminUserGuard.Decision.LastActiveAdmin);
+    }
+
+    [Fact]
+    public async Task CanDelete_disabled_admin_does_not_count_as_active()
+    {
+        using var db = new TestDb();
+        var disabled = MkUser("disabled-admin", admin: true, disabled: true);
+        var lone = MkUser("only", admin: true);
+        db.Db.Users.AddRange(disabled, lone);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanDeleteAsync(db.Db, actorUserId: 999, lone.Id, lone.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.LastActiveAdmin);
     }
 
     [Fact]
@@ -222,6 +237,60 @@ public class AdminUserGuardTests
         await db.Db.SaveChangesAsync();
 
         (await AdminUserGuard.CanRequireSetupAsync(db.Db, a.Id, b.Id, b.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.Allow);
+    }
+
+    // ===== CanDisableAsync =====
+
+    [Fact]
+    public async Task CanDisable_rejects_self_target()
+    {
+        using var db = new TestDb();
+        var alice = MkUser("alice", admin: true);
+        var bob = MkUser("bob", admin: true);
+        db.Db.Users.AddRange(alice, bob);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanDisableAsync(db.Db, alice.Id, alice.Id, alice.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.SelfTarget);
+    }
+
+    [Fact]
+    public async Task CanDisable_rejects_last_active_admin()
+    {
+        using var db = new TestDb();
+        var lone = MkUser("only", admin: true);
+        var disabled = MkUser("disabled", admin: true, disabled: true);
+        db.Db.Users.AddRange(lone, disabled);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanDisableAsync(db.Db, actorUserId: 999, lone.Id, lone.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.LastActiveAdmin);
+    }
+
+    [Fact]
+    public async Task CanDisable_allows_admin_when_another_active_admin_exists()
+    {
+        using var db = new TestDb();
+        var a = MkUser("a", admin: true);
+        var b = MkUser("b", admin: true);
+        db.Db.Users.AddRange(a, b);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanDisableAsync(db.Db, a.Id, b.Id, b.IsAdmin))
+            .Should().Be(AdminUserGuard.Decision.Allow);
+    }
+
+    [Fact]
+    public async Task CanDisable_allows_non_admin()
+    {
+        using var db = new TestDb();
+        var admin = MkUser("admin", admin: true);
+        var guest = MkUser("guest", admin: false);
+        db.Db.Users.AddRange(admin, guest);
+        await db.Db.SaveChangesAsync();
+
+        (await AdminUserGuard.CanDisableAsync(db.Db, admin.Id, guest.Id, guest.IsAdmin))
             .Should().Be(AdminUserGuard.Decision.Allow);
     }
 

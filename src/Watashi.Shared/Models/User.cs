@@ -10,6 +10,19 @@ public class User
     public bool IsAdmin { get; set; }
     public bool IsLocked { get; set; }
     public int FailedLoginCount { get; set; }
+    /// <summary>
+    /// 管理者が明示的に利用停止した状態。連続ログイン失敗による <see cref="IsLocked"/> とは別管理で、
+    /// ロック解除やパスワード再設定を行っても自動的には解除されない。
+    /// </summary>
+    public bool IsDisabled { get; set; }
+    /// <summary>最後に明示的な無効化を行った UTC 日時。</summary>
+    public DateTime? DisabledAt { get; set; }
+    /// <summary>最後に明示的な無効化を行った理由。</summary>
+    public string? DisabledReason { get; set; }
+    /// <summary>最後に明示的な無効化を行った管理者の UserId。管理者削除後も証跡として値を保持する。</summary>
+    public int? DisabledByUserId { get; set; }
+    /// <summary>最後に明示的な無効化を行った管理者名のスナップショット。</summary>
+    public string? DisabledByUsername { get; set; }
     public DateTime PasswordChangedAt { get; set; }
     public DateTime PasswordExpiresAt { get; set; }
     public bool MustChangePassword { get; set; }

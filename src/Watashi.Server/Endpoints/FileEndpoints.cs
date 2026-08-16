@@ -28,7 +28,10 @@ public static class FileEndpoints
             return await ExecuteAsync(audit, principal, ctx, Operations.Read, hostId, shareId, path ?? "/",
                 db, enc, perms, ct, async (auth, execCtx) =>
             {
-                var entries = (await router.ListAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct)).ToList();
+                var entries = (await router.ListAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct))
+                    .Where(e => !string.Equals(e.Name, RemoteTrashPathPolicy.RootName,
+                        StringComparison.OrdinalIgnoreCase))
+                    .ToList();
                 entries = FileEntrySort.Sort(entries, sort);
                 // page <= 0 は「全件」。クライアントは結局全ページを取得するため、
                 // ページ要求のたびに SMB 全列挙 + ソートを繰り返すより 1 回で返す方がはるかに速い。
@@ -92,7 +95,8 @@ public static class FileEndpoints
         group.MapDelete("/", async (
             int hostId, int shareId, string path,
             HttpContext ctx, AppDbContext db, NodeRouter router, EncryptionService enc,
-            PermissionService perms, AuditLogService audit, ClaimsPrincipal principal,
+            PermissionService perms, AuditLogService audit, RemoteTrashService trash,
+            ClaimsPrincipal principal,
             CancellationToken ct) =>
         {
             return await ExecuteAsync(audit, principal, ctx, Operations.Delete, hostId, shareId, path,
@@ -100,9 +104,20 @@ public static class FileEndpoints
             {
                 if (await perms.IsPermissionRootAsync(auth.UserId, shareId, auth.NormalizedPath, ct))
                     return new FailureResult(PermissionDenied("許可ルート自体は削除できません。"), "permission_root");
-                await router.DeleteAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct);
+                var result = await trash.TrashAsync(
+                    auth.UserId,
+                    principal.GetUsername() ?? $"user:{auth.UserId}",
+                    hostId,
+                    shareId,
+                    auth.NormalizedPath,
+                    execCtx.Node,
+                    execCtx.Info,
+                    auth.PermissionId,
+                    ct);
+                ctx.Items["targetPath"] = result.TargetPath;
+                ctx.Items["bytes"] = result.Entry.SizeBytes;
                 return Results.NoContent();
-            });
+            }, auditOperation: Operations.Trash);
         });
 
         group.MapPost("/rename", async (
@@ -144,6 +159,45 @@ public static class FileEndpoints
                 await router.MkdirAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct);
                 return Results.NoContent();
             }, auditOperation: Operations.Mkdir);
+        });
+
+        group.MapPost("/copy", async (
+            RemoteCopyRequest req, HttpContext ctx, AppDbContext db, NodeRouter router, EncryptionService enc,
+            PermissionService perms, AuditLogService audit, RemoteCopyService copy,
+            ClaimsPrincipal principal, CancellationToken ct) =>
+        {
+            return await ExecuteAsync(audit, principal, ctx, Operations.Read,
+                req.SourceHostId, req.SourceShareId, req.SourcePath,
+                db, enc, perms, ct, async (sourceAuth, sourceContext) =>
+            {
+                var targetAuth = await ResolveAuthAsync(principal,
+                    req.TargetHostId, req.TargetShareId, req.TargetPath, Operations.Write, perms, ct);
+                ctx.Items["targetPath"] = req.SourceHostId == req.TargetHostId &&
+                    req.SourceShareId == req.TargetShareId
+                        ? targetAuth.NormalizedPath
+                        : $"host#{req.TargetHostId}/share#{req.TargetShareId}:{targetAuth.NormalizedPath}";
+                if (targetAuth.Failure is not null)
+                    return new FailureResult(targetAuth.Failure, "target_denied");
+
+                var targetContext = await BuildExecutionContextAsync(
+                    db, enc, req.TargetHostId, req.TargetShareId, ct);
+                if (targetContext is null)
+                    return new FailureResult(
+                        Results.BadRequest(new { error = "コピー先ホスト/共有が見つかりません。" }),
+                        "target_not_found");
+
+                var result = await copy.CopyAsync(req with
+                {
+                    SourcePath = sourceAuth.NormalizedPath,
+                    TargetPath = targetAuth.NormalizedPath,
+                }, sourceContext, targetContext, ct);
+                ctx.Items["targetPath"] = req.SourceHostId == req.TargetHostId &&
+                    req.SourceShareId == req.TargetShareId
+                        ? result.TargetPath
+                        : $"host#{req.TargetHostId}/share#{req.TargetShareId}:{result.TargetPath}";
+                ctx.Items["bytes"] = result.BytesCopied;
+                return Results.Ok(result);
+            }, auditOperation: Operations.Copy);
         });
 
         return app;
@@ -233,8 +287,32 @@ public static class FileEndpoints
     internal static IResult MapExecutionError(Exception ex) => ex switch
     {
         NodeUnreachableException => Results.StatusCode(StatusCodes.Status503ServiceUnavailable),
+        RemoteTrashException trash => Results.Json(new { error = trash.Message, code = trash.Code },
+            statusCode: trash.StatusCode),
+        RemoteCopyException copy => Results.Json(new { error = copy.Message, code = copy.Code },
+            statusCode: copy.StatusCode),
         AgentRelayException { StatusCode: StatusCodes.Status503ServiceUnavailable } are => WithRetryAfter(are.RetryAfter),
         AgentRelayException are => Results.Problem(detail: are.Message, statusCode: are.StatusCode),
+        TransferOffsetMismatchException mismatch => Results.Json(new
+        {
+            error = mismatch.Message,
+            code = "offset_mismatch",
+            expectedOffset = mismatch.ExpectedOffset,
+            actualOffset = mismatch.ActualOffset,
+        }, statusCode: StatusCodes.Status409Conflict),
+        TransferRangeNotSatisfiableException range => Results.Json(new
+        {
+            error = range.Message,
+            code = "range_not_satisfiable",
+            expectedOffset = range.Size,
+            actualOffset = range.Offset,
+        }, statusCode: StatusCodes.Status416RangeNotSatisfiable),
+        TransferReparsePointException => Results.Json(new
+        {
+            error = ex.Message,
+            code = "reparse_point_rejected",
+        }, statusCode: StatusCodes.Status409Conflict),
+        ArgumentException => Results.BadRequest(new { error = ex.Message }),
         UnauthorizedAccessException => Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
         IOException => Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
         _ => Results.Problem(detail: "内部エラーが発生しました。", statusCode: StatusCodes.Status500InternalServerError),
@@ -264,6 +342,8 @@ public static class FileEndpoints
         if (!principal.TryGetUserId(out var userId))
             return new AuthCheck(0, "/", Results.Unauthorized(), null);
         var normalized = PathHelper.NormalizePath(path);
+        if (RemoteTrashPathPolicy.IsReservedPath(normalized))
+            return new AuthCheck(userId, normalized, Results.NotFound(), null);
         var (allowed, pid) = await perms.CanPerformAsync(userId, shareId, normalized, operation, ct);
         if (!allowed)
             return new AuthCheck(userId, normalized, PermissionDenied(GetPermissionDeniedMessage(operation)), null);
@@ -286,10 +366,10 @@ public static class FileEndpoints
         AppDbContext db, EncryptionService enc, int hostId, int shareId, CancellationToken ct)
     {
         var row = await (from h in db.CifsHosts.AsNoTracking()
-            join s in db.CifsShares on h.Id equals s.HostId
-            join n in db.ExecutionNodes.Include(x => x.GatewayNode) on h.ExecutionNodeId equals n.Id
-            where h.Id == hostId && s.Id == shareId
-            select new { Host = h, Share = s, Node = n }).FirstOrDefaultAsync(ct);
+                         join s in db.CifsShares on h.Id equals s.HostId
+                         join n in db.ExecutionNodes.Include(x => x.GatewayNode) on h.ExecutionNodeId equals n.Id
+                         where h.Id == hostId && s.Id == shareId
+                         select new { Host = h, Share = s, Node = n }).FirstOrDefaultAsync(ct);
         if (row is null) return null;
         var pw = enc.Decrypt(row.Host.CredPasswordEnc);
         var info = new CifsConnectionInfo(row.Host.HostAddress, row.Host.Port, row.Host.CredUsername, pw, row.Share.ShareName);

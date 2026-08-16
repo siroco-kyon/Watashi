@@ -11,27 +11,31 @@ namespace Watashi.Shared.Cifs;
 public sealed class CifsSessionPool : IDisposable
 {
     private readonly TimeSpan _idleTtl;
+    private readonly TimeSpan _acquireTimeout;
     private readonly int _maxPerKey;
     private readonly ConcurrentDictionary<string, ConcurrentBag<CifsSession>> _idle = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new();
     private readonly Timer _evictionTimer;
     private volatile bool _disposed;
 
-    public CifsSessionPool(TimeSpan? idleTtl = null, int maxPerKey = 4)
+    public CifsSessionPool(TimeSpan? idleTtl = null, int maxPerKey = 4, TimeSpan? acquireTimeout = null)
     {
         _idleTtl = idleTtl ?? TimeSpan.FromSeconds(60);
+        _acquireTimeout = acquireTimeout ?? TimeSpan.FromSeconds(30);
+        if (_acquireTimeout <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(acquireTimeout), "SMB セッション待機タイムアウトは 0 より大きい必要があります。");
         _maxPerKey = Math.Max(1, maxPerKey);
         _evictionTimer = new Timer(_ => Evict(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
-    public CifsSession Acquire(CifsConnectionInfo info)
+    public CifsSession Acquire(CifsConnectionInfo info, CancellationToken ct = default)
     {
         // Dispose 後に Acquire されると、新しいセッションをプールに紐付けてしまい
         // Return 時に DisposeReal されるだけのデッドフロー。明示的に拒否する。
         if (_disposed) throw new ObjectDisposedException(nameof(CifsSessionPool));
         var key = Key(info);
         var gate = _gates.GetOrAdd(key, _ => new SemaphoreSlim(_maxPerKey, _maxPerKey));
-        gate.Wait();
+        WaitForSlot(gate, _acquireTimeout, ct);
         if (_disposed)
         {
             gate.Release();
@@ -62,6 +66,12 @@ public sealed class CifsSessionPool : IDisposable
             gate.Release();
             throw;
         }
+    }
+
+    internal static void WaitForSlot(SemaphoreSlim gate, TimeSpan timeout, CancellationToken ct)
+    {
+        if (!gate.Wait(timeout, ct))
+            throw new TimeoutException($"SMB セッションの空きを {timeout.TotalSeconds:0.#} 秒待ちましたが取得できませんでした。");
     }
 
     private void Return(CifsSession session, string key, SemaphoreSlim gate)

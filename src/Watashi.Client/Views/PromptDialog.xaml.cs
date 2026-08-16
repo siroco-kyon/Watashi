@@ -10,7 +10,7 @@ public partial class PromptDialog : Window
     public PromptDialog(string message, string defaultValue = "", Window? owner = null, bool isPassword = false)
     {
         InitializeComponent();
-        MessageLabel.Text = message;
+        MessageLabel.Content = message;
         _isPassword = isPassword;
         if (isPassword)
         {
@@ -18,10 +18,12 @@ public partial class PromptDialog : Window
             InputBox.Visibility = Visibility.Collapsed;
             PasswordInput.Visibility = Visibility.Visible;
             PasswordInput.Password = defaultValue;
+            MessageLabel.Target = PasswordInput;
         }
         else
         {
             InputBox.Text = defaultValue;
+            MessageLabel.Target = InputBox;
         }
         if (owner is not null) Owner = owner;
 

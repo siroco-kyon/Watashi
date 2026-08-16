@@ -11,7 +11,7 @@ namespace Watashi.Server.Auth;
 /// JWT が現在のユーザー資格情報より前に発行されたものではないことを検証する。
 /// access token は自己完結型なので、refresh token だけを失効しても有効期限までは使えてしまう。
 /// 認証時に DB の現在状態と照合することで、アカウントロック、パスワード変更・リセット・
-/// 初回設定待ちへの変更を即座に access token にも反映する。
+/// 初回設定待ち・明示無効化への変更を即座に access token にも反映する。
 /// </summary>
 public static class AccessTokenCredentialValidator
 {
@@ -24,10 +24,10 @@ public static class AccessTokenCredentialValidator
 
         var state = await db.Users.AsNoTracking()
             .Where(u => u.Id == userId)
-            .Select(u => new { u.PasswordChangedAt, u.IsLocked, u.IsPasswordSetupPending })
+            .Select(u => new { u.PasswordChangedAt, u.IsLocked, u.IsDisabled, u.IsPasswordSetupPending })
             .SingleOrDefaultAsync(ct);
 
-        if (state is null || state.IsLocked || state.IsPasswordSetupPending)
+        if (state is null || state.IsLocked || state.IsDisabled || state.IsPasswordSetupPending)
             return false;
 
         var currentTicks = state.PasswordChangedAt.ToUniversalTime().Ticks;

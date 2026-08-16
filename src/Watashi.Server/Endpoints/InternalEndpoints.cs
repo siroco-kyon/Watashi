@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Auth;
 using Watashi.Server.Data;
@@ -46,32 +47,54 @@ public static class InternalEndpoints
             if (body.Items is null || body.Items.Length == 0) return Results.NoContent();
             var certAgent = principal.FindFirst(AgentCertificateValidator.AgentIdClaim)?.Value;
             var agentLabel = certAgent ?? "shared-secret";
-            int added = 0, skipped = 0;
-            foreach (var json in body.Items)
+            var accepted = new List<int>();
+            var rejected = new List<AuditRejectedItem>();
+            var candidates = new List<(int Index, AuditLog Log)>();
+            for (var index = 0; index < body.Items.Length; index++)
             {
-                if (string.IsNullOrWhiteSpace(json)) continue;
+                var json = body.Items[index];
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    rejected.Add(new AuditRejectedItem(index, "empty_payload"));
+                    continue;
+                }
                 try
                 {
                     var log = TryParseAuditLog(json);
                     if (log is null)
                     {
-                        skipped++;
+                        rejected.Add(new AuditRejectedItem(index, "invalid_payload"));
                         logger.LogWarning("audit-log バッチ内の不正レコードをスキップ agent={Agent} len={Len}", agentLabel, json.Length);
                         continue;
                     }
-                    db.AuditLogs.Add(log);
-                    added++;
+                    candidates.Add((index, log));
                 }
                 catch (Exception ex)
                 {
-                    skipped++;
+                    rejected.Add(new AuditRejectedItem(index, "invalid_payload"));
                     logger.LogWarning(ex, "audit-log バッチ内のレコード解析に失敗 agent={Agent} len={Len}", agentLabel, json.Length);
                 }
             }
+
+            var eventIds = candidates.Select(x => x.Log.EventId!.Value).Distinct().ToArray();
+            var existing = (await db.AuditLogs.AsNoTracking()
+                    .Where(x => x.EventId.HasValue && eventIds.Contains(x.EventId.Value))
+                    .Select(x => x.EventId!.Value)
+                    .ToListAsync(ct))
+                .ToHashSet();
+            foreach (var groupByEvent in candidates.GroupBy(x => x.Log.EventId!.Value))
+            {
+                var first = groupByEvent.First();
+                if (!existing.Contains(groupByEvent.Key))
+                    db.AuditLogs.Add(first.Log);
+                // 同じeventの再送や同一batch内重複も保存済み扱いで個別ACKする。
+                accepted.AddRange(groupByEvent.Select(x => x.Index));
+            }
             await db.SaveChangesAsync(ct);
-            if (skipped > 0)
-                logger.LogWarning("audit-log バッチ: agent={Agent} added={Added} skipped={Skipped}", agentLabel, added, skipped);
-            return Results.Ok(new { added, skipped });
+            if (rejected.Count > 0)
+                logger.LogWarning("audit-log バッチ: agent={Agent} accepted={Accepted} rejected={Rejected}",
+                    agentLabel, accepted.Count, rejected.Count);
+            return Results.Ok(new AuditBatchAck(accepted.ToArray(), rejected.ToArray()));
         });
 
         return app;
@@ -91,6 +114,7 @@ public static class InternalEndpoints
         if (log is null) return null;
         log.Id = 0;
         if (log.Timestamp == default) log.Timestamp = DateTime.UtcNow;
+        log.EventId ??= DeterministicEventId(json);
         if (string.IsNullOrWhiteSpace(log.Operation)) return null;
         if (string.IsNullOrWhiteSpace(log.Username)) log.Username = "(agent)";
         var result = log.Result?.Trim().ToLowerInvariant();
@@ -99,12 +123,20 @@ public static class InternalEndpoints
         return log;
     }
 
+    private static Guid DeterministicEventId(string json)
+    {
+        var hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(json));
+        return new Guid(hash.AsSpan(0, 16));
+    }
+
     /// <summary>
     /// Agent からのハートビート。Timestamp は旧 Agent との互換のため受け取るだけで、
     /// サーバ側では使用しない (Agent の時計ずれ対策として受信時刻を採用する)。
     /// </summary>
     public record HeartbeatRequest(string AgentId, DateTime Timestamp);
     public record AuditBatchRequest(string[] Items);
+    public record AuditRejectedItem(int Index, string Error);
+    public record AuditBatchAck(int[] Accepted, AuditRejectedItem[] Rejected);
     public class HeartbeatAck
     {
         /// <summary>管理画面で設定された Node.MaxConcurrency。Agent はこの値で同時実行制限を更新する。</summary>

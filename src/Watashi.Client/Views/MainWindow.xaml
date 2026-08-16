@@ -5,7 +5,8 @@
         Width="1200" Height="780" MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         Icon="{StaticResource ToriiIcon}"
-        Background="{StaticResource BgBrush}"
+        AutomationProperties.Name="Watashi ファイル管理"
+        KeyboardNavigation.TabNavigation="Cycle"
         PreviewKeyDown="OnPreviewKeyDown"
         PreviewMouseDown="OnPreviewMouseDown">
 
@@ -43,19 +44,12 @@
 
         <!-- ===== Header ===== -->
         <Border DockPanel.Dock="Top"
-                Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
+                Style="{StaticResource AccessibleSurfaceBorder}"
                 BorderThickness="0,0,0,1"
                 Padding="18,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
+            <DockPanel LastChildFill="True">
                 <!-- Logo -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                     <Image Source="{StaticResource ToriiIcon}" Width="26" Height="26" Margin="0,0,10,0"
                            RenderOptions.BitmapScalingMode="HighQuality"/>
                     <StackPanel Orientation="Vertical">
@@ -64,14 +58,14 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Right: user + actions -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="14" Padding="10,4" Margin="0,0,8,0">
+                <!-- 幅や文字倍率が大きいときは操作を次の行へ送り、切り落とさない。 -->
+                <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Border Style="{StaticResource AccessibleSubtleBorder}" CornerRadius="14" Padding="10,4" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="👤" Margin="0,0,6,0"/>
                             <TextBlock Text="{Binding Username}" FontWeight="SemiBold"/>
-                            <TextBlock Text=" / " Foreground="{StaticResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding ProtocolLabel}" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text=" / "/>
+                            <TextBlock Text="{Binding ProtocolLabel}"/>
                         </StackPanel>
                     </Border>
 
@@ -80,35 +74,63 @@
                             Style="{StaticResource PrimaryButton}"
                             Margin="0,0,6,0"
                             Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}"
+                            AutomationProperties.Name="管理画面を開く"
                             ToolTip="管理画面を開く"/>
 
-                    <Button Style="{StaticResource IconButton}" Click="OnRefresh" ToolTip="再読み込み (F5)">
+                    <Button Style="{StaticResource IconButton}" Click="OnRefresh"
+                            AutomationProperties.Name="再読み込み"
+                            AutomationProperties.HelpText="ローカルとリモートの一覧を再読み込みします。F5 キーでも実行できます。"
+                            ToolTip="再読み込み (F5)">
                         <TextBlock Text="⟳" FontSize="15"/>
                     </Button>
-                    <Button Style="{StaticResource IconButton}" Click="OnChangePassword" ToolTip="パスワード変更">
+                    <Button Style="{StaticResource IconButton}" Click="OnChangePassword"
+                            AutomationProperties.Name="パスワード変更" ToolTip="パスワード変更">
                         <TextBlock Text="🔑" FontSize="14"/>
                     </Button>
-                    <Button Style="{StaticResource IconButton}" Click="OnLogout" ToolTip="ログアウト">
+                    <Button Style="{StaticResource IconButton}" Click="OnOpenTrustedDevices"
+                            AutomationProperties.Name="信頼端末の管理" ToolTip="信頼端末の管理">
+                        <TextBlock Text="▣" FontSize="14"/>
+                    </Button>
+                    <Button Style="{StaticResource IconButton}" Click="OnLogout"
+                            AutomationProperties.Name="ログアウト" ToolTip="ログアウト">
                         <TextBlock Text="⏻" FontSize="14"/>
                     </Button>
-                    <Button Style="{StaticResource IconButton}" Click="OnAbout" ToolTip="バージョン情報">
+                    <Button Style="{StaticResource IconButton}" Click="OnAbout"
+                            AutomationProperties.Name="バージョン情報" ToolTip="バージョン情報">
                         <TextBlock Text="ⓘ" FontSize="14"/>
                     </Button>
-                </StackPanel>
-            </Grid>
+                </WrapPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- HTTP は動作を妨げず許可しつつ、常時見える細い帯で暗号化されないことを示す。 -->
+        <Border DockPanel.Dock="Top"
+                Style="{StaticResource AccessibleWarningBanner}"
+                BorderThickness="0,0,0,1"
+                Padding="18,6"
+                Visibility="{Binding IsHttpConnection, Converter={StaticResource BoolToVis}}"
+                ToolTip="{Binding HttpTransportWarning}">
+            <TextBlock Style="{StaticResource AccessibleWarningText}"
+                       FontSize="{StaticResource FontSizeSm}"
+                       TextWrapping="Wrap"
+                       AutomationProperties.Name="HTTP 接続のセキュリティ警告"
+                       AutomationProperties.HelpText="{Binding HttpTransportWarning}">
+                <Run Text="⚠ HTTP 接続: "/><Run Text="{Binding HttpTransportWarning, Mode=OneWay}"/>
+            </TextBlock>
         </Border>
 
         <!-- ===== Action Toolbar ===== -->
         <Border DockPanel.Dock="Top"
-                Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
+                Style="{StaticResource AccessibleSurfaceBorder}"
                 BorderThickness="0,0,0,1"
                 Padding="18,10">
-            <StackPanel Orientation="Horizontal">
+            <WrapPanel Orientation="Horizontal">
                 <Button Click="OnUpload"
                         Style="{StaticResource PrimaryButton}"
                         Margin="0,0,8,0"
                         IsEnabled="{Binding Transfer.IsActive, Converter={StaticResource NotBool}}"
+                        AutomationProperties.Name="アップロード"
+                        AutomationProperties.HelpText="ローカルで選択中のファイルまたはフォルダをリモートへ転送します。"
                         ToolTip="ローカルで選択中のファイル/フォルダ (複数可) をリモートへアップロード">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="⬆" FontSize="13" Margin="0,0,6,0"/>
@@ -118,42 +140,52 @@
                 <Button Click="OnDownload"
                         Style="{StaticResource PrimaryButton}"
                         IsEnabled="{Binding Transfer.IsActive, Converter={StaticResource NotBool}}"
+                        AutomationProperties.Name="ダウンロード"
+                        AutomationProperties.HelpText="リモートで選択中のファイルまたはフォルダをローカルへ転送します。"
                         ToolTip="リモートで選択中のファイル/フォルダ (複数可) をローカルへダウンロード">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="⬇" FontSize="13" Margin="0,0,6,0"/>
                         <TextBlock Text="ダウンロード"/>
                     </StackPanel>
                 </Button>
+                <Button Click="OnOpenTransferCenter"
+                        Style="{StaticResource BaseButton}"
+                        Margin="8,0,0,0"
+                        Content="{Binding TransferQueue.Summary}"
+                        AutomationProperties.Name="転送ジョブセンターを開く"
+                        AutomationProperties.HelpText="待機中、実行中、失敗した転送の再試行や中止を管理します。"
+                        ToolTip="転送ジョブセンターを開く"/>
                 <!--
                     削除 / 新規フォルダ (リモート・ローカル) は各ペインの右クリックメニューに集約。
                     ツールバーはアップロード / ダウンロードのみに絞り、操作対象 (ペイン) と
                     操作の対応を分かりやすくしている。
                 -->
-            </StackPanel>
+            </WrapPanel>
         </Border>
 
         <!-- ===== Error banner (失敗/エラーを赤帯で強調。✕ で閉じる) ===== -->
         <Border DockPanel.Dock="Top"
-                Background="{StaticResource DangerSoftBrush}"
-                BorderBrush="{StaticResource DangerBrush}"
-                BorderThickness="0,0,0,1"
+                Style="{StaticResource AccessibleErrorBanner}"
                 Padding="18,10"
                 Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
             <DockPanel>
                 <Button DockPanel.Dock="Right"
-                        Command="{Binding DismissErrorCommand}"
+                        Click="OnDismissError"
                         Content="✕"
-                        Background="Transparent"
+                        Style="{StaticResource GhostButton}"
                         BorderThickness="0"
-                        Foreground="{StaticResource DangerBrush}"
                         FontWeight="Bold"
                         Cursor="Hand"
                         Padding="10,0"
+                        AutomationProperties.Name="エラーメッセージを閉じる"
                         ToolTip="このメッセージを閉じる"/>
-                <TextBlock Foreground="{StaticResource DangerBrush}"
+                <TextBlock x:Name="MainErrorLiveRegion"
+                           Style="{StaticResource AccessibleErrorText}"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
-                           VerticalAlignment="Center">
+                           VerticalAlignment="Center"
+                           AutomationProperties.Name="{Binding ErrorMessage, StringFormat=エラー: {0}}"
+                           AutomationProperties.LiveSetting="Assertive">
                     <Run Text="⚠ "/><Run Text="{Binding ErrorMessage, Mode=OneWay}"/>
                 </TextBlock>
             </DockPanel>
@@ -169,11 +201,13 @@
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>
-                <TextBlock Text="{Binding LatestStatusMessage}"
+                <TextBlock x:Name="MainStatusLiveRegion"
+                           Text="{Binding LatestStatusMessage}"
                            ToolTip="{Binding LatestStatusMessage}"
-                           Foreground="{StaticResource AccentDeepBrush}"
                            TextTrimming="CharacterEllipsis"
-                           MaxWidth="720"/>
+                           MaxWidth="600"
+                           AutomationProperties.Name="{Binding LatestStatusMessage, StringFormat=操作状態: {0}}"
+                           AutomationProperties.LiveSetting="Polite"/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
                 <TextBlock Text="{Binding Username, StringFormat=ユーザー: {0}}"/>
@@ -182,8 +216,7 @@
 
         <!-- ===== Transfer progress ===== -->
         <Border DockPanel.Dock="Bottom"
-                Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
+                Style="{StaticResource AccessibleSurfaceBorder}"
                 BorderThickness="0,1,0,0"
                 Padding="18,8"
                 Visibility="{Binding Transfer.IsActive, Converter={StaticResource BoolToVis}}">
@@ -195,13 +228,15 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock FontSize="12" Foreground="{StaticResource TextSecondaryBrush}">
-                        <Run Text="転送中:"/> <Run Text="{Binding Transfer.FileName, Mode=OneWay}" FontWeight="SemiBold"/>
+                        <Run Text="キュー登録中:"/> <Run Text="{Binding Transfer.FileName, Mode=OneWay}" FontWeight="SemiBold"/>
                         <Run Text="   "/><Run Text="{Binding Transfer.SpeedText, Mode=OneWay}"/>
                         <Run Text="   残り "/><Run Text="{Binding Transfer.EtaText, Mode=OneWay}"/>
                     </TextBlock>
                     <ProgressBar Minimum="0"
                                  Maximum="{Binding Transfer.TotalBytes}"
                                  Value="{Binding Transfer.BytesTransferred}"
+                                 AutomationProperties.Name="転送進捗"
+                                 AutomationProperties.HelpText="現在のファイル転送の進捗率です。"
                                  Margin="0,4,0,0"/>
                 </StackPanel>
                 <TextBlock Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center"
@@ -211,8 +246,9 @@
                 <Button Grid.Column="2" Margin="14,0,0,0" VerticalAlignment="Center" MinWidth="92"
                         Command="{Binding CancelTransferCommand}"
                         Style="{StaticResource DangerButton}"
-                        ToolTip="進行中の転送を中止します"
-                        Content="キャンセル"/>
+                        AutomationProperties.Name="キュー登録をキャンセル"
+                        ToolTip="進行中のキュー登録を中止します"
+                        Content="登録を中止"/>
             </Grid>
         </Border>
 
@@ -225,7 +261,8 @@
             </Grid.ColumnDefinitions>
 
             <!-- Local pane -->
-            <Border x:Name="LocalPane" Grid.Column="0" Style="{StaticResource Card}" Padding="0">
+            <Border x:Name="LocalPane" Grid.Column="0" Style="{StaticResource Card}" Padding="0"
+                    AutomationProperties.Name="ローカルファイルペイン">
                 <DockPanel>
                     <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
                         <StackPanel Orientation="Horizontal">
@@ -237,28 +274,38 @@
 
                     <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
                         <Button Style="{StaticResource IconButton}" Command="{Binding Local.GoBackCommand}"
-                                IsEnabled="{Binding Local.CanGoBack}" ToolTip="戻る (Alt+←)" Margin="0,0,2,0">
+                                IsEnabled="{Binding Local.CanGoBack}"
+                                AutomationProperties.Name="ローカルの履歴を戻る"
+                                ToolTip="戻る (Alt+←)" Margin="0,0,2,0">
                             <TextBlock Text="◀" FontSize="11"/>
                         </Button>
                         <Button Style="{StaticResource IconButton}" Command="{Binding Local.GoForwardCommand}"
-                                IsEnabled="{Binding Local.CanGoForward}" ToolTip="進む (Alt+→)" Margin="0,0,2,0">
+                                IsEnabled="{Binding Local.CanGoForward}"
+                                AutomationProperties.Name="ローカルの履歴を進む"
+                                ToolTip="進む (Alt+→)" Margin="0,0,2,0">
                             <TextBlock Text="▶" FontSize="11"/>
                         </Button>
                         <Button Style="{StaticResource IconButton}" Command="{Binding Local.GoUpCommand}"
+                                AutomationProperties.Name="ローカルの親フォルダへ移動"
                                 ToolTip="親フォルダへ (Alt+↑ / BackSpace)" Margin="0,0,2,0">
                             <TextBlock Text="⬆" FontSize="12"/>
                         </Button>
                         <Button Style="{StaticResource IconButton}" Command="{Binding Local.RefreshCommand}"
+                                AutomationProperties.Name="ローカル一覧を再読み込み"
                                 ToolTip="再読み込み (F5)" Margin="0,0,8,0">
                             <TextBlock Text="⟳" FontSize="13"/>
                         </Button>
-                        <Button DockPanel.Dock="Right" Click="OnLocalGo" Content="移動" Margin="6,0,0,0" MinWidth="60"/>
+                        <Button DockPanel.Dock="Right" Click="OnLocalGo" Content="移動" Margin="6,0,0,0" MinWidth="60"
+                                AutomationProperties.Name="入力したローカルパスへ移動"/>
                         <Button DockPanel.Dock="Right" Click="OnLocalBrowse" Margin="6,0,0,0" MinWidth="40"
+                                AutomationProperties.Name="ローカルフォルダを参照"
                                 ToolTip="フォルダを参照 (エクスプローラ風のフォルダ選択ダイアログを開く)">
                             <TextBlock Text="📂"/>
                         </Button>
                         <TextBox Name="LocalPathBox"
                                  Text="{Binding Local.CurrentPath, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.Name="ローカルパス"
+                                 AutomationProperties.HelpText="Enter キーで入力したローカルフォルダへ移動します。"
                                  KeyDown="OnLocalPathKeyDown"
                                  GotKeyboardFocus="OnPathBoxGotKeyboardFocus"
                                  PreviewMouseLeftButtonDown="OnPathBoxPreviewMouseLeftButtonDown"/>
@@ -270,11 +317,14 @@
                             <TextBox x:Name="LocalFilterBox"
                                      Text="{Binding Local.FilterText, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,5,28,5"
+                                     AutomationProperties.Name="ローカル一覧の絞り込み"
+                                     AutomationProperties.HelpText="ファイル名またはフォルダ名の部分一致で一覧を絞り込みます。"
                                      ToolTip="この一覧を名前で絞り込み (部分一致)"/>
                             <Button Style="{StaticResource ClearFilterButton}"
                                     Content="×"
                                     Click="OnClearLocalFilter"
                                     Tag="{Binding Text, ElementName=LocalFilterBox}"
+                                    AutomationProperties.Name="ローカルの絞り込みをクリア"
                                     ToolTip="絞り込みをクリア"/>
                         </Grid>
                     </DockPanel>
@@ -287,6 +337,8 @@
                                   MouseDoubleClick="OnLocalDoubleClick"
                                   KeyDown="OnLocalListKeyDown"
                                   GridViewColumnHeader.Click="OnLocalHeaderClick"
+                                  AutomationProperties.Name="ローカルファイル一覧"
+                                  AutomationProperties.HelpText="複数選択できます。Enter で開き、F2 で名前変更、Delete で削除します。"
                                   BorderThickness="0,1,0,0">
                         <ListView.ContextMenu>
                             <ContextMenu>
@@ -296,6 +348,10 @@
                                 <Separator/>
                                 <MenuItem Header="リネーム..." InputGestureText="F2" Click="OnLocalContextRename"/>
                                 <MenuItem Header="削除" InputGestureText="Del" Click="OnLocalDelete"/>
+                                <MenuItem Header="削除時にWindowsごみ箱を使う"
+                                          IsCheckable="True"
+                                          IsChecked="{Binding Local.UseRecycleBinForDeletes, Mode=TwoWay}"
+                                          ToolTip="オフの場合は元に戻せない完全削除になります"/>
                                 <Separator/>
                                 <MenuItem Header="新規フォルダ..." Click="OnNewLocalFolder"/>
                                 <MenuItem Header="エクスプローラで表示" Command="{Binding Local.OpenInExplorerCommand}"/>
@@ -347,47 +403,212 @@
                 </DockPanel>
             </Border>
 
-            <GridSplitter Grid.Column="1" Width="14" Background="Transparent"/>
+            <GridSplitter Grid.Column="1" Width="14" Style="{StaticResource AccessiblePaneSplitter}"
+                          AutomationProperties.Name="ローカルとリモートのペイン幅を調整"
+                          AutomationProperties.HelpText="左右の矢印キーでペイン幅を変更できます。"/>
 
             <!-- Remote pane -->
-            <Border x:Name="RemotePane" Grid.Column="2" Style="{StaticResource Card}" Padding="0">
+            <Border x:Name="RemotePane" Grid.Column="2" Style="{StaticResource Card}" Padding="0"
+                    AutomationProperties.Name="リモートファイルペイン">
                 <DockPanel>
-                    <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0"
-                            Background="{StaticResource AccentSoftBrush}">
-                        <DockPanel LastChildFill="False">
+                    <Border DockPanel.Dock="Top" Style="{StaticResource AccessibleRemoteSectionHeader}" CornerRadius="6,6,0,0">
+                        <WrapPanel>
                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
                                 <TextBlock Text="⛩" FontSize="14" Margin="0,0,8,0" Foreground="{StaticResource AccentBrush}"/>
-                                <TextBlock Text="リモート" Style="{StaticResource H3}" Foreground="{StaticResource AccentDeepBrush}"/>
+                                <TextBlock Text="リモート" Style="{StaticResource AccessibleRemoteHeaderText}"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" Margin="20,0,0,0" VerticalAlignment="Center">
-                                <TextBlock Text="接続場所:" Style="{StaticResource Caption}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                <ComboBox ItemsSource="{Binding Remote.Locations}" SelectedItem="{Binding Remote.SelectedLocation}"
-                                          DisplayMemberPath="DisplayName" Width="240"/>
+                                <Label Content="接続場所:"
+                                       Target="{Binding ElementName=RemoteLocationBox}"
+                                       Style="{StaticResource FieldLabel}"
+                                       Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="RemoteLocationBox"
+                                          ItemsSource="{Binding Remote.Locations}" SelectedItem="{Binding Remote.SelectedLocation}"
+                                          DisplayMemberPath="DisplayName" Width="240" MinWidth="160"
+                                          AutomationProperties.Name="リモート接続場所"
+                                          AutomationProperties.HelpText="操作する共有フォルダを選択します。"/>
                             </StackPanel>
-                        </DockPanel>
+                        </WrapPanel>
                     </Border>
+
+                    <Expander DockPanel.Dock="Top" Margin="10,6,10,0"
+                              Header="★ お気に入り・最近使った場所"
+                              AutomationProperties.Name="リモートのお気に入りと最近使った場所"
+                              ToolTip="必要なときだけ展開して保存済みの場所へ移動します。">
+                        <Border Style="{StaticResource CardSubtle}" Margin="0,4,0,0" Padding="8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="6"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="お気に入り" Style="{StaticResource Muted}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1"
+                                          ItemsSource="{Binding Remote.FavoritePlaces}"
+                                          SelectedItem="{Binding Remote.SelectedFavorite}"
+                                          DisplayMemberPath="DisplayName"
+                                          IsEnabled="{Binding Remote.HasFavorites}"
+                                          MinWidth="140"
+                                          AutomationProperties.Name="リモートのお気に入り"/>
+                                <Button Grid.Row="0" Grid.Column="2" Content="移動" Margin="6,0,0,0"
+                                        Command="{Binding Remote.OpenSavedPlaceCommand}"
+                                        CommandParameter="{Binding Remote.SelectedFavorite}"
+                                        IsEnabled="{Binding Remote.HasSelectedFavorite}"
+                                        AutomationProperties.Name="選択したお気に入りへ移動"/>
+                                <Button Grid.Row="0" Grid.Column="3" Content="削除" Margin="4,0,0,0"
+                                        Command="{Binding Remote.RemoveFavoriteCommand}"
+                                        CommandParameter="{Binding Remote.SelectedFavorite}"
+                                        IsEnabled="{Binding Remote.HasSelectedFavorite}"
+                                        AutomationProperties.Name="選択したお気に入りを削除"/>
+                                <Button Grid.Row="0" Grid.Column="4" Content="☆ 現在地を追加" Margin="4,0,0,0"
+                                        Command="{Binding Remote.AddCurrentFavoriteCommand}"
+                                        IsEnabled="{Binding Remote.CanSaveCurrentPlace}"
+                                        AutomationProperties.Name="現在のリモート場所をお気に入りに追加"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="最近" Style="{StaticResource Muted}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <ComboBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3"
+                                          ItemsSource="{Binding Remote.RecentPlaces}"
+                                          SelectedItem="{Binding Remote.SelectedRecent}"
+                                          DisplayMemberPath="DisplayName"
+                                          IsEnabled="{Binding Remote.HasRecentPlaces}"
+                                          MinWidth="140"
+                                          AutomationProperties.Name="最近使ったリモート場所"/>
+                                <Button Grid.Row="2" Grid.Column="4" Content="移動" Margin="4,0,0,0"
+                                        Command="{Binding Remote.OpenSavedPlaceCommand}"
+                                        CommandParameter="{Binding Remote.SelectedRecent}"
+                                        IsEnabled="{Binding Remote.HasSelectedRecent}"
+                                        AutomationProperties.Name="選択した最近使った場所へ移動"/>
+                            </Grid>
+                        </Border>
+                    </Expander>
+
+                    <Expander DockPanel.Dock="Top" Margin="10,6,10,0"
+                              Header="🔎 権限内の場所を横断検索"
+                              AutomationProperties.Name="権限内リモート横断検索"
+                              ToolTip="現在有効な読み取り権限の範囲だけを検索します。">
+                        <Border Style="{StaticResource CardSubtle}" Margin="0,4,0,0" Padding="8">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid Grid.Row="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0"
+                                             Text="{Binding Remote.SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.Name="リモート横断検索語"
+                                             AutomationProperties.HelpText="2文字以上のファイル名またはフォルダー名を入力します。"
+                                             ToolTip="有効な読み取り権限の全場所を名前の部分一致で検索">
+                                        <TextBox.InputBindings>
+                                            <KeyBinding Key="Enter" Command="{Binding Remote.SearchRemoteCommand}"/>
+                                        </TextBox.InputBindings>
+                                    </TextBox>
+                                    <Button Grid.Column="1" Content="検索" Margin="6,0,0,0"
+                                            Command="{Binding Remote.SearchRemoteCommand}"
+                                            IsEnabled="{Binding Remote.CanStartSearch}"
+                                            AutomationProperties.Name="権限内リモート検索を開始"/>
+                                    <Button Grid.Column="2" Content="取消" Margin="4,0,0,0"
+                                            Command="{Binding Remote.CancelSearchCommand}"
+                                            IsEnabled="{Binding Remote.CanCancelSearch}"
+                                            AutomationProperties.Name="リモート横断検索を取り消す"/>
+                                </Grid>
+                                <TextBlock Grid.Row="1" Text="{Binding Remote.SearchStatus}"
+                                           Style="{StaticResource Caption}" Margin="0,5,0,3"
+                                           TextWrapping="Wrap"
+                                           AutomationProperties.LiveSetting="Polite"/>
+                                <TextBlock Grid.Row="2"
+                                           Text="取消・時間上限はフォルダー間で反映されます。非常に大きい単一フォルダーは列挙完了後に停止します。"
+                                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                <Grid Grid.Row="3">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <ListView Grid.Row="0" MaxHeight="190"
+                                              ItemsSource="{Binding Remote.SearchResults}"
+                                              SelectedItem="{Binding Remote.SelectedSearchResult}"
+                                              MouseDoubleClick="OnRemoteSearchDoubleClick"
+                                              Visibility="{Binding Remote.HasSearchResults, Converter={StaticResource BoolToVis}}"
+                                              VirtualizingPanel.IsVirtualizing="True"
+                                              VirtualizingPanel.VirtualizationMode="Recycling"
+                                              ScrollViewer.CanContentScroll="True"
+                                              AutomationProperties.Name="リモート横断検索結果"
+                                              AutomationProperties.HelpText="ダブルクリックまたは場所を開くボタンで結果の親フォルダーへ移動します。">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Header="名前" DisplayMemberBinding="{Binding Name}" Width="190"/>
+                                                <GridViewColumn Header="場所" DisplayMemberBinding="{Binding LocationLabel}" Width="150"/>
+                                                <GridViewColumn Header="フォルダー" DisplayMemberBinding="{Binding ParentPath}" Width="260"/>
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
+                                        <Button Content="検索結果をさらに読み込む"
+                                                Command="{Binding Remote.LoadMoreSearchCommand}"
+                                                IsEnabled="{Binding Remote.CanLoadMoreSearch}"
+                                                AutomationProperties.Name="検索結果をさらに読み込む"/>
+                                        <Button Content="場所を開く" Margin="4,0,0,0"
+                                                Command="{Binding Remote.OpenSearchResultCommand}"
+                                                CommandParameter="{Binding Remote.SelectedSearchResult}"
+                                                IsEnabled="{Binding Remote.HasSelectedSearchResult}"
+                                                AutomationProperties.Name="選択した検索結果の場所を開く"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Expander>
 
                     <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
                         <Button Style="{StaticResource IconButton}" Command="{Binding Remote.GoBackCommand}"
-                                IsEnabled="{Binding Remote.CanGoBack}" ToolTip="戻る (Alt+←)" Margin="0,0,2,0">
+                                IsEnabled="{Binding Remote.CanGoBack}"
+                                AutomationProperties.Name="リモートの履歴を戻る"
+                                ToolTip="戻る (Alt+←)" Margin="0,0,2,0">
                             <TextBlock Text="◀" FontSize="11"/>
                         </Button>
                         <Button Style="{StaticResource IconButton}" Command="{Binding Remote.GoForwardCommand}"
-                                IsEnabled="{Binding Remote.CanGoForward}" ToolTip="進む (Alt+→)" Margin="0,0,2,0">
+                                IsEnabled="{Binding Remote.CanGoForward}"
+                                AutomationProperties.Name="リモートの履歴を進む"
+                                ToolTip="進む (Alt+→)" Margin="0,0,2,0">
                             <TextBlock Text="▶" FontSize="11"/>
                         </Button>
                         <Button Style="{StaticResource IconButton}" Command="{Binding Remote.GoUpCommand}"
-                                IsEnabled="{Binding Remote.CanGoUp}" ToolTip="親フォルダへ (Alt+↑ / BackSpace)" Margin="0,0,2,0">
+                                IsEnabled="{Binding Remote.CanGoUp}"
+                                AutomationProperties.Name="リモートの親フォルダへ移動"
+                                ToolTip="親フォルダへ (Alt+↑ / BackSpace)" Margin="0,0,2,0">
                             <TextBlock Text="⬆" FontSize="12"/>
                         </Button>
                         <Button Style="{StaticResource IconButton}" Command="{Binding Remote.RefreshCommand}"
+                                AutomationProperties.Name="リモート一覧を再読み込み"
                                 ToolTip="再読み込み (F5)" Margin="0,0,8,0">
                             <TextBlock Text="⟳" FontSize="13"/>
                         </Button>
+                        <Button Click="OnOpenRemoteTrash" Content="ごみ箱" Margin="0,0,8,0"
+                                AutomationProperties.Name="リモートごみ箱を開く"
+                                AutomationProperties.HelpText="削除したリモート項目の一覧、復元、管理者による完全削除を行います。"
+                                ToolTip="リモートごみ箱を開く"/>
                         <Button DockPanel.Dock="Right" Click="OnRemoteGo" Content="移動" Margin="6,0,0,0" MinWidth="60"
+                                AutomationProperties.Name="入力したリモートパスへ移動"
                                 IsEnabled="{Binding Remote.HasLocation}"/>
                         <TextBox Name="RemotePathBox"
                                  Text="{Binding Remote.CurrentPath, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.Name="リモートパス"
+                                 AutomationProperties.HelpText="Enter キーで入力したリモートフォルダへ移動します。"
                                  KeyDown="OnRemotePathKeyDown"
                                  GotKeyboardFocus="OnPathBoxGotKeyboardFocus"
                                  PreviewMouseLeftButtonDown="OnPathBoxPreviewMouseLeftButtonDown"
@@ -401,24 +622,36 @@
                                      Text="{Binding Remote.FilterText, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,5,28,5"
                                      IsEnabled="{Binding Remote.HasLocation}"
+                                     AutomationProperties.Name="リモート一覧の絞り込み"
+                                     AutomationProperties.HelpText="ファイル名またはフォルダ名の部分一致で一覧を絞り込みます。"
                                      ToolTip="この一覧を名前で絞り込み (部分一致)"/>
                             <Button Style="{StaticResource ClearFilterButton}"
                                     Content="×"
                                     Click="OnClearRemoteFilter"
                                     Tag="{Binding Text, ElementName=RemoteFilterBox}"
                                     IsEnabled="{Binding Remote.HasLocation}"
+                                    AutomationProperties.Name="リモートの絞り込みをクリア"
                                     ToolTip="絞り込みをクリア"/>
                         </Grid>
                     </DockPanel>
 
                     <Grid>
-                        <ListView x:Name="RemoteList"
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <ListView x:Name="RemoteList" Grid.Row="0"
                                   ItemsSource="{Binding Remote.Entries}"
                                   SelectedItem="{Binding Remote.Selected}"
                                   SelectionMode="Extended"
                                   MouseDoubleClick="OnRemoteDoubleClick"
                                   KeyDown="OnRemoteListKeyDown"
                                   GridViewColumnHeader.Click="OnRemoteHeaderClick"
+                                  AutomationProperties.Name="リモートファイル一覧"
+                                  AutomationProperties.HelpText="複数選択できます。Enter で開き、F2 で名前変更、Delete で削除します。"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
                                   BorderThickness="0,1,0,0">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
@@ -440,6 +673,8 @@
                                     <MenuItem Header="開く / 展開" Click="OnRemoteContextOpen"/>
                                     <Separator/>
                                     <MenuItem Header="ダウンロード" Click="OnRemoteContextDownload"/>
+                                    <MenuItem Header="別のフォルダーへコピー..." Click="OnRemoteContextCopy"
+                                              ToolTip="コピー元は残ります。移動機能はありません。"/>
                                     <Separator/>
                                     <MenuItem Header="リネーム..." InputGestureText="F2" Click="OnRemoteContextRename"/>
                                     <MenuItem Header="削除" InputGestureText="Del" Click="OnRemoteDelete"/>
@@ -471,17 +706,19 @@
                         </ListView>
 
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Grid.Row="0"
                                     Visibility="{Binding Remote.HasNoFilterMatches, Converter={StaticResource BoolToVis}}"
                                     Margin="20" IsHitTestVisible="False">
                             <TextBlock Text="🔍" FontSize="32" HorizontalAlignment="Center"
                                        Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
-                            <TextBlock Text="一致するファイルやフォルダがありません"
+                            <TextBlock Text="読み込み済みの範囲に一致する項目がありません"
                                        Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="絞り込み条件を変更してください"
+                            <TextBlock Text="条件を変更するか、続きがある場合はさらに読み込んでください"
                                        Style="{StaticResource Caption}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                         </StackPanel>
 
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Grid.Row="0"
                                     Visibility="{Binding Remote.IsFolderEmpty, Converter={StaticResource BoolToVis}}"
                                     Margin="20" IsHitTestVisible="False">
                             <TextBlock Text="📂" FontSize="32" HorizontalAlignment="Center"
@@ -492,6 +729,7 @@
 
                         <!-- Empty state: locations granted but no remote connection selected -->
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Grid.Row="0"
                                     Visibility="{Binding Remote.NeedsLocationSelection, Converter={StaticResource BoolToVis}}"
                                     Margin="20" IsHitTestVisible="False">
                             <TextBlock Text="未接続" FontSize="28" FontWeight="SemiBold"
@@ -503,6 +741,7 @@
 
                         <!-- Empty state: no locations granted -->
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Grid.Row="0"
                                     Visibility="{Binding Remote.HasNoLocations, Converter={StaticResource BoolToVis}}"
                                     Margin="20" IsHitTestVisible="False">
                             <TextBlock Text="⛩" FontSize="40" HorizontalAlignment="Center"
@@ -514,6 +753,24 @@
                                        TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0"
                                        MaxWidth="300"/>
                         </StackPanel>
+
+                        <Border Grid.Row="1" BorderThickness="0,1,0,0"
+                                BorderBrush="{StaticResource BorderBrush}" Padding="10,6">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="さらに読み込む" Margin="8,0,0,0"
+                                        Command="{Binding Remote.LoadMoreCommand}"
+                                        IsEnabled="{Binding Remote.HasMoreEntries}"
+                                        Visibility="{Binding Remote.HasMoreEntries, Converter={StaticResource BoolToVis}}"
+                                        AutomationProperties.Name="リモート一覧をさらに読み込む"/>
+                                <ProgressBar DockPanel.Dock="Right" Width="70" Height="4" Margin="8,0,0,0"
+                                             IsIndeterminate="True"
+                                             Visibility="{Binding Remote.IsLoadingMore, Converter={StaticResource BoolToVis}}"
+                                             AutomationProperties.Name="リモート一覧の追加読み込み中"/>
+                                <TextBlock Text="{Binding Remote.ListProgressText}" Style="{StaticResource Caption}"
+                                           VerticalAlignment="Center"
+                                           AutomationProperties.LiveSetting="Polite"/>
+                            </DockPanel>
+                        </Border>
                     </Grid>
                 </DockPanel>
             </Border>

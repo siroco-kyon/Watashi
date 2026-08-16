@@ -477,6 +477,9 @@
         <div class="code-wrap">
           <button class="copy" type="button">コピー</button>
           <pre><code>cd src\Watashi.Server
+dotnet run -- --bootstrap-admin
+<span class="cmt"># → Username とランダムな One-time password をこの端末にだけ表示して終了</span>
+<span class="cmt"># → 表示値を安全に控えたら通常起動する</span>
 dotnet run
 <span class="cmt"># → http://127.0.0.1:18080 で起動</span>
 <span class="cmt"># ASPNETCORE_ENVIRONMENT=Development は launchSettings.json で自動設定されるため、環境変数の手動指定は不要</span></code></pre>
@@ -490,8 +493,10 @@ dotnet run
 Invoke-RestMethod http://127.0.0.1:18080/health
 <span class="cmt"># → {"status":"ok","at":"..."}</span>
 
-<span class="cmt"># ログイン (admin / Admin123!@#)</span>
-$body = @{ username = 'admin'; password = 'Admin123!@#' } | ConvertTo-Json
+<span class="cmt"># ログイン (bootstrap で表示された資格情報)</span>
+$secure = Read-Host '表示された One-time password' -AsSecureString
+$password = [Net.NetworkCredential]::new('', $secure).Password
+$body = @{ username = 'admin'; password = $password } | ConvertTo-Json
 $login = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:18080/api/auth/login `
     -ContentType 'application/json' -Body $body
 $login.mustChangePassword   <span class="cmt"># → True (初回はパスワード変更が必要)</span>
@@ -499,13 +504,7 @@ $login.accessToken          <span class="cmt"># → JWT</span></code></pre>
         </div>
 
         <div class="callout warning">
-          <p><strong>PowerShell の <code>curl</code> に注意。</strong><code>curl</code> は <code>Invoke-WebRequest</code> のエイリアスなので、<code>curl -X POST -H ...</code> のような Unix 構文は通りません。Unix 系の例をそのまま使いたい場合は <code>curl.exe</code> と明示してください (Windows 10 以降に本物の curl が同梱されています)。</p>
-        </div>
-        <div class="code-wrap">
-          <button class="copy" type="button">コピー</button>
-          <pre><code>curl.exe -X POST http://127.0.0.1:18080/api/auth/login `
-    -H "Content-Type: application/json" `
-    -d '{\"username\":\"admin\",\"password\":\"Admin123!@#\"}'</code></pre>
+          <p><strong>PowerShell の <code>curl</code> に注意。</strong><code>curl</code> は <code>Invoke-WebRequest</code> のエイリアスです。上記の PowerShell ネイティブ例を使うか、Unix 構文を使う場合は <code>curl.exe</code> と明示してください。一時パスワードをコマンド履歴へ直接書かないでください。</p>
         </div>
 
         <h3>2-3. WPF クライアントを起動</h3>
@@ -515,7 +514,7 @@ $login.accessToken          <span class="cmt"># → JWT</span></code></pre>
 <span class="cmt"># 接続先と更新確認先は同梱の deployment.json で固定される。</span>
 <span class="cmt"># 開発機では serverUrl を http://127.0.0.1:18080 に書き換えてから起動する。</span>
 dotnet run
-<span class="cmt"># → ログイン: admin / Admin123!@# → パスワード変更画面 → メイン画面</span></code></pre>
+<span class="cmt"># → bootstrap の資格情報でログイン → パスワード変更画面 → メイン画面</span></code></pre>
         </div>
 
         <p>ホストが未登録ならリモートペインは空です。ホストの登録手順は <a href="ADMIN-GUIDE.md">ADMIN-GUIDE.md</a> を参照してください (実 CIFS サーバーが必要)。</p>
@@ -907,7 +906,17 @@ $rng.GetBytes($bytes)
 .\deploy\uninstall-service.ps1 -ServiceName Watashi.Server</code></pre>
         </div>
 
-        <div class="callout success">初回起動で <code>C:\ProgramData\Watashi\watashi.db</code> が自動生成され、<code>admin</code> / <code>Admin123!@#</code> でログインできるようになります。<strong>最初のログインで必ずパスワードを変更してください。</strong></div>
+        <div class="callout warning">固定の初期管理者パスワードはありません。サービスを停止し、サーバー端末で <code>Watashi.Server.exe --bootstrap-admin</code> を一度だけ明示実行してください。表示された一時パスワードは DB やログに平文保存されず、初回ログインで変更を強制されます。表示を失った場合は未ログインの間だけ再発行でき、初回ログイン後または有効な管理者が存在する場合は拒否されます。</div>
+        <div class="callout info">旧版の固定パスワードで作られた <code>admin</code> が未使用なら、サービス停止中に同じコマンドを実行するとランダムな一時パスワードへ置換され、旧値が無効になります。ログイン履歴のある運用中の管理者は変更されません。</div>
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>Stop-Service Watashi.Server
+Push-Location "C:\Program Files\Watashi\Server"
+.\Watashi.Server.exe --bootstrap-admin
+<span class="cmt"># Username / One-time password を安全に控える</span>
+Pop-Location
+Start-Service Watashi.Server</code></pre>
+        </div>
 
         <h3>4-5. Server <code>appsettings.json</code> キー一覧</h3>
         <div class="table-wrap">
@@ -1333,7 +1342,8 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
         <div class="table-wrap">
           <table class="check">
             <tbody>
-              <tr><td>☐</td><td><strong>admin の初期パスワードを変更した</strong> (seed admin <code>admin</code> / <code>Admin123!@#</code> はパスワード付きで作られる。この 1 アカウントだけは必ず手動変更)</td></tr>
+              <tr><td>☐</td><td>サーバー端末で <code>Watashi.Server.exe --bootstrap-admin</code> を一度だけ実行し、表示された一時資格情報をファイル・チケット・チャット・リポジトリへ保存せず安全に受け渡した</td></tr>
+              <tr><td>☐</td><td><strong>bootstrap 管理者で初回ログインし、一時パスワードを本番用の固有パスワードへ変更した</strong></td></tr>
               <tr><td>☐</td><td>(任意) Windows 統合認証を有効化して初期パスワードの配布を廃止した (<a href="../deploy/IIS-HOSTING.md">IIS-HOSTING.md</a>)。未設定なら管理者が「初期PW発行」で配布する運用のまま</td></tr>
               <tr><td>☐</td><td>複数の独立ドメインを許可する場合、GID が全許可ドメインを通して一意か確認した (同名 GID があり得るなら管理者発行の初期 PW 経路を使う)</td></tr>
               <tr><td>☐</td><td>既存 DB をアップグレードする場合、大文字小文字だけが異なる重複ユーザー (例: <code>alice</code> / <code>ALICE</code>) がないことを確認した</td></tr>
@@ -1510,7 +1520,7 @@ try { $b = [Convert]::FromBase64String($key); "OK: $($b.Length) bytes" } catch {
               <tr><td>ファイル一覧が空 / 403</td><td>① ユーザー権限が登録されているか (管理画面 → ユーザー権限)。② AllowedPath とリクエストパスの関係。③ CIFS 資格情報 (管理画面 → ホスト → 接続テスト)</td></tr>
               <tr><td>操作が遅い / SMB ハンドシェイクが頻発</td><td><code>Cifs:SessionIdleSeconds</code> を伸ばす (60 → 120)。<code>Cifs:MaxSessionsPerKey</code> を増やす (4 → 8)</td></tr>
               <tr><td>「リネームでは親ディレクトリを変更できません」</td><td>仕様。同一フォルダ内でのリネームのみ許可し、フォルダ間の移動は禁止 (DELETE 権限の抜け穴対策)</td></tr>
-              <tr><td>転送中にキャンセルしたい</td><td>現状クライアントから明示的なキャンセルボタンは未実装。アプリ終了で接続が切断される</td></tr>
+              <tr><td>転送中にキャンセルしたい</td><td>転送センターから個別/全体キャンセル、一時停止、失敗項目の再試行が可能。キューは再起動後も復元される</td></tr>
             </tbody>
           </table>
         </div>

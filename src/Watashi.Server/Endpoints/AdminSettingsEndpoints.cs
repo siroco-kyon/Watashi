@@ -60,6 +60,16 @@ public static class AdminSettingsEndpoints
 
     internal static string? ValidateSetting(string key, string? value)
     {
+        if (key == SettingKeys.TrashCapacityBytes)
+        {
+            const long maxCapacityBytes = 1024L * 1024 * 1024 * 1024 * 1024; // 1 PiB
+            if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var capacity))
+                return $"{key} は整数で指定してください。";
+            if (capacity < 0 || capacity > maxCapacityBytes)
+                return $"{key} は 0 以上 {maxCapacityBytes} 以下で指定してください。";
+            return null;
+        }
+
         var range = key switch
         {
             SettingKeys.PasswordExpiryDays => (Min: 1, Max: 36_500),
@@ -68,6 +78,9 @@ public static class AdminSettingsEndpoints
             SettingKeys.SessionIdleMinutes => (Min: 1, Max: 525_600),
             SettingKeys.AuditLogRetentionDays => (Min: 0, Max: 365_000),
             SettingKeys.MaxFailedLoginAttempts => (Min: 1, Max: 100_000),
+            SettingKeys.PasswordSetupExpiryDays => (Min: 0, Max: 36_500),
+            SettingKeys.TrashRetentionDays => (Min: 1, Max: 3_650),
+            SettingKeys.TrustedDeviceLimit => (Min: 1, Max: 20),
             _ => ((int Min, int Max)?)null,
         };
 

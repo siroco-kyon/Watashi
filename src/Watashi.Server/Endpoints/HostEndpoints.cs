@@ -16,9 +16,11 @@ public static class HostEndpoints
         group.MapGet("/", async (AppDbContext db, ClaimsPrincipal principal, CancellationToken ct) =>
         {
             if (!principal.TryGetUserId(out var userId)) return Results.Unauthorized();
+            var activePermissions = db.UserPermissions.AsNoTracking()
+                .Where(UserPermissionRules.ActiveAt(DateTime.UtcNow));
 
             var hosts = await (
-                from p in db.UserPermissions.AsNoTracking()
+                from p in activePermissions
                 join s in db.CifsShares on p.ShareId equals s.Id
                 join h in db.CifsHosts on s.HostId equals h.Id
                 where p.UserId == userId
@@ -30,9 +32,11 @@ public static class HostEndpoints
         group.MapGet("/{hostId:int}/shares", async (int hostId, AppDbContext db, ClaimsPrincipal principal, CancellationToken ct) =>
         {
             if (!principal.TryGetUserId(out var userId)) return Results.Unauthorized();
+            var activePermissions = db.UserPermissions.AsNoTracking()
+                .Where(UserPermissionRules.ActiveAt(DateTime.UtcNow));
 
             var shares = await (
-                from p in db.UserPermissions.AsNoTracking()
+                from p in activePermissions
                 join s in db.CifsShares on p.ShareId equals s.Id
                 where p.UserId == userId && s.HostId == hostId
                 select new { s.Id, s.ShareName, s.DisplayName }
@@ -55,8 +59,10 @@ public static class HostEndpoints
             if (!principal.TryGetUserId(out var userId)) return Results.Unauthorized();
 
             var allLocations = await perms.GetUserLocationsAsync(userId, ct: ct);
+            var activePermissions = db.UserPermissions.AsNoTracking()
+                .Where(UserPermissionRules.ActiveAt(DateTime.UtcNow));
             var hostMeta = await (
-                from p in db.UserPermissions.AsNoTracking()
+                from p in activePermissions
                 join s in db.CifsShares on p.ShareId equals s.Id
                 join h in db.CifsHosts on s.HostId equals h.Id
                 where p.UserId == userId

@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Watashi.Shared.DTOs.Admin;
 using Watashi.Shared.Models;
 
 namespace Watashi.Server.Data;
@@ -20,7 +21,10 @@ public class AppDbContext : DbContext
     public DbSet<PermissionBundle> PermissionBundles => Set<PermissionBundle>();
     public DbSet<PermissionBundleEntry> PermissionBundleEntries => Set<PermissionBundleEntry>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<AuditOutboxEntry> AuditOutboxEntries => Set<AuditOutboxEntry>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<UploadSession> UploadSessions => Set<UploadSession>();
+    public DbSet<RemoteTrashEntry> RemoteTrashEntries => Set<RemoteTrashEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -56,6 +60,9 @@ public class AppDbContext : DbContext
             // (PasswordSetup のコメント参照)。nullable 化はテーブル再構築を招くので行わない。
             b.Property(u => u.PasswordHash).IsRequired();
             b.Property(u => u.IsPasswordSetupPending).HasDefaultValue(false);
+            b.Property(u => u.IsDisabled).HasDefaultValue(false);
+            b.Property(u => u.DisabledReason).HasMaxLength(500);
+            b.Property(u => u.DisabledByUsername).HasMaxLength(256);
         });
 
         modelBuilder.Entity<SystemSetting>(b =>
@@ -67,7 +74,8 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<TrustedDevice>(b =>
         {
-            b.HasIndex(d => d.UserId).IsUnique();
+            b.HasIndex(d => d.UserId);
+            b.HasIndex(d => new { d.UserId, d.MachineName, d.WindowsUsername, d.IsRevoked });
             b.Property(d => d.MachineName).IsRequired();
             b.Property(d => d.WindowsUsername).IsRequired();
             b.Property(d => d.DeviceTokenHash).IsRequired();
@@ -125,6 +133,8 @@ public class AppDbContext : DbContext
         {
             b.HasIndex(p => new { p.UserId, p.ShareId });
             b.Property(p => p.AllowedPath).IsRequired();
+            b.Property(p => p.Reason).HasMaxLength(CreateUserPermissionRequest.MaxReasonLength);
+            b.Property(p => p.TicketNumber).HasMaxLength(CreateUserPermissionRequest.MaxTicketNumberLength);
             b.HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(p => p.Share).WithMany().HasForeignKey(p => p.ShareId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(p => p.Template).WithMany().HasForeignKey(p => p.TemplateId).OnDelete(DeleteBehavior.Restrict);
@@ -148,6 +158,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<AuditLog>(b =>
         {
+            b.HasIndex(l => l.EventId).IsUnique();
             b.HasIndex(l => l.Timestamp).IsDescending();
             b.HasIndex(l => l.UserId);
             b.HasIndex(l => l.HostId);
@@ -155,6 +166,66 @@ public class AppDbContext : DbContext
             b.Property(l => l.Operation).IsRequired();
             b.Property(l => l.Result).IsRequired();
             b.ToTable(t => t.HasCheckConstraint("CK_AuditLog_Result", "Result IN ('success', 'failure', 'warning')"));
+        });
+
+        modelBuilder.Entity<AuditOutboxEntry>(b =>
+        {
+            b.HasKey(e => e.EventId);
+            b.HasIndex(e => e.NextAttemptAt);
+            b.Property(e => e.PayloadJson).IsRequired();
+            b.Property(e => e.LastError).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<UploadSession>(b =>
+        {
+            b.HasKey(s => s.Id);
+            b.HasIndex(s => new { s.UserId, s.IdempotencyKeyHash }).IsUnique();
+            b.HasIndex(s => new { s.Status, s.ExpiresAt });
+            b.Property(s => s.TargetPath).IsRequired().HasMaxLength(4096);
+            b.Property(s => s.TempPath).IsRequired().HasMaxLength(4096);
+            b.Property(s => s.IdempotencyKeyHash).IsRequired().HasMaxLength(64);
+            b.Property(s => s.ExpectedSha256).IsRequired().HasMaxLength(64);
+            b.Property(s => s.Status).IsRequired().HasMaxLength(16);
+            b.Property(s => s.ErrorCode).HasMaxLength(64);
+            b.Property(s => s.CommittedETag).HasMaxLength(128);
+            b.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(s => s.Share).WithMany().HasForeignKey(s => s.ShareId).OnDelete(DeleteBehavior.Cascade);
+            b.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_UploadSession_Status",
+                    "Status IN ('active', 'committing', 'completed', 'cancelled', 'expired', 'failed')");
+                t.HasCheckConstraint("CK_UploadSession_Size", "TotalSize >= 0");
+                t.HasCheckConstraint("CK_UploadSession_Offset", "UploadedOffset >= 0 AND UploadedOffset <= TotalSize");
+            });
+        });
+
+        modelBuilder.Entity<RemoteTrashEntry>(b =>
+        {
+            b.HasKey(e => e.Id);
+            b.HasIndex(e => new { e.Status, e.ExpiresAt });
+            b.HasIndex(e => new { e.DeletedByUserId, e.Status, e.DeletedAt });
+            b.HasIndex(e => new { e.ShareId, e.Status, e.DeletedAt });
+            b.Property(e => e.DeletedByUsername).IsRequired().HasMaxLength(256);
+            b.Property(e => e.OriginalPath).IsRequired().HasMaxLength(4096);
+            b.Property(e => e.TrashPath).IsRequired().HasMaxLength(4096);
+            b.Property(e => e.ItemType).IsRequired().HasMaxLength(16);
+            b.Property(e => e.Status).IsRequired().HasMaxLength(16);
+            b.Property(e => e.ErrorCode).HasMaxLength(64);
+            b.Property(e => e.RestoredPath).HasMaxLength(4096);
+            b.HasOne(e => e.DeletedByUser).WithMany()
+                .HasForeignKey(e => e.DeletedByUserId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne<User>().WithMany()
+                .HasForeignKey(e => e.RestoredByUserId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne<User>().WithMany()
+                .HasForeignKey(e => e.PurgedByUserId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(e => e.Share).WithMany()
+                .HasForeignKey(e => e.ShareId).OnDelete(DeleteBehavior.Cascade);
+            b.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_RemoteTrashEntry_Status",
+                    "Status IN ('trashing', 'active', 'restoring', 'restored', 'purging', 'purged', 'failed')");
+                t.HasCheckConstraint("CK_RemoteTrashEntry_Size", "SizeBytes >= 0");
+            });
         });
     }
 }

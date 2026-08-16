@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace Watashi.Client.Controls;
 
@@ -70,6 +71,7 @@ public partial class PasswordRevealBox : UserControl
     private static void OnIsRevealedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not PasswordRevealBox self) return;
+        var keepToggleFocus = self.PartToggle.IsKeyboardFocusWithin;
         // 切り替え時に値を同期し、見えている側にフォーカスを移す。
         var pwd = self.Password;
         self._suppressSync = true;
@@ -80,7 +82,12 @@ public partial class PasswordRevealBox : UserControl
         }
         finally { self._suppressSync = false; }
 
-        if ((bool)e.NewValue)
+        if (keepToggleFocus)
+        {
+            // Space で切り替えたときはフォーカスをトグルに残し、連続操作と状態確認を可能にする。
+            self.Dispatcher.BeginInvoke(self.PartToggle.Focus, DispatcherPriority.Input);
+        }
+        else if ((bool)e.NewValue)
         {
             self.PartTextBox.Focus();
             self.PartTextBox.CaretIndex = self.PartTextBox.Text?.Length ?? 0;
@@ -89,6 +96,12 @@ public partial class PasswordRevealBox : UserControl
         {
             self.PartPasswordBox.Focus();
         }
+    }
+
+    private void OnRootGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        // Label.Target などが UserControl 自体へフォーカスした場合、実入力欄へ委譲する。
+        if (ReferenceEquals(e.OriginalSource, this)) FocusInput();
     }
 
     private void OnPasswordBoxChanged(object sender, RoutedEventArgs e)
@@ -117,7 +130,9 @@ public partial class PasswordRevealBox : UserControl
         finally { _suppressSync = false; }
     }
 
-    public new void Focus()
+    public new void Focus() => FocusInput();
+
+    private void FocusInput()
     {
         if (IsRevealed) PartTextBox.Focus();
         else PartPasswordBox.Focus();

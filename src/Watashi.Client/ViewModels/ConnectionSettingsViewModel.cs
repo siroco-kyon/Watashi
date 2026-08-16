@@ -28,6 +28,9 @@ public partial class ConnectionSettingsViewModel : ObservableObject
     /// <summary>配布設定の D&D 状態 (読み取り専用表示)。</summary>
     public string DragDropStatus => _settings.EnableDragDrop ? "有効" : "無効";
 
+    /// <summary>疎通結果とは独立した、接続先 URL に基づく暗号化診断。</summary>
+    public string TransportSecurityDiagnostic => _settings.TransportSecurityDiagnostic;
+
     [RelayCommand]
     private async Task TestConnection()
     {
@@ -41,7 +44,9 @@ public partial class ConnectionSettingsViewModel : ObservableObject
         {
             var http = _http.CreateClient("settings-test");
             using var res = await http.GetAsync(_settings.ServerUrl.TrimEnd('/') + "/health");
-            StatusMessage = res.IsSuccessStatusCode ? "✓ 接続できました。" : $"✗ HTTP {(int)res.StatusCode}";
+            StatusMessage = res.IsSuccessStatusCode
+                ? $"✓ 接続できました。\n{TransportSecurityDiagnostic}"
+                : $"✗ HTTP {(int)res.StatusCode}\n{TransportSecurityDiagnostic}";
         }
         catch (Exception ex) { StatusMessage = $"✗ {ex.Message}"; }
     }

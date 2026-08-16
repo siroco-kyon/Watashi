@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore Watashi.sln
+
+      - name: Build (warnings are errors)
+        run: dotnet build Watashi.sln --configuration Release --no-restore -warnaserror
+
+      - name: Test with coverage
+        run: >-
+          dotnet test tests/Watashi.Tests/Watashi.Tests.csproj
+          --configuration Release
+          --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults
+          --logger "trx;LogFileName=tests.trx"
+
+      - name: Enforce line coverage floor
+        shell: pwsh
+        run: |
+          $report = Get-ChildItem -Path TestResults -Recurse -Filter coverage.cobertura.xml |
+            Select-Object -First 1
+          if (-not $report) { throw "coverage.cobertura.xml was not produced." }
+          [xml]$coverage = Get-Content -LiteralPath $report.FullName
+          $rate = [double]::Parse(
+            $coverage.coverage.'line-rate',
+            [Globalization.CultureInfo]::InvariantCulture)
+          $percent = [Math]::Round($rate * 100, 2)
+          Write-Host "Line coverage: $percent%"
+          if ($percent -lt 50) { throw "Line coverage $percent% is below the 50% floor." }
+
+      - name: Check known vulnerable packages
+        shell: pwsh
+        run: |
+          $output = dotnet list Watashi.sln package --vulnerable --include-transitive 2>&1 |
+            Out-String
+          Write-Host $output
+          if ($LASTEXITCODE -ne 0) { throw "Package vulnerability query failed." }
+          if ($output -match 'following vulnerable packages') {
+            throw "A known vulnerable package was detected."
+          }

@@ -14,14 +14,17 @@ public partial class AdminShellViewModel : ObservableObject
     public NodeManagementViewModel Nodes { get; }
     public AuditLogViewModel Logs { get; }
     public SystemSettingsViewModel Settings { get; }
+    public OperationsViewModel Operations { get; }
 
     public AdminShellViewModel(
         UserManagementViewModel users, HostManagementViewModel hosts, ShareManagementViewModel shares,
         PermissionTemplateViewModel templates, UserPermissionViewModel perms, PermissionBundleViewModel bundles,
         DeviceManagementViewModel devices,
-        NodeManagementViewModel nodes, AuditLogViewModel logs, SystemSettingsViewModel settings)
+        NodeManagementViewModel nodes, AuditLogViewModel logs, SystemSettingsViewModel settings,
+        OperationsViewModel operations)
     {
         Users = users; Hosts = hosts; Shares = shares; Templates = templates;
         UserPermissions = perms; Bundles = bundles; Devices = devices; Nodes = nodes; Logs = logs; Settings = settings;
+        Operations = operations;
     }
 }

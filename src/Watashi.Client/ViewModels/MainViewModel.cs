@@ -25,6 +25,7 @@ public partial class MainViewModel : ObservableObject
     public LocalPaneViewModel Local { get; }
     public RemotePaneViewModel Remote { get; }
     public TransferViewModel Transfer { get; } = new();
+    public TransferQueueViewModel TransferQueue { get; }
 
     [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private string latestStatusMessage = string.Empty;
@@ -33,14 +34,27 @@ public partial class MainViewModel : ObservableObject
     private string? latestStatusSource;
     // 状態バーは一定時間で自動消去し、古いタイムスタンプが現在の操作のように残らないようにする。
     private readonly DispatcherTimer _statusClearTimer;
+    private readonly object _refreshDebounceLock = new();
+    private CancellationTokenSource? _remoteRefreshDebounce;
+    private CancellationTokenSource? _localRefreshDebounce;
     public bool IsAdmin => _session.IsAdmin;
     public string? Username => _session.Username;
     public string ProtocolLabel { get; }
+    public bool IsHttpConnection { get; }
+    public string HttpTransportWarning => AppSettings.HttpTransportWarning;
 
-    public MainViewModel(ApiClient api, SessionManager session, LocalPaneViewModel local, RemotePaneViewModel remote, AppSettings settings)
+    public MainViewModel(
+        ApiClient api,
+        SessionManager session,
+        LocalPaneViewModel local,
+        RemotePaneViewModel remote,
+        AppSettings settings,
+        TransferQueueViewModel transferQueue)
     {
-        _api = api; _session = session; Local = local; Remote = remote;
-        ProtocolLabel = settings.IsHttps ? "HTTPS" : "HTTP";
+        _api = api; _session = session; Local = local; Remote = remote; TransferQueue = transferQueue;
+        TransferQueue.JobCompleted += SchedulePaneRefresh;
+        ProtocolLabel = settings.IsHttps ? "HTTPS" : settings.IsHttp ? "HTTP" : "不明";
+        IsHttpConnection = settings.IsHttp;
         _statusClearTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
         _statusClearTimer.Tick += (_, _) =>
         {
@@ -58,6 +72,76 @@ public partial class MainViewModel : ObservableObject
             if (e.PropertyName == nameof(RemotePaneViewModel.StatusMessage))
                 PromoteStatus("リモート", Remote.StatusMessage);
         };
+    }
+
+    public Task InitializeTransferQueueAsync(CancellationToken ct = default)
+        => TransferQueue.InitializeAsync(ct);
+
+    public async ValueTask DisposeTransferQueueAsync()
+    {
+        CancellationTokenSource? remote;
+        CancellationTokenSource? local;
+        lock (_refreshDebounceLock)
+        {
+            remote = _remoteRefreshDebounce;
+            local = _localRefreshDebounce;
+            _remoteRefreshDebounce = null;
+            _localRefreshDebounce = null;
+        }
+        remote?.Cancel();
+        local?.Cancel();
+        remote?.Dispose();
+        local?.Dispose();
+        await TransferQueue.DisposeAsync();
+    }
+
+    private void SchedulePaneRefresh(string direction)
+    {
+        CancellationTokenSource current;
+        lock (_refreshDebounceLock)
+        {
+            if (direction == TransferDirections.Upload)
+            {
+                _remoteRefreshDebounce?.Cancel();
+                _remoteRefreshDebounce?.Dispose();
+                current = _remoteRefreshDebounce = new CancellationTokenSource();
+            }
+            else
+            {
+                _localRefreshDebounce?.Cancel();
+                _localRefreshDebounce?.Dispose();
+                current = _localRefreshDebounce = new CancellationTokenSource();
+            }
+        }
+        _ = RefreshPaneAfterQuietPeriodAsync(direction, current);
+    }
+
+    private async Task RefreshPaneAfterQuietPeriodAsync(string direction, CancellationTokenSource current)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(500), current.Token);
+            if (direction == TransferDirections.Upload)
+                await Remote.RefreshAsync();
+            else
+                await Local.RefreshAsync();
+        }
+        catch (OperationCanceledException) when (current.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            ShowErrorBanner("転送完了後の一覧更新に失敗しました: " + ex.Message, ex);
+        }
+        finally
+        {
+            lock (_refreshDebounceLock)
+            {
+                if (direction == TransferDirections.Upload && ReferenceEquals(_remoteRefreshDebounce, current))
+                    _remoteRefreshDebounce = null;
+                else if (direction == TransferDirections.Download && ReferenceEquals(_localRefreshDebounce, current))
+                    _localRefreshDebounce = null;
+            }
+            current.Dispose();
+        }
     }
 
     partial void OnStatusMessageChanged(string value) => PromoteStatus("操作", value);
@@ -210,12 +294,13 @@ public partial class MainViewModel : ObservableObject
 
                 var prompt = existing is null
                     ? $"フォルダ \"{Local.Selected.Name}\" をフォルダごとアップロードしますか？"
-                    : $"リモートに同名フォルダがあります。\nフォルダを結合し、同名ファイルは上書きしてアップロードしますか？";
+                    : $"リモートに同名フォルダがあります。\nフォルダを結合してアップロードしますか？";
                 if (MessageBox.Show(prompt, "フォルダアップロード", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+                var conflictPolicy = Views.TransferConflictDialog.Show(Application.Current?.MainWindow);
+                if (conflictPolicy is null) return;
 
-                await UploadDirectoryAsync(di, remote, location.HostId, location.ShareId);
-                await Remote.RefreshAsync();
-                StatusMessage = $"フォルダアップロード完了: {Local.Selected.Name}";
+                await UploadDirectoryAsync(di, remote, location.HostId, location.ShareId, conflictPolicy);
+                StatusMessage = $"転送キューに追加しました: {Local.Selected.Name}";
                 return;
             }
 
@@ -229,19 +314,14 @@ public partial class MainViewModel : ObservableObject
                 StatusMessage = "アップロード失敗: リモートに同名フォルダがあるためファイルで上書きできません。";
                 return;
             }
-            if (remoteEntry is not null)
-            {
-                var overwrite = MessageBox.Show(
-                    $"{Local.Selected.Name} はリモートに既に存在します。上書きしますか？",
-                    "アップロード",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                if (overwrite != MessageBoxResult.Yes) return;
-            }
+            var policy = remoteEntry is null
+                ? TransferConflictPolicies.Ask
+                : Views.TransferConflictDialog.Show(Application.Current?.MainWindow);
+            if (policy is null) return;
 
-            await UploadFileAsync(fi, remote, baseTransferred: 0, totalBytes: fi.Length, location.HostId, location.ShareId);
-            await Remote.RefreshAsync();
-            StatusMessage = $"アップロード完了: {Local.Selected.Name}";
+            await UploadFileAsync(fi, remote, baseTransferred: 0, totalBytes: fi.Length,
+                location.HostId, location.ShareId, policy);
+            StatusMessage = $"転送キューに追加しました: {Local.Selected.Name}";
         }
         catch (OperationCanceledException) { StatusMessage = "アップロードをキャンセルしました。"; }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
@@ -276,13 +356,14 @@ public partial class MainViewModel : ObservableObject
             {
                 var exists = Directory.Exists(destination) || File.Exists(destination);
                 var prompt = exists
-                    ? $"ローカルに同名の項目があります。\nフォルダを結合し、同名ファイルは上書きしてダウンロードしますか？"
+                    ? $"ローカルに同名の項目があります。\nフォルダを結合してダウンロードしますか？"
                     : $"フォルダ \"{Remote.Selected.Name}\" をフォルダごとダウンロードしますか？";
                 if (MessageBox.Show(prompt, "フォルダダウンロード", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+                var conflictPolicy = Views.TransferConflictDialog.Show(Application.Current?.MainWindow);
+                if (conflictPolicy is null) return;
 
-                await DownloadDirectoryAsync(remotePath, destination, location.HostId, location.ShareId);
-                await Local.RefreshAsync();
-                StatusMessage = $"フォルダダウンロード完了: {Remote.Selected.Name}";
+                await DownloadDirectoryAsync(remotePath, destination, location.HostId, location.ShareId, conflictPolicy);
+                StatusMessage = $"転送キューに追加しました: {Remote.Selected.Name}";
                 return;
             }
 
@@ -292,19 +373,16 @@ public partial class MainViewModel : ObservableObject
                 StatusMessage = "ダウンロード失敗: ローカルに同名フォルダがあるためファイルで上書きできません。";
                 return;
             }
-            if (File.Exists(destination))
-            {
-                var overwrite = MessageBox.Show(
-                    $"{Remote.Selected.Name} はローカルフォルダに既に存在します。上書きしますか？",
-                    "ダウンロード",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                if (overwrite != MessageBoxResult.Yes) return;
-            }
+            var policy = File.Exists(destination)
+                ? Views.TransferConflictDialog.Show(Application.Current?.MainWindow)
+                : TransferConflictPolicies.Ask;
+            if (policy is null) return;
 
-            await DownloadFileAsync(remotePath, destination, baseTransferred: 0, totalBytes: Remote.Selected.Size ?? 0, location.HostId, location.ShareId);
-            await Local.RefreshAsync();
-            StatusMessage = $"ダウンロード完了: {Remote.Selected.Name}";
+            var selectedSize = Remote.Selected.Size ?? 0;
+            await DownloadFileAsync(remotePath, destination, expectedFileSize: selectedSize,
+                baseTransferred: 0, aggregateTotalBytes: selectedSize,
+                location.HostId, location.ShareId, policy);
+            StatusMessage = $"転送キューに追加しました: {Remote.Selected.Name}";
         }
         catch (OperationCanceledException) { StatusMessage = "ダウンロードをキャンセルしました。"; }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
@@ -317,7 +395,7 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>
     /// 複数選択された項目を一括アップロード。1 件以下なら従来の詳細プロンプト付き <see cref="UploadAsync"/> に委譲。
-    /// 2 件以上は冒頭で一度だけ確認し、同名は上書きで進める。
+    /// 2 件以上は冒頭で一度だけ確認し、競合方針を一括指定する。
     /// </summary>
     public async Task UploadManyAsync(IReadOnlyList<FileEntry>? items)
     {
@@ -328,8 +406,8 @@ public partial class MainViewModel : ObservableObject
         var paths = targets.Select(t => Path.Combine(Local.CurrentPath, t.Name)).ToList();
         await UploadLocalPathsAsync(
             paths,
-            confirmMessage: $"{targets.Count} 件をアップロードします。\nリモートの同名項目は上書きされます。よろしいですか？",
-            completedMessage: $"アップロード完了: {targets.Count} 件");
+            confirmMessage: $"{targets.Count} 件を転送キューへ追加します。よろしいですか？",
+            completedMessage: $"転送キューに追加しました: {targets.Count} 件");
     }
 
     /// <summary>
@@ -355,6 +433,8 @@ public partial class MainViewModel : ObservableObject
         var location = Remote.SelectedLocation;
         try
         {
+            var conflictPolicy = Views.TransferConflictDialog.Show(Application.Current?.MainWindow);
+            if (conflictPolicy is null) return;
             var remoteDirs = new List<string>();
             var files = new List<(FileInfo File, string RemotePath)>();
             foreach (var p in paths)
@@ -385,14 +465,11 @@ public partial class MainViewModel : ObservableObject
             foreach (var dir in remoteDirs.Distinct().OrderBy(x => x.Count(c => c == '/')))
                 await EnsureRemoteDirectoryAsync(dir, location.HostId, location.ShareId);
 
-            long completed = 0;
-            foreach (var item in files)
-            {
-                await UploadFileAsync(item.File, item.RemotePath, completed, Transfer.TotalBytes, location.HostId, location.ShareId);
-                completed += item.File.Length;
-                Transfer.BytesTransferred = completed;
-            }
-            await Remote.RefreshAsync();
+            await TransferQueue.EnqueueUploadsAsync(
+                files.Select(item => new UploadQueueRequest(
+                    item.File.FullName, location.HostId, location.ShareId,
+                    item.RemotePath, conflictPolicy)),
+                TransferToken);
             StatusMessage = completedMessage;
         }
         catch (OperationCanceledException) { StatusMessage = "アップロードをキャンセルしました。"; }
@@ -417,13 +494,15 @@ public partial class MainViewModel : ObservableObject
             return;
         }
         if (MessageBox.Show(
-                $"{targets.Count} 件をダウンロードします。\nローカルの同名項目は上書きされます。よろしいですか？",
+                $"{targets.Count} 件を転送キューへ追加します。よろしいですか？",
                 "ダウンロード", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         if (!TryBeginTransfer()) return;
 
         var location = Remote.SelectedLocation;
         try
         {
+            var conflictPolicy = Views.TransferConflictDialog.Show(Application.Current?.MainWindow);
+            if (conflictPolicy is null) return;
             var directories = new List<string>();
             var files = new List<RemoteDownloadItem>();
             var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -442,15 +521,12 @@ public partial class MainViewModel : ObservableObject
             Transfer.BytesTransferred = 0;
 
             foreach (var dir in directories) EnsureLocalDirectory(dir);
-            long completed = 0;
-            foreach (var item in files)
-            {
-                await DownloadFileAsync(item.RemotePath, item.LocalPath, completed, Transfer.TotalBytes, location.HostId, location.ShareId);
-                completed += item.Size;
-                Transfer.BytesTransferred = completed;
-            }
-            await Local.RefreshAsync();
-            StatusMessage = $"ダウンロード完了: {targets.Count} 件";
+            await TransferQueue.EnqueueDownloadsAsync(
+                files.Select(item => new DownloadQueueRequest(
+                    location.HostId, location.ShareId, item.RemotePath,
+                    item.LocalPath, item.Size, conflictPolicy)),
+                TransferToken);
+            StatusMessage = $"転送キューに追加しました: {targets.Count} 件";
         }
         catch (OperationCanceledException) { StatusMessage = "ダウンロードをキャンセルしました。"; }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden) { ReportOperationError("ダウンロード失敗: 読み取り権限がありません。", ex); }
@@ -458,7 +534,8 @@ public partial class MainViewModel : ObservableObject
         finally { EndTransfer(); }
     }
 
-    private async Task UploadDirectoryAsync(DirectoryInfo source, string remoteRoot, int hostId, int shareId)
+    private async Task UploadDirectoryAsync(
+        DirectoryInfo source, string remoteRoot, int hostId, int shareId, string conflictPolicy)
     {
         var files = source.EnumerateFiles("*", RecursiveLocalOptions)
             .Select(f => new LocalUploadItem(f, ToRemoteRelativePath(source.FullName, f.FullName)))
@@ -477,29 +554,28 @@ public partial class MainViewModel : ObservableObject
         foreach (var relativeDir in directories)
             await EnsureRemoteDirectoryAsync(JoinRemotePath(remoteRoot, relativeDir), hostId, shareId);
 
-        long completed = 0;
-        foreach (var item in files)
-        {
-            var remotePath = JoinRemotePath(remoteRoot, item.RelativePath);
-            await UploadFileAsync(item.File, remotePath, completed, Transfer.TotalBytes, hostId, shareId);
-            completed += item.File.Length;
-            Transfer.BytesTransferred = completed;
-        }
+        await TransferQueue.EnqueueUploadsAsync(
+            files.Select(item => new UploadQueueRequest(
+                item.File.FullName, hostId, shareId,
+                JoinRemotePath(remoteRoot, item.RelativePath), conflictPolicy)),
+            TransferToken);
     }
 
-    private async Task UploadFileAsync(FileInfo file, string remotePath, long baseTransferred, long totalBytes, int hostId, int shareId)
+    private async Task UploadFileAsync(
+        FileInfo file, string remotePath, long baseTransferred, long totalBytes,
+        int hostId, int shareId, string conflictPolicy)
     {
         Transfer.FileName = file.Name;
         Transfer.TotalBytes = totalBytes;
         Transfer.BytesTransferred = baseTransferred;
         Transfer.IsActive = true;
 
-        await using var fs = File.OpenRead(file.FullName);
-        var progress = new Progress<long>(b => Transfer.BytesTransferred = baseTransferred + b);
-        await _api.UploadAsync(hostId, shareId, remotePath, fs, file.Length, progress, TransferToken);
+        await TransferQueue.EnqueueUploadAsync(
+            file.FullName, hostId, shareId, remotePath, conflictPolicy, TransferToken);
     }
 
-    private async Task DownloadDirectoryAsync(string remoteRoot, string localRoot, int hostId, int shareId)
+    private async Task DownloadDirectoryAsync(
+        string remoteRoot, string localRoot, int hostId, int shareId, string conflictPolicy)
     {
         var directories = new List<string>();
         var files = new List<RemoteDownloadItem>();
@@ -513,52 +589,27 @@ public partial class MainViewModel : ObservableObject
         foreach (var dir in directories)
             EnsureLocalDirectory(dir);
 
-        long completed = 0;
-        foreach (var item in files)
-        {
-            await DownloadFileAsync(item.RemotePath, item.LocalPath, completed, Transfer.TotalBytes, hostId, shareId);
-            completed += item.Size;
-            Transfer.BytesTransferred = completed;
-        }
+        await TransferQueue.EnqueueDownloadsAsync(
+            files.Select(item => new DownloadQueueRequest(
+                hostId, shareId, item.RemotePath, item.LocalPath, item.Size, conflictPolicy)),
+            TransferToken);
     }
 
-    private async Task DownloadFileAsync(string remotePath, string destination, long baseTransferred, long totalBytes, int hostId, int shareId)
+    private async Task DownloadFileAsync(
+        string remotePath, string destination, long expectedFileSize,
+        long baseTransferred, long aggregateTotalBytes,
+        int hostId, int shareId, string conflictPolicy)
     {
         var parent = Path.GetDirectoryName(destination);
         if (!string.IsNullOrEmpty(parent)) EnsureLocalDirectory(parent);
 
         Transfer.FileName = Path.GetFileName(destination);
-        Transfer.TotalBytes = totalBytes;
+        Transfer.TotalBytes = aggregateTotalBytes;
         Transfer.BytesTransferred = baseTransferred;
         Transfer.IsActive = true;
 
-        var destinationPath = Path.GetFullPath(destination);
-        var destinationDirectory = Path.GetDirectoryName(destinationPath)
-            ?? throw new IOException("保存先フォルダを特定できません。");
-        var tempPath = Path.Combine(destinationDirectory,
-            $".{Path.GetFileName(destinationPath)}.{Guid.NewGuid():N}.watashi-part");
-        bool completed = false;
-        try
-        {
-            var progress = new Progress<long>(b => Transfer.BytesTransferred = baseTransferred + b);
-            await using (var fs = File.Create(tempPath))
-            {
-                await _api.DownloadAsync(hostId, shareId, remotePath, fs, progress, TransferToken);
-                await fs.FlushAsync(TransferToken);
-            }
-            if (File.Exists(destinationPath))
-                File.Replace(tempPath, destinationPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            else
-                File.Move(tempPath, destinationPath);
-            completed = true;
-        }
-        finally
-        {
-            if (!completed)
-            {
-                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
-            }
-        }
+        await TransferQueue.EnqueueDownloadAsync(
+            hostId, shareId, remotePath, destination, expectedFileSize, conflictPolicy, TransferToken);
     }
 
     private async Task BuildDownloadPlanAsync(
@@ -595,7 +646,8 @@ public partial class MainViewModel : ObservableObject
 
     private void EnsureLocalDirectory(string path)
     {
-        if (File.Exists(path)) File.Delete(path);
+        if (File.Exists(path))
+            throw new IOException($"同名ファイルがあるためフォルダを作成できません: {path}");
         Directory.CreateDirectory(path);
     }
 

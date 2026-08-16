@@ -178,6 +178,12 @@ public partial class App : Application
             {
                 cred.ClearDeviceToken();
             }
+            catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden && ex.Message == "account_disabled")
+            {
+                // 管理者が無効化した端末 token はサーバー側でも失効済み。次回起動時に
+                // 同じ無効な token で自動ログインを繰り返さないようローカル側も破棄する。
+                cred.ClearDeviceToken();
+            }
             catch
             {
                 // Network errors, server-side HTTP policy, and locked accounts should not erase a valid remembered device.
@@ -219,6 +225,7 @@ public partial class App : Application
         "password_changed" => "パスワードが変更されたため、セッションが無効になりました。",
         "token_reuse_detected" => "セキュリティ保護のため、全てのセッションを無効化しました。",
         "account_locked" => "アカウントがロックされています。管理者に連絡してください。",
+        "account_disabled" => "アカウントが無効化されています。管理者に連絡してください。",
         "device_revoked" => "この端末の登録が無効化されています。",
         _ => "セッションの有効期限が切れました。",
     };
@@ -291,6 +298,9 @@ public partial class App : Application
         MainWindow = w;
         w.Closed += async (_, _) =>
         {
+            // MainWindow側のasync cleanup（転送worker停止・queue lease解放）を待ってから
+            // 同じ利用者の次のMainWindowを生成する。
+            await w.CleanupCompleted;
             if (ReferenceEquals(MainWindow, w)) MainWindow = null;
             if (_logoutInProgress)
             {
@@ -407,6 +417,20 @@ public partial class App : Application
             UseDefaultCredentials = true,
         });
 
+        // 転送キューはWatashiユーザー単位で分離する。別アカウントへログインし直した際に、
+        // 前のユーザーのジョブを新しい権限で誤実行しないため、MainWindowごとに生成・破棄する。
+        services.AddTransient<TransferQueueStore>(sp =>
+        {
+            var userId = sp.GetRequiredService<SessionManager>().UserId
+                ?? throw new InvalidOperationException("転送キューはログイン後にだけ作成できます。");
+            return new TransferQueueStore(userId, settings.ServerUrl);
+        });
+        services.AddTransient<ITransferProtocol>(sp => sp.GetRequiredService<ApiClient>());
+        services.AddTransient<TransferQueueService>();
+        services.AddTransient<TransferQueueViewModel>();
+        services.AddTransient<TrustedDevicesViewModel>();
+        services.AddTransient<RemoteTrashViewModel>();
+
         services.AddTransient<ConnectionSettingsViewModel>();
         services.AddTransient<LoginViewModel>();
         services.AddTransient<ChangePasswordViewModel>();
@@ -420,6 +444,8 @@ public partial class App : Application
         services.AddTransient<ChangePasswordWindow>();
         services.AddTransient<InitialPasswordWindow>();
         services.AddTransient<MainWindow>();
+        services.AddTransient<Views.TrustedDevicesWindow>();
+        services.AddTransient<Views.RemoteTrashWindow>();
         services.AddTransient<Views.Admin.AdminWindow>();
 
         services.AddTransient<ViewModels.Admin.AdminShellViewModel>();
@@ -433,6 +459,7 @@ public partial class App : Application
         services.AddTransient<ViewModels.Admin.NodeManagementViewModel>();
         services.AddTransient<ViewModels.Admin.AuditLogViewModel>();
         services.AddTransient<ViewModels.Admin.SystemSettingsViewModel>();
+        services.AddTransient<ViewModels.Admin.OperationsViewModel>();
 
         var sp = services.BuildServiceProvider();
         var session = sp.GetRequiredService<SessionManager>();

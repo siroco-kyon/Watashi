@@ -3,17 +3,26 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctl="clr-namespace:Watashi.Client.Controls"
         Title="Watashi - ログイン"
-        Width="440" Height="500" MinWidth="400" MinHeight="460"
+        Width="440" Height="540" MinWidth="400" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
         Icon="{StaticResource ToriiIcon}"
-        Background="{StaticResource BgBrush}">
+        AutomationProperties.Name="Watashi ログイン"
+        KeyboardNavigation.TabNavigation="Cycle">
 
     <Grid>
         <!-- 上部の朱色アクセントバー -->
         <Rectangle VerticalAlignment="Top" Height="6" Fill="{StaticResource AccentBrush}"/>
 
-        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="340" Margin="0,30,0,0">
+        <!-- 文字サイズ 200% や低い画面でも操作欄を失わない。 -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Focusable="False"
+                      Margin="0,8,0,0">
+        <StackPanel VerticalAlignment="Center"
+                    HorizontalAlignment="Stretch"
+                    MaxWidth="340"
+                    Margin="30,24,30,20">
 
             <!-- Logo -->
             <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="0,0,0,18">
@@ -26,18 +35,47 @@
                            HorizontalAlignment="Center"/>
             </StackPanel>
 
+            <!-- HTTP は検証用途として許可するが、認証前からリスクを明示する。 -->
+            <Border Style="{StaticResource AccessibleWarningBanner}"
+                    CornerRadius="6"
+                    Padding="10,7"
+                    Margin="0,0,0,10"
+                    Visibility="{Binding IsHttpConnection, Converter={StaticResource BoolToVis}}"
+                    ToolTip="{Binding HttpTransportWarning}">
+                <TextBlock Style="{StaticResource AccessibleWarningText}"
+                           FontSize="{StaticResource FontSizeSm}"
+                           TextWrapping="Wrap"
+                           AutomationProperties.Name="HTTP 接続のセキュリティ警告"
+                           AutomationProperties.HelpText="{Binding HttpTransportWarning}">
+                    <Run Text="⚠ HTTP 接続: "/><Run Text="{Binding HttpTransportWarning, Mode=OneWay}"/>
+                </TextBlock>
+            </Border>
+
             <!-- Login card -->
             <Border Style="{StaticResource Card}" Padding="22">
                 <StackPanel>
-                    <TextBlock Text="ユーザー名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
+                    <Label Content="ユーザー名"
+                           Target="{Binding ElementName=UsernameBox}"
+                           Style="{StaticResource FieldLabel}"
+                           Margin="0,0,0,4"/>
+                    <TextBox x:Name="UsernameBox"
+                             Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.Name="ユーザー名"
+                             AutomationProperties.HelpText="Watashi のユーザー名を入力します。"
+                             Margin="0,0,0,12"/>
 
                     <!-- 2 段目。ID を確定するまではパスワードを訊かない。初回設定待ちのユーザーには
                          そもそもパスワードが無いため、先に ID で判定する必要がある。 -->
-                    <StackPanel Visibility="{Binding IsPasswordStep, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="パスワード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <StackPanel x:Name="PasswordStepPanel"
+                                Visibility="{Binding IsPasswordStep, Converter={StaticResource BoolToVis}}">
+                        <Label Content="パスワード"
+                               Target="{Binding ElementName=PasswordBox}"
+                               Style="{StaticResource FieldLabel}"
+                               Margin="0,0,0,4"/>
                         <ctl:PasswordRevealBox x:Name="PasswordBox"
                                                Password="{Binding Password, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                               AutomationProperties.Name="パスワード"
+                                               AutomationProperties.HelpText="Watashi のパスワードを入力します。Alt+P で表示を切り替えます。"
                                                Margin="0,0,0,10"/>
                     </StackPanel>
 
@@ -45,11 +83,26 @@
                               IsChecked="{Binding RememberDevice}"
                               IsEnabled="{Binding CanRemember}"
                               ToolTip="{Binding RememberTooltip}"
+                              AutomationProperties.Name="このPCを記憶する"
+                              AutomationProperties.HelpText="{Binding RememberTooltip}"
                               Margin="0,0,0,6"/>
 
-                    <TextBlock Text="{Binding StatusMessage}"
-                               Foreground="{StaticResource DangerBrush}"
+                    <TextBlock x:Name="LoginStatusLiveRegion"
+                               Text="{Binding StatusMessage}"
+                               Style="{StaticResource AccessibleErrorText}"
+                               AutomationProperties.Name="{Binding StatusMessage, StringFormat=ログイン状態: {0}}"
+                               AutomationProperties.LiveSetting="Assertive"
                                TextWrapping="Wrap" MinHeight="20" Margin="0,4,0,4"/>
+
+                    <Button Content="Windowsアカウントでログイン"
+                            Command="{Binding WindowsSsoLoginCommand}"
+                            Style="{StaticResource GhostButton}"
+                            Height="34"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource NotBool}}"
+                            ToolTip="{Binding WindowsSsoTooltip}"
+                            AutomationProperties.Name="Windowsアカウントでログイン"
+                            AutomationProperties.HelpText="{Binding WindowsSsoTooltip}"
+                            Margin="0,4,0,2"/>
 
                     <Button Content="次へ"
                             Command="{Binding ContinueCommand}"
@@ -59,6 +112,8 @@
                             IsDefault="{Binding IsEnteringUsername}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource NotBool}}"
                             Visibility="{Binding IsEnteringUsername, Converter={StaticResource BoolToVis}}"
+                            AutomationProperties.Name="次へ"
+                            AutomationProperties.HelpText="ユーザー名を確認してパスワード入力へ進みます。"
                             Margin="0,6,0,0"/>
 
                     <Button Content="ログイン"
@@ -69,13 +124,18 @@
                             IsDefault="{Binding IsPasswordStep}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource NotBool}}"
                             Visibility="{Binding IsPasswordStep, Converter={StaticResource BoolToVis}}"
+                            AutomationProperties.Name="ログイン"
+                            AutomationProperties.HelpText="入力したユーザー名とパスワードでログインします。"
                             Margin="0,6,0,0"/>
                 </StackPanel>
             </Border>
 
             <Button Content="接続テスト" Style="{StaticResource GhostButton}"
                     Click="OnConnectionTest"
+                    AutomationProperties.Name="接続テスト"
+                    AutomationProperties.HelpText="中央サーバーへの疎通と通信暗号化方式を確認します。"
                     HorizontalAlignment="Center" Margin="0,12,0,0"/>
         </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

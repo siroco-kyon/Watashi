@@ -39,6 +39,7 @@
             <TabItem Header="信頼デバイス">  <v:DeviceManagementView DataContext="{Binding Devices}"/></TabItem>
             <TabItem Header="実行ノード">    <v:NodeManagementView DataContext="{Binding Nodes}"/></TabItem>
             <TabItem Header="操作ログ">      <v:AuditLogView DataContext="{Binding Logs}"/></TabItem>
+            <TabItem Header="運用状態">      <v:OperationsView DataContext="{Binding Operations}"/></TabItem>
             <TabItem Header="システム設定">  <v:SystemSettingsView DataContext="{Binding Settings}"/></TabItem>
         </TabControl>
     </DockPanel>

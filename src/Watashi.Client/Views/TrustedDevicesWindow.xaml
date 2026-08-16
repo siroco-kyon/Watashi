@@ -1,0 +1,35 @@
+<Window x:Class="Watashi.Client.Views.TrustedDevicesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="信頼端末の管理" Width="820" Height="470" MinWidth="650" MinHeight="360"
+        WindowStartupLocation="CenterOwner" Icon="{StaticResource ToriiIcon}"
+        AutomationProperties.Name="信頼端末の管理">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="信頼端末の管理" Style="{StaticResource H2}"/>
+            <TextBlock Text="自動ログインを許可した端末を確認し、不要な端末を個別に失効できます。"
+                       Style="{StaticResource Muted}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding StatusMessage}" Margin="0,8,0,0" TextWrapping="Wrap"
+                       Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
+                       AutomationProperties.LiveSetting="Polite"/>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="再読み込み" Click="OnRefresh" Style="{StaticResource GhostButton}" Margin="0,0,8,0"/>
+            <Button Content="選択端末を失効" Click="OnRevoke" Style="{StaticResource DangerButton}"
+                    IsEnabled="{Binding HasSelection}" Margin="0,0,8,0"/>
+            <Button Content="閉じる" IsCancel="True" Style="{StaticResource GhostButton}"/>
+        </StackPanel>
+        <ListView ItemsSource="{Binding Devices}" SelectedItem="{Binding Selected}"
+                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="端末" DisplayMemberBinding="{Binding MachineName}" Width="170"/>
+                    <GridViewColumn Header="Windowsユーザー" DisplayMemberBinding="{Binding WindowsUsername}" Width="180"/>
+                    <GridViewColumn Header="登録日時" DisplayMemberBinding="{Binding RegisteredAt, Converter={StaticResource Utc}}" Width="145"/>
+                    <GridViewColumn Header="最終使用" DisplayMemberBinding="{Binding LastUsedAt, Converter={StaticResource Utc}}" Width="145"/>
+                    <GridViewColumn Header="失効" DisplayMemberBinding="{Binding IsRevoked}" Width="70"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </DockPanel>
+</Window>

@@ -20,7 +20,8 @@ public partial class UserManagementViewModel : AdminViewModelBase
         new("ユーザー名", nameof(UserDto.Username)),
         new("ID", nameof(UserDto.Id)),
         new("管理者", nameof(UserDto.IsAdmin), ListSortDirection.Descending),
-        new("ロック", nameof(UserDto.IsLocked), ListSortDirection.Descending),
+        new("状態", nameof(UserDto.AccountStatusLabel)),
+        new("無効日時", nameof(UserDto.DisabledAt), ListSortDirection.Descending),
         new("PW状態", nameof(UserDto.PasswordStatus)),
         new("PW期限", nameof(UserDto.PasswordExpiresAt)),
         new("最終ログイン", nameof(UserDto.LastLoginAt), ListSortDirection.Descending),
@@ -33,13 +34,17 @@ public partial class UserManagementViewModel : AdminViewModelBase
     [ObservableProperty] private bool editIsAdmin;
 
     public bool HasSelected => Selected is not null;
+    public bool CanDisableSelected => Selected is { IsDisabled: false };
+    public bool CanEnableSelected => Selected?.IsDisabled == true;
 
     public UserManagementViewModel(ApiClient api)
     {
         _api = api;
         ItemsView = CollectionViewSource.GetDefaultView(Items);
         ItemsView.Filter = item => item is UserDto u && MatchesSearch(
-            SearchText, u.Id, u.Username, u.IsAdmin ? "管理者 admin" : "一般 user", u.IsLocked ? "ロック locked" : "有効 active",
+            SearchText, u.Id, u.Username, u.IsAdmin ? "管理者 admin" : "一般 user",
+            u.AccountStatusLabel, u.IsDisabled ? "無効 disabled" : u.IsLocked ? "ロック locked" : "有効 active",
+            u.DisabledAt, u.DisabledReason, u.DisabledByUserId, u.DisabledByUsername,
             u.PasswordStatus, u.PasswordStatusLabel, u.PasswordExpiresAt, u.LastLoginAt);
         SelectedSortOption = SortOptions[0];
         ApplySort(ItemsView, SelectedSortOption);
@@ -52,6 +57,8 @@ public partial class UserManagementViewModel : AdminViewModelBase
     partial void OnSelectedChanged(UserDto? value)
     {
         OnPropertyChanged(nameof(HasSelected));
+        OnPropertyChanged(nameof(CanDisableSelected));
+        OnPropertyChanged(nameof(CanEnableSelected));
         EditIsAdmin = value?.IsAdmin ?? false;
     }
 
@@ -155,6 +162,20 @@ public partial class UserManagementViewModel : AdminViewModelBase
         await _api.UnlockUserAsync(Selected.Id);
         await RefreshAsync();
     }, successMessage: "ロック解除しました。");
+
+    public Task DisableAsync(string reason) => SafeAsync(async () =>
+    {
+        if (Selected is null) { StatusMessage = "無効化するユーザーを選択してください。"; return; }
+        await _api.DisableUserAsync(Selected.Id, reason);
+        await RefreshAsync();
+    }, successMessage: "ユーザーを無効化し、セッションと記憶済み端末を失効しました。");
+
+    public Task EnableAsync() => SafeAsync(async () =>
+    {
+        if (Selected is null) { StatusMessage = "再有効化するユーザーを選択してください。"; return; }
+        await _api.EnableUserAsync(Selected.Id);
+        await RefreshAsync();
+    }, successMessage: "ユーザーを再有効化しました。次回は通常のログインが必要です。");
 
     [RelayCommand]
     public Task ResetPasswordAsync(string newPw) => SafeAsync(async () =>

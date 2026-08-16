@@ -1,9 +1,11 @@
+using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using Watashi.Client.Accessibility;
 using Watashi.Client.Services;
 using Watashi.Client.ViewModels;
 using Watashi.Shared.Constants;
@@ -14,6 +16,9 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm;
     private readonly SessionManager _session;
+    private readonly TaskCompletionSource _cleanupCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public Task CleanupCompleted => _cleanupCompleted.Task;
 
     public MainWindow(MainViewModel vm, AppSettings settings, SessionManager session)
     {
@@ -23,7 +28,9 @@ public partial class MainWindow : Window
         DataContext = vm;
         InitializeDragDrop(settings);
         Loaded += OnLoaded;
+        Closed += OnClosed;
         StateChanged += OnWindowStateChanged;
+        _vm.PropertyChanged += OnViewModelPropertyChanged;
     }
 
     // 特定のマルチモニター環境で WindowState=Maximized にすると、ネイティブの
@@ -47,7 +54,44 @@ public partial class MainWindow : Window
     private async void OnLoaded(object? sender, RoutedEventArgs e)
     {
         Loaded -= OnLoaded;
+        await _vm.InitializeTransferQueueAsync();
         await _vm.Remote.LoadHostsAndLocationsAsync();
+        if (Keyboard.FocusedElement is null || ReferenceEquals(Keyboard.FocusedElement, this))
+            LocalList.Focus();
+    }
+
+    private async void OnClosed(object? sender, EventArgs e)
+    {
+        try
+        {
+            _vm.PropertyChanged -= OnViewModelPropertyChanged;
+            Closed -= OnClosed;
+            await _vm.DisposeTransferQueueAsync();
+        }
+        finally
+        {
+            _cleanupCompleted.TrySetResult();
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.ErrorMessage) &&
+            !string.IsNullOrWhiteSpace(_vm.ErrorMessage))
+            AutomationLiveRegion.Announce(MainErrorLiveRegion);
+        else if (e.PropertyName == nameof(MainViewModel.LatestStatusMessage) &&
+                 !string.IsNullOrWhiteSpace(_vm.LatestStatusMessage))
+            AutomationLiveRegion.Announce(MainStatusLiveRegion);
+    }
+
+    private void OnDismissError(object sender, RoutedEventArgs e)
+    {
+        _vm.DismissErrorCommand.Execute(null);
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_vm.Remote.HasLocation) RemoteList.Focus();
+            else LocalList.Focus();
+        }, System.Windows.Threading.DispatcherPriority.Input);
     }
 
     private void OnRefresh(object sender, RoutedEventArgs e)
@@ -138,6 +182,20 @@ public partial class MainWindow : Window
                         "バージョン情報", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    private void OnOpenTrustedDevices(object sender, RoutedEventArgs e)
+    {
+        var window = ((App)Application.Current).Services
+            .GetRequiredService<Views.TrustedDevicesWindow>();
+        window.Owner = this;
+        window.ShowDialog();
+    }
+
+    private void OnOpenTransferCenter(object sender, RoutedEventArgs e)
+    {
+        var window = new Views.TransferCenterWindow(_vm.TransferQueue) { Owner = this };
+        window.ShowDialog();
+    }
+
     private async void OnOpenAdmin(object sender, RoutedEventArgs e)
     {
         var sp = ((App)Application.Current).Services;
@@ -150,6 +208,19 @@ public partial class MainWindow : Window
 
     private void OnLocalDoubleClick(object sender, MouseButtonEventArgs e) => _vm.Local.OpenSelectedCommand.Execute(null);
     private void OnRemoteDoubleClick(object sender, MouseButtonEventArgs e) => _ = _vm.Remote.OpenSelectedAsync();
+    private void OnRemoteSearchDoubleClick(object sender, MouseButtonEventArgs e) =>
+        _ = _vm.Remote.OpenSearchResultAsync(_vm.Remote.SelectedSearchResult);
+
+    private async void OnOpenRemoteTrash(object sender, RoutedEventArgs e)
+    {
+        var sp = ((App)Application.Current).Services;
+        var window = sp.GetRequiredService<Views.RemoteTrashWindow>();
+        window.Owner = this;
+        var location = _vm.Remote.SelectedLocation;
+        await window.LoadAsync(location?.HostId, location?.ShareId);
+        window.ShowDialog();
+        await _vm.Remote.RefreshAsync();
+    }
 
     // ===== 列ヘッダクリックでソート =====
     private void OnLocalHeaderClick(object sender, RoutedEventArgs e)
@@ -279,8 +350,14 @@ public partial class MainWindow : Window
             return;
         }
         var kind = target.Type == FileEntryTypes.Directory ? "フォルダ" : "ファイル";
+        var action = _vm.Local.UseRecycleBinForDeletes
+            ? "Windowsのごみ箱へ移動"
+            : "完全に削除";
+        var warning = _vm.Local.UseRecycleBinForDeletes
+            ? "ごみ箱から復元できます。"
+            : "この操作は元に戻せません。";
         var ok = MessageBox.Show(
-            $"ローカルの{kind} \"{target.Name}\" を削除しますか？\nこの操作は元に戻せません。",
+            $"ローカルの{kind} \"{target.Name}\" を{action}しますか？\n{warning}",
             "削除確認", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (ok != MessageBoxResult.OK) return;
         await _vm.Local.DeleteSelectedAsync();
@@ -296,7 +373,7 @@ public partial class MainWindow : Window
         }
         var kind = target.Type == FileEntryTypes.Directory ? "フォルダ" : "ファイル";
         var ok = MessageBox.Show(
-            $"リモートの{kind} \"{target.Name}\" を削除しますか？\nこの操作は元に戻せません。",
+            $"リモートの{kind} \"{target.Name}\" をごみ箱へ移動しますか？\n保管期限まではリモートごみ箱から復元できます。",
             "削除確認", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (ok != MessageBoxResult.OK) return;
         await _vm.Remote.DeleteSelectedAsync();
@@ -344,6 +421,29 @@ public partial class MainWindow : Window
 
     private void OnRemoteContextDownload(object sender, RoutedEventArgs e)
         => _ = _vm.DownloadManyAsync(SelectedEntries(RemoteList));
+
+    private async void OnRemoteContextCopy(object sender, RoutedEventArgs e)
+    {
+        var entries = SelectedEntries(RemoteList);
+        if (entries.Count == 0)
+        {
+            _vm.Remote.StatusMessage = "コピー対象を選択してください。";
+            return;
+        }
+        var targetDirectory = Views.PromptDialog.Show(
+            "コピー先フォルダーの絶対パスを入力してください。\n同名項目がある場合は安全な別名でコピーします。コピー元は残ります。",
+            _vm.Remote.CurrentPath,
+            this);
+        if (targetDirectory is null) return;
+        var answer = MessageBox.Show(this,
+            $"{entries.Count:N0}件を「{targetDirectory}」へコピーします。\nコピー元は削除されません。続行しますか？",
+            "リモートコピーの確認",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question,
+            MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+        await _vm.Remote.CopyEntriesAsync(entries, targetDirectory);
+    }
 
     private async void OnRemoteContextRename(object sender, RoutedEventArgs e)
     {

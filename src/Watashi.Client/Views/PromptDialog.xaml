@@ -8,7 +8,7 @@
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Icon="{StaticResource ToriiIcon}"
-        Background="{StaticResource BgBrush}">
+        AutomationProperties.Name="入力ダイアログ">
     <Border Margin="14" Style="{StaticResource Card}">
         <Grid>
             <Grid.RowDefinitions>
@@ -17,10 +17,18 @@
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            <TextBlock x:Name="MessageLabel" Grid.Row="0" Margin="0,0,0,8" TextWrapping="Wrap"
-                       FontWeight="SemiBold"/>
-            <TextBox x:Name="InputBox" Grid.Row="1" Margin="0,0,0,8"/>
-            <ctl:PasswordRevealBox x:Name="PasswordInput" Grid.Row="1" Margin="0,0,0,8" Visibility="Collapsed"/>
+            <Label x:Name="MessageLabel" Grid.Row="0" Margin="0,0,0,8"
+                   Style="{StaticResource FieldLabel}" FontWeight="SemiBold">
+                <Label.ContentTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+                    </DataTemplate>
+                </Label.ContentTemplate>
+            </Label>
+            <TextBox x:Name="InputBox" Grid.Row="1" Margin="0,0,0,8"
+                     AutomationProperties.Name="入力値"/>
+            <ctl:PasswordRevealBox x:Name="PasswordInput" Grid.Row="1" Margin="0,0,0,8"
+                                   AutomationProperties.Name="パスワード" Visibility="Collapsed"/>
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="キャンセル" IsCancel="True" MinWidth="80" Margin="0,0,8,0"/>
                 <Button Content="OK" IsDefault="True" Click="OnOk" Style="{StaticResource PrimaryButton}" MinWidth="80"/>

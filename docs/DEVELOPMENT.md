@@ -70,24 +70,27 @@ Windows 統合認証の画面確認だけでなく、少なくとも「旧 401 �
 ## ローカル実行
 
 ```powershell
-# 1) サーバー起動 (launchSettings.json で ASPNETCORE_ENVIRONMENT=Development が自動設定される)
+# 1) 初回だけ bootstrap 管理者を発行
 cd src\Watashi.Server
+dotnet run -- --bootstrap-admin
+# → ランダムな一時パスワードをこの端末に一度だけ表示して終了。控えた値はコミットしない
+
+# 2) サーバー起動 (launchSettings.json で ASPNETCORE_ENVIRONMENT=Development が自動設定される)
 dotnet run
 
 # → http://127.0.0.1:18080  (HTTP)
 # → https://localhost:18443 (HTTPS, dev-cert 必要)
 # → watashi-dev.db が同ディレクトリに自動生成
-# → admin / Admin123!@# でログイン可 (初回パスワード変更必須)
 
-# 2) 別ウィンドウで疎通確認
+# 3) 別ウィンドウで疎通確認
 Invoke-RestMethod http://127.0.0.1:18080/health
 # → {"status":"ok", ...}
 
-# 3) クライアント起動
+# 4) クライアント起動
 cd ..\Watashi.Client
 # 接続先と更新確認先は同梱 deployment.json で固定。dev では serverUrl を http://127.0.0.1:18080 にしておく
 dotnet run
-# → ログイン画面 → admin でログイン → パスワード変更画面 → メイン画面
+# → ログイン画面 → bootstrap で表示された資格情報でログイン → パスワード変更画面 → メイン画面
 ```
 
 ---

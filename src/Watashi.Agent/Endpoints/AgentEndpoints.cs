@@ -18,6 +18,203 @@ public static class AgentEndpoints
         var group = app.MapGroup("/agent")
             .RequireAuthorization("CentralOrSharedSecret");
 
+        // Transfer v2 は v1 と別 URL に置き、既存クライアントの一括 download/upload 契約を維持する。
+        group.MapPost("/v2/files/metadata", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+            var info = req.ToInfo();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                var metadata = await Task.Run(() =>
+                    cifs.GetTransferMetadata(info, PathHelper.NormalizePath(req.Path), ct), ct);
+                return Results.Ok(metadata);
+            });
+        });
+
+        group.MapPost("/v2/files/ensure-temp", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+            var info = req.ToInfo();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                var metadata = await Task.Run(() =>
+                    cifs.EnsureTempFile(info, req.Path, ct), ct);
+                return Results.Ok(metadata);
+            });
+        });
+
+        group.MapPost("/v2/files/read", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentReadRangeRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+            var info = req.ToInfo();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                TransferV2Validation.ValidateReadRange(req.Offset, req.Length);
+                await using var stream = await Task.Run(() => cifs.OpenReadRange(
+                    info, PathHelper.NormalizePath(req.Path), req.Offset, req.Length, ct), ct);
+                var data = await ReadRangeStreamAsync(stream, checked((int)stream.Length), ct);
+                var checksum = TransferHashing.ComputeSha256Hex(data);
+                ctx.Response.ContentType = "application/octet-stream";
+                ctx.Response.ContentLength = data.Length;
+                ctx.Response.Headers[TransferV2Headers.ChunkSha256] = checksum;
+                await ctx.Response.Body.WriteAsync(data, ct);
+                return Results.Empty;
+            });
+        });
+
+        group.MapPost("/v2/files/write-chunk", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var meta = AgentChunkHeader.Extract(ctx);
+            if (meta is null) return Results.BadRequest(new { error = $"{AgentChunkHeader.HeaderName} ヘッダが必要です。" });
+            var info = meta.ToInfo();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                TransferV2Validation.ValidateChunk(meta.Offset, meta.Length);
+                var chunk = await ReadChunkBodyAsync(ctx.Request, meta.Length, ct);
+                var result = await Task.Run(() => cifs.WriteTempChunk(
+                    info, meta.Path, meta.Offset, chunk, ct), ct);
+                return Results.Ok(result);
+            });
+        });
+
+        group.MapPost("/v2/files/sha256", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+            var info = req.ToInfo();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                var result = await Task.Run(() =>
+                    cifs.ComputeSha256(info, PathHelper.NormalizePath(req.Path), ct), ct);
+                return Results.Ok(result);
+            });
+        });
+
+        group.MapPost("/v2/files/commit-temp", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentCommitTempRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+            var info = req.ToInfo();
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                await Task.Run(() => cifs.CommitTemp(
+                    info, req.TempPath, req.TargetPath, req.ReplaceIfExists, ct), ct);
+                return Results.NoContent();
+            });
+        });
+
+        // リモートごみ箱は通常 rename API と分離し、予約領域の厳格な検証を
+        // SMB に最も近い Agent でも必ず行う。
+        group.MapPost("/v2/trash/inspect", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                var result = await Task.Run(() =>
+                    cifs.InspectForTrash(req.ToInfo(), req.Path, ct), ct);
+                return Results.Ok(result);
+            });
+        });
+
+        group.MapPost("/v2/trash/move", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentTrashMoveRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                await Task.Run(() => cifs.MoveToTrash(
+                    req.ToInfo(), req.SourcePath, req.TrashPath, ct), ct);
+                return Results.NoContent();
+            });
+        });
+
+        group.MapPost("/v2/trash/restore", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentTrashRestoreRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                await Task.Run(() => cifs.RestoreFromTrash(
+                    req.ToInfo(), req.TrashPath, req.TargetPath, req.ReplaceIfExists, ct), ct);
+                return Results.NoContent();
+            });
+        });
+
+        group.MapPost("/v2/trash/purge", async (
+            CifsService cifs, ConcurrencyLimiter limiter,
+            IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
+        {
+            using var lease = limiter.TryEnter();
+            if (lease is null) { ctx.Response.Headers["Retry-After"] = "5"; return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+            if (TryGetForwardTarget(ctx, out var target))
+                return await ForwardToNextAgentAsync(ctx, http, target, ct);
+            var req = await ReadJsonAsync<AgentPathRequest>(ctx, ct);
+            if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
+            return await ExecuteCifsAsync(ctx, async () =>
+            {
+                await Task.Run(() => cifs.PurgeTrashItem(req.ToInfo(), req.Path, ct), ct);
+                return Results.NoContent();
+            });
+        });
+
         group.MapPost("/files/list", async (
             CifsService cifs, ConcurrencyLimiter limiter,
             IHttpClientFactory http, HttpContext ctx, CancellationToken ct) =>
@@ -31,7 +228,7 @@ public static class AgentEndpoints
             var info = req.ToInfo();
             return await ExecuteCifsAsync(ctx, async () =>
             {
-                var list = await Task.Run(() => cifs.List(info, PathHelper.NormalizePath(req.Path)), ct);
+                var list = await Task.Run(() => cifs.List(info, PathHelper.NormalizePath(req.Path), ct), ct);
                 return Results.Ok(list);
             });
         });
@@ -50,7 +247,7 @@ public static class AgentEndpoints
             return await ExecuteCifsAsync(ctx, async () =>
             {
                 ctx.Response.ContentType = "application/octet-stream";
-                await using var stream = cifs.OpenRead(info, PathHelper.NormalizePath(req.Path));
+                await using var stream = cifs.OpenRead(info, PathHelper.NormalizePath(req.Path), ct);
                 // Content-Length を返すと、中央サーバ経由でクライアントまでサイズが伝搬し、
                 // 進捗表示と途中切断の検知が確実になる。
                 try { ctx.Response.ContentLength = stream.Length; }
@@ -72,7 +269,7 @@ public static class AgentEndpoints
             var info = meta.ToInfo();
             return await ExecuteCifsAsync(ctx, async () =>
             {
-                await using var smb = cifs.OpenWrite(info, PathHelper.NormalizePath(meta.Path));
+                await using var smb = cifs.OpenWrite(info, PathHelper.NormalizePath(meta.Path), ct);
                 await ctx.Request.Body.CopyToAsync(smb, 4 * 1024 * 1024, ct);
                 return Results.NoContent();
             });
@@ -91,7 +288,7 @@ public static class AgentEndpoints
             var info = req.ToInfo();
             return await ExecuteCifsAsync(ctx, async () =>
             {
-                await Task.Run(() => cifs.Delete(info, PathHelper.NormalizePath(req.Path)), ct);
+                await Task.Run(() => cifs.Delete(info, PathHelper.NormalizePath(req.Path), ct), ct);
                 return Results.NoContent();
             });
         });
@@ -109,7 +306,7 @@ public static class AgentEndpoints
             var info = req.ToInfo();
             return await ExecuteCifsAsync(ctx, async () =>
             {
-                await Task.Run(() => cifs.Rename(info, PathHelper.NormalizePath(req.OldPath), PathHelper.NormalizePath(req.NewPath), req.ReplaceIfExists), ct);
+                await Task.Run(() => cifs.Rename(info, PathHelper.NormalizePath(req.OldPath), PathHelper.NormalizePath(req.NewPath), req.ReplaceIfExists, ct), ct);
                 return Results.NoContent();
             });
         });
@@ -127,7 +324,7 @@ public static class AgentEndpoints
             var info = req.ToInfo();
             return await ExecuteCifsAsync(ctx, async () =>
             {
-                await Task.Run(() => cifs.Mkdir(info, PathHelper.NormalizePath(req.Path)), ct);
+                await Task.Run(() => cifs.Mkdir(info, PathHelper.NormalizePath(req.Path), ct), ct);
                 return Results.NoContent();
             });
         });
@@ -183,6 +380,21 @@ public static class AgentEndpoints
             if (ctx.Response.HasStarted) { ctx.Abort(); return Results.Empty; }
             return ex switch
             {
+                TransferOffsetMismatchException mismatch =>
+                    Results.Conflict(new
+                    {
+                        error = mismatch.Message,
+                        expectedOffset = mismatch.ExpectedOffset,
+                        actualOffset = mismatch.ActualOffset,
+                    }),
+                TransferRangeNotSatisfiableException range =>
+                    Results.Problem(
+                        detail: range.Message,
+                        statusCode: StatusCodes.Status416RangeNotSatisfiable),
+                TransferReparsePointException reparse =>
+                    Results.Conflict(new { error = reparse.Message }),
+                ArgumentException or InvalidDataException =>
+                    Results.BadRequest(new { error = ex.Message }),
                 UnauthorizedAccessException or IOException =>
                     Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
                 _ => Results.Problem(detail: "内部エラーが発生しました。", statusCode: StatusCodes.Status500InternalServerError),
@@ -202,12 +414,63 @@ public static class AgentEndpoints
         }
     }
 
+    internal static async Task<byte[]> ReadChunkBodyAsync(
+        HttpRequest request,
+        int expectedLength,
+        CancellationToken ct)
+    {
+        TransferV2Validation.ValidateChunk(offset: 0, length: expectedLength);
+        if (request.ContentLength.HasValue && request.ContentLength.Value != expectedLength)
+            throw new InvalidDataException(
+                $"Content-Length が chunk length と一致しません (expected={expectedLength}, actual={request.ContentLength.Value})。");
+
+        var result = new byte[expectedLength];
+        var read = 0;
+        while (read < result.Length)
+        {
+            ct.ThrowIfCancellationRequested();
+            var count = await request.Body.ReadAsync(result.AsMemory(read), ct);
+            if (count == 0)
+                throw new InvalidDataException($"chunk body が途中で終了しました (expected={expectedLength}, actual={read})。");
+            read += count;
+        }
+
+        var extra = new byte[1];
+        if (await request.Body.ReadAsync(extra, ct) != 0)
+            throw new InvalidDataException($"chunk body が宣言長 {expectedLength} を超えています。");
+        return result;
+    }
+
+    internal static async Task<byte[]> ReadRangeStreamAsync(
+        Stream input,
+        int expectedLength,
+        CancellationToken ct)
+    {
+        if (expectedLength < 0 || expectedLength > TransferV2Limits.MaxChunkBytes)
+            throw new InvalidDataException("range stream の宣言長が不正です。");
+        var result = new byte[expectedLength];
+        var read = 0;
+        while (read < result.Length)
+        {
+            ct.ThrowIfCancellationRequested();
+            var count = await input.ReadAsync(result.AsMemory(read), ct);
+            if (count == 0)
+                throw new EndOfStreamException(
+                    $"range stream が途中で終了しました (expected={expectedLength}, actual={read})。");
+            read += count;
+        }
+        var extra = new byte[1];
+        if (await input.ReadAsync(extra, ct) != 0)
+            throw new InvalidDataException("range stream が宣言長を超えました。");
+        return result;
+    }
+
     private static async Task<IResult> TestConnectionAsync(HttpContext ctx, CifsService cifs, CancellationToken ct)
     {
         var req = await ReadJsonAsync<AgentTestRequest>(ctx, ct);
         if (req is null) return Results.BadRequest(new { error = "リクエスト body が必要です。" });
         var info = req.ToInfo();
-        var ok = await Task.Run(() => cifs.TestConnection(info), ct);
+        var ok = await Task.Run(() => cifs.TestConnection(info, ct), ct);
         return Results.Ok(new { ok });
     }
 
@@ -223,7 +486,13 @@ public static class AgentEndpoints
     {
         var path = ctx.Request.Path.Value ?? string.Empty;
         return path.EndsWith("/files/upload", StringComparison.OrdinalIgnoreCase) ||
-               path.EndsWith("/files/download", StringComparison.OrdinalIgnoreCase);
+               path.EndsWith("/files/download", StringComparison.OrdinalIgnoreCase) ||
+               path.EndsWith("/v2/files/read", StringComparison.OrdinalIgnoreCase) ||
+               path.EndsWith("/v2/files/write-chunk", StringComparison.OrdinalIgnoreCase) ||
+               path.EndsWith("/v2/files/sha256", StringComparison.OrdinalIgnoreCase) ||
+               path.EndsWith("/v2/files/ensure-temp", StringComparison.OrdinalIgnoreCase) ||
+               path.EndsWith("/v2/files/commit-temp", StringComparison.OrdinalIgnoreCase) ||
+               path.Contains("/v2/trash/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static TimeSpan GetFileTransferTimeout(HttpContext ctx)
@@ -323,10 +592,26 @@ public record AgentCifsBase
 
 public record AgentListRequest : AgentCifsBase { public string? Path { get; init; } }
 public record AgentPathRequest : AgentCifsBase { public string Path { get; init; } = "/"; }
+public record AgentReadRangeRequest : AgentPathRequest
+{
+    public long Offset { get; init; }
+    public int Length { get; init; }
+}
 public record AgentRenameRequest : AgentCifsBase
 {
     public string OldPath { get; init; } = "";
     public string NewPath { get; init; } = "";
+    public bool ReplaceIfExists { get; init; }
+}
+public record AgentTrashMoveRequest : AgentCifsBase
+{
+    public string SourcePath { get; init; } = "/";
+    public string TrashPath { get; init; } = "/";
+}
+public record AgentTrashRestoreRequest : AgentCifsBase
+{
+    public string TrashPath { get; init; } = "/";
+    public string TargetPath { get; init; } = "/";
     public bool ReplaceIfExists { get; init; }
 }
 public record AgentTestRequest : AgentCifsBase;
@@ -360,5 +645,36 @@ public record AgentUploadHeader : AgentCifsBase
         var payload = new AgentUploadHeader { Host = host, Port = port, Share = share, CredUser = user, CredPass = pass, Path = path };
         var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, JsonOpts);
         return Convert.ToBase64String(bytes);
+    }
+}
+public record AgentCommitTempRequest : AgentCifsBase
+{
+    public string TempPath { get; init; } = "";
+    public string TargetPath { get; init; } = "";
+    public bool ReplaceIfExists { get; init; }
+}
+
+/// <summary>Transfer v2 chunk body に対応する接続情報・offset・宣言長。</summary>
+public record AgentChunkHeader : AgentCifsBase
+{
+    public const string HeaderName = "X-Watashi-Cifs-V2";
+    public string Path { get; init; } = "/";
+    public long Offset { get; init; }
+    public int Length { get; init; }
+
+    private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
+
+    public static AgentChunkHeader? Extract(HttpContext ctx)
+    {
+        if (!ctx.Request.Headers.TryGetValue(HeaderName, out var raw)) return null;
+        try
+        {
+            var bytes = Convert.FromBase64String(raw.ToString());
+            return JsonSerializer.Deserialize<AgentChunkHeader>(bytes, JsonOpts);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

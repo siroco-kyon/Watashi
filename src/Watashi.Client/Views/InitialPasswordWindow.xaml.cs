@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Windows;
+using Watashi.Client.Accessibility;
 using Watashi.Client.ViewModels;
 using Watashi.Shared.DTOs.Auth;
 
@@ -18,5 +20,21 @@ public partial class InitialPasswordWindow : Window
         ViewModel = vm;
         DataContext = vm;
         vm.Completed += res => { Result = res; DialogResult = true; Close(); };
+        Loaded += (_, _) => NewP.Focus();
+        vm.PropertyChanged += OnViewModelPropertyChanged;
+        Closed += OnClosed;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(InitialPasswordViewModel.StatusMessage) &&
+            !string.IsNullOrWhiteSpace(ViewModel.StatusMessage))
+            AutomationLiveRegion.Announce(InitialPasswordStatusLiveRegion);
+    }
+
+    private void OnClosed(object? sender, EventArgs e)
+    {
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        Closed -= OnClosed;
     }
 }

@@ -3,16 +3,18 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Watashi.Shared.DTOs;
 using Watashi.Shared.DTOs.Admin;
 using Watashi.Shared.DTOs.Auth;
 using Watashi.Shared.DTOs.Files;
+using Watashi.Shared.Cifs;
 
 namespace Watashi.Client.Services;
 
-public class ApiClient
+public class ApiClient : ITransferProtocol
 {
     private static readonly HttpRequestOptionsKey<long> SessionGenerationKey =
         new("Watashi.SessionGeneration");
@@ -110,6 +112,15 @@ public class ApiClient
     /// <summary>Windows 統合認証用の名前付き HttpClient 名。</summary>
     public const string WindowsAuthClientName = "win-auth";
 
+    public async Task<LoginResponse> WindowsSsoLoginAsync(CancellationToken ct = default)
+    {
+        using var http = CreateWindowsAuthClient();
+        using var res = await http.PostAsJsonAsync("api/auth/win/sso", new { }, JsonOptions, ct);
+        await ThrowIfErrorAsync(res, ct, invalidateSessionOnUnauthorized: false);
+        return (await res.Content.ReadFromJsonAsync<LoginResponse>(JsonOptions, ct))
+            ?? throw new InvalidDataException("Windows SSO応答が空です。");
+    }
+
     public Task<LoginResponse> AutoLoginAsync(string machineName, string windowsUser, string deviceToken, CancellationToken ct = default) =>
         PostJsonAsync<LoginResponse>("api/auth/auto-login", new AutoLoginRequest { MachineName = machineName, WindowsUsername = windowsUser, DeviceToken = deviceToken }, anonymous: true, ct);
 
@@ -121,6 +132,12 @@ public class ApiClient
 
     public Task<TrustDeviceResponse> TrustDeviceAsync(string machineName, string windowsUser, CancellationToken ct = default) =>
         PostJsonAsync<TrustDeviceResponse>("api/auth/trust-device", new TrustDeviceRequest { MachineName = machineName, WindowsUsername = windowsUser }, anonymous: false, ct);
+
+    public Task<List<TrustedDeviceSelfDto>> GetMyTrustedDevicesAsync(CancellationToken ct = default)
+        => GetAsync<List<TrustedDeviceSelfDto>>("api/auth/devices", ct);
+
+    public Task RevokeMyTrustedDeviceAsync(int deviceId, CancellationToken ct = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/auth/devices/{deviceId}", null, ct);
 
     public Task LogoutAsync(string refreshTokenId, string refreshToken, CancellationToken ct = default) =>
         PostJsonNoContentAsync("api/auth/logout", new RefreshRequest { RefreshTokenId = refreshTokenId, RefreshToken = refreshToken }, ct);
@@ -143,6 +160,54 @@ public class ApiClient
         var qs = $"hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path)}&page={page}" + (sort is null ? "" : $"&sort={sort}");
         return GetAsync<FileListResponse>($"api/files?{qs}", ct);
     }
+
+    public Task<IncrementalFileListResponse> ListFilesIncrementalAsync(
+        int permissionId,
+        int hostId,
+        int shareId,
+        string path,
+        string? sort = null,
+        int limit = 200,
+        string? cursor = null,
+        CancellationToken ct = default)
+    {
+        var qs = string.IsNullOrWhiteSpace(cursor)
+            ? $"permissionId={permissionId}&hostId={hostId}&shareId={shareId}" +
+              $"&path={Uri.EscapeDataString(path)}&limit={limit}" +
+              (sort is null ? string.Empty : $"&sort={Uri.EscapeDataString(sort)}")
+            : $"cursor={Uri.EscapeDataString(cursor)}&limit={limit}";
+        return GetAsync<IncrementalFileListResponse>($"api/files/incremental?{qs}", ct);
+    }
+
+    public Task<RemoteSearchResponse> SearchRemoteAsync(
+        RemoteSearchRequest request,
+        CancellationToken ct = default)
+        => PostJsonAsync<RemoteSearchResponse>("api/files/search", request, ct: ct);
+
+    public Task<RemoteTrashListResponse> ListRemoteTrashAsync(
+        int? hostId = null,
+        int? shareId = null,
+        int page = 1,
+        int pageSize = 100,
+        CancellationToken ct = default)
+    {
+        var query = $"page={Math.Max(1, page)}&pageSize={Math.Clamp(pageSize, 1, 200)}";
+        if (hostId.HasValue) query += $"&hostId={hostId.Value}";
+        if (shareId.HasValue) query += $"&shareId={shareId.Value}";
+        return GetAsync<RemoteTrashListResponse>($"api/files/v2/trash?{query}", ct);
+    }
+
+    public Task<RestoreRemoteTrashResponse> RestoreRemoteTrashAsync(
+        Guid entryId,
+        string collisionPolicy,
+        CancellationToken ct = default)
+        => PostJsonAsync<RestoreRemoteTrashResponse>(
+            $"api/files/v2/trash/{entryId:D}/restore",
+            new RestoreRemoteTrashRequest { CollisionPolicy = collisionPolicy },
+            ct: ct);
+
+    public Task PurgeRemoteTrashAsync(Guid entryId, CancellationToken ct = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/files/v2/trash/{entryId:D}", null, ct);
 
     public async Task DownloadAsync(int hostId, int shareId, string path, Stream output, IProgress<long>? progress, CancellationToken ct = default)
     {
@@ -176,6 +241,154 @@ public class ApiClient
         await ThrowIfErrorAsync(res, req, ct);
     }
 
+    // === Resumable transfer v2 ===
+    public Task<UploadSessionDto> CreateUploadSessionAsync(
+        CreateUploadSessionRequest request,
+        CancellationToken ct = default)
+        => SendTransferJsonAsync<UploadSessionDto>(
+            HttpMethod.Post, "api/files/v2/uploads", request, ct);
+
+    public Task<UploadSessionDto> GetUploadSessionAsync(Guid sessionId, CancellationToken ct = default)
+        => SendTransferJsonAsync<UploadSessionDto>(
+            HttpMethod.Get, $"api/files/v2/uploads/{sessionId:D}", null, ct);
+
+    public async Task<UploadSessionDto> UploadChunkAsync(
+        Guid sessionId,
+        long offset,
+        byte[] buffer,
+        int count,
+        string chunkSha256,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(buffer);
+        if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset));
+        if (count <= 0 || count > buffer.Length) throw new ArgumentOutOfRangeException(nameof(count));
+        if (string.IsNullOrWhiteSpace(chunkSha256)) throw new ArgumentException("チャンクのSHA-256が必要です。", nameof(chunkSha256));
+
+        using var req = await CreateAuthedRequestAsync(
+            HttpMethod.Put,
+            $"api/files/v2/uploads/{sessionId:D}/chunks?offset={offset}",
+            ct);
+        req.Headers.TryAddWithoutValidation(TransferV2Headers.ChunkSha256, chunkSha256);
+        req.Content = new ByteArrayContent(buffer, 0, count);
+        req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        req.Content.Headers.ContentLength = count;
+        var http = _httpFactory.CreateClient("file-transfer");
+        using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        await ThrowIfErrorAsync(res, req, ct);
+        return (await res.Content.ReadFromJsonAsync<UploadSessionDto>(JsonOptions, ct))
+            ?? throw new InvalidDataException("アップロードセッション応答が空です。");
+    }
+
+    public Task<UploadSessionDto> CompleteUploadSessionAsync(Guid sessionId, CancellationToken ct = default)
+        => SendTransferJsonAsync<UploadSessionDto>(
+            HttpMethod.Post, $"api/files/v2/uploads/{sessionId:D}/complete", new { }, ct);
+
+    public async Task<UploadSessionDto> CancelUploadSessionAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Delete, $"api/files/v2/uploads/{sessionId:D}", ct);
+        var http = _httpFactory.CreateClient("file-transfer");
+        using var res = await http.SendAsync(req, ct);
+        await ThrowIfErrorAsync(res, req, ct);
+        return (await res.Content.ReadFromJsonAsync<UploadSessionDto>(JsonOptions, ct))
+            ?? throw new InvalidDataException("アップロードセッション応答が空です。");
+    }
+
+    public Task<TransferDownloadMetadataDto> GetDownloadMetadataV2Async(
+        int hostId,
+        int shareId,
+        string path,
+        CancellationToken ct = default)
+        => SendTransferJsonAsync<TransferDownloadMetadataDto>(
+            HttpMethod.Get,
+            $"api/files/v2/downloads/metadata?hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path)}",
+            null,
+            ct);
+
+    /// <summary>
+    /// ETag で元ファイルの世代を固定し、指定範囲を出力へ追記する。サーバーが宣言より短い本文を
+    /// 返した場合は再開位置を誤認しないよう失敗として扱う。
+    /// </summary>
+    public async Task DownloadRangeV2Async(
+        int hostId,
+        int shareId,
+        string path,
+        long offset,
+        int length,
+        string? etag,
+        Stream output,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset));
+        if (length <= 0) throw new ArgumentOutOfRangeException(nameof(length));
+
+        var url = $"api/files/v2/downloads/range?hostId={hostId}&shareId={shareId}" +
+                  $"&path={Uri.EscapeDataString(path)}&offset={offset}&length={length}";
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Get, url, ct);
+        if (!string.IsNullOrWhiteSpace(etag))
+            req.Headers.TryAddWithoutValidation("If-Match", etag);
+        var http = _httpFactory.CreateClient("file-transfer");
+        using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        await ThrowIfErrorAsync(res, req, ct);
+        if (res.StatusCode != HttpStatusCode.PartialContent)
+            throw new InvalidDataException($"範囲ダウンロード応答が不正です (HTTP {(int)res.StatusCode})。 ");
+        var contentRange = res.Content.Headers.ContentRange;
+        if (contentRange is null ||
+            !string.Equals(contentRange.Unit, "bytes", StringComparison.OrdinalIgnoreCase) ||
+            contentRange.From != offset ||
+            contentRange.To != offset + length - 1 ||
+            !contentRange.Length.HasValue ||
+            contentRange.Length.Value < offset + length)
+            throw new InvalidDataException("範囲ダウンロード応答の Content-Range が要求範囲と一致しません。");
+        if (string.IsNullOrWhiteSpace(etag) || res.Headers.ETag is null ||
+            !string.Equals(res.Headers.ETag.ToString(), etag, StringComparison.Ordinal))
+            throw new InvalidDataException("範囲ダウンロード応答の ETag がmetadata取得時と一致しません。");
+
+        if (!res.Headers.TryGetValues(TransferV2Headers.ChunkSha256, out var checksumValues) &&
+            !res.Content.Headers.TryGetValues(TransferV2Headers.ChunkSha256, out checksumValues))
+            throw new InvalidDataException(
+                $"範囲ダウンロード応答に {TransferV2Headers.ChunkSha256} がありません。");
+        var checksumItems = checksumValues.ToArray();
+        if (checksumItems.Length != 1)
+            throw new InvalidDataException("範囲ダウンロード応答のchecksum headerが不正です。");
+        string expectedChecksum;
+        try
+        {
+            expectedChecksum = TransferV2Validation.NormalizeSha256(checksumItems[0]);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new InvalidDataException("範囲ダウンロード応答のchecksum形式が不正です。", ex);
+        }
+        if (res.Content.Headers.ContentLength.HasValue &&
+            res.Content.Headers.ContentLength.Value != length)
+            throw new InvalidDataException(
+                $"範囲ダウンロード応答長が不正です (期待 {length} byte、宣言 {res.Content.Headers.ContentLength.Value} byte)。");
+
+        await using var input = await res.Content.ReadAsStreamAsync(ct);
+        // checksum検証前に出力へ書くと、失敗後の再開が破損chunkの末尾から始まる。
+        // range上限は8MiBなので、1 chunkだけをメモリに保持して検証成功後に確定する。
+        var chunk = new byte[length];
+        var received = 0;
+        while (received < chunk.Length)
+        {
+            var read = await input.ReadAsync(chunk.AsMemory(received), ct);
+            if (read == 0)
+                throw new EndOfStreamException($"範囲ダウンロードが途中で終了しました (期待 {length} byte)。");
+            received += read;
+        }
+        var extra = new byte[1];
+        if (await input.ReadAsync(extra, ct) != 0)
+            throw new InvalidDataException("範囲ダウンロードが要求サイズを超えました。");
+        var actualChecksum = TransferHashing.ComputeSha256Hex(chunk);
+        if (!CryptographicOperations.FixedTimeEquals(
+                Convert.FromHexString(actualChecksum),
+                Convert.FromHexString(expectedChecksum)))
+            throw new InvalidDataException("範囲ダウンロードの SHA-256 が一致しません。");
+        await output.WriteAsync(chunk, ct);
+    }
+
     public Task DeleteFileAsync(int hostId, int shareId, string path, CancellationToken ct = default)
     {
         var qs = $"hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path)}";
@@ -187,6 +400,9 @@ public class ApiClient
 
     public Task MkdirAsync(int hostId, int shareId, string path, CancellationToken ct = default) =>
         PostJsonNoContentAsync("api/files/mkdir", new MkdirRequest { HostId = hostId, ShareId = shareId, Path = path }, ct);
+
+    public Task<RemoteCopyResponse> CopyRemoteAsync(RemoteCopyRequest request, CancellationToken ct = default)
+        => SendTransferJsonAsync<RemoteCopyResponse>(HttpMethod.Post, "api/files/copy", request, ct);
 
     // === Admin ===
     public Task<List<UserDto>> GetUsersAsync(CancellationToken ct = default) => GetAsync<List<UserDto>>("api/admin/users", ct);
@@ -200,6 +416,10 @@ public class ApiClient
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/users/{id}", null, ct);
     public Task UnlockUserAsync(int id, CancellationToken ct = default) =>
         PostJsonNoContentAsync($"api/admin/users/{id}/unlock", new { }, ct);
+    public Task DisableUserAsync(int id, string reason, CancellationToken ct = default) =>
+        PostJsonNoContentAsync($"api/admin/users/{id}/disable", new DisableUserRequest { Reason = reason }, ct);
+    public Task EnableUserAsync(int id, CancellationToken ct = default) =>
+        PostJsonNoContentAsync($"api/admin/users/{id}/enable", new { }, ct);
     public Task ResetPasswordAsync(int id, ResetPasswordRequest req, CancellationToken ct = default) =>
         PostJsonNoContentAsync($"api/admin/users/{id}/reset-password", req, ct);
     /// <summary>パスワードを破棄し、本人による初回設定待ちへ戻す。</summary>
@@ -274,11 +494,21 @@ public class ApiClient
     public Task<List<UserPermissionDto>> GetUserPermissionsAsync(int? userId = null, CancellationToken ct = default) =>
         GetAsync<List<UserPermissionDto>>(userId is null ? "api/admin/user-permissions" : $"api/admin/user-permissions?userId={userId}", ct);
 
-    public async Task<int> CreateUserPermissionAsync(CreateUserPermissionRequest req, CancellationToken ct = default)
-        => (await PostJsonAsync<IdResponse>("api/admin/user-permissions", req, ct: ct)).Id;
+    public Task<UserPermissionMutationResultDto> CreateUserPermissionAsync(
+        CreateUserPermissionRequest req, CancellationToken ct = default)
+        => PostJsonAsync<UserPermissionMutationResultDto>("api/admin/user-permissions", req, ct: ct);
+
+    public Task<UserPermissionMutationResultDto> UpdateUserPermissionAsync(
+        int id, UpdateUserPermissionRequest req, CancellationToken ct = default)
+        => PatchJsonAsync<UserPermissionMutationResultDto>($"api/admin/user-permissions/{id}", req, ct);
 
     public Task DeleteUserPermissionAsync(int id, CancellationToken ct = default) =>
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/user-permissions/{id}", null, ct);
+
+    public Task<PermissionSimulationResponse> SimulatePermissionAsync(
+        int userId, int shareId, string path, CancellationToken ct = default)
+        => GetAsync<PermissionSimulationResponse>(
+            $"api/admin/user-permissions/simulate?userId={userId}&shareId={shareId}&path={Uri.EscapeDataString(path)}", ct);
 
     public Task<CopyUserPermissionsResult> CopyUserPermissionsAsync(CopyUserPermissionsRequest req, CancellationToken ct = default) =>
         PostJsonAsync<CopyUserPermissionsResult>("api/admin/user-permissions/copy", req, ct: ct);
@@ -313,24 +543,19 @@ public class ApiClient
     public Task PutSettingAsync(string key, string value, CancellationToken ct = default) =>
         SendNoContentAsync(HttpMethod.Put, $"api/admin/settings/{Uri.EscapeDataString(key)}", new { value }, ct);
 
-    public Task<AuditPage> GetLogsAsync(string? user = null, string? op = null, DateTime? from = null, DateTime? to = null, int page = 1, CancellationToken ct = default)
+    public Task<OperationalStatusDto> GetOperationalStatusAsync(CancellationToken ct = default) =>
+        GetAsync<OperationalStatusDto>("api/admin/operations/status", ct);
+
+    public Task<AuditLogPageDto> GetLogsAsync(AuditLogQueryDto query, CancellationToken ct = default)
     {
-        var qs = new List<string> { $"page={page}" };
-        if (!string.IsNullOrWhiteSpace(user)) qs.Add($"user={Uri.EscapeDataString(user)}");
-        if (!string.IsNullOrWhiteSpace(op)) qs.Add($"op={Uri.EscapeDataString(op)}");
-        if (from.HasValue) qs.Add($"from={Uri.EscapeDataString(from.Value.ToString("o"))}");
-        if (to.HasValue) qs.Add($"to={Uri.EscapeDataString(to.Value.ToString("o"))}");
-        return GetAsync<AuditPage>($"api/admin/logs?{string.Join('&', qs)}", ct);
+        var qs = BuildAuditLogQuery(query, includePage: true);
+        return GetAsync<AuditLogPageDto>($"api/admin/logs?{qs}", ct);
     }
 
-    public async Task DownloadLogsCsvAsync(Stream output, string? user, string? op, DateTime? from, DateTime? to, CancellationToken ct = default)
+    public async Task DownloadLogsCsvAsync(Stream output, AuditLogQueryDto query, CancellationToken ct = default)
     {
-        var qs = new List<string>();
-        if (!string.IsNullOrWhiteSpace(user)) qs.Add($"user={Uri.EscapeDataString(user)}");
-        if (!string.IsNullOrWhiteSpace(op)) qs.Add($"op={Uri.EscapeDataString(op)}");
-        if (from.HasValue) qs.Add($"from={Uri.EscapeDataString(from.Value.ToString("o"))}");
-        if (to.HasValue) qs.Add($"to={Uri.EscapeDataString(to.Value.ToString("o"))}");
-        var url = "api/admin/logs/export.csv" + (qs.Count > 0 ? "?" + string.Join('&', qs) : string.Empty);
+        var qs = BuildAuditLogQuery(query, includePage: false);
+        var url = "api/admin/logs/export.csv" + (qs.Length > 0 ? "?" + qs : string.Empty);
         using var req = await CreateAuthedRequestAsync(HttpMethod.Get, url, ct);
         using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         await ThrowIfErrorAsync(res, req, ct);
@@ -338,10 +563,49 @@ public class ApiClient
         await src.CopyToAsync(output, 1024 * 1024, ct);
     }
 
+    internal static string BuildAuditLogQuery(AuditLogQueryDto query, bool includePage)
+    {
+        var values = new List<string>();
+        if (includePage) values.Add($"page={Math.Max(1, query.Page ?? 1)}");
+        Add("user", query.User);
+        Add("op", query.Op);
+        Add("category", query.Category);
+        Add("result", query.Result);
+        Add("host", query.Host);
+        Add("share", query.Share);
+        Add("path", query.Path);
+        Add("node", query.Node);
+        Add("device", query.Device);
+        if (query.From.HasValue) Add("from", query.From.Value.ToString("o"));
+        if (query.To.HasValue) Add("to", query.To.Value.ToString("o"));
+        return string.Join('&', values);
+
+        void Add(string name, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                values.Add($"{name}={Uri.EscapeDataString(value)}");
+        }
+    }
+
     public Task<BrowseResponse> AdminBrowseAsync(int hostId, int shareId, string? path, CancellationToken ct = default) =>
         GetAsync<BrowseResponse>($"api/admin/browse?hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path ?? "/")}", ct);
 
     // === Helpers ===
+    private async Task<T> SendTransferJsonAsync<T>(
+        HttpMethod method,
+        string url,
+        object? body,
+        CancellationToken ct)
+    {
+        using var req = await CreateAuthedRequestAsync(method, url, ct);
+        if (body is not null) req.Content = JsonContent.Create(body, options: JsonOptions);
+        var http = _httpFactory.CreateClient("file-transfer");
+        using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        await ThrowIfErrorAsync(res, req, ct);
+        return (await res.Content.ReadFromJsonAsync<T>(JsonOptions, ct))
+            ?? throw new InvalidDataException("転送APIの応答が空です。");
+    }
+
     private async Task<HttpRequestMessage> CreateAuthedRequestAsync(HttpMethod method, string url, CancellationToken ct)
     {
         var snapshot = await _session.GetValidAccessTokenSnapshotAsync(ct);
@@ -389,6 +653,15 @@ public class ApiClient
         req.Content = JsonContent.Create(body, options: JsonOptions);
         using var res = await _http.SendAsync(req, ct);
         await ThrowIfErrorAsync(res, req, ct);
+    }
+
+    private async Task<T> PatchJsonAsync<T>(string url, object body, CancellationToken ct)
+    {
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Patch, url, ct);
+        req.Content = JsonContent.Create(body, options: JsonOptions);
+        using var res = await _http.SendAsync(req, ct);
+        await ThrowIfErrorAsync(res, req, ct);
+        return (await res.Content.ReadFromJsonAsync<T>(JsonOptions, ct))!;
     }
 
     private async Task SendNoContentAsync(HttpMethod method, string url, object? body, CancellationToken ct)
@@ -473,7 +746,6 @@ public class ApiClient
     public record IdResponse(int Id);
     public record OkResponse(bool Ok);
     public record SettingItem(string Key, string Value, DateTime UpdatedAt);
-    public record AuditPage(int TotalCount, int Page, int PageSize, List<AuditLogDto> Items);
     public record BrowseResponse(string CurrentPath, List<FileEntry> Entries);
 
     public record UserCatalogHost(int Id, string Name, string? Description, List<UserCatalogShare> Shares);
