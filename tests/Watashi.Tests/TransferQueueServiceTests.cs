@@ -362,7 +362,9 @@ public class TransferQueueServiceTests
 
         var id = await queue.EnqueueUploadAsync(
             source, 1, 2, "/source.bin", TransferConflictPolicies.Overwrite);
-        var completed = await WaitForStateAsync(queue, id, TransferJobStates.Completed, timeoutMs: 7000);
+        // カバレッジ計測中の共有 Windows runner では、障害注入後の2秒バックオフに
+        // スレッドプールの遅延が重なる。成功経路の速度ではなく最終的な自己回復を検証する。
+        var completed = await WaitForStateAsync(queue, id, TransferJobStates.Completed, timeoutMs: 20_000);
 
         completed.AttemptCount.Should().Be(1);
         errors.Should().ContainSingle(x => x.Contains("保存先"));
