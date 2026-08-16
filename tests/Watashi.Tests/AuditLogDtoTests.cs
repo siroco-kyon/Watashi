@@ -12,8 +12,10 @@ public class AuditLogDtoTests
     {
         var dto = new AuditLogDto
         {
-            HostId = 1, ShareId = 2,
-            HostName = "経理部FS", ShareName = "share-keiri",
+            HostId = 1,
+            ShareId = 2,
+            HostName = "経理部FS",
+            ShareName = "share-keiri",
             Path = "/dept-A/file.txt",
         };
         dto.DisplayLocation.Should().Be("経理部FS / share-keiri :: /dept-A/file.txt");
@@ -24,8 +26,10 @@ public class AuditLogDtoTests
     {
         var dto = new AuditLogDto
         {
-            HostId = 42, ShareId = 99,
-            HostName = null, ShareName = null,
+            HostId = 42,
+            ShareId = 99,
+            HostName = null,
+            ShareName = null,
             Path = "/old/path",
         };
         dto.DisplayLocation.Should().Be("(削除済 host#42) / (削除済 share#99) :: /old/path");
@@ -36,7 +40,8 @@ public class AuditLogDtoTests
     {
         var dto = new AuditLogDto
         {
-            HostId = null, ShareId = null,
+            HostId = null,
+            ShareId = null,
             Path = "user:42",
         };
         // 管理者操作 (ホスト/共有なし) は Path 領域だけを返す。
@@ -56,8 +61,10 @@ public class AuditLogDtoTests
         // ホストは生きているが共有だけ削除されたエッジケース。
         var dto = new AuditLogDto
         {
-            HostId = 1, ShareId = 7,
-            HostName = "経理部FS", ShareName = null,
+            HostId = 1,
+            ShareId = 7,
+            HostName = "経理部FS",
+            ShareName = null,
             Path = "/some/path",
         };
         dto.DisplayLocation.Should().Be("経理部FS / (削除済 share#7) :: /some/path");
@@ -77,11 +84,15 @@ public class AuditLogDtoTests
 
     [Theory]
     [InlineData(Operations.List, "一覧表示")]
+    [InlineData(Operations.Search, "横断検索")]
     [InlineData(Operations.Download, "ダウンロード")]
     [InlineData(Operations.Upload, "アップロード")]
     [InlineData(Operations.Mkdir, "フォルダ作成")]
     [InlineData(Operations.Read, "読み取り")]
     [InlineData(Operations.Write, "書き込み")]
+    [InlineData(AdminOperations.UserDisable, "ユーザー無効化")]
+    [InlineData(AdminOperations.UserEnable, "ユーザー再有効化")]
+    [InlineData(AdminOperations.PermissionUpdate, "権限更新")]
     public void FormatOperation_returns_human_readable_label(string operation, string expected)
     {
         AuditLogDto.FormatOperation(operation).Should().Be(expected);

@@ -101,7 +101,10 @@ public class AgentForwarder
             throw new NodeUnreachableException(node);
         }
         if (!res.IsSuccessStatusCode)
-            await ThrowAgentErrorAsync(res, ct);
+        {
+            try { await ThrowAgentErrorAsync(res, ct); }
+            finally { res.Dispose(); }
+        }
         return res;
     }
 
@@ -180,6 +183,262 @@ public class AgentForwarder
         var res = await SendAndEnsureSuccessAsync(c, req, node, ct, HttpCompletionOption.ResponseHeadersRead);
         var stream = await res.Content.ReadAsStreamAsync(ct);
         return new ForwardingReadStream(stream, res);
+    }
+
+    public virtual async Task<TransferFileMetadata> GetTransferMetadataAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string path,
+        CancellationToken ct)
+    {
+        var c = Client(node);
+        var body = BuildBody(info, new { path });
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/v2/files/metadata")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
+        return await res.Content.ReadFromJsonAsync<TransferFileMetadata>(cancellationToken: ct)
+            ?? throw new IOException("Agent metadata 応答が空です。");
+    }
+
+    public virtual async Task<TransferFileMetadata> EnsureTempFileAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string tempPath,
+        CancellationToken ct)
+    {
+        var normalizedPath = TransferV2Validation.NormalizeAndValidateTempPath(tempPath);
+        var c = Client(node);
+        var body = BuildBody(info, new { path = normalizedPath });
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/v2/files/ensure-temp")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
+        return await res.Content.ReadFromJsonAsync<TransferFileMetadata>(cancellationToken: ct)
+            ?? throw new IOException("Agent 一時ファイル作成応答が空です。");
+    }
+
+    public virtual async Task<Stream> OpenReadRangeAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string path,
+        long offset,
+        int length,
+        CancellationToken ct)
+    {
+        TransferV2Validation.ValidateReadRange(offset, length);
+        var c = Client(node, FileTransferHttpTimeout);
+        var body = BuildBody(info, new { path, offset, length });
+        var req = new HttpRequestMessage(HttpMethod.Post, "agent/v2/files/read")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        var res = await SendAndEnsureSuccessAsync(c, req, node, ct, HttpCompletionOption.ResponseHeadersRead);
+        var responseLength = res.Content.Headers.ContentLength;
+        if (!responseLength.HasValue || responseLength.Value < 0 || responseLength.Value > length)
+        {
+            res.Dispose();
+            throw new InvalidDataException(
+                $"Agent range 応答の Content-Length が不正です (actual={responseLength?.ToString() ?? "null"}, max={length})。");
+        }
+        var stream = await res.Content.ReadAsStreamAsync(ct);
+        return new ForwardingReadStream(stream, res);
+    }
+
+    /// <summary>
+    /// Agent がSMB読み取り直後に計算したchecksum付きでrangeを受け取る。
+    /// Gateway Agent は未知のresponse headerをそのまま中継するため、多段経路でも
+    /// Server側でAgent起点のchecksumを検証できる。
+    /// </summary>
+    public virtual async Task<TransferReadChunk> ReadRangeChunkAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string path,
+        long offset,
+        int length,
+        CancellationToken ct)
+    {
+        TransferV2Validation.ValidateReadRange(offset, length);
+        var c = Client(node, FileTransferHttpTimeout);
+        var body = BuildBody(info, new { path, offset, length });
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/v2/files/read")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await SendAndEnsureSuccessAsync(
+            c, req, node, ct, HttpCompletionOption.ResponseHeadersRead);
+        var responseLength = res.Content.Headers.ContentLength;
+        if (!responseLength.HasValue || responseLength.Value < 0 || responseLength.Value > length)
+            throw new InvalidDataException(
+                $"Agent range 応答の Content-Length が不正です (actual={responseLength?.ToString() ?? "null"}, max={length})。");
+
+        if (!TryGetSingleHeader(res, TransferV2Headers.ChunkSha256, out var sourceChecksum))
+            throw new InvalidDataException(
+                $"Agent range 応答に {TransferV2Headers.ChunkSha256} がありません。");
+        string normalizedChecksum;
+        try
+        {
+            normalizedChecksum = TransferV2Validation.NormalizeSha256(sourceChecksum);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new InvalidDataException("Agent range 応答のchecksum形式が不正です。", ex);
+        }
+
+        var data = await res.Content.ReadAsByteArrayAsync(ct);
+        if (data.LongLength != responseLength.Value)
+            throw new EndOfStreamException(
+                $"Agent range 応答が途中で終了しました (expected={responseLength.Value}, actual={data.LongLength})。");
+        var actualChecksum = TransferHashing.ComputeSha256Hex(data);
+        if (!string.Equals(actualChecksum, normalizedChecksum, StringComparison.Ordinal))
+            throw new InvalidDataException("Agent range 応答の SHA-256 が一致しません。");
+        return new TransferReadChunk(data, normalizedChecksum);
+    }
+
+    public virtual async Task<TransferChunkWriteResult> WriteTempChunkAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string tempPath,
+        long offset,
+        ReadOnlyMemory<byte> chunk,
+        CancellationToken ct)
+    {
+        var normalizedPath = TransferV2Validation.NormalizeAndValidateTempPath(tempPath);
+        TransferV2Validation.ValidateChunk(offset, chunk.Length);
+        var c = Client(node, FileTransferHttpTimeout);
+        using var content = new ByteArrayContent(chunk.ToArray());
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/v2/files/write-chunk")
+        {
+            Content = content,
+        };
+        req.Headers.Add("X-Watashi-Cifs-V2", EncodeCifsV2Header(
+            info, normalizedPath, offset, chunk.Length));
+        ApplyGatewayHeader(req, node);
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
+        return await res.Content.ReadFromJsonAsync<TransferChunkWriteResult>(cancellationToken: ct)
+            ?? throw new IOException("Agent chunk 書き込み応答が空です。");
+    }
+
+    public virtual async Task<TransferSha256Result> ComputeSha256Async(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string path,
+        CancellationToken ct)
+    {
+        var c = Client(node, FileTransferHttpTimeout);
+        var body = BuildBody(info, new { path });
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/v2/files/sha256")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
+        return await res.Content.ReadFromJsonAsync<TransferSha256Result>(cancellationToken: ct)
+            ?? throw new IOException("Agent SHA-256 応答が空です。");
+    }
+
+    public virtual async Task CommitTempAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string tempPath,
+        string targetPath,
+        bool replaceIfExists,
+        CancellationToken ct)
+    {
+        var paths = TransferV2Validation.ValidateCommitPaths(tempPath, targetPath);
+        var c = Client(node, FileTransferHttpTimeout);
+        var body = BuildBody(info, new
+        {
+            tempPath = paths.TempPath,
+            targetPath = paths.TargetPath,
+            replaceIfExists,
+        });
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/v2/files/commit-temp")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
+    }
+
+    public virtual async Task<RemoteTrashItemMetadata> InspectForTrashAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string path,
+        CancellationToken ct)
+    {
+        var normalized = RemoteTrashPathPolicy.NormalizeUserPath(path);
+        var c = Client(node, FileTransferHttpTimeout);
+        var body = BuildBody(info, new { path = normalized });
+        using var req = new HttpRequestMessage(HttpMethod.Post, "agent/v2/trash/inspect")
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
+        return await res.Content.ReadFromJsonAsync<RemoteTrashItemMetadata>(cancellationToken: ct)
+            ?? throw new IOException("Agent ごみ箱metadata応答が空です。");
+    }
+
+    public virtual async Task MoveToTrashAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string sourcePath,
+        string trashPath,
+        CancellationToken ct)
+    {
+        var source = RemoteTrashPathPolicy.NormalizeUserPath(sourcePath);
+        var target = RemoteTrashPathPolicy.ValidateItemPath(trashPath);
+        await SendTrashCommandAsync(node, info, "agent/v2/trash/move",
+            new { sourcePath = source, trashPath = target }, ct);
+    }
+
+    public virtual async Task RestoreFromTrashAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string trashPath,
+        string targetPath,
+        bool replaceIfExists,
+        CancellationToken ct)
+    {
+        var source = RemoteTrashPathPolicy.ValidateItemPath(trashPath);
+        var target = RemoteTrashPathPolicy.NormalizeUserPath(targetPath);
+        await SendTrashCommandAsync(node, info, "agent/v2/trash/restore",
+            new { trashPath = source, targetPath = target, replaceIfExists }, ct);
+    }
+
+    public virtual async Task PurgeTrashItemAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string trashPath,
+        CancellationToken ct)
+    {
+        var path = RemoteTrashPathPolicy.ValidateItemPath(trashPath);
+        await SendTrashCommandAsync(node, info, "agent/v2/trash/purge", new { path }, ct);
+    }
+
+    private async Task SendTrashCommandAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string route,
+        object command,
+        CancellationToken ct)
+    {
+        var c = Client(node, FileTransferHttpTimeout);
+        var body = BuildBody(info, command);
+        using var req = new HttpRequestMessage(HttpMethod.Post, route)
+        {
+            Content = JsonContent.Create(body),
+        };
+        ApplyGatewayHeader(req, node);
+        using var res = await SendAndEnsureSuccessAsync(c, req, node, ct);
     }
 
     public async Task UploadAsync(ExecutionNode node, CifsConnectionInfo info, string path, Stream input, CancellationToken ct)
@@ -298,11 +557,53 @@ public class AgentForwarder
         return Convert.ToBase64String(json);
     }
 
+    private static bool TryGetSingleHeader(
+        HttpResponseMessage response,
+        string name,
+        out string value)
+    {
+        value = string.Empty;
+        if (!response.Headers.TryGetValues(name, out var values) &&
+            !response.Content.Headers.TryGetValues(name, out values))
+            return false;
+        var items = values.ToArray();
+        if (items.Length != 1 || string.IsNullOrWhiteSpace(items[0])) return false;
+        value = items[0];
+        return true;
+    }
+
+    private static string EncodeCifsV2Header(
+        CifsConnectionInfo info,
+        string path,
+        long offset,
+        int length)
+    {
+        var payload = new
+        {
+            host = info.HostAddress,
+            port = info.Port,
+            share = info.ShareName,
+            credUser = info.Username,
+            credPass = info.Password,
+            path,
+            offset,
+            length,
+        };
+        return Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(payload));
+    }
+
     private sealed class ForwardingReadStream : Stream
     {
         private readonly Stream _inner;
         private readonly HttpResponseMessage _res;
-        public ForwardingReadStream(Stream inner, HttpResponseMessage res) { _inner = inner; _res = res; }
+        private readonly long? _expectedLength;
+        private long _position;
+        public ForwardingReadStream(Stream inner, HttpResponseMessage res)
+        {
+            _inner = inner;
+            _res = res;
+            _expectedLength = res.Content.Headers.ContentLength;
+        }
         public override bool CanRead => true;
         public override bool CanSeek => false;
         public override bool CanWrite => false;
@@ -311,16 +612,48 @@ public class AgentForwarder
         // ContentLength が無い場合は規約通り NotSupported を投げる。
         public override long Length => _res.Content.Headers.ContentLength
             ?? throw new NotSupportedException("ContentLength 未設定 (チャンク転送) のため Length は取得できません。");
-        public override long Position { get => _inner.Position; set => throw new NotSupportedException(); }
+        public override long Position { get => _position; set => throw new NotSupportedException(); }
         public override void Flush() { }
-        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var allowed = AllowedReadLength(count);
+            if (allowed == 0) return 0;
+            var read = _inner.Read(buffer, offset, allowed);
+            return RecordRead(read);
+        }
         public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-            => _inner.ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-            => _inner.ReadAsync(buffer, cancellationToken);
+            => ReadArrayAsync(buffer, offset, count, cancellationToken);
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            var allowed = AllowedReadLength(buffer.Length);
+            if (allowed == 0) return 0;
+            var read = await _inner.ReadAsync(buffer[..allowed], cancellationToken);
+            return RecordRead(read);
+        }
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        private async Task<int> ReadArrayAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken)
+            => await ReadAsync(buffer.AsMemory(offset, count), cancellationToken);
+
+        private int AllowedReadLength(int requested)
+            => _expectedLength.HasValue
+                ? (int)Math.Min(requested, _expectedLength.Value - _position)
+                : requested;
+
+        private int RecordRead(int read)
+        {
+            if (read == 0 && _expectedLength.HasValue && _position < _expectedLength.Value)
+                throw new EndOfStreamException(
+                    $"Agent 転送が途中で終了しました (expected={_expectedLength.Value}, actual={_position})。");
+            _position += read;
+            return read;
+        }
         protected override void Dispose(bool disposing)
         {
             if (disposing)

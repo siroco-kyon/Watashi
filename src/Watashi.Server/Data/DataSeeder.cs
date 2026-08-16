@@ -19,7 +19,10 @@ public static class DataSeeder
                 new SystemSetting { Key = SettingKeys.SessionIdleMinutes, Value = "30", UpdatedAt = now },
                 new SystemSetting { Key = SettingKeys.AuditLogRetentionDays, Value = "365", UpdatedAt = now },
                 new SystemSetting { Key = SettingKeys.MaxFailedLoginAttempts, Value = "15", UpdatedAt = now },
-                new SystemSetting { Key = SettingKeys.PasswordSetupExpiryDays, Value = "0", UpdatedAt = now });
+                new SystemSetting { Key = SettingKeys.PasswordSetupExpiryDays, Value = "0", UpdatedAt = now },
+                new SystemSetting { Key = SettingKeys.TrashRetentionDays, Value = "30", UpdatedAt = now },
+                new SystemSetting { Key = SettingKeys.TrashCapacityBytes, Value = "107374182400", UpdatedAt = now },
+                new SystemSetting { Key = SettingKeys.TrustedDeviceLimit, Value = "3", UpdatedAt = now });
         }
         else
         {
@@ -31,6 +34,12 @@ public static class DataSeeder
             // 0 = 無期限。既定を無期限にすることで、既存 DB へ入っても運用が変わらない。
             if (!await db.SystemSettings.AnyAsync(s => s.Key == SettingKeys.PasswordSetupExpiryDays, ct))
                 db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.PasswordSetupExpiryDays, Value = "0", UpdatedAt = now });
+            if (!await db.SystemSettings.AnyAsync(s => s.Key == SettingKeys.TrashRetentionDays, ct))
+                db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.TrashRetentionDays, Value = "30", UpdatedAt = now });
+            if (!await db.SystemSettings.AnyAsync(s => s.Key == SettingKeys.TrashCapacityBytes, ct))
+                db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.TrashCapacityBytes, Value = "107374182400", UpdatedAt = now });
+            if (!await db.SystemSettings.AnyAsync(s => s.Key == SettingKeys.TrustedDeviceLimit, ct))
+                db.SystemSettings.Add(new SystemSetting { Key = SettingKeys.TrustedDeviceLimit, Value = "3", UpdatedAt = now });
         }
 
         if (!await db.PermissionTemplates.AnyAsync(ct))
@@ -51,20 +60,6 @@ public static class DataSeeder
                 HealthStatus = HealthStatuses.Healthy,
                 IsActive = true,
                 MaxConcurrency = 20,
-                CreatedAt = now,
-            });
-        }
-
-        if (!await db.Users.AnyAsync(ct))
-        {
-            db.Users.Add(new User
-            {
-                Username = "admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!@#"),
-                IsAdmin = true,
-                MustChangePassword = true,
-                PasswordChangedAt = now,
-                PasswordExpiresAt = now.AddDays(90),
                 CreatedAt = now,
             });
         }

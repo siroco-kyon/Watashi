@@ -407,7 +407,7 @@ CREATE INDEX IX_AuditLogs_HostId ON AuditLogs(HostId);
 マイグレーション内で投入:
 ```csharp
 // 管理者ユーザー（初回ログイン時にパスワード変更を強制）
-("admin", BCrypt.HashPassword("Admin123!@#"), IsAdmin=1, MustChangePassword=1)
+固定管理者はシードしない。サーバー端末で `--bootstrap-admin` を明示実行し、CSPRNGで生成した一時資格情報を一度だけ表示する。
 
 // デフォルト実行ノード
 ("Direct (Local)", NodeType="Direct", HealthStatus="Healthy")

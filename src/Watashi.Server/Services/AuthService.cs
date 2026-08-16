@@ -25,20 +25,31 @@ public enum LoginFailureReason
 {
     InvalidCredentials,
     AccountLocked,
+    AccountDisabled,
 }
 
 public record LoginResult(LoginResponse? Response, LoginFailureReason? Failure);
+
+public sealed class TrustedDeviceLimitException(int limit)
+    : InvalidOperationException($"信頼できる端末は最大 {limit} 台までです。不要な端末を失効してから再登録してください。")
+{
+    public int Limit { get; } = limit;
+}
 
 public class AuthService
 {
     private const int DefaultMaxFailedAttempts = 15;
     private readonly AppDbContext _db;
     private readonly AuthServiceOptions _opts;
+    private readonly AuditLogService _audit;
 
-    public AuthService(AppDbContext db, AuthServiceOptions opts)
+    public AuthService(AppDbContext db, AuthServiceOptions opts, AuditLogService? audit = null)
     {
         _db = db;
         _opts = opts;
+        // 単体テストや限定的な利用元も同じ安全な監査経路を通す。アプリ本体では DI 済みの
+        // scoped AuditLogService が渡される。
+        _audit = audit ?? new AuditLogService(db);
     }
 
     public async Task<LoginResult> LoginAsync(string username, string password, string? clientIp, string? windowsUsername = null, string? machineName = null, CancellationToken ct = default)
@@ -46,17 +57,22 @@ public class AuthService
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username, ct);
         if (user is null)
         {
-            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
-                userId: null, username, "unknown_user", machineName, clientIp));
-            await _db.SaveChangesAsync(ct);
+            await TryAuditAsync(null, username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "unknown_user", clientIp, machineName, ct: ct);
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
+        }
+
+        if (user.IsDisabled)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "account_disabled", clientIp, machineName, ct: ct);
+            return new LoginResult(null, LoginFailureReason.AccountDisabled);
         }
 
         if (user.IsLocked)
         {
-            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
-                user.Id, user.Username, "account_locked", machineName, clientIp));
-            await _db.SaveChangesAsync(ct);
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "account_locked", clientIp, machineName, ct: ct);
             return new LoginResult(null, LoginFailureReason.AccountLocked);
         }
 
@@ -67,9 +83,8 @@ public class AuthService
         // 未設定アカウントの存在を推測させない (ユーザー列挙対策)。
         if (user.IsPasswordSetupPending)
         {
-            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
-                user.Id, user.Username, "password_setup_pending", machineName, clientIp));
-            await _db.SaveChangesAsync(ct);
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "password_setup_pending", clientIp, machineName, ct: ct);
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
         }
 
@@ -87,30 +102,24 @@ public class AuthService
             // 古い FailedLoginCount / IsLocked を参照しないよう、追跡中エンティティを再読込する。
             await _db.Entry(user).ReloadAsync(ct);
 
-            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
-                user.Id, user.Username, "invalid_password", machineName, clientIp));
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "invalid_password", clientIp, machineName, ct: ct);
             if (lockedByThisAttempt)
             {
-                _db.AuditLogs.Add(new AuditLog
-                {
-                    Timestamp = DateTime.UtcNow,
-                    UserId = user.Id,
-                    Username = user.Username,
-                    Operation = Shared.Constants.AuthOperations.LoginLockedOut,
-                    Result = Shared.Constants.AuditResults.Warning,
-                    Path = $"連続 {user.FailedLoginCount} 回のログイン失敗によりロック",
-                    ClientIp = clientIp,
-                    ClientHostname = machineName,
-                });
+                await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginLockedOut,
+                    Shared.Constants.AuditResults.Warning, "max_attempts_reached", clientIp, machineName,
+                    $"連続 {user.FailedLoginCount} 回のログイン失敗によりロック", ct);
             }
-            await _db.SaveChangesAsync(ct);
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
         }
 
         user.FailedLoginCount = 0;
         user.LastLoginAt = DateTime.UtcNow;
-        RecordLoginContext(user, windowsUsername, machineName, clientIp);
+        var contextWarnings = RecordLoginContext(user, windowsUsername, machineName);
         var response = await IssueTokensAsync(user, deviceId: null, clientIp, ct);
+        await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginSucceeded,
+            Shared.Constants.AuditResults.Success, "password_authenticated", clientIp, machineName, ct: ct);
+        await LogLoginContextWarningsAsync(user, contextWarnings, clientIp, machineName, ct);
         return new LoginResult(response, null);
     }
 
@@ -157,7 +166,18 @@ public class AuthService
         return s is not null && int.TryParse(s.Value, out var v) && v >= min && v <= max ? v : defaultValue;
     }
 
-    public async Task<(RefreshResponse? response, string? error)> RefreshAsync(string refreshTokenId, string refreshTokenPlain, CancellationToken ct = default)
+    public Task<(RefreshResponse? response, string? error)> RefreshAsync(
+        string refreshTokenId,
+        string refreshTokenPlain,
+        CancellationToken ct = default)
+        => RefreshAsync(refreshTokenId, refreshTokenPlain, clientIp: null, clientHostname: null, ct: ct);
+
+    public async Task<(RefreshResponse? response, string? error)> RefreshAsync(
+        string refreshTokenId,
+        string refreshTokenPlain,
+        string? clientIp,
+        string? clientHostname,
+        CancellationToken ct = default)
     {
         var token = await _db.RefreshTokens
             .AsNoTracking()
@@ -165,13 +185,37 @@ public class AuthService
             .Include(t => t.Device)
             .FirstOrDefaultAsync(t => t.Id == refreshTokenId, ct);
 
-        if (token is null || token.ExpiresAt <= DateTime.UtcNow)
+        if (token is null)
+        {
+            await TryAuditAsync(null, null, Shared.Constants.AuthOperations.RefreshRejected,
+                Shared.Constants.AuditResults.Failure, "token_not_found", clientIp, clientHostname, ct: ct);
             return (null, "invalid_token");
+        }
+
+        if (token.ExpiresAt <= DateTime.UtcNow)
+        {
+            await TryAuditAsync(token.UserId, token.User?.Username, Shared.Constants.AuthOperations.RefreshRejected,
+                Shared.Constants.AuditResults.Failure, "token_expired", clientIp, clientHostname, ct: ct);
+            return (null, "invalid_token");
+        }
 
         if (!BCrypt.Net.BCrypt.Verify(refreshTokenPlain, token.TokenHash))
+        {
+            await TryAuditAsync(token.UserId, token.User?.Username, Shared.Constants.AuthOperations.RefreshRejected,
+                Shared.Constants.AuditResults.Failure, "token_invalid", clientIp, clientHostname, ct: ct);
             return (null, "invalid_token");
+        }
 
         var user = token.User!;
+        // 明示無効化は token 世代や失効状態より優先して返す。管理者が無効化した直後の
+        // クライアントに、一般的な token エラーではなく再ログイン不能な理由を伝える。
+        if (user.IsDisabled)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.RefreshRejected,
+                Shared.Constants.AuditResults.Failure, "account_disabled", clientIp, clientHostname, ct: ct);
+            return (null, "account_disabled");
+        }
+
         // Old tokens from before a password change are invalidated by themselves;
         // they must not revoke newer sessions issued after the password change.
         if (token.IssuedAt < user.PasswordChangedAt)
@@ -185,6 +229,8 @@ public class AuthService
                         .SetProperty(t => t.IsRevoked, true)
                         .SetProperty(t => t.LastUsedAt, usedAt), ct);
             }
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.RefreshRejected,
+                Shared.Constants.AuditResults.Failure, "password_changed", clientIp, clientHostname, ct: ct);
             return (null, "password_changed");
         }
 
@@ -192,11 +238,23 @@ public class AuthService
         if (token.IsRevoked)
         {
             await RevokeFamilyAsync(token.UserId, ct);
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.RefreshReuseRejected,
+                Shared.Constants.AuditResults.Warning, "token_reuse_detected", clientIp, clientHostname, ct: ct);
             return (null, "token_reuse_detected");
         }
 
-        if (user.IsLocked) return (null, "account_locked");
-        if (token.Device is not null && token.Device.IsRevoked) return (null, "device_revoked");
+        if (user.IsLocked)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.RefreshRejected,
+                Shared.Constants.AuditResults.Failure, "account_locked", clientIp, clientHostname, ct: ct);
+            return (null, "account_locked");
+        }
+        if (token.Device is not null && token.Device.IsRevoked)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.RefreshRejected,
+                Shared.Constants.AuditResults.Failure, "device_revoked", clientIp, clientHostname, ct: ct);
+            return (null, "device_revoked");
+        }
 
         var now = DateTime.UtcNow;
 
@@ -218,16 +276,28 @@ public class AuthService
                 .FirstOrDefaultAsync(t => t.Id == token.Id, ct);
 
             if (current is null || current.ExpiresAt <= now)
+            {
+                await tx.RollbackAsync(ct);
+                await tx.DisposeAsync();
+                await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.RefreshRejected,
+                    Shared.Constants.AuditResults.Failure, "token_invalid", clientIp, clientHostname, ct: ct);
                 return (null, "invalid_token");
+            }
 
             if (current.IssuedAt < current.User!.PasswordChangedAt)
             {
                 await tx.CommitAsync(ct);
+                await tx.DisposeAsync();
+                await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.RefreshRejected,
+                    Shared.Constants.AuditResults.Failure, "password_changed", clientIp, clientHostname, ct: ct);
                 return (null, "password_changed");
             }
 
             await RevokeFamilyAsync(token.UserId, ct);
             await tx.CommitAsync(ct);
+            await tx.DisposeAsync();
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.RefreshReuseRejected,
+                Shared.Constants.AuditResults.Warning, "token_reuse_detected", clientIp, clientHostname, ct: ct);
             return (null, "token_reuse_detected");
         }
 
@@ -250,15 +320,20 @@ public class AuthService
         var access = CreateAccessToken(user, now);
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+        await tx.DisposeAsync();
 
-        return (new RefreshResponse
+        var response = new RefreshResponse
         {
             AccessToken = access,
             ExpiresIn = _opts.AccessTokenMinutes * 60,
             MustChangePassword = user.MustChangePassword || user.PasswordExpiresAt <= now,
             RefreshToken = newPlain,
             RefreshTokenId = newId,
-        }, null);
+        };
+
+        await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.RefreshSucceeded,
+            Shared.Constants.AuditResults.Success, "token_rotated", clientIp, clientHostname, ct: ct);
+        return (response, null);
     }
 
     private async Task RevokeFamilyAsync(int userId, CancellationToken ct)
@@ -272,37 +347,106 @@ public class AuthService
     {
         // 同一マシン・同一 Windows ユーザーで複数の Watashi ユーザーがデバイス登録している場合があるため、
         // 候補を全件取得し、提示されたトークンが検証できたデバイスを採用する。
+        var normalizedMachine = machineName.Trim().ToUpperInvariant();
+        var normalizedWindowsUser = windowsUsername.Trim().ToUpperInvariant();
         var candidates = await _db.TrustedDevices
             .Include(d => d.User)
             .Where(d =>
-                d.MachineName == machineName &&
-                d.WindowsUsername == windowsUsername &&
+                d.MachineName.ToUpper() == normalizedMachine &&
+                d.WindowsUsername.ToUpper() == normalizedWindowsUser &&
                 !d.IsRevoked)
             .ToListAsync(ct);
         var device = candidates.FirstOrDefault(d =>
             d.User is not null && BCrypt.Net.BCrypt.Verify(deviceToken, d.DeviceTokenHash));
         if (device is null || device.User is null)
+        {
+            await TryAuditAsync(null, "(anonymous)", Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "trusted_device_invalid", clientIp, machineName, ct: ct);
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
+        }
 
         var user = device.User;
+        if (user.IsDisabled)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "account_disabled", clientIp, machineName, ct: ct);
+            return new LoginResult(null, LoginFailureReason.AccountDisabled);
+        }
+
         if (user.IsLocked)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "account_locked", clientIp, machineName, ct: ct);
             return new LoginResult(null, LoginFailureReason.AccountLocked);
+        }
 
         // 初回設定待ちのユーザーを、記憶済み端末からパスワード無しで通してはならない。
         // ユーザーを未設定へ戻す操作は信頼済み端末も失効させるため通常ここには到達しないが、
         // 到達した場合は不変条件が壊れているということなので監査ログに残す。
         if (user.IsPasswordSetupPending)
         {
-            _db.AuditLogs.Add(CreateLoginAudit(Shared.Constants.AuthOperations.LoginFailed,
-                user.Id, user.Username, "password_setup_pending", machineName, clientIp));
-            await _db.SaveChangesAsync(ct);
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "password_setup_pending", clientIp, machineName, ct: ct);
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
         }
 
         device.LastUsedAt = DateTime.UtcNow;
         user.LastLoginAt = DateTime.UtcNow;
-        RecordLoginContext(user, windowsUsername, machineName, clientIp);
+        var contextWarnings = RecordLoginContext(user, windowsUsername, machineName);
         var response = await IssueTokensAsync(user, device.Id, clientIp, ct);
+        await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginSucceeded,
+            Shared.Constants.AuditResults.Success, "trusted_device_authenticated", clientIp, machineName, ct: ct);
+        await LogLoginContextWarningsAsync(user, contextWarnings, clientIp, machineName, ct);
+        return new LoginResult(response, null);
+    }
+
+    public async Task<LoginResult> WindowsSsoLoginAsync(
+        string? windowsAccountName,
+        Auth.WindowsAuthOptions options,
+        string? clientIp,
+        string? machineName,
+        CancellationToken ct = default)
+    {
+        var (domain, account) = Auth.WindowsIdentityMatcher.Split(windowsAccountName);
+        if (string.IsNullOrWhiteSpace(account) ||
+            !Auth.WindowsIdentityMatcher.IsDomainAllowed(domain, options))
+        {
+            await TryAuditAsync(null, account, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "windows_sso_identity_rejected",
+                clientIp, machineName, ct: ct);
+            return new LoginResult(null, LoginFailureReason.InvalidCredentials);
+        }
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == account, ct);
+        if (user is null || user.IsPasswordSetupPending)
+        {
+            await TryAuditAsync(user?.Id, account, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure,
+                user is null ? "windows_sso_unknown_user" : "password_setup_pending",
+                clientIp, machineName, ct: ct);
+            return new LoginResult(null, LoginFailureReason.InvalidCredentials);
+        }
+        if (user.IsDisabled)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "account_disabled", clientIp, machineName, ct: ct);
+            return new LoginResult(null, LoginFailureReason.AccountDisabled);
+        }
+        if (user.IsLocked)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginFailed,
+                Shared.Constants.AuditResults.Failure, "account_locked", clientIp, machineName, ct: ct);
+            return new LoginResult(null, LoginFailureReason.AccountLocked);
+        }
+
+        var now = DateTime.UtcNow;
+        user.LastLoginAt = now;
+        user.WindowsAccountName = windowsAccountName;
+        if (!string.IsNullOrWhiteSpace(machineName)) user.LastMachineName = machineName.Trim();
+        var response = await IssueTokensAsync(user, deviceId: null, clientIp, ct);
+        await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.LoginSucceeded,
+            Shared.Constants.AuditResults.Success, "windows_sso_authenticated",
+            clientIp, machineName, ct: ct);
         return new LoginResult(response, null);
     }
 
@@ -311,11 +455,13 @@ public class AuthService
     /// 前回値と突き合わせ、運用上の注意イベントを監査ログに残す。ログイン自体は拒否しない。
     /// ・Windows ユーザー名 ≠ Watashi ユーザー名 → 別人ログインとして記録
     /// ・前回と異なるマシン名 → 端末変更として記録
-    /// 監査ログと User の更新は呼び出し側の SaveChangesAsync でまとめて永続化される。
+    /// User の文脈更新だけを認証処理の SaveChangesAsync に含め、注意イベントは認証成功後に
+    /// ベストエフォートで書く。これにより監査テーブル障害で発行済み token を失敗扱いしない。
     /// </summary>
-    private void RecordLoginContext(User user, string? windowsUsername, string? machineName, string? clientIp)
+    private static IReadOnlyList<LoginContextWarning> RecordLoginContext(
+        User user, string? windowsUsername, string? machineName)
     {
-        var now = DateTime.UtcNow;
+        var warnings = new List<LoginContextWarning>(2);
         var win = windowsUsername?.Trim();
         var machine = machineName?.Trim();
 
@@ -323,17 +469,10 @@ public class AuthService
         if (!string.IsNullOrEmpty(win) &&
             !string.Equals(win, user.Username, StringComparison.OrdinalIgnoreCase))
         {
-            _db.AuditLogs.Add(new AuditLog
-            {
-                Timestamp = now,
-                UserId = user.Id,
-                Username = user.Username,
-                Operation = Shared.Constants.AuthOperations.LoginIdentityMismatch,
-                Result = Shared.Constants.AuditResults.Warning,
-                Path = $"Windows ユーザー '{win}' が Watashi ユーザー '{user.Username}' でログイン",
-                ClientIp = clientIp,
-                ClientHostname = machine,
-            });
+            warnings.Add(new LoginContextWarning(
+                Shared.Constants.AuthOperations.LoginIdentityMismatch,
+                "identity_mismatch",
+                $"Windows ユーザー '{win}' が Watashi ユーザー '{user.Username}' でログイン"));
         }
 
         // 端末 (マシン名) が前回ログイン時と変わった場合に記録。初回 (LastMachineName 未設定) は記録しない。
@@ -341,111 +480,280 @@ public class AuthService
             !string.IsNullOrEmpty(user.LastMachineName) &&
             !string.Equals(machine, user.LastMachineName, StringComparison.OrdinalIgnoreCase))
         {
-            _db.AuditLogs.Add(new AuditLog
-            {
-                Timestamp = now,
-                UserId = user.Id,
-                Username = user.Username,
-                Operation = Shared.Constants.AuthOperations.LoginDeviceChanged,
-                Result = Shared.Constants.AuditResults.Warning,
-                Path = $"マシン名 '{user.LastMachineName}' → '{machine}'",
-                ClientIp = clientIp,
-                ClientHostname = machine,
-            });
+            warnings.Add(new LoginContextWarning(
+                Shared.Constants.AuthOperations.LoginDeviceChanged,
+                "device_changed",
+                $"マシン名 '{user.LastMachineName}' → '{machine}'"));
         }
 
         if (!string.IsNullOrEmpty(win)) user.LastWindowsUsername = win;
         if (!string.IsNullOrEmpty(machine)) user.LastMachineName = machine;
+        return warnings;
     }
 
-    /// <summary>ログイン失敗の監査ログを作る。理由コードは ErrorMessage に残す (unknown_user / account_locked / invalid_password)。</summary>
-    private static AuditLog CreateLoginAudit(string operation, int? userId, string username, string reason, string? machineName, string? clientIp)
-        => new()
-        {
-            Timestamp = DateTime.UtcNow,
-            UserId = userId,
-            Username = username,
-            Operation = operation,
-            Result = Shared.Constants.AuditResults.Failure,
-            ErrorMessage = reason,
-            ClientIp = clientIp,
-            ClientHostname = machineName,
-        };
-
-    public async Task<TrustDeviceResponse> TrustDeviceAsync(int userId, string machineName, string windowsUsername, CancellationToken ct = default)
+    private async Task LogLoginContextWarningsAsync(
+        User user,
+        IReadOnlyList<LoginContextWarning> warnings,
+        string? clientIp,
+        string? machineName,
+        CancellationToken ct)
     {
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        var plain = Convert.ToBase64String(bytes);
-        var hash = BCrypt.Net.BCrypt.HashPassword(plain);
-        var now = DateTime.UtcNow;
-
-        await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-        var existing = _db.TrustedDevices.Where(d => d.UserId == userId);
-        _db.TrustedDevices.RemoveRange(existing);
-        await _db.SaveChangesAsync(ct);
-
-        _db.TrustedDevices.Add(new TrustedDevice
+        foreach (var warning in warnings)
         {
-            UserId = userId,
-            MachineName = machineName,
-            WindowsUsername = windowsUsername,
-            DeviceTokenHash = hash,
-            RegisteredAt = now,
-            LastUsedAt = now,
-            IsRevoked = false,
-        });
-        await _db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        return new TrustDeviceResponse { DeviceToken = plain };
+            await TryAuditAsync(user.Id, user.Username, warning.Operation,
+                Shared.Constants.AuditResults.Warning, warning.ReasonCode,
+                clientIp, machineName, warning.Detail, ct);
+        }
     }
 
-    public async Task<bool> LogoutAsync(int userId, string refreshTokenId, string? refreshTokenPlain, CancellationToken ct = default)
+    private sealed record LoginContextWarning(string Operation, string ReasonCode, string Detail);
+
+    private Task<bool> TryAuditAsync(
+        int? userId,
+        string? username,
+        string operation,
+        string result,
+        string reasonCode,
+        string? clientIp,
+        string? clientHostname,
+        string? detail = null,
+        CancellationToken ct = default)
+        => _audit.TryLogAuthenticationAsync(userId, username, operation, result, reasonCode,
+            clientIp, clientHostname, detail, ct);
+
+    public Task<TrustDeviceResponse> TrustDeviceAsync(
+        int userId,
+        string machineName,
+        string windowsUsername,
+        CancellationToken ct = default)
+        => TrustDeviceAsync(userId, machineName, windowsUsername, clientIp: null, ct: ct);
+
+    public async Task<TrustDeviceResponse> TrustDeviceAsync(
+        int userId,
+        string machineName,
+        string windowsUsername,
+        string? clientIp,
+        CancellationToken ct = default)
     {
-        var token = await _db.RefreshTokens.FirstOrDefaultAsync(t => t.Id == refreshTokenId, ct);
-        if (token is null) return false;
-        // 認証済みであっても、refresh token は呼び出し元ユーザー所有のものでなければ受け付けない。
-        // refresh token 値が渡された場合はそれも照合する (盗まれた ID 単独での横取り失効を防ぐ)。
-        if (token.UserId != userId) return false;
-        if (!string.IsNullOrEmpty(refreshTokenPlain) &&
-            !BCrypt.Net.BCrypt.Verify(refreshTokenPlain, token.TokenHash))
-            return false;
-        token.IsRevoked = true;
-        await _db.SaveChangesAsync(ct);
-        return true;
+        var username = "(unknown)";
+        var replacedCount = 0;
+        try
+        {
+            username = await _db.Users.AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => u.Username)
+                .FirstOrDefaultAsync(ct) ?? "(unknown)";
+
+            var bytes = RandomNumberGenerator.GetBytes(32);
+            var plain = Convert.ToBase64String(bytes);
+            var hash = BCrypt.Net.BCrypt.HashPassword(plain);
+            var now = DateTime.UtcNow;
+            var limit = await GetSettingIntAsync(
+                Shared.Constants.SettingKeys.TrustedDeviceLimit, 3, 1, 20, ct);
+
+            await using (var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct))
+            {
+                var active = await _db.TrustedDevices
+                    .Where(d => d.UserId == userId && !d.IsRevoked)
+                    .ToListAsync(ct);
+                var sameIdentity = active.Where(d =>
+                    string.Equals(d.MachineName, machineName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(d.WindowsUsername, windowsUsername, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                replacedCount = sameIdentity.Length;
+                foreach (var device in sameIdentity)
+                {
+                    device.IsRevoked = true;
+                    device.RevokedAt = now;
+                    device.RevokedReason = "device_re_registered";
+                }
+                if (active.Count - sameIdentity.Length >= limit)
+                    throw new TrustedDeviceLimitException(limit);
+
+                _db.TrustedDevices.Add(new TrustedDevice
+                {
+                    UserId = userId,
+                    MachineName = machineName,
+                    WindowsUsername = windowsUsername,
+                    DeviceTokenHash = hash,
+                    RegisteredAt = now,
+                    LastUsedAt = now,
+                    IsRevoked = false,
+                });
+                await _db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+            }
+
+            // token 平文は response だけに含め、監査には定型理由と端末名/IPだけを渡す。
+            if (replacedCount > 0)
+            {
+                await TryAuditAsync(userId, username, Shared.Constants.AuthOperations.TrustedDeviceRevoked,
+                    Shared.Constants.AuditResults.Success, "device_re_registered",
+                    clientIp, machineName, ct: ct);
+            }
+
+            await TryAuditAsync(userId, username, Shared.Constants.AuthOperations.TrustedDeviceRegistered,
+                Shared.Constants.AuditResults.Success, "device_registered", clientIp, machineName, ct: ct);
+            return new TrustDeviceResponse { DeviceToken = plain };
+        }
+        catch
+        {
+            // 失敗した device の Added/Deleted 状態を監査 SaveChanges で再試行しない。
+            _db.ChangeTracker.Clear();
+            await TryAuditAsync(userId, username, Shared.Constants.AuthOperations.TrustedDeviceRegistered,
+                Shared.Constants.AuditResults.Failure, "registration_failed", clientIp, machineName, ct: ct);
+            throw;
+        }
     }
 
-    public async Task<(LoginResponse? response, string? error)> ChangePasswordAsync(int userId, string currentPassword, string newPassword, string? clientIp = null, CancellationToken ct = default)
+    public Task<bool> LogoutAsync(
+        int userId,
+        string refreshTokenId,
+        string? refreshTokenPlain,
+        CancellationToken ct = default)
+        => LogoutAsync(userId, refreshTokenId, refreshTokenPlain,
+            clientIp: null, clientHostname: null, username: null, ct: ct);
+
+    public async Task<bool> LogoutAsync(
+        int userId,
+        string refreshTokenId,
+        string? refreshTokenPlain,
+        string? clientIp,
+        string? clientHostname,
+        string? username,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var token = await _db.RefreshTokens
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(t => t.Id == refreshTokenId, ct);
+            var auditUsername = username ?? token?.User?.Username;
+
+            if (token is null)
+            {
+                await TryAuditAsync(userId, auditUsername, Shared.Constants.AuthOperations.Logout,
+                    Shared.Constants.AuditResults.Failure, "token_not_found",
+                    clientIp, clientHostname, ct: ct);
+                return false;
+            }
+
+            // 認証済みであっても、refresh token は呼び出し元ユーザー所有のものでなければ受け付けない。
+            // refresh token 値が渡された場合はそれも照合する (盗まれた ID 単独での横取り失効を防ぐ)。
+            if (token.UserId != userId)
+            {
+                await TryAuditAsync(userId, auditUsername, Shared.Constants.AuthOperations.Logout,
+                    Shared.Constants.AuditResults.Failure, "token_owner_mismatch",
+                    clientIp, clientHostname, ct: ct);
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(refreshTokenPlain) &&
+                !BCrypt.Net.BCrypt.Verify(refreshTokenPlain, token.TokenHash))
+            {
+                await TryAuditAsync(userId, auditUsername, Shared.Constants.AuthOperations.Logout,
+                    Shared.Constants.AuditResults.Failure, "token_invalid",
+                    clientIp, clientHostname, ct: ct);
+                return false;
+            }
+
+            var wasRevoked = token.IsRevoked;
+            token.IsRevoked = true;
+            await _db.SaveChangesAsync(ct);
+            await TryAuditAsync(userId, auditUsername, Shared.Constants.AuthOperations.Logout,
+                Shared.Constants.AuditResults.Success, wasRevoked ? "already_revoked" : "session_revoked",
+                clientIp, clientHostname, ct: ct);
+            return true;
+        }
+        catch
+        {
+            // 本処理の失敗した変更を監査 INSERT と一緒に再送しない。
+            _db.ChangeTracker.Clear();
+            await TryAuditAsync(userId, username, Shared.Constants.AuthOperations.Logout,
+                Shared.Constants.AuditResults.Failure, "logout_failed",
+                clientIp, clientHostname, ct: ct);
+            throw;
+        }
+    }
+
+    public Task<(LoginResponse? response, string? error)> ChangePasswordAsync(
+        int userId,
+        string currentPassword,
+        string newPassword,
+        string? clientIp = null,
+        CancellationToken ct = default)
+        => ChangePasswordAsync(userId, currentPassword, newPassword, clientIp, clientHostname: null, ct: ct);
+
+    public async Task<(LoginResponse? response, string? error)> ChangePasswordAsync(
+        int userId,
+        string currentPassword,
+        string newPassword,
+        string? clientIp,
+        string? clientHostname,
+        CancellationToken ct = default)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
-        if (user is null) return (null, "user_not_found");
+        if (user is null)
+        {
+            await TryAuditAsync(userId, null, Shared.Constants.AuthOperations.PasswordChanged,
+                Shared.Constants.AuditResults.Failure, "user_not_found", clientIp, clientHostname, ct: ct);
+            return (null, "user_not_found");
+        }
+        if (user.IsDisabled)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.PasswordChanged,
+                Shared.Constants.AuditResults.Failure, "account_disabled", clientIp, clientHostname, ct: ct);
+            return (null, "account_disabled");
+        }
 
         if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.PasswordChanged,
+                Shared.Constants.AuditResults.Failure, "current_password_invalid", clientIp, clientHostname, ct: ct);
             return (null, "現在のパスワードが正しくありません。");
+        }
 
         var (policyOk, policyError) = PasswordPolicy.Validate(newPassword);
-        if (!policyOk) return (null, policyError);
+        if (!policyOk)
+        {
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.PasswordChanged,
+                Shared.Constants.AuditResults.Failure, "password_policy_rejected", clientIp, clientHostname, ct: ct);
+            return (null, policyError);
+        }
 
-        var expiryDays = await GetPasswordExpiryDaysAsync(ct);
-        var now = DateTime.UtcNow;
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
-        user.PasswordChangedAt = now;
-        user.PasswordExpiresAt = now.AddDays(expiryDays);
-        user.MustChangePassword = false;
-        // 既存セッションは全て切る。盗まれた refresh が変更後も使われるのを防ぐ。
-        await RevokeAllRefreshTokensAsync(user.Id, ct);
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            var expiryDays = await GetPasswordExpiryDaysAsync(ct);
+            var now = DateTime.UtcNow;
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.PasswordChangedAt = now;
+            user.PasswordExpiresAt = now.AddDays(expiryDays);
+            user.MustChangePassword = false;
+            // 既存セッションは全て切る。盗まれた refresh が変更後も使われるのを防ぐ。
+            await RevokeAllRefreshTokensAsync(user.Id, ct);
+            await _db.SaveChangesAsync(ct);
 
-        // 古い access token は mcp claim を含み middleware に弾かれ、refresh token も失効済みなので、
-        // 呼び出し直後にクライアントが再ログイン無しで動けるよう、新しい access/refresh token を発行して返す。
-        var response = await IssueTokensAsync(user, deviceId: null, clientIp, ct);
-        return (response, null);
+            // 古い access token は mcp claim を含み middleware に弾かれ、refresh token も失効済みなので、
+            // 呼び出し直後にクライアントが再ログイン無しで動けるよう、新しい access/refresh token を発行して返す。
+            var response = await IssueTokensAsync(user, deviceId: null, clientIp, ct);
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.PasswordChanged,
+                Shared.Constants.AuditResults.Success, "password_changed", clientIp, clientHostname, ct: ct);
+            return (response, null);
+        }
+        catch
+        {
+            // PasswordHash / refresh token の失敗状態を監査 INSERT で再試行しない。
+            _db.ChangeTracker.Clear();
+            await TryAuditAsync(user.Id, user.Username, Shared.Constants.AuthOperations.PasswordChanged,
+                Shared.Constants.AuditResults.Failure, "password_change_failed", clientIp, clientHostname, ct: ct);
+            throw;
+        }
     }
 
     /// <summary>
     /// 初回パスワード設定を受け付けてよいかを判定する。
     /// 受け付けてよいのは「Windows 認証済みの OS ユーザー = 対象 Watashi ユーザー」であり、
-    /// かつそのユーザーが未設定・未ロック・期限内のときだけ。
+    /// かつそのユーザーが未設定・未ロック・未無効化・期限内のときだけ。
     /// それ以外は理由を問わず一律 false を返し、呼び出し側も同じ応答を返すことで
     /// 「その ID が存在するか」「未設定か」を推測させない。
     /// </summary>
@@ -549,16 +857,19 @@ public class AuthService
             $"OS ユーザー '{windowsAccountName}' として設定", clientIp, machineName, ct);
 
         user.LastLoginAt = now;
-        RecordLoginContext(user, Auth.WindowsIdentityMatcher.Normalize(windowsAccountName), machineName, clientIp);
+        var contextWarnings = RecordLoginContext(
+            user, Auth.WindowsIdentityMatcher.Normalize(windowsAccountName), machineName);
         var response = await IssueTokensAsync(user, deviceId: null, clientIp, ct);
+        await LogLoginContextWarningsAsync(user, contextWarnings, clientIp, machineName, ct);
         return (response, null);
     }
 
-    /// <summary>初回設定を受け付けてよい状態か (存在する・未設定・未ロック・期限内)。</summary>
+    /// <summary>初回設定を受け付けてよい状態か (存在する・未設定・未ロック・未無効化・期限内)。</summary>
     private static bool IsSetupEligible(User? user)
         => user is not null
            && user.IsPasswordSetupPending
            && !user.IsLocked
+           && !user.IsDisabled
            && (user.PasswordSetupExpiresAt is not DateTime due || due > DateTime.UtcNow);
 
     private Task LogSetupAuditAsync(string operation, int? userId, string username, string result,

@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Auth;
 using Watashi.Server.Data;
@@ -114,6 +115,77 @@ public static class AdminUserEndpoints
             return Results.NoContent();
         });
 
+        // 連続ログイン失敗によるロックとは別に、管理者判断でアカウントを明示的に利用停止する。
+        // 状態変更・全セッション/端末失効・監査ログを同一 transaction に含め、部分適用を防ぐ。
+        group.MapPost("/{id:int}/disable", async (int id, DisableUserRequest req, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
+        {
+            var reason = req.Reason?.Trim() ?? string.Empty;
+            if (reason.Length == 0)
+                return Results.BadRequest(new { error = "無効理由は必須です。" });
+            if (reason.Length > UserAccountLifecycle.MaxDisableReasonLength)
+                return Results.BadRequest(new { error = $"無効理由は {UserAccountLifecycle.MaxDisableReasonLength} 文字以内で入力してください。" });
+            if (!principal.TryGetUserId(out var actorUserId))
+                return Results.Unauthorized();
+
+            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var u = await db.Users.FindAsync(new object?[] { id }, ct);
+            if (u is null) return Results.NotFound();
+
+            if (u.IsDisabled)
+            {
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.UserDisable, $"user:{id}",
+                    AuditResults.Failure, "already_disabled", ct);
+                await tx.CommitAsync(ct);
+                return Results.Conflict(new { error = "このユーザーは既に無効化されています。" });
+            }
+
+            var decision = await AdminUserGuard.CanDisableAsync(db, actorUserId, id, u.IsAdmin, ct);
+            if (decision == AdminUserGuard.Decision.SelfTarget)
+            {
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.UserDisable, $"user:{id}",
+                    AuditResults.Failure, "self_target", ct);
+                await tx.CommitAsync(ct);
+                return Results.BadRequest(new { error = "自分自身を無効化することはできません。" });
+            }
+            if (decision == AdminUserGuard.Decision.LastActiveAdmin)
+            {
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.UserDisable, $"user:{id}",
+                    AuditResults.Failure, "last_active_admin", ct);
+                await tx.CommitAsync(ct);
+                return Results.BadRequest(new { error = "他にアクティブな管理者がいないため、この管理者を無効化できません。" });
+            }
+
+            var now = DateTime.UtcNow;
+            await UserAccountLifecycle.DisableAsync(
+                db, u, actorUserId, principal.GetUsername() ?? "(unknown)", reason, now, ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserDisable,
+                $"user:{id};reason={reason}", ct: ct);
+            await tx.CommitAsync(ct);
+            return Results.NoContent();
+        });
+
+        // 再有効化時にも資格情報世代を進めて全認証情報を再失効する。無効化と競合して発行された
+        // access/refresh token や信頼済み端末が、再有効化後に復活する余地を残さない。
+        group.MapPost("/{id:int}/enable", async (int id, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
+        {
+            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var u = await db.Users.FindAsync(new object?[] { id }, ct);
+            if (u is null) return Results.NotFound();
+
+            if (!u.IsDisabled)
+            {
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.UserEnable, $"user:{id}",
+                    AuditResults.Failure, "not_disabled", ct);
+                await tx.CommitAsync(ct);
+                return Results.Conflict(new { error = "このユーザーは無効化されていません。" });
+            }
+
+            await UserAccountLifecycle.EnableAsync(db, u, DateTime.UtcNow, ct);
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserEnable, $"user:{id}", ct: ct);
+            await tx.CommitAsync(ct);
+            return Results.NoContent();
+        });
+
         // Windows 認証が使えない端末 (ドメイン非参加など) 向けの第二経路。
         // 管理者が初期パスワードを発行し、従来どおり初回ログイン時に強制変更させる。
         group.MapPost("/{id:int}/reset-password", async (int id, ResetPasswordRequest req, AppDbContext db, AuthService auth, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
@@ -206,17 +278,27 @@ public static class AdminUserEndpoints
         group.MapDelete("/{id:int}/devices", async (int id, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
             var now = DateTime.UtcNow;
-            await db.TrustedDevices.Where(d => d.UserId == id && !d.IsRevoked)
+            var revokedCount = await db.TrustedDevices.Where(d => d.UserId == id && !d.IsRevoked)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(d => d.IsRevoked, true)
                     .SetProperty(d => d.RevokedAt, now)
                     .SetProperty(d => d.RevokedReason, "admin_revoked"), ct);
-            await audit.LogAdminAsync(principal, ctx, AdminOperations.UserRevokeDevices, $"user:{id}", ct: ct);
+            var actorId = principal.GetUserId();
+            var actorName = principal.GetUsername();
+            var clientIp = ctx.Connection.RemoteIpAddress?.ToString();
+            var clientHostname = ctx.Request.Headers["X-Client-Hostname"].FirstOrDefault();
+            var reason = revokedCount > 0 ? "devices_revoked" : "no_active_devices";
+
+            // 端末失効はすでに確定済みなので、監査テーブル障害だけで 500 にしない。
+            await audit.TryLogAuthenticationAsync(actorId, actorName, AdminOperations.UserRevokeDevices,
+                AuditResults.Success, reason, clientIp, clientHostname, $"user:{id}", ct);
+            await audit.TryLogAuthenticationAsync(actorId, actorName, AuthOperations.TrustedDeviceRevoked,
+                AuditResults.Success, reason, clientIp, clientHostname, $"user:{id}", ct);
             return Results.NoContent();
         });
 
         // ===== CSV エクスポート =====
-        // Username, IsAdmin, IsLocked, PasswordStatus, PasswordExpiresAt, LastLoginAt, CreatedAt
+        // Username, IsAdmin, IsLocked, IsDisabled, disable metadata, password/login metadata
         // Password 列はあえて含めない (DB に平文無いので)
         group.MapGet("/export.csv", async (AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
@@ -227,13 +309,18 @@ public static class AdminUserEndpoints
             ctx.Response.Headers.ContentDisposition = "attachment; filename=watashi-users.csv";
             ctx.Response.ContentType = "text/csv; charset=utf-8";
             await using var w = new StreamWriter(ctx.Response.Body, new System.Text.UTF8Encoding(true));
-            await w.WriteLineAsync("Username,IsAdmin,IsLocked,PasswordStatus,PasswordExpiresAt,LastLoginAt,CreatedAt");
+            await w.WriteLineAsync("Username,IsAdmin,IsLocked,IsDisabled,DisabledAt,DisabledReason,DisabledByUserId,DisabledByUsername,PasswordStatus,PasswordExpiresAt,LastLoginAt,CreatedAt");
             foreach (var u in users)
             {
                 await w.WriteLineAsync(string.Join(",",
                     CsvEscape(u.Username),
                     u.IsAdmin ? "true" : "false",
                     u.IsLocked ? "true" : "false",
+                    u.IsDisabled ? "true" : "false",
+                    u.DisabledAt?.ToString("o") ?? "",
+                    CsvEscape(u.DisabledReason),
+                    u.DisabledByUserId?.ToString() ?? "",
+                    CsvEscape(u.DisabledByUsername),
                     u.PasswordStatus,
                     u.PasswordExpiresAt.ToString("o"),
                     u.LastLoginAt?.ToString("o") ?? "",

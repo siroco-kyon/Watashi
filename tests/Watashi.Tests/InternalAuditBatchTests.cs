@@ -13,6 +13,19 @@ namespace Watashi.Tests;
 public class InternalAuditBatchTests
 {
     [Fact]
+    public void Missing_event_id_is_derived_deterministically_for_idempotent_resend()
+    {
+        const string json = """
+            {"timestamp":"2026-08-15T00:00:00Z","username":"alice","operation":"UPLOAD","result":"success"}
+            """;
+
+        var first = InternalEndpoints.TryParseAuditLog(json);
+        var second = InternalEndpoints.TryParseAuditLog(json);
+
+        first!.EventId.Should().NotBeNull();
+        second!.EventId.Should().Be(first.EventId);
+    }
+    [Fact]
     public void 正常なレコードはそのまま受理する()
     {
         var log = InternalEndpoints.TryParseAuditLog(

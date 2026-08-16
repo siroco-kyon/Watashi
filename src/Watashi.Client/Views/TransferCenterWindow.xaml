@@ -1,0 +1,58 @@
+<Window x:Class="Watashi.Client.Views.TransferCenterWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="転送ジョブセンター" Width="1050" Height="600" MinWidth="780" MinHeight="430"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Icon="{StaticResource ToriiIcon}"
+        AutomationProperties.Name="転送ジョブセンター">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="転送ジョブセンター" Style="{StaticResource H2}"/>
+            <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" Margin="0,4,0,0"
+                       AutomationProperties.LiveSetting="Polite"/>
+            <Border Style="{StaticResource AccessibleErrorBanner}" Padding="10" Margin="0,8,0,0"
+                    Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource AccessibleErrorText}" TextWrapping="Wrap"/>
+            </Border>
+        </StackPanel>
+
+        <WrapPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="選択を再試行" Command="{Binding RetrySelectedCommand}" Margin="0,0,6,0"/>
+            <Button Content="上書きで再試行" Command="{Binding RetryOverwriteCommand}" Margin="0,0,6,0"/>
+            <Button Content="スキップ" Command="{Binding RetrySkipCommand}" Margin="0,0,6,0"/>
+            <Button Content="別名で再試行" Command="{Binding RetryRenameCommand}" Margin="0,0,12,0"/>
+            <Button Content="再開" Command="{Binding ResumeSelectedCommand}" Margin="0,0,6,0"/>
+            <Button Content="選択を中止" Command="{Binding CancelSelectedCommand}" Style="{StaticResource DangerButton}" Margin="0,0,6,0"/>
+            <Button Content="すべて中止" Command="{Binding CancelAllCommand}" Style="{StaticResource DangerButton}" Margin="0,0,12,0"/>
+            <Button Content="失敗だけ再試行" Command="{Binding RetryFailedCommand}" Margin="0,0,6,0"/>
+            <Button Content="完了・失敗項目を消去" Command="{Binding RemoveFinishedCommand}"
+                    ToolTip="完了・失敗・中止・スキップ済みの履歴と部分ファイルを消去します"/>
+        </WrapPanel>
+
+        <DataGrid ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}"
+                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                  EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                  AutomationProperties.Name="転送ジョブ一覧">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="方向" Binding="{Binding DirectionLabel}" Width="100"/>
+                <DataGridTextColumn Header="ファイル" Binding="{Binding FileName}" Width="150"/>
+                <DataGridTextColumn Header="状態" Binding="{Binding StateLabel}" Width="90"/>
+                <DataGridTemplateColumn Header="進捗" Width="170">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" Height="7"
+                                             AutomationProperties.Name="{Binding ProgressText}"/>
+                                <TextBlock Text="{Binding ProgressText}" FontSize="11" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="競合方針" Binding="{Binding ConflictLabel}" Width="110"/>
+                <DataGridTextColumn Header="転送元" Binding="{Binding SourceText}" Width="220"/>
+                <DataGridTextColumn Header="転送先" Binding="{Binding DestinationText}" Width="220"/>
+                <DataGridTextColumn Header="エラー" Binding="{Binding ErrorText}" Width="*" MinWidth="180"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

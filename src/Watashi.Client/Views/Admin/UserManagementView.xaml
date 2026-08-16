@@ -27,6 +27,10 @@
                             <Button Content="📥 CSV取込" Command="{Binding ImportCsvCommand}" ToolTip="CSV ファイルからユーザーを一括登録" Margin="0,2,6,2"/>
                             <Button Content="📤 CSV出力" Command="{Binding ExportCsvCommand}" ToolTip="ユーザー一覧を CSV として保存" Style="{StaticResource GhostButton}" Margin="0,2,6,2"/>
                             <Button Content="🔓 ロック解除" Command="{Binding UnlockCommand}" Margin="0,2,6,2"/>
+                            <Button Content="⛔ 無効化" Click="OnDisableUser" IsEnabled="{Binding CanDisableSelected}"
+                                    ToolTip="理由を記録して利用を停止し、全セッションと記憶済み端末を失効します。" Margin="0,2,6,2"/>
+                            <Button Content="✅ 再有効化" Click="OnEnableUser" IsEnabled="{Binding CanEnableSelected}"
+                                    ToolTip="利用を再開します。失効済みのセッションや記憶済み端末は復活しません。" Margin="0,2,6,2"/>
                             <Button Content="🔑 初期PW発行" Click="OnResetPw" Margin="0,2,6,2"
                                     ToolTip="Windows 認証が使えない端末向け。管理者が初期パスワードを決めて本人に伝えます。"/>
                             <Button Content="↩ 初回設定に戻す" Command="{Binding RequireSetupCommand}" Margin="0,2,6,2"
@@ -58,7 +62,17 @@
                                 <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
                                 <GridViewColumn Header="ユーザー名" DisplayMemberBinding="{Binding Username}" Width="180"/>
                                 <GridViewColumn Header="管理者" DisplayMemberBinding="{Binding IsAdmin}" Width="64"/>
-                                <GridViewColumn Header="Lock" DisplayMemberBinding="{Binding IsLocked}" Width="60"/>
+                                <GridViewColumn Header="状態" DisplayMemberBinding="{Binding AccountStatusLabel}" Width="72"/>
+                                <GridViewColumn Header="無効日時" DisplayMemberBinding="{Binding DisabledAt, Converter={StaticResource Utc}}" Width="150"/>
+                                <GridViewColumn Header="無効理由" Width="180">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisabledReason}" ToolTip="{Binding DisabledReason}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="無効化した管理者" DisplayMemberBinding="{Binding DisabledByUsername}" Width="130"/>
                                 <GridViewColumn Header="PW状態" DisplayMemberBinding="{Binding PasswordStatusLabel}" Width="100"/>
                                 <GridViewColumn Header="PW期限" DisplayMemberBinding="{Binding PasswordExpiresAtForDisplay, Converter={StaticResource Utc}}" Width="160"/>
                                 <GridViewColumn Header="最終ログイン" DisplayMemberBinding="{Binding LastLoginAt, Converter={StaticResource Utc}}" Width="160"/>
@@ -101,6 +115,11 @@
                     <TextBlock Text="選択中のユーザー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding Selected.Username, TargetNullValue=ユーザーを選択してください}"
                                FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock Text="{Binding Selected.AccountStatusLabel, StringFormat=状態: {0}}"
+                               Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding Selected.DisabledReason, StringFormat=直近の無効理由: {0}}"
+                               ToolTip="{Binding Selected.DisabledReason}" TextWrapping="Wrap"
+                               Style="{StaticResource Caption}" Margin="0,0,0,10"/>
 
                     <CheckBox Content="管理者"
                               IsChecked="{Binding EditIsAdmin}"

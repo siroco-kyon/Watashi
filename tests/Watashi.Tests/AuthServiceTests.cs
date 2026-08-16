@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Watashi.Server.Auth;
 using Watashi.Server.Data;
 using Watashi.Server.Services;
 using Watashi.Shared.Constants;
@@ -21,8 +22,10 @@ public class AuthServiceTests
         var opts = new AuthServiceOptions
         {
             Secret = "TEST-SECRET-At-Least-32-Bytes-Long-XXXXXXXXXXXXXXX",
-            Issuer = "Watashi", Audience = "Watashi",
-            AccessTokenMinutes = 15, RefreshTokenDays = 30,
+            Issuer = "Watashi",
+            Audience = "Watashi",
+            AccessTokenMinutes = 15,
+            RefreshTokenDays = 30,
         };
         return new AuthService(db, opts);
     }
@@ -528,7 +531,7 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task TrustDevice_replaces_existing_device_for_same_user()
+    public async Task TrustDevice_keeps_different_devices_for_same_user()
     {
         using var db = new TestDb();
         var u = await SeedUserAsync(db);
@@ -536,7 +539,107 @@ public class AuthServiceTests
         var first = await svc.TrustDeviceAsync(u.Id, "PC01", "alice");
         var second = await svc.TrustDeviceAsync(u.Id, "PC02", "alice");
         first.DeviceToken.Should().NotBe(second.DeviceToken);
-        db.Db.TrustedDevices.Count(d => d.UserId == u.Id).Should().Be(1);
+        db.Db.TrustedDevices.Count(d => d.UserId == u.Id && !d.IsRevoked).Should().Be(2);
+
+        (await svc.AutoLoginAsync("PC01", "alice", first.DeviceToken, clientIp: null))
+            .Failure.Should().BeNull();
+        (await svc.AutoLoginAsync("PC02", "alice", second.DeviceToken, clientIp: null))
+            .Failure.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TrustDevice_reregistration_rotates_only_the_same_device()
+    {
+        using var db = new TestDb();
+        var u = await SeedUserAsync(db);
+        var svc = Build(db);
+        var old = await svc.TrustDeviceAsync(u.Id, "PC01", "alice");
+        var other = await svc.TrustDeviceAsync(u.Id, "PC02", "alice");
+        var current = await svc.TrustDeviceAsync(u.Id, "pc01", "ALICE");
+
+        (await svc.AutoLoginAsync("PC01", "alice", old.DeviceToken, clientIp: null))
+            .Failure.Should().Be(LoginFailureReason.InvalidCredentials);
+        (await svc.AutoLoginAsync("PC02", "alice", other.DeviceToken, clientIp: null))
+            .Failure.Should().BeNull();
+        (await svc.AutoLoginAsync("PC01", "alice", current.DeviceToken, clientIp: null))
+            .Failure.Should().BeNull();
+        db.Db.TrustedDevices.Count(d => d.UserId == u.Id && !d.IsRevoked).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task TrustDevice_enforces_configured_active_device_limit()
+    {
+        using var db = new TestDb();
+        var u = await SeedUserAsync(db);
+        db.Db.SystemSettings.Add(new SystemSetting
+        {
+            Key = SettingKeys.TrustedDeviceLimit,
+            Value = "2",
+            UpdatedAt = DateTime.UtcNow,
+        });
+        await db.Db.SaveChangesAsync();
+        var svc = Build(db);
+        await svc.TrustDeviceAsync(u.Id, "PC01", "alice");
+        await svc.TrustDeviceAsync(u.Id, "PC02", "alice");
+
+        var act = () => svc.TrustDeviceAsync(u.Id, "PC03", "alice");
+        await act.Should().ThrowAsync<TrustedDeviceLimitException>()
+            .WithMessage("*2*");
+        db.Db.TrustedDevices.Count(d => d.UserId == u.Id && !d.IsRevoked).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task WindowsSsoLogin_accepts_allowed_active_user_and_audits_success()
+    {
+        using var db = new TestDb();
+        var u = await SeedUserAsync(db);
+        var svc = Build(db);
+        var options = new WindowsAuthOptions
+        {
+            Mode = WindowsAuthModes.Negotiate,
+            DomainMatch = WindowsAuthDomainMatchModes.AllowList,
+            AllowedDomains = ["CORP"],
+            EnableSso = true,
+        };
+
+        var result = await svc.WindowsSsoLoginAsync(@"CORP\alice", options,
+            "10.0.0.1", "PC01");
+
+        result.Failure.Should().BeNull();
+        result.Response.Should().NotBeNull();
+        var fresh = await db.Db.Users.FindAsync(u.Id);
+        fresh!.WindowsAccountName.Should().Be(@"CORP\alice");
+        db.Db.AuditLogs.Should().Contain(a => a.UserId == u.Id &&
+            a.Operation == AuthOperations.LoginSucceeded &&
+            a.ErrorMessage == "windows_sso_authenticated");
+    }
+
+    [Theory]
+    [InlineData(@"OTHER\alice", false, false, LoginFailureReason.InvalidCredentials)]
+    [InlineData(@"CORP\unknown", false, false, LoginFailureReason.InvalidCredentials)]
+    [InlineData(@"CORP\alice", true, false, LoginFailureReason.AccountDisabled)]
+    [InlineData(@"CORP\alice", false, true, LoginFailureReason.AccountLocked)]
+    public async Task WindowsSsoLogin_rejects_invalid_or_inactive_accounts(
+        string identity, bool disabled, bool locked, LoginFailureReason expected)
+    {
+        using var db = new TestDb();
+        var u = await SeedUserAsync(db);
+        u.IsDisabled = disabled;
+        u.IsLocked = locked;
+        await db.Db.SaveChangesAsync();
+        var svc = Build(db);
+        var options = new WindowsAuthOptions
+        {
+            Mode = WindowsAuthModes.Negotiate,
+            DomainMatch = WindowsAuthDomainMatchModes.AllowList,
+            AllowedDomains = ["CORP"],
+            EnableSso = true,
+        };
+
+        var result = await svc.WindowsSsoLoginAsync(identity, options, null, "PC01");
+
+        result.Response.Should().BeNull();
+        result.Failure.Should().Be(expected);
     }
 
     [Fact]

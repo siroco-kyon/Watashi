@@ -38,8 +38,13 @@
 CIFS サーバーが無くてもログイン / 認証 / DB 自動生成までは確認できます。
 
 ```powershell
-# 1) 中央サーバー起動 (PowerShell でも cmd でも可)
+# 1) 初回だけ bootstrap 管理者を発行 (PowerShell でも cmd でも可)
 cd src\Watashi.Server
+dotnet run -- --bootstrap-admin
+# → Username とランダムな One-time password がこの端末にだけ表示されるので安全に控える
+# → DB と非機密のシードデータを作成して終了する
+
+# 2) 中央サーバー起動
 dotnet run
 # → http://127.0.0.1:18080 で起動
 # → ASPNETCORE_ENVIRONMENT=Development は launchSettings.json で自動設定されるので、env 変数を手動指定する必要なし
@@ -49,33 +54,29 @@ dotnet run
 別ウィンドウで:
 
 ```powershell
-# 2) 疎通確認 (ブラウザで http://127.0.0.1:18080/ を開くとエンドポイント一覧が見える)
+# 3) 疎通確認 (ブラウザで http://127.0.0.1:18080/ を開くとエンドポイント一覧が見える)
 Invoke-RestMethod http://127.0.0.1:18080/health
 # → {"status":"ok","at":"..."}
 
-# 3) ログイン (admin / Admin123!@#)
-$body = @{ username = 'admin'; password = 'Admin123!@#' } | ConvertTo-Json
+# 4) ログイン (bootstrap で表示された資格情報)
+$secure = Read-Host '表示された One-time password' -AsSecureString
+$password = [Net.NetworkCredential]::new('', $secure).Password
+$body = @{ username = 'admin'; password = $password } | ConvertTo-Json
 $login = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:18080/api/auth/login `
     -ContentType 'application/json' -Body $body
 $login.mustChangePassword   # → True (初回はパスワード変更が必要)
 $login.accessToken          # → JWT
 ```
 
-> **PowerShell の注意**: `curl` は `Invoke-WebRequest` のエイリアスなので `curl -X POST -H ...` のような Unix 構文は通らない。
-> Unix 系の例を使いたい場合は `curl.exe` を明示（Windows 10 以降に同梱されている本物の curl が呼ばれる）:
-> ```powershell
-> curl.exe -X POST http://127.0.0.1:18080/api/auth/login `
->     -H "Content-Type: application/json" `
->     -d '{\"username\":\"admin\",\"password\":\"Admin123!@#\"}'
-> ```
+> **PowerShell の注意**: `curl` は `Invoke-WebRequest` のエイリアスです。上記の PowerShell ネイティブ例を使うか、Unix 構文を使う場合は `curl.exe` と明示してください。一時パスワードをコマンド履歴へ直接書かないでください。
 
 ```powershell
-# 4) WPF クライアント起動
+# 5) WPF クライアント起動
 cd ..\Watashi.Client
 # 接続先と更新確認先は同梱 deployment.json で固定。
 # dev では serverUrl を http://127.0.0.1:18080 に書き換えてから起動する。
 dotnet run
-# → ログイン: admin / Admin123!@# → パスワード変更画面 → メイン画面
+# → bootstrap で表示された資格情報でログイン → パスワード変更画面 → メイン画面
 ```
 
 > 開発時のポート (18080) は `src\Watashi.Server\appsettings.Development.json` の `Kestrel:Endpoints:Http:Url` で設定されている。
@@ -450,8 +451,20 @@ Git for Windows が入っていれば openssl も使える:
 .\deploy\uninstall-service.ps1 -ServiceName Watashi.Server
 ```
 
-初回起動で `C:\ProgramData\Watashi\watashi.db` が自動生成され、admin (`admin` / `Admin123!@#`) でログイン可能になる。
-**最初のログインで必ずパスワードを変更すること**。
+固定の初期管理者パスワードはありません。サービスを停止した状態で、サーバー端末上から明示的に bootstrap を実行します:
+
+```powershell
+Stop-Service Watashi.Server
+Push-Location "C:\Program Files\Watashi\Server"
+.\Watashi.Server.exe --bootstrap-admin
+# この端末にだけ表示された Username / One-time password を安全に控える
+Pop-Location
+Start-Service Watashi.Server
+```
+
+一時パスワードは DB やログに平文保存されず、初回ログインで変更を強制されます。表示を失った場合は未ログインの間だけ同じコマンドで旧値を無効化して再発行できます。初回ログイン後または有効な管理者が既に存在する場合、コマンドは何も変更せず拒否します。
+
+旧版から更新し、固定パスワードで作られた `admin` がまだ一度もログインされていない場合も、サービス停止中にこのコマンドを一度実行してください。未使用状態を確認してランダムな一時パスワードへ置換し、旧値を無効化します。既に運用中の管理者資格情報は変更しません。
 
 ### ③-2 配布サーバー (ClickOnce / IIS)
 
@@ -787,7 +800,8 @@ HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いま
 | ☐ | Server HTTPS 証明書を社内 CA 発行のものに ([deploy/CERTIFICATE.md](../deploy/CERTIFICATE.md) でストア参照 / ファイル指定どちらかを選ぶ) |
 | ☐ | (ストア参照方式の場合) 秘密キーへのサービスアカウントの Read 権限を付与 |
 | ☐ | クライアント PC に社内 CA ルート証明書を配布 |
-| ☐ | admin の初期パスワード変更 (シード admin `admin` / `Admin123!@#` は従来どおりパスワード付きで作られる。この 1 アカウントだけは必ず手動で変更する) |
+| ☐ | サーバー端末で `Watashi.Server.exe --bootstrap-admin` を一度だけ実行し、表示された一時資格情報を安全に受け渡した（ファイル・チケット・チャット・リポジトリに保存しない） |
+| ☐ | bootstrap 管理者で初回ログインし、一時パスワードを本番用の固有パスワードへ変更した |
 | ☐ | (任意) Windows 統合認証を有効化して初期パスワードの配布を廃止 ([deploy/IIS-HOSTING.md](../deploy/IIS-HOSTING.md) の「Windows 統合認証を有効にする」)。未設定の場合は管理者が「初期PW発行」で配布する運用のまま |
 | ☐ | Windows 統合認証で複数の独立ドメインを許可する場合、GID が全許可ドメインを通して一意か確認。同名 GID が存在し得る場合は管理者発行の初期 PW 経路を使う |
 | ☐ | 既存 DB のアップグレード前に、大文字小文字だけが異なる重複ユーザー (例: `alice` / `ALICE`) がないことを確認。存在する場合は統合してから migration を適用 |
@@ -964,4 +978,4 @@ Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
 - 仕様。同一フォルダ内でのリネームのみ許可。フォルダ間の移動は禁止 (DELETE 権限の抜け穴対策)
 
 ### ストリーミング転送中にキャンセルしたい
-- 現状クライアントから明示的なキャンセルボタンは未実装。アプリ終了で接続切断される。
+- 転送センターから個別/全体キャンセル、一時停止、失敗項目の再試行が可能。キューは再起動後も復元される。

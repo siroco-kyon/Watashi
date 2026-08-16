@@ -29,6 +29,11 @@ public class UserDto
     public string Username { get; set; } = string.Empty;
     public bool IsAdmin { get; set; }
     public bool IsLocked { get; set; }
+    public bool IsDisabled { get; set; }
+    public DateTime? DisabledAt { get; set; }
+    public string? DisabledReason { get; set; }
+    public int? DisabledByUserId { get; set; }
+    public string? DisabledByUsername { get; set; }
     public DateTime? LastLoginAt { get; set; }
     public DateTime PasswordExpiresAt { get; set; }
     public bool MustChangePassword { get; set; }
@@ -42,6 +47,9 @@ public class UserDto
 
     /// <summary>画面表示用のラベル。</summary>
     public string PasswordStatusLabel => PasswordStatuses.ToLabel(PasswordStatus);
+
+    /// <summary>明示無効化を自動ロックより優先して表示する、管理画面用のアカウント状態。</summary>
+    public string AccountStatusLabel => IsDisabled ? "無効" : IsLocked ? "ロック" : "有効";
 
     /// <summary>
     /// 一覧の「PW期限」列に出す値。初回設定待ちのユーザーはまだパスワードを持たないため、
@@ -66,6 +74,13 @@ public class CreateUserRequest
 public class UpdateUserRequest
 {
     public bool? IsAdmin { get; set; }
+}
+
+/// <summary>管理者による明示的なユーザー無効化。</summary>
+public class DisableUserRequest
+{
+    public const int MaxReasonLength = 500;
+    public string Reason { get; set; } = string.Empty;
 }
 
 public class ResetPasswordRequest

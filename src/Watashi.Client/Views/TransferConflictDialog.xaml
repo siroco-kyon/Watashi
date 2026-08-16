@@ -1,0 +1,31 @@
+<Window x:Class="Watashi.Client.Views.TransferConflictDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="同名項目がある場合" Width="470" Height="300" SizeToContent="Manual"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Icon="{StaticResource ToriiIcon}"
+        AutomationProperties.Name="転送時の競合処理を選択">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="同名のファイルがある場合の処理" Style="{StaticResource H3}"/>
+        <TextBlock Grid.Row="1" Margin="0,8,0,12" TextWrapping="Wrap"
+                   Text="この選択は、今回キューへ追加するすべてのファイルに適用されます。"/>
+        <ComboBox x:Name="PolicyBox" Grid.Row="2" SelectedIndex="0" VerticalAlignment="Top"
+                  SelectedValuePath="Tag" AutomationProperties.Name="競合時の処理">
+            <ComboBoxItem Content="都度確認（該当ジョブを停止してジョブセンターで選択）" Tag="ask"/>
+            <ComboBoxItem Content="すべて上書き" Tag="overwrite"/>
+            <ComboBoxItem Content="すべてスキップ" Tag="skip"/>
+            <ComboBoxItem Content="別名で保存" Tag="rename"/>
+        </ComboBox>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="キャンセル" IsCancel="True" Margin="0,0,8,0"/>
+            <Button Content="この方針で追加" IsDefault="True" Style="{StaticResource PrimaryButton}"
+                    Click="OnAccept"/>
+        </StackPanel>
+    </Grid>
+</Window>

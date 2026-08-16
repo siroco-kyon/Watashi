@@ -110,6 +110,29 @@ public class UserProjectionsTests
         dto.WindowsAccountName.Should().Be(@"CORP\G012345");
     }
 
+    [Fact]
+    public async Task Disable_evidence_is_carried_through()
+    {
+        using var db = new TestDb();
+        var at = DateTime.UtcNow.AddHours(-1);
+        var u = Mk("u");
+        u.IsDisabled = true;
+        u.DisabledAt = at;
+        u.DisabledReason = "契約終了";
+        u.DisabledByUserId = 42;
+        u.DisabledByUsername = "admin";
+        db.Db.Users.Add(u);
+        await db.Db.SaveChangesAsync();
+
+        var dto = (await ProjectAsync(db))["u"];
+
+        dto.IsDisabled.Should().BeTrue();
+        dto.DisabledAt.Should().BeCloseTo(at, TimeSpan.FromSeconds(1));
+        dto.DisabledReason.Should().Be("契約終了");
+        dto.DisabledByUserId.Should().Be(42);
+        dto.DisabledByUsername.Should().Be("admin");
+    }
+
     [Theory]
     [InlineData(PasswordStatuses.PendingSetup, "初回設定待ち")]
     [InlineData(PasswordStatuses.Expired, "期限切れ")]
@@ -118,5 +141,16 @@ public class UserProjectionsTests
     public void Status_labels_are_translated_for_the_admin_ui(string status, string expected)
     {
         new UserDto { PasswordStatus = status }.PasswordStatusLabel.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(false, false, "有効")]
+    [InlineData(true, false, "ロック")]
+    [InlineData(false, true, "無効")]
+    [InlineData(true, true, "無効")]
+    public void Account_status_prioritizes_explicit_disable(bool locked, bool disabled, string expected)
+    {
+        new UserDto { IsLocked = locked, IsDisabled = disabled }
+            .AccountStatusLabel.Should().Be(expected);
     }
 }

@@ -45,6 +45,12 @@ public class WindowsAuthOptions
     /// <summary>GET /api/auth/win/whoami を有効にするか。既定 false。</summary>
     public bool EnableDiagnostics { get; set; }
 
+    /// <summary>
+    /// Windows統合認証だけで通常ログイン用JWTを発行するか。既定false。
+    /// falseでも初回パスワード設定は従来どおり利用できる。
+    /// </summary>
+    public bool EnableSso { get; set; }
+
     /// <summary>初回設定エンドポイントの IP あたり毎分許可数。既定 30。</summary>
     public int SetupPerMinutePerIp { get; set; } = 30;
 

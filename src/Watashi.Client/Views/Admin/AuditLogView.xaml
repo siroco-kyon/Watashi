@@ -7,8 +7,9 @@
                 <DockPanel>
                     <TextBlock Text="操作ログ" Style="{StaticResource H3}" DockPanel.Dock="Left"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock Text="{Binding TotalCount, StringFormat=Total: {0}}" Margin="0,0,12,0"/>
-                        <Button Content="🔍 検索" Style="{StaticResource PrimaryButton}" Command="{Binding RefreshCommand}" Margin="0,0,6,0"/>
+                        <TextBlock Text="{Binding PageSummary}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                        <Button Content="↻ 更新" Command="{Binding RefreshCommand}" Margin="0,0,6,0"/>
+                        <Button Content="🔍 検索" Style="{StaticResource PrimaryButton}" Command="{Binding SearchCommand}" Margin="0,0,6,0"/>
                         <Button Content="📤 CSV出力" Command="{Binding ExportCsvCommand}"/>
                     </StackPanel>
                 </DockPanel>
@@ -16,66 +17,127 @@
 
             <Border DockPanel.Dock="Top" Background="{StaticResource SurfaceAltBrush}"
                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="14,10">
-                <WrapPanel>
-                    <StackPanel Margin="0,0,16,4">
-                        <TextBlock Text="User" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
-                        <TextBox Width="140" Text="{Binding FilterUser, UpdateSourceTrigger=PropertyChanged}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,16,4">
-                        <TextBlock Text="Operation" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
-                        <TextBox Width="130" Text="{Binding FilterOp, UpdateSourceTrigger=PropertyChanged}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,16,4">
-                        <TextBlock Text="From (UTC)" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
-                        <DatePicker SelectedDate="{Binding FilterFrom}"/>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,16,4">
-                        <TextBlock Text="To (UTC)" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
-                        <DatePicker SelectedDate="{Binding FilterTo}"/>
-                    </StackPanel>
-                </WrapPanel>
+                <StackPanel>
+                    <WrapPanel>
+                        <StackPanel Margin="0,0,12,6">
+                            <TextBlock Text="ユーザー / ID" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <TextBox Width="130" Text="{Binding FilterUser, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6">
+                            <TextBlock Text="操作カテゴリ" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <ComboBox Width="125" ItemsSource="{Binding CategoryOptions}"
+                                      DisplayMemberPath="Label" SelectedValuePath="Value"
+                                      SelectedValue="{Binding FilterCategory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6">
+                            <TextBlock Text="操作" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <ComboBox Width="200" ItemsSource="{Binding OperationOptions}"
+                                      DisplayMemberPath="Label" SelectedValuePath="Value"
+                                      SelectedValue="{Binding FilterOp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6">
+                            <TextBlock Text="結果" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <ComboBox Width="95" ItemsSource="{Binding ResultOptions}"
+                                      DisplayMemberPath="Label" SelectedValuePath="Value"
+                                      SelectedValue="{Binding FilterResult, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6">
+                            <TextBlock Text="開始日 (ローカル)" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <DatePicker Width="125" SelectedDate="{Binding FilterFrom}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,6">
+                            <TextBlock Text="終了日 (ローカル)" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <DatePicker Width="125" SelectedDate="{Binding FilterTo}"/>
+                        </StackPanel>
+                    </WrapPanel>
+                    <WrapPanel>
+                        <StackPanel Margin="0,0,12,2">
+                            <TextBlock Text="ホスト / ID" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <TextBox Width="130" Text="{Binding FilterHost, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,2">
+                            <TextBlock Text="共有 / ID" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <TextBox Width="130" Text="{Binding FilterShare, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,2">
+                            <TextBlock Text="パス / 移動先" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <TextBox Width="210" Text="{Binding FilterPath, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,2">
+                            <TextBlock Text="ノード / ID" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <TextBox Width="130" Text="{Binding FilterNode, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,12,2">
+                            <TextBlock Text="端末名 / IP" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <TextBox Width="150" Text="{Binding FilterDevice, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <Button Content="条件をクリア" Command="{Binding ClearFiltersCommand}"
+                                VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                    </WrapPanel>
+                </StackPanel>
             </Border>
 
             <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                        Margin="16,6,16,0" DockPanel.Dock="Top" TextWrapping="Wrap"/>
 
-            <!--
-                旧 UI は HostId / ShareId の数値だけが出ていたため、"どこのどの共有のどのパスか" が
-                ログだけ眺めても分からなかった。サーバ側で left-join した HostName / ShareName を
-                受け取り、(ホスト名 / 共有名) を 2 行レイアウトで表示。ホバー時はパス + 完全な location を
-                ツールチップで全文確認できる。削除済みのホスト/共有は「(削除済)」とマークする。
-            -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource SurfaceAltBrush}"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="14,8">
+                <DockPanel>
+                    <TextBlock Text="{Binding PageSummary}" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="≪ 最初" Command="{Binding FirstPageCommand}"
+                                IsEnabled="{Binding CanGoPrevious}" Margin="0,0,5,0"/>
+                        <Button Content="‹ 前へ" Command="{Binding PreviousPageCommand}"
+                                IsEnabled="{Binding CanGoPrevious}" Margin="0,0,10,0"/>
+                        <TextBlock Text="{Binding PageNumberSummary}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button Content="次へ ›" Command="{Binding NextPageCommand}"
+                                IsEnabled="{Binding CanGoNext}" Margin="0,0,5,0"/>
+                        <Button Content="最後 ≫" Command="{Binding LastPageCommand}"
+                                IsEnabled="{Binding CanGoNext}"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
             <ListView ItemsSource="{Binding Items}" BorderThickness="0,1,0,0">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="60"/>
                         <GridViewColumn Header="時刻" DisplayMemberBinding="{Binding Timestamp, Converter={StaticResource Utc}}" Width="160"/>
-                        <GridViewColumn Header="User" DisplayMemberBinding="{Binding Username}" Width="120"/>
-                        <GridViewColumn Header="端末" DisplayMemberBinding="{Binding ClientHostname}" Width="120"/>
-                        <GridViewColumn Header="Op" DisplayMemberBinding="{Binding OperationLabel}" Width="110"/>
-                        <GridViewColumn Header="Result" DisplayMemberBinding="{Binding Result}" Width="70"/>
-                        <GridViewColumn Header="ホスト / 共有" Width="220">
+                        <GridViewColumn Header="User" DisplayMemberBinding="{Binding Username}" Width="110"/>
+                        <GridViewColumn Header="端末 / IP" Width="130">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel ToolTip="{Binding DisplayLocation}">
-                                        <TextBlock Text="{Binding HostDisplay}"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding ShareDisplay}"
-                                                   Style="{StaticResource Caption}"
-                                                   TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding ClientHostname}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding ClientIp}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Path" Width="280">
+                        <GridViewColumn Header="カテゴリ" DisplayMemberBinding="{Binding OperationCategoryLabel}" Width="90"/>
+                        <GridViewColumn Header="操作" DisplayMemberBinding="{Binding OperationLabel}" Width="145"/>
+                        <GridViewColumn Header="結果" DisplayMemberBinding="{Binding Result}" Width="70"/>
+                        <GridViewColumn Header="ホスト / 共有" Width="205">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Path}"
-                                               TextTrimming="CharacterEllipsis"
-                                               ToolTip="{Binding DisplayLocation}"/>
+                                    <StackPanel ToolTip="{Binding DisplayLocation}">
+                                        <TextBlock Text="{Binding HostDisplay}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding ShareDisplay}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
+                        <GridViewColumn Header="Path" Width="260">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel ToolTip="{Binding DisplayLocation}">
+                                        <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding TargetPath}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="ノード" DisplayMemberBinding="{Binding NodeDisplay}" Width="120"/>
                         <GridViewColumn Header="Bytes" DisplayMemberBinding="{Binding BytesTransferred, Converter={StaticResource SizeFmt}}" Width="90"/>
                         <GridViewColumn Header="Dur(ms)" DisplayMemberBinding="{Binding DurationMs}" Width="70"/>
                         <GridViewColumn Header="Err" DisplayMemberBinding="{Binding ErrorMessage}" Width="240"/>

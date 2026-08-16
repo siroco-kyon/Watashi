@@ -29,9 +29,14 @@ public partial class LoginViewModel : ObservableObject
     public bool IsEnteringUsername => !IsPasswordStep;
 
     public bool CanRemember => true;
+    public bool IsHttpConnection => _settings.IsHttp;
+    public string HttpTransportWarning => AppSettings.HttpTransportWarning;
     public string RememberTooltip => _settings.IsHttps
         ? "この PC を記憶し、次回以降は自動ログインします。"
         : "HTTP 接続ではデバイストークンが平文で通信されます。サーバー設定により自動ログインが禁止される場合があります。";
+    public string WindowsSsoTooltip => _settings.IsHttps
+        ? "現在のWindowsアカウントを使ってログインします（サーバーで有効な場合）。"
+        : "HTTP接続ではサーバー設定によりWindows SSOが拒否される場合があります。通常のパスワードログインは利用できます。";
 
     public event Action<LoginResponse>? LoggedIn;
 
@@ -64,6 +69,40 @@ public partial class LoginViewModel : ObservableObject
     /// 判定できない環境 (ドメイン非参加・機能無効・旧サーバー) では ApiClient が
     /// password にフォールバックするので、ここでは常に画面が進む。
     /// </summary>
+    [RelayCommand]
+    private async Task WindowsSsoLogin()
+    {
+        if (IsBusy) return;
+        try
+        {
+            IsBusy = true;
+            StatusMessage = "Windowsアカウントを確認しています…";
+            var response = await _api.WindowsSsoLoginAsync();
+            _session.SetFromLogin(response);
+            LoggedIn?.Invoke(response);
+        }
+        catch (ApiException ex)
+        {
+            StatusMessage = ex.StatusCode switch
+            {
+                HttpStatusCode.NotFound => "Windows SSOはこのサーバーで有効になっていません。パスワードでログインしてください。",
+                HttpStatusCode.Unauthorized => "現在のWindowsアカウントではログインできません。パスワードでログインしてください。",
+                HttpStatusCode.Forbidden when ex.Message == "account_disabled" =>
+                    "アカウントが無効化されています。管理者に連絡してください。",
+                HttpStatusCode.Forbidden when ex.Message == "account_locked" =>
+                    "アカウントがロックされています。管理者に連絡してください。",
+                HttpStatusCode.Forbidden =>
+                    "Windows SSOはこの接続では許可されていません。パスワードでログインしてください。",
+                _ => "Windows SSOに失敗しました: " + ex.Message,
+            };
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Windows SSOに失敗しました: " + ex.Message;
+        }
+        finally { IsBusy = false; }
+    }
+
     [RelayCommand]
     private async Task Continue()
     {
@@ -136,6 +175,8 @@ public partial class LoginViewModel : ObservableObject
             StatusMessage = ex.StatusCode switch
             {
                 HttpStatusCode.Unauthorized => "ユーザー名またはパスワードが違います。",
+                HttpStatusCode.Forbidden when ex.Message == "account_disabled" =>
+                    "アカウントが無効化されています。管理者に連絡してください。",
                 HttpStatusCode.Forbidden => "アカウントがロックされています。管理者に連絡してください。",
                 _ => "ログイン失敗: " + ex.Message,
             };

@@ -38,6 +38,9 @@ namespace Watashi.Server.Data.Migrations
                     b.Property<string>("ErrorMessage")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("EventId")
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("ExecutionNodeId")
                         .HasColumnType("INTEGER");
 
@@ -80,6 +83,9 @@ namespace Watashi.Server.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
                     b.HasIndex("HostId");
 
                     b.HasIndex("Timestamp")
@@ -91,6 +97,38 @@ namespace Watashi.Server.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_AuditLog_Result", "Result IN ('success', 'failure', 'warning')");
                         });
+                });
+
+            modelBuilder.Entity("Watashi.Shared.Models.AuditOutboxEntry", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CreatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NextAttemptAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("EventId");
+
+                    b.HasIndex("NextAttemptAt");
+
+                    b.ToTable("AuditOutboxEntries");
                 });
 
             modelBuilder.Entity("Watashi.Shared.Models.CifsHost", b =>
@@ -355,6 +393,104 @@ namespace Watashi.Server.Data.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("Watashi.Shared.Models.RemoteTrashEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeletedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DeletedByUsername")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExpiresAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("HostId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginalModifiedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginalPath")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PurgedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PurgedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RestoredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("RestoredByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RestoredPath")
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ShareId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TrashPath")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurgedByUserId");
+
+                    b.HasIndex("RestoredByUserId");
+
+                    b.HasIndex("Status", "ExpiresAt");
+
+                    b.HasIndex("DeletedByUserId", "Status", "DeletedAt");
+
+                    b.HasIndex("ShareId", "Status", "DeletedAt");
+
+                    b.ToTable("RemoteTrashEntries", t =>
+                        {
+                            t.HasCheckConstraint("CK_RemoteTrashEntry_Size", "SizeBytes >= 0");
+
+                            t.HasCheckConstraint("CK_RemoteTrashEntry_Status", "Status IN ('trashing', 'active', 'restoring', 'restored', 'purging', 'purged', 'failed')");
+                        });
+                });
+
             modelBuilder.Entity("Watashi.Shared.Models.SystemSetting", b =>
                 {
                     b.Property<string>("Key")
@@ -418,10 +554,111 @@ namespace Watashi.Server.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId")
-                        .IsUnique();
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "MachineName", "WindowsUsername", "IsRevoked");
 
                     b.ToTable("TrustedDevices");
+                });
+
+            modelBuilder.Entity("Watashi.Shared.Models.UploadSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CommittedETag")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExpectedSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExpiresAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("HostId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("IdempotencyKeyHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Overwrite")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ShareId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("TargetExisted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TargetModifiedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetPath")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("TargetSize")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TempPath")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("TotalSize")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UpdatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UploadedOffset")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShareId");
+
+                    b.HasIndex("Status", "ExpiresAt");
+
+                    b.HasIndex("UserId", "IdempotencyKeyHash")
+                        .IsUnique();
+
+                    b.ToTable("UploadSessions", t =>
+                        {
+                            t.HasCheckConstraint("CK_UploadSession_Offset", "UploadedOffset >= 0 AND UploadedOffset <= TotalSize");
+
+                            t.HasCheckConstraint("CK_UploadSession_Size", "TotalSize >= 0");
+
+                            t.HasCheckConstraint("CK_UploadSession_Status", "Status IN ('active', 'committing', 'completed', 'cancelled', 'expired', 'failed')");
+                        });
                 });
 
             modelBuilder.Entity("Watashi.Shared.Models.User", b =>
@@ -434,11 +671,30 @@ namespace Watashi.Server.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DisabledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DisabledByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DisabledByUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DisabledReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDisabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsLocked")
                         .HasColumnType("INTEGER");
@@ -511,14 +767,28 @@ namespace Watashi.Server.Data.Migrations
                     b.Property<string>("DisplayName")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("ShareId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("TemplateId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("TicketNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("UserId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("ValidFrom")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -618,6 +888,34 @@ namespace Watashi.Server.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Watashi.Shared.Models.RemoteTrashEntry", b =>
+                {
+                    b.HasOne("Watashi.Shared.Models.User", "DeletedByUser")
+                        .WithMany()
+                        .HasForeignKey("DeletedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Watashi.Shared.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("PurgedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Watashi.Shared.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("RestoredByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Watashi.Shared.Models.CifsShare", "Share")
+                        .WithMany()
+                        .HasForeignKey("ShareId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DeletedByUser");
+
+                    b.Navigation("Share");
+                });
+
             modelBuilder.Entity("Watashi.Shared.Models.SystemSetting", b =>
                 {
                     b.HasOne("Watashi.Shared.Models.User", null)
@@ -633,6 +931,25 @@ namespace Watashi.Server.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Watashi.Shared.Models.UploadSession", b =>
+                {
+                    b.HasOne("Watashi.Shared.Models.CifsShare", "Share")
+                        .WithMany()
+                        .HasForeignKey("ShareId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Watashi.Shared.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Share");
 
                     b.Navigation("User");
                 });

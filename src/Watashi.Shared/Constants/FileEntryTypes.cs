@@ -37,4 +37,10 @@ public static class SettingKeys
     public const string MaxFailedLoginAttempts = "MaxFailedLoginAttempts";
     /// <summary>初回パスワード設定を受け付ける日数。0 は無期限 (既定)。</summary>
     public const string PasswordSetupExpiryDays = "PasswordSetupExpiryDays";
+    /// <summary>リモートごみ箱の保管日数。</summary>
+    public const string TrashRetentionDays = "TrashRetentionDays";
+    /// <summary>共有ごとのリモートごみ箱容量上限 (bytes)。0 は無制限。</summary>
+    public const string TrashCapacityBytes = "TrashCapacityBytes";
+    /// <summary>1ユーザーが同時に保持できる有効な信頼端末数。</summary>
+    public const string TrustedDeviceLimit = "TrustedDeviceLimit";
 }

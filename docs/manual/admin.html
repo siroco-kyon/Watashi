@@ -911,7 +911,7 @@ Start-Service Watashi.Server</pre>
         <dt>ユーザー権限</dt><dd>ユーザー×共有×サブパス×テンプレートの割当。Watashiの核心。</dd>
         <dt>権限セット (Bundle)</dt><dd>複数の権限行をまとめた再利用セット。スナップショット展開。</dd>
         <dt>実行ノード</dt><dd>CIFSへの接続経路。Direct（中央自身）/Agent（踏み台）。</dd>
-        <dt>信頼デバイス</dt><dd>自動ログインに使う端末登録。1ユーザー1台。</dd>
+        <dt>信頼デバイス</dt><dd>自動ログインに使う端末登録。既定3台（管理設定で1〜20台）。利用者自身による個別失効にも対応。</dd>
         <dt>監査ログ</dt><dd>全ファイル操作・全管理操作の記録。<span class="tag">ADMIN_*</span> プレフィックス。</dd>
         <dt>mTLS</dt><dd>Server↔Agent間の双方向証明書認証。サムプリントで照合。</dd>
         <dt>MustChangePassword</dt><dd>次回ログインで強制的にパスワード変更させるフラグ。</dd>

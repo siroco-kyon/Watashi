@@ -59,12 +59,26 @@ public static class AdminUserGuard
     }
 
     /// <summary>
+    /// ユーザーを明示的に無効化してよいかを判定する。無効化するとログインできなくなるため、
+    /// 自分自身と最後の有効な管理者を対象にする操作を拒否する。
+    /// </summary>
+    public static async Task<Decision> CanDisableAsync(
+        AppDbContext db, int? actorUserId, int targetUserId, bool targetIsAdmin, CancellationToken ct = default)
+    {
+        if (actorUserId.HasValue && actorUserId.Value == targetUserId)
+            return Decision.SelfTarget;
+        if (targetIsAdmin && !await HasOtherActiveAdminAsync(db, targetUserId, ct))
+            return Decision.LastActiveAdmin;
+        return Decision.Allow;
+    }
+
+    /// <summary>
     /// 他に「実際にログインできる」管理者が居るかを判定する。
-    /// ロック中の管理者に加え、初回パスワード設定待ちの管理者もログイン不能なのでカウントしない。
+    /// ロック中・明示無効化中・初回パスワード設定待ちの管理者はログイン不能なのでカウントしない。
     /// これを数えてしまうと、実在の管理者を最後の 1 人であるにもかかわらず削除・降格でき、
     /// 管理画面へ誰も入れなくなる。
     /// </summary>
     private static async Task<bool> HasOtherActiveAdminAsync(AppDbContext db, int excludeUserId, CancellationToken ct)
         => await db.Users.AsNoTracking().AnyAsync(
-            x => x.IsAdmin && !x.IsLocked && !x.IsPasswordSetupPending && x.Id != excludeUserId, ct);
+            x => x.IsAdmin && !x.IsLocked && !x.IsDisabled && !x.IsPasswordSetupPending && x.Id != excludeUserId, ct);
 }

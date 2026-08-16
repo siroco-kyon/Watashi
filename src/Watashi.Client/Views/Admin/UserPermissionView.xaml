@@ -218,6 +218,28 @@
                                                     <Run Text="テンプレ: " FontWeight="SemiBold"/>
                                                     <Run Text="{Binding TemplateName, Mode=OneWay}"/>
                                                 </TextBlock>
+                                                <TextBlock>
+                                                    <Run Text="状態: " FontWeight="SemiBold"/>
+                                                    <Run Text="{Binding EffectiveStatusLabel, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock>
+                                                    <Run Text="開始: " FontWeight="SemiBold"/>
+                                                    <Run Text="{Binding ValidFrom, Converter={StaticResource Utc}, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock>
+                                                    <Run Text="期限: " FontWeight="SemiBold"/>
+                                                    <Run Text="{Binding ExpiresAt, Converter={StaticResource Utc}, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock>
+                                                    <Run Text="理由: " FontWeight="SemiBold"/>
+                                                    <Run Text="{Binding Reason, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock>
+                                                    <Run Text="申請番号: " FontWeight="SemiBold"/>
+                                                    <Run Text="{Binding TicketNumber, Mode=OneWay}"/>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding WarningSummary}" Foreground="{StaticResource WarningBrush}"
+                                                           TextWrapping="Wrap" MaxWidth="420"/>
                                             </StackPanel>
                                         </Setter.Value>
                                     </Setter>
@@ -260,6 +282,44 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
+                                    <GridViewColumn Header="状態" Width="80">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding EffectiveStatusLabel}" FontWeight="SemiBold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding EffectiveStatus}" Value="scheduled">
+                                                                    <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding EffectiveStatus}" Value="expired">
+                                                                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="有効期限" DisplayMemberBinding="{Binding ExpiresAt, Converter={StaticResource Utc}}" Width="145"/>
+                                    <GridViewColumn Header="理由" Width="150">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Reason}" ToolTip="{Binding Reason}" TextTrimming="CharacterEllipsis"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="申請番号" DisplayMemberBinding="{Binding TicketNumber}" Width="105"/>
+                                    <GridViewColumn Header="警告" Width="65">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding WarningLabel}" ToolTip="{Binding WarningSummary}"
+                                                           Foreground="{StaticResource WarningBrush}" FontWeight="SemiBold"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
                                 </GridView>
                             </ListView.View>
                         </ListView>
@@ -278,92 +338,239 @@
                     </Grid>
                 </DockPanel>
 
-                <!-- Add-permission expander (scroll if window too small) -->
-                <Expander Grid.Row="2" Margin="14,4,14,14"
-                          IsEnabled="{Binding HasSelectedUser}"
-                          IsExpanded="True">
-                    <Expander.Header>
-                        <TextBlock Text="＋ パスを追加" Style="{StaticResource H3}" Margin="4,0,0,0"/>
-                    </Expander.Header>
-                    <Border Style="{StaticResource CardSubtle}" Margin="0,8,0,0">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="340">
-                            <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
+                <!-- 追加・編集・実効権限プレビューを同じ判定文脈で扱う。 -->
+                <TabControl Grid.Row="2" Margin="14,4,14,14" MaxHeight="410"
+                            IsEnabled="{Binding HasSelectedUser}">
+                    <TabItem Header="＋ パスを追加">
+                        <Border Style="{StaticResource CardSubtle}" Margin="0,8,0,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="350">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                            <!-- サーバー / 共有 -->
-                            <StackPanel Grid.Row="0" Grid.Column="0">
-                                <TextBlock Text="サーバー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding SelectedHost}"
-                                          DisplayMemberPath="Name"/>
-                            </StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="2">
-                                <TextBlock Text="共有" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <ComboBox ItemsSource="{Binding Shares}" SelectedItem="{Binding NewShare}"
-                                          DisplayMemberPath="DisplayName"/>
-                            </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="0">
+                                        <TextBlock Text="サーバー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding SelectedHost}" DisplayMemberPath="Name"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="2">
+                                        <TextBlock Text="共有" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <ComboBox ItemsSource="{Binding Shares}" SelectedItem="{Binding NewShare}" DisplayMemberPath="DisplayName"/>
+                                    </StackPanel>
 
-                            <!-- 権限テンプレート -->
-                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                                <TextBlock Text="権限テンプレート" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding NewTemplate}"
-                                          DisplayMemberPath="Name"/>
-                            </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="0">
+                                        <TextBlock Text="権限テンプレート" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding NewTemplate}" DisplayMemberPath="Name"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="2">
+                                        <TextBlock Text="表示名 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding NewDisplayName, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
 
-                            <!-- 許可パス + 表示名 -->
-                            <StackPanel Grid.Row="4" Grid.Column="0">
-                                <TextBlock Text="許可パス" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding NewAllowedPath, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="{Binding NewAllowedPath}"/>
-                            </StackPanel>
-                            <StackPanel Grid.Row="4" Grid.Column="2">
-                                <TextBlock Text="表示名 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding NewDisplayName, UpdateSourceTrigger=PropertyChanged}"/>
-                            </StackPanel>
+                                    <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
+                                        <TextBlock Text="許可パス" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding NewAllowedPath, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding NewAllowedPath}"/>
+                                    </StackPanel>
 
-                            <!-- ブラウズ -->
-                            <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
-                                <TextBlock Text="ブラウズ (選択した共有内の実在パスを参照)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <DockPanel>
-                                    <Button Content="開く" Command="{Binding BrowseCommand}"
-                                            DockPanel.Dock="Right" MinWidth="68" Margin="6,0,0,0"/>
-                                    <TextBox Text="{Binding BrowsePath, UpdateSourceTrigger=PropertyChanged}"
-                                             ToolTip="{Binding BrowsePath}"/>
-                                </DockPanel>
-                            </StackPanel>
+                                    <StackPanel Grid.Row="6" Grid.Column="0">
+                                        <TextBlock Text="有効開始 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding NewValidFromText, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding LocalDateTimeHint}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="6" Grid.Column="2">
+                                        <TextBlock Text="有効期限 (任意・時刻で失効)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding NewExpiresAtText, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding LocalDateTimeHint}"/>
+                                    </StackPanel>
 
-                            <ListBox Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3"
-                                     ItemsSource="{Binding BrowseEntries}"
-                                     SelectedItem="{Binding SelectedBrowseEntry}"
-                                     DisplayMemberPath="Name"
-                                     Height="70"
-                                     ToolTip="サブフォルダをクリックすると「許可パス」に反映されます"/>
+                                    <StackPanel Grid.Row="8" Grid.Column="0">
+                                        <TextBlock Text="理由 (任意・500文字以内)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding NewReason, UpdateSourceTrigger=PropertyChanged}" MaxLength="500"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="8" Grid.Column="2">
+                                        <TextBlock Text="チケット/申請番号 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding NewTicketNumber, UpdateSourceTrigger=PropertyChanged}" MaxLength="100"/>
+                                    </StackPanel>
 
-                            <Button Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="3"
-                                    Style="{StaticResource PrimaryButton}"
-                                    Content="＋ このパスを追加"
-                                    Command="{Binding CreateCommand}"
-                                    Height="36"/>
-                            </Grid>
-                        </ScrollViewer>
-                    </Border>
-                </Expander>
+                                    <StackPanel Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="3">
+                                        <TextBlock Text="ブラウズ (選択した共有内の実在パスを参照)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <DockPanel>
+                                            <Button Content="開く" Command="{Binding BrowseCommand}" DockPanel.Dock="Right" MinWidth="68" Margin="6,0,0,0"/>
+                                            <TextBox Text="{Binding BrowsePath, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding BrowsePath}"/>
+                                        </DockPanel>
+                                    </StackPanel>
+                                    <ListBox Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="3"
+                                             ItemsSource="{Binding BrowseEntries}" SelectedItem="{Binding SelectedBrowseEntry}"
+                                             DisplayMemberPath="Name" Height="64"
+                                             ToolTip="サブフォルダをクリックすると許可パスに反映されます"/>
+                                    <Button Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="3"
+                                            Style="{StaticResource PrimaryButton}" Content="＋ この期限付き権限を追加"
+                                            Command="{Binding CreateCommand}" Height="36"/>
+                                </Grid>
+                            </ScrollViewer>
+                        </Border>
+                    </TabItem>
+
+                    <TabItem Header="✏ 選択を編集" IsEnabled="{Binding HasSelectedPermission}">
+                        <Border Style="{StaticResource CardSubtle}" Margin="0,8,0,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="350">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" TextWrapping="Wrap">
+                                        <Run Text="対象: " FontWeight="SemiBold"/>
+                                        <Run Text="{Binding Selected.HostName}"/><Run Text=" / "/>
+                                        <Run Text="{Binding Selected.ShareName}"/><Run Text="  Permission #"/>
+                                        <Run Text="{Binding Selected.Id}"/>
+                                    </TextBlock>
+                                    <StackPanel Grid.Row="2" Grid.Column="0">
+                                        <TextBlock Text="権限テンプレート" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding EditTemplate}" DisplayMemberPath="Name"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="2">
+                                        <TextBlock Text="表示名 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding EditDisplayName, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
+                                        <TextBlock Text="許可パス" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding EditAllowedPath, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="6" Grid.Column="0">
+                                        <TextBlock Text="有効開始 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding EditValidFromText, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding LocalDateTimeHint}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="6" Grid.Column="2">
+                                        <TextBlock Text="有効期限 (任意・時刻で失効)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding EditExpiresAtText, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding LocalDateTimeHint}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="8" Grid.Column="0">
+                                        <TextBlock Text="理由 (任意・500文字以内)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding EditReason, UpdateSourceTrigger=PropertyChanged}" MaxLength="500"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="8" Grid.Column="2">
+                                        <TextBlock Text="チケット/申請番号 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding EditTicketNumber, UpdateSourceTrigger=PropertyChanged}" MaxLength="100"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="3">
+                                        <TextBlock Text="{Binding Selected.WarningSummary}" Foreground="{StaticResource WarningBrush}"
+                                                   TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                        <Button Style="{StaticResource PrimaryButton}" Content="選択した権限を更新"
+                                                Command="{Binding UpdateSelectedCommand}" Height="36"/>
+                                    </StackPanel>
+                                </Grid>
+                            </ScrollViewer>
+                        </Border>
+                    </TabItem>
+
+                    <TabItem Header="🔎 実効権限プレビュー">
+                        <Border Style="{StaticResource CardSubtle}" Margin="0,8,0,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="350">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="10"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="サーバー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                            <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding SelectedHost}" DisplayMemberPath="Name"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="共有" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                            <ComboBox ItemsSource="{Binding Shares}" SelectedItem="{Binding SimulationShare}" DisplayMemberPath="DisplayName"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <DockPanel Margin="0,8,0,8">
+                                        <Button Content="判定" Command="{Binding SimulateCommand}" DockPanel.Dock="Right"
+                                                Style="{StaticResource PrimaryButton}" MinWidth="80" Margin="8,0,0,0"/>
+                                        <TextBox Text="{Binding SimulationPath, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="判定する共有内パス"/>
+                                    </DockPanel>
+
+                                    <StackPanel Visibility="{Binding HasSimulationResult, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Margin="0,0,0,6">
+                                            <Run Text="正規化パス: " FontWeight="SemiBold"/>
+                                            <Run Text="{Binding SimulationResult.NormalizedPath}"/>
+                                            <Run Text="   判定日時: " FontWeight="SemiBold"/>
+                                            <Run Text="{Binding SimulationResult.EvaluatedAt, Converter={StaticResource Utc}}"/>
+                                        </TextBlock>
+                                        <UniformGrid Columns="4">
+                                            <Border Style="{StaticResource Card}" Margin="0,0,6,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="READ" FontWeight="Bold"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Read.ResultLabel}" FontSize="16" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Read.EvidenceLabel}" TextWrapping="Wrap" Style="{StaticResource Caption}"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Read.MatchRule}" TextWrapping="Wrap" Style="{StaticResource Caption}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,0,6,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="WRITE" FontWeight="Bold"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Write.ResultLabel}" FontSize="16" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Write.EvidenceLabel}" TextWrapping="Wrap" Style="{StaticResource Caption}"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Write.MatchRule}" TextWrapping="Wrap" Style="{StaticResource Caption}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}" Margin="0,0,6,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="DELETE" FontWeight="Bold"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Delete.ResultLabel}" FontSize="16" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Delete.EvidenceLabel}" TextWrapping="Wrap" Style="{StaticResource Caption}"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Delete.MatchRule}" TextWrapping="Wrap" Style="{StaticResource Caption}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Card}">
+                                                <StackPanel>
+                                                    <TextBlock Text="RENAME" FontWeight="Bold"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Rename.ResultLabel}" FontSize="16" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Rename.EvidenceLabel}" TextWrapping="Wrap" Style="{StaticResource Caption}"/>
+                                                    <TextBlock Text="{Binding SimulationResult.Rename.MatchRule}" TextWrapping="Wrap" Style="{StaticResource Caption}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </UniformGrid>
+                                        <TextBlock Text="{Binding SimulationWarningSummary}" Foreground="{StaticResource WarningBrush}"
+                                                   TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </TabItem>
+                </TabControl>
             </Grid>
         </Border>
     </Grid>

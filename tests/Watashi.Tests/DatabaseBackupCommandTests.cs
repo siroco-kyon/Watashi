@@ -43,6 +43,27 @@ public class DatabaseBackupCommandTests
     }
 
     [Fact]
+    public void VerifyIntegrity_rejects_foreign_key_violation()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                PRAGMA foreign_keys=OFF;
+                CREATE TABLE Parent (Id INTEGER PRIMARY KEY);
+                CREATE TABLE Child (ParentId INTEGER NOT NULL REFERENCES Parent(Id));
+                INSERT INTO Child VALUES (999);
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        Action act = () => DatabaseBackupCommand.VerifyIntegrity(connection);
+
+        act.Should().Throw<InvalidDataException>().WithMessage("*foreign_key_check*");
+    }
+
+    [Fact]
     public void Run_returns_failure_and_removes_output_for_missing_source()
     {
         var root = Path.Combine(Path.GetTempPath(), "watashi-backup-test-" + Guid.NewGuid().ToString("N"));
@@ -56,6 +77,30 @@ public class DatabaseBackupCommandTests
 
             exitCode.Should().Be(1);
             File.Exists(outputPath).Should().BeFalse();
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Failed_backup_does_not_delete_existing_known_good_output()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "watashi-backup-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var outputPath = Path.Combine(root, "existing.db");
+        File.WriteAllText(outputPath, "known-good-placeholder");
+        try
+        {
+            var exitCode = DatabaseBackupCommand.Run(new[]
+            {
+                "--backup", "--database", Path.Combine(root, "missing.db"), "--output", outputPath,
+            });
+
+            exitCode.Should().Be(1);
+            File.ReadAllText(outputPath).Should().Be("known-good-placeholder");
+            Directory.EnumerateFiles(root, ".*.tmp").Should().BeEmpty();
         }
         finally
         {

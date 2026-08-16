@@ -24,7 +24,9 @@ if (DatabaseBackupCommand.IsRequested(args))
     return;
 }
 
-var builder = WebApplication.CreateBuilder(args);
+var bootstrapAdminRequested = BootstrapAdminCommand.IsRequested(args);
+var builder = WebApplication.CreateBuilder(
+    bootstrapAdminRequested ? BootstrapAdminCommand.RemoveSwitch(args) : args);
 builder.Host.UseWindowsService(o => o.ServiceName = "Watashi.Server");
 
 const long DefaultMaxRequestBodySize = 10L * 1024 * 1024 * 1024;
@@ -81,6 +83,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AuditLogService>();
+builder.Services.AddScoped<OperationalDiagnosticsService>();
+builder.Services.AddScoped<UploadSessionService>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<EncryptionService>();
 builder.Services.AddSingleton<CifsSessionPool>(_ => new CifsSessionPool(
     idleTtl: TimeSpan.FromSeconds(builder.Configuration.GetValue<int?>("Cifs:SessionIdleSeconds") ?? 60),
@@ -89,8 +94,17 @@ builder.Services.AddSingleton<CifsService>();
 builder.Services.AddSingleton<IAuthorizationHandler, AgentOrSharedSecretHandler>();
 builder.Services.AddSingleton<AgentForwarder>();
 builder.Services.AddSingleton<NodeRouter>();
+builder.Services.AddSingleton<RemoteQueryCursorStore>();
+builder.Services.AddScoped<IRemoteDirectoryLister, RemoteDirectoryLister>();
+builder.Services.AddScoped<RemoteSearchService>();
+builder.Services.AddScoped<RemoteTrashService>();
+builder.Services.AddScoped<RemoteCopyService>();
 builder.Services.AddHostedService<NodeHealthMonitor>();
 builder.Services.AddHostedService<AuditLogPurgeService>();
+builder.Services.AddHostedService<AuditOutboxDispatcher>();
+builder.Services.AddHostedService<DatabaseMaintenanceService>();
+builder.Services.AddHostedService<UploadSessionJanitor>();
+builder.Services.AddHostedService<RemoteTrashJanitor>();
 builder.Services.AddHttpClient("agent").AddMtls(builder.Configuration);
 
 // === mTLS (任意): Routing:UseMtls=true で Agent からの inbound にクライアント証明書を要求 ===
@@ -240,11 +254,53 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+var hasUsableAdmin = false;
+var hasUntouchedInitialAdmin = false;
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
     await DataSeeder.SeedAsync(db);
+
+    if (bootstrapAdminRequested)
+    {
+        var result = await BootstrapAdminCommand.ExecuteAsync(db);
+        if (!result.Succeeded)
+        {
+            Console.Error.WriteLine($"Bootstrap admin failed: {result.Message}");
+            Environment.ExitCode = 2;
+            return;
+        }
+
+        // 一時パスワードを Serilog に渡さない。明示実行した端末の標準出力にだけ表示する。
+        Console.WriteLine(result.Message);
+        Console.WriteLine($"Username: {result.Username}");
+        Console.WriteLine($"One-time password: {result.OneTimePassword}");
+        Console.WriteLine("この値は再表示されません。初回ログイン後、画面の指示に従って直ちに変更してください。");
+        return;
+    }
+
+    var activeAdmins = await db.Users.AsNoTracking()
+        .Where(u => u.IsAdmin && !u.IsLocked && !u.IsDisabled && !u.IsPasswordSetupPending)
+        .Select(u => new { u.LastLoginAt, u.MustChangePassword })
+        .ToListAsync();
+    hasUsableAdmin = activeAdmins.Count > 0;
+    hasUntouchedInitialAdmin = activeAdmins.Count == 1 &&
+                               activeAdmins[0].LastLoginAt is null &&
+                               activeAdmins[0].MustChangePassword;
+}
+
+if (!hasUsableAdmin)
+{
+    app.Logger.LogWarning(
+        "利用可能な管理者がありません。サーバー端末で Watashi.Server {BootstrapSwitch} を明示実行し、表示された一時資格情報で初期設定してください。",
+        BootstrapAdminCommand.SwitchName);
+}
+else if (hasUntouchedInitialAdmin)
+{
+    app.Logger.LogWarning(
+        "初期管理者はまだ一度もログインしていません。安全な bootstrap 出力を保持していない場合（旧版からの更新を含む）は、サーバーを停止して {BootstrapSwitch} を再実行し、以前の一時資格情報を無効化してください。",
+        BootstrapAdminCommand.SwitchName);
 }
 
 // File 系エンドポイント (FileEndpoints.MapExecutionError) は個別の try/catch で例外を
@@ -292,16 +348,21 @@ app.MapGet("/", () => Results.Ok(new
         "GET  /api/hosts (要 JWT)",
         "GET  /api/hosts/catalog (要 JWT)",
         "GET  /api/files (要 JWT)",
+        "GET  /api/files/incremental (要 JWT)",
+        "POST /api/files/search (要 JWT)",
         "/api/admin/* (要 Admin)",
         "/api/internal/* (要 Agent mTLS 証明書または共有秘密)",
     },
 }));
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok", at = DateTime.UtcNow }));
+app.MapHealthEndpoints();
 app.MapAuthEndpoints();
 app.MapWindowsAuthEndpoints(windowsAuth);
 app.MapHostEndpoints();
 app.MapFileEndpoints();
+app.MapRemoteQueryEndpoints();
+app.MapRemoteTrashEndpoints();
+app.MapTransferV2Endpoints();
 app.MapAdminTemplateEndpoints();
 app.MapAdminUserPermissionEndpoints();
 app.MapAdminPermissionBundleEndpoints();

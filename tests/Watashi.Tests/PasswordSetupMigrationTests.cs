@@ -49,6 +49,13 @@ public class PasswordSetupMigrationTests
                     .SqlQueryRaw<string>("SELECT name AS Value FROM pragma_table_info('Users')")
                     .ToListAsync();
                 columns.Should().NotContain("IsPasswordSetupPending");
+                columns.Should().NotContain("IsDisabled");
+
+                var permissionColumns = await db.Database
+                    .SqlQueryRaw<string>("SELECT name AS Value FROM pragma_table_info('UserPermissions')")
+                    .ToListAsync();
+                permissionColumns.Should().NotContain("ValidFrom");
+                permissionColumns.Should().NotContain("ExpiresAt");
 
                 await SeedLegacyDataAsync(db);
             }
@@ -73,6 +80,9 @@ public class PasswordSetupMigrationTests
 
                 // Cascade 参照している子テーブルが巻き添えで消えていないこと。
                 (await db.UserPermissions.CountAsync()).Should().Be(2);
+                var permissions = await db.UserPermissions.AsNoTracking().ToListAsync();
+                permissions.Should().OnlyContain(p => p.ValidFrom == null && p.ExpiresAt == null);
+                permissions.Should().OnlyContain(p => p.Reason == null && p.TicketNumber == null);
                 (await db.RefreshTokens.CountAsync()).Should().Be(2);
                 (await db.TrustedDevices.CountAsync()).Should().Be(1);
                 // SetNull 参照も維持されていること。
@@ -82,6 +92,11 @@ public class PasswordSetupMigrationTests
                 users.Should().OnlyContain(u => !u.IsPasswordSetupPending);
                 users.Should().OnlyContain(u => u.PasswordSetupExpiresAt == null);
                 users.Should().OnlyContain(u => u.WindowsAccountName == null);
+                users.Should().OnlyContain(u => !u.IsDisabled);
+                users.Should().OnlyContain(u => u.DisabledAt == null);
+                users.Should().OnlyContain(u => u.DisabledReason == null);
+                users.Should().OnlyContain(u => u.DisabledByUserId == null);
+                users.Should().OnlyContain(u => u.DisabledByUsername == null);
             }
 
             // --- 5. テーブル再構築の痕跡が残っていないこと ---

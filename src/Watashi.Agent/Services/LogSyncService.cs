@@ -63,21 +63,10 @@ public class LogSyncService : BackgroundService
         return TimeSpan.FromSeconds(seconds);
     }
 
-    /// <summary>送信を諦めた (MaxAttempts 到達) ログの保持期間。経過後に削除して SQLite の肥大を防ぐ。</summary>
-    private static readonly TimeSpan DeadLogRetention = TimeSpan.FromDays(7);
-
     private async Task SendBatchAsync(HttpClient client, CancellationToken ct)
     {
         await using var scope = _sp.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AgentDbContext>();
-
-        // MaxAttempts 到達分は送信対象外のまま残り続けるため、保持期間経過後にパージする。
-        var deadCutoff = DateTime.UtcNow - DeadLogRetention;
-        var purged = await db.PendingLogs
-            .Where(p => p.AttemptCount >= MaxAttempts && p.CreatedAt < deadCutoff)
-            .ExecuteDeleteAsync(ct);
-        if (purged > 0)
-            _log.LogWarning("LogSync: 送信を諦めた監査ログ {Count} 件を破棄しました (保持 {Days} 日超過)", purged, DeadLogRetention.TotalDays);
 
         var pending = await db.PendingLogs.AsNoTracking()
             .Where(p => p.AttemptCount < MaxAttempts)
@@ -88,15 +77,53 @@ public class LogSyncService : BackgroundService
         using var res = await client.PostAsJsonAsync("/api/internal/audit-logs/batch", payload, ct);
         if (res.IsSuccessStatusCode)
         {
-            var ids = pending.Select(p => p.Id).ToList();
-            await db.PendingLogs.Where(p => ids.Contains(p.Id)).ExecuteDeleteAsync(ct);
+            var ack = await res.Content.ReadFromJsonAsync<AuditBatchAck>(cancellationToken: ct);
+            if (ack is not null)
+            {
+                await ApplyAcknowledgementAsync(db, pending, ack, ct);
+                if (ack.Rejected.Length > 0)
+                    _log.LogError("LogSync: centralが監査ログ {Count} 件を拒否しました。端末DBに保持します。",
+                        ack.Rejected.Length);
+            }
+            else
+            {
+                throw new InvalidDataException("centralの監査ログACKが空です。");
+            }
         }
         else
         {
-            var ids = pending.Select(p => p.Id).ToList();
-            await db.PendingLogs.Where(p => ids.Contains(p.Id))
-                .ExecuteUpdateAsync(s => s.SetProperty(p => p.AttemptCount, p => p.AttemptCount + 1), ct);
+            // HTTP/ネットワーク障害はレコード自体の不正ではないためAttemptCountへ加算しない。
+            // 復旧まで破棄せず、サービス全体の指数バックオフで再送する。
             throw new IOException($"central HTTP {(int)res.StatusCode}");
         }
     }
+
+    internal static async Task ApplyAcknowledgementAsync(
+        AgentDbContext db,
+        IReadOnlyList<PendingLog> pending,
+        AuditBatchAck ack,
+        CancellationToken ct = default)
+    {
+        var acceptedIds = ack.Accepted
+            .Where(index => index >= 0 && index < pending.Count)
+            .Select(index => pending[index].Id)
+            .Distinct()
+            .ToArray();
+        var rejectedIds = ack.Rejected
+            .Where(item => item.Index >= 0 && item.Index < pending.Count)
+            .Select(item => pending[item.Index].Id)
+            .Distinct()
+            .Except(acceptedIds)
+            .ToArray();
+        if (acceptedIds.Length > 0)
+            await db.PendingLogs.Where(p => acceptedIds.Contains(p.Id)).ExecuteDeleteAsync(ct);
+        if (rejectedIds.Length > 0)
+            await db.PendingLogs.Where(p => rejectedIds.Contains(p.Id))
+                .ExecuteUpdateAsync(s => s.SetProperty(
+                    p => p.AttemptCount,
+                    p => p.AttemptCount + 1), ct);
+    }
+
+    internal sealed record AuditRejectedItem(int Index, string Error);
+    internal sealed record AuditBatchAck(int[] Accepted, AuditRejectedItem[] Rejected);
 }

@@ -80,7 +80,20 @@ notepad D:\publish\WatashiServer\appsettings.json
     -ServiceAccount "DOMAIN\svc-watashi"
 ```
 
-初回起動で `C:\ProgramData\Watashi\watashi.db` が自動生成され、`admin` / `Admin123!@#` でログイン可能 (初回ログインでパスワード変更が必要)。
+初回管理者の固定パスワードはありません。サービスを停止した状態で、サーバー端末上から明示的に bootstrap を実行します:
+
+```powershell
+Stop-Service Watashi.Server
+Push-Location "C:\Program Files\Watashi\Server"
+.\Watashi.Server.exe --bootstrap-admin
+# ここにだけ表示される Username / One-time password を安全に控える
+Pop-Location
+Start-Service Watashi.Server
+```
+
+表示された一時パスワードは DB やログに平文保存されず、初回ログインで変更を強制されます。表示を失った場合は、まだ一度もログインしていない間だけ同じコマンドで再発行できます。初回ログイン後や既存の有効な管理者がいる環境ではコマンドを拒否します。
+
+旧版の固定パスワードで作られた `admin` が未使用のまま残っている更新環境では、サービス停止中にこのコマンドを実行するとランダムな一時パスワードへ置換され、旧値が無効になります。既にログイン履歴のある運用中の管理者は変更されません。
 
 ## 2. ClickOnce クライアント
 

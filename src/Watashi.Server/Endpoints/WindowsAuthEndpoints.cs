@@ -28,6 +28,32 @@ public static class WindowsAuthEndpoints
             .RequireAuthorization(PolicyName)
             .RequireRateLimiting(RateLimitPolicy);
 
+        if (options.EnableSso)
+        {
+            group.MapPost("/sso", async (
+                AuthService auth,
+                HttpContext ctx,
+                CancellationToken ct) =>
+            {
+                if (RejectInsecure(ctx, options) is { } insecure) return insecure;
+                var result = await auth.WindowsSsoLoginAsync(
+                    ctx.User.Identity?.Name,
+                    options,
+                    ctx.Connection.RemoteIpAddress?.ToString(),
+                    ClientHostname(ctx),
+                    ct);
+                if (result.Failure == LoginFailureReason.AccountDisabled)
+                    return Results.Json(new { error = "account_disabled" },
+                        statusCode: StatusCodes.Status403Forbidden);
+                if (result.Failure == LoginFailureReason.AccountLocked)
+                    return Results.Json(new { error = "account_locked" },
+                        statusCode: StatusCodes.Status403Forbidden);
+                if (result.Response is null)
+                    return Results.Unauthorized();
+                return Results.Ok(result.Response);
+            });
+        }
+
         // ログイン画面の 1 段目。ID を受け取り「パスワードを訊く」か「初回設定させる」かを返す。
         // 本人確認できた未設定アカウント以外は、存在しない ID も通常アカウントも一律 password を返す。
         group.MapPost("/prepare-login", async (

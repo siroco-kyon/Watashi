@@ -3,6 +3,8 @@ namespace Watashi.Shared.Models;
 public class AuditLog
 {
     public long Id { get; set; }
+    /// <summary>outbox再送時の重複保存を防ぐイベント識別子。既存行はnull。</summary>
+    public Guid? EventId { get; set; }
     public DateTime Timestamp { get; set; }
     public int? UserId { get; set; }
     public string Username { get; set; } = string.Empty;

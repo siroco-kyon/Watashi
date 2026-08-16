@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Windows.Data;
@@ -55,6 +56,8 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         new("パス", nameof(UserPermissionDto.AllowedPath)),
         new("テンプレ", nameof(UserPermissionDto.TemplateName)),
         new("表示名", nameof(UserPermissionDto.DisplayName)),
+        new("状態", nameof(UserPermissionDto.EffectiveStatus)),
+        new("有効期限", nameof(UserPermissionDto.ExpiresAt)),
         new("作成日時", nameof(UserPermissionDto.CreatedAt), ListSortDirection.Descending),
     };
 
@@ -65,7 +68,18 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     [ObservableProperty] private PermissionTemplateDto? newTemplate;
     [ObservableProperty] private string newAllowedPath = "/";
     [ObservableProperty] private string newDisplayName = string.Empty;
+    [ObservableProperty] private string newValidFromText = string.Empty;
+    [ObservableProperty] private string newExpiresAtText = string.Empty;
+    [ObservableProperty] private string newReason = string.Empty;
+    [ObservableProperty] private string newTicketNumber = string.Empty;
     [ObservableProperty] private UserPermissionDto? selected;
+    [ObservableProperty] private PermissionTemplateDto? editTemplate;
+    [ObservableProperty] private string editAllowedPath = "/";
+    [ObservableProperty] private string editDisplayName = string.Empty;
+    [ObservableProperty] private string editValidFromText = string.Empty;
+    [ObservableProperty] private string editExpiresAtText = string.Empty;
+    [ObservableProperty] private string editReason = string.Empty;
+    [ObservableProperty] private string editTicketNumber = string.Empty;
     [ObservableProperty] private string browsePath = "/";
     [ObservableProperty] private string userFilter = string.Empty;
     [ObservableProperty] private string permissionSearchText = string.Empty;
@@ -74,8 +88,20 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     [ObservableProperty] private FileEntry? selectedBrowseEntry;
     [ObservableProperty] private PermissionBundleDto? selectedBundle;
     [ObservableProperty] private UserDto? copyFromUser;
+    [ObservableProperty] private ShareDto? simulationShare;
+    [ObservableProperty] private string simulationPath = "/";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSimulationResult))]
+    [NotifyPropertyChangedFor(nameof(SimulationWarningSummary))]
+    private PermissionSimulationResponse? simulationResult;
 
     public bool HasSelectedUser => SelectedUser is not null;
+    public bool HasSelectedPermission => Selected is not null;
+    public bool HasSimulationResult => SimulationResult is not null;
+    public string SimulationWarningSummary => SimulationResult?.Warnings.Count > 0
+        ? string.Join(" / ", SimulationResult.Warnings.Select(w => w.Message).Distinct())
+        : string.Empty;
+    public string LocalDateTimeHint => "ローカル時刻 yyyy-MM-dd HH:mm[:ss]（空欄は制限なし）";
     public bool HasNoUsers => UserSummaries.Count == 0;
     public bool HasNoItems => Items.Count == 0 && HasSelectedUser;
     public string SelectedUserHeader => SelectedUser is null
@@ -87,7 +113,9 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         _api = api;
         ItemsView = CollectionViewSource.GetDefaultView(Items);
         ItemsView.Filter = item => item is UserPermissionDto p && MatchesSearch(
-            PermissionSearchText, p.Id, p.Username, p.HostName, p.ShareName, p.AllowedPath, p.TemplateName, p.DisplayName);
+            PermissionSearchText, p.Id, p.Username, p.HostName, p.ShareName, p.AllowedPath, p.TemplateName,
+            p.DisplayName, p.EffectiveStatus, p.EffectiveStatusLabel, p.ValidFrom, p.ExpiresAt,
+            p.Reason, p.TicketNumber, p.WarningSummary);
         SelectedUserSortOption = UserSortOptions[0];
         SelectedPermissionSortOption = PermissionSortOptions[0];
         ApplySort(ItemsView, SelectedPermissionSortOption);
@@ -108,6 +136,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         var selectedHostId = SelectedHost?.Id;
         var newShareId = NewShare?.Id;
         var newTemplateId = NewTemplate?.Id;
+        var simulationShareId = SimulationShare?.Id;
 
         var usersTask = _api.GetUsersAsync();
         var hostsTask = _api.GetAdminHostsAsync();
@@ -136,6 +165,9 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         // 共有はホスト変更時に絞り込まれる
         if (newShareId.HasValue)
             NewShare = Shares.FirstOrDefault(s => s.Id == newShareId.Value) ?? Shares.FirstOrDefault();
+        SimulationShare = simulationShareId.HasValue
+            ? Shares.FirstOrDefault(s => s.Id == simulationShareId.Value) ?? Shares.FirstOrDefault()
+            : Shares.FirstOrDefault();
 
         NewTemplate = newTemplateId.HasValue
             ? Templates.FirstOrDefault(t => t.Id == newTemplateId.Value) ?? Templates.FirstOrDefault()
@@ -153,6 +185,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         OnPropertyChanged(nameof(HasSelectedUser));
         OnPropertyChanged(nameof(SelectedUserHeader));
         OnPropertyChanged(nameof(HasNoItems));
+        SimulationResult = null;
         _ = LoadItemsAsync();
     }
 
@@ -167,12 +200,14 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         {
             Shares.Clear();
             NewShare = null;
+            SimulationShare = null;
             BrowseEntries.Clear();
             BrowsePath = "/";
             return;
         }
         ReplaceAll(Shares, _allShares.Where(s => s.HostId == value.Id));
         NewShare = Shares.FirstOrDefault();
+        SimulationShare = Shares.FirstOrDefault();
     }
 
     partial void OnNewShareChanged(ShareDto? value)
@@ -181,7 +216,23 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         BrowsePath = "/";
     }
 
+    partial void OnSelectedChanged(UserPermissionDto? value)
+    {
+        OnPropertyChanged(nameof(HasSelectedPermission));
+        EditTemplate = value is null ? null : Templates.FirstOrDefault(t => t.Id == value.TemplateId);
+        EditAllowedPath = value?.AllowedPath ?? "/";
+        EditDisplayName = value?.DisplayName ?? string.Empty;
+        EditValidFromText = FormatLocal(value?.ValidFrom);
+        EditExpiresAtText = FormatLocal(value?.ExpiresAt);
+        EditReason = value?.Reason ?? string.Empty;
+        EditTicketNumber = value?.TicketNumber ?? string.Empty;
+    }
+
     partial void OnUserFilterChanged(string value) => ApplyUserFilter(SelectedUser?.Id);
+
+    partial void OnSimulationShareChanged(ShareDto? value) => SimulationResult = null;
+
+    partial void OnSimulationPathChanged(string value) => SimulationResult = null;
 
     partial void OnSelectedBrowseEntryChanged(FileEntry? value)
     {
@@ -193,7 +244,9 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     public Task LoadItemsAsync() => SafeAsync(async () =>
     {
         if (SelectedUser is null) { Items.Clear(); return; }
+        var selectedId = Selected?.Id;
         ReplaceAll(Items, await _api.GetUserPermissionsAsync(SelectedUser.Id));
+        Selected = selectedId.HasValue ? Items.FirstOrDefault(p => p.Id == selectedId.Value) : null;
     });
 
     [RelayCommand]
@@ -214,16 +267,84 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         if (NewShare is null) { StatusMessage = "共有を選択してください。"; return; }
         if (NewTemplate is null) { StatusMessage = "権限テンプレートを選択してください。"; return; }
         if (string.IsNullOrWhiteSpace(NewAllowedPath)) { StatusMessage = "許可パスを入力してください。"; return; }
-        await _api.CreateUserPermissionAsync(new CreateUserPermissionRequest
+        if (!TryParseWindow(NewValidFromText, NewExpiresAtText, out var validFrom, out var expiresAt, out var error))
         {
-            UserId = SelectedUser.Id, ShareId = NewShare.Id, TemplateId = NewTemplate.Id,
-            AllowedPath = NewAllowedPath, DisplayName = NewDisplayName,
+            StatusMessage = error!;
+            return;
+        }
+        if (!ValidateMetadataLengths(NewReason, NewTicketNumber, out error))
+        {
+            StatusMessage = error!;
+            return;
+        }
+        var result = await _api.CreateUserPermissionAsync(new CreateUserPermissionRequest
+        {
+            UserId = SelectedUser.Id,
+            ShareId = NewShare.Id,
+            TemplateId = NewTemplate.Id,
+            AllowedPath = NewAllowedPath,
+            DisplayName = NewDisplayName,
+            ValidFrom = validFrom,
+            ExpiresAt = expiresAt,
+            Reason = NewReason,
+            TicketNumber = NewTicketNumber,
         });
         NewAllowedPath = "/";
         NewDisplayName = string.Empty;
+        NewValidFromText = string.Empty;
+        NewExpiresAtText = string.Empty;
+        NewReason = string.Empty;
+        NewTicketNumber = string.Empty;
         await RefreshCountsAsync();
         await LoadItemsAsync();
-        StatusMessage = "パスを追加しました。";
+        Selected = Items.FirstOrDefault(p => p.Id == result.Id);
+        StatusMessage = MutationMessage("パスを追加しました。", result.Warnings);
+    });
+
+    [RelayCommand]
+    public Task UpdateSelectedAsync() => SafeAsync(async () =>
+    {
+        if (Selected is null) { StatusMessage = "編集する権限を選択してください。"; return; }
+        if (EditTemplate is null) { StatusMessage = "権限テンプレートを選択してください。"; return; }
+        if (string.IsNullOrWhiteSpace(EditAllowedPath)) { StatusMessage = "許可パスを入力してください。"; return; }
+        if (!TryParseWindow(EditValidFromText, EditExpiresAtText, out var validFrom, out var expiresAt, out var error))
+        {
+            StatusMessage = error!;
+            return;
+        }
+        if (!ValidateMetadataLengths(EditReason, EditTicketNumber, out error))
+        {
+            StatusMessage = error!;
+            return;
+        }
+
+        var id = Selected.Id;
+        var result = await _api.UpdateUserPermissionAsync(id, new UpdateUserPermissionRequest
+        {
+            ShareId = Selected.ShareId,
+            TemplateId = EditTemplate.Id,
+            AllowedPath = EditAllowedPath,
+            DisplayName = EditDisplayName,
+            ValidFrom = validFrom,
+            ExpiresAt = expiresAt,
+            Reason = EditReason,
+            TicketNumber = EditTicketNumber,
+        });
+        await LoadItemsAsync();
+        Selected = Items.FirstOrDefault(p => p.Id == id);
+        StatusMessage = MutationMessage("権限を更新しました。", result.Warnings);
+    });
+
+    [RelayCommand]
+    public Task SimulateAsync() => SafeAsync(async () =>
+    {
+        if (SelectedUser is null) { StatusMessage = "シミュレーションするユーザーを選択してください。"; return; }
+        if (SimulationShare is null) { StatusMessage = "シミュレーションする共有を選択してください。"; return; }
+        if (string.IsNullOrWhiteSpace(SimulationPath)) { StatusMessage = "シミュレーションするパスを入力してください。"; return; }
+
+        SimulationResult = await _api.SimulatePermissionAsync(
+            SelectedUser.Id, SimulationShare.Id, SimulationPath);
+        StatusMessage = "実効権限を確認しました（データは変更していません）。";
     });
 
     [RelayCommand]
@@ -256,7 +377,8 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         var overwrite = owMsg == System.Windows.MessageBoxResult.Yes;
         var res = await _api.ApplyBundleAsync(SelectedBundle.Id, new ApplyPermissionBundleRequest
         {
-            UserId = SelectedUser.Id, Overwrite = overwrite,
+            UserId = SelectedUser.Id,
+            Overwrite = overwrite,
         });
         await RefreshCountsAsync();
         await LoadItemsAsync();
@@ -280,7 +402,9 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         var overwrite = owMsg == System.Windows.MessageBoxResult.Yes;
         var res = await _api.CopyUserPermissionsAsync(new CopyUserPermissionsRequest
         {
-            FromUserId = CopyFromUser.Id, ToUserId = SelectedUser.Id, Overwrite = overwrite,
+            FromUserId = CopyFromUser.Id,
+            ToUserId = SelectedUser.Id,
+            Overwrite = overwrite,
         });
         await RefreshCountsAsync();
         await LoadItemsAsync();
@@ -347,4 +471,68 @@ public partial class UserPermissionViewModel : AdminViewModelBase
                 : users.OrderBy(u => u.Username),
         };
     }
+
+    private static bool TryParseWindow(
+        string validFromText,
+        string expiresAtText,
+        out DateTime? validFromUtc,
+        out DateTime? expiresAtUtc,
+        out string? error)
+    {
+        validFromUtc = null;
+        expiresAtUtc = null;
+        error = null;
+        if (!TryParseLocalUtc(validFromText, "有効開始日時", out validFromUtc, out error) ||
+            !TryParseLocalUtc(expiresAtText, "有効期限", out expiresAtUtc, out error))
+            return false;
+        if (validFromUtc.HasValue && expiresAtUtc.HasValue && validFromUtc.Value >= expiresAtUtc.Value)
+        {
+            error = "有効期限は有効開始日時より後にしてください。";
+            return false;
+        }
+        return true;
+    }
+
+    private static bool TryParseLocalUtc(
+        string text,
+        string fieldName,
+        out DateTime? utc,
+        out string? error)
+    {
+        utc = null;
+        error = null;
+        if (string.IsNullOrWhiteSpace(text)) return true;
+        if (!DateTime.TryParseExact(text.Trim(), new[] { "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm:ss" }, CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var local))
+        {
+            error = $"{fieldName}は yyyy-MM-dd HH:mm[:ss] 形式で入力してください。";
+            return false;
+        }
+        utc = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime();
+        return true;
+    }
+
+    private static bool ValidateMetadataLengths(string reason, string ticketNumber, out string? error)
+    {
+        if (reason.Trim().Length > CreateUserPermissionRequest.MaxReasonLength)
+        {
+            error = $"理由は {CreateUserPermissionRequest.MaxReasonLength} 文字以内で入力してください。";
+            return false;
+        }
+        if (ticketNumber.Trim().Length > CreateUserPermissionRequest.MaxTicketNumberLength)
+        {
+            error = $"チケット/申請番号は {CreateUserPermissionRequest.MaxTicketNumberLength} 文字以内で入力してください。";
+            return false;
+        }
+        error = null;
+        return true;
+    }
+
+    private static string FormatLocal(DateTime? utc)
+        => utc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private static string MutationMessage(string success, IReadOnlyCollection<PermissionWarningDto> warnings)
+        => warnings.Count == 0
+            ? success
+            : success + " ⚠ " + string.Join(" / ", warnings.Select(w => w.Message).Distinct());
 }
