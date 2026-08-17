@@ -95,7 +95,7 @@ public static class FileEndpoints
         group.MapDelete("/", async (
             int hostId, int shareId, string path,
             HttpContext ctx, AppDbContext db, NodeRouter router, EncryptionService enc,
-            PermissionService perms, AuditLogService audit, RemoteTrashService trash,
+            PermissionService perms, AuditLogService audit,
             ClaimsPrincipal principal,
             CancellationToken ct) =>
         {
@@ -104,20 +104,9 @@ public static class FileEndpoints
             {
                 if (await perms.IsPermissionRootAsync(auth.UserId, shareId, auth.NormalizedPath, ct))
                     return new FailureResult(PermissionDenied("許可ルート自体は削除できません。"), "permission_root");
-                var result = await trash.TrashAsync(
-                    auth.UserId,
-                    principal.GetUsername() ?? $"user:{auth.UserId}",
-                    hostId,
-                    shareId,
-                    auth.NormalizedPath,
-                    execCtx.Node,
-                    execCtx.Info,
-                    auth.PermissionId,
-                    ct);
-                ctx.Items["targetPath"] = result.TargetPath;
-                ctx.Items["bytes"] = result.Entry.SizeBytes;
+                await router.DeleteAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct);
                 return Results.NoContent();
-            }, auditOperation: Operations.Trash);
+            });
         });
 
         group.MapPost("/rename", async (
@@ -161,6 +150,7 @@ public static class FileEndpoints
             }, auditOperation: Operations.Mkdir);
         });
 
+        /* リモートコピー機能は廃止。
         group.MapPost("/copy", async (
             RemoteCopyRequest req, HttpContext ctx, AppDbContext db, NodeRouter router, EncryptionService enc,
             PermissionService perms, AuditLogService audit, RemoteCopyService copy,
@@ -199,6 +189,7 @@ public static class FileEndpoints
                 return Results.Ok(result);
             }, auditOperation: Operations.Copy);
         });
+        */
 
         return app;
     }

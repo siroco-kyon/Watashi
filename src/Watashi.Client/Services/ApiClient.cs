@@ -184,31 +184,6 @@ public class ApiClient : ITransferProtocol
         CancellationToken ct = default)
         => PostJsonAsync<RemoteSearchResponse>("api/files/search", request, ct: ct);
 
-    public Task<RemoteTrashListResponse> ListRemoteTrashAsync(
-        int? hostId = null,
-        int? shareId = null,
-        int page = 1,
-        int pageSize = 100,
-        CancellationToken ct = default)
-    {
-        var query = $"page={Math.Max(1, page)}&pageSize={Math.Clamp(pageSize, 1, 200)}";
-        if (hostId.HasValue) query += $"&hostId={hostId.Value}";
-        if (shareId.HasValue) query += $"&shareId={shareId.Value}";
-        return GetAsync<RemoteTrashListResponse>($"api/files/v2/trash?{query}", ct);
-    }
-
-    public Task<RestoreRemoteTrashResponse> RestoreRemoteTrashAsync(
-        Guid entryId,
-        string collisionPolicy,
-        CancellationToken ct = default)
-        => PostJsonAsync<RestoreRemoteTrashResponse>(
-            $"api/files/v2/trash/{entryId:D}/restore",
-            new RestoreRemoteTrashRequest { CollisionPolicy = collisionPolicy },
-            ct: ct);
-
-    public Task PurgeRemoteTrashAsync(Guid entryId, CancellationToken ct = default)
-        => SendNoContentAsync(HttpMethod.Delete, $"api/files/v2/trash/{entryId:D}", null, ct);
-
     public async Task DownloadAsync(int hostId, int shareId, string path, Stream output, IProgress<long>? progress, CancellationToken ct = default)
     {
         var qs = $"hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path)}";
@@ -401,7 +376,8 @@ public class ApiClient : ITransferProtocol
     public Task MkdirAsync(int hostId, int shareId, string path, CancellationToken ct = default) =>
         PostJsonNoContentAsync("api/files/mkdir", new MkdirRequest { HostId = hostId, ShareId = shareId, Path = path }, ct);
 
-    public Task<RemoteCopyResponse> CopyRemoteAsync(RemoteCopyRequest request, CancellationToken ct = default)
+    // RemotePaneViewModel の旧コード互換用。UI とサーバーのルートは廃止済み。
+    internal Task<RemoteCopyResponse> CopyRemoteAsync(RemoteCopyRequest request, CancellationToken ct = default)
         => SendTransferJsonAsync<RemoteCopyResponse>(HttpMethod.Post, "api/files/copy", request, ct);
 
     // === Admin ===

@@ -5,6 +5,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 廃止したリモートごみ箱の画面と ViewModel はビルド対象から除外する。 -->
+    <Compile Remove="ViewModels\RemoteTrashViewModel.cs" />
+    <Compile Remove="Views\RemoteTrashWindow.xaml.cs" />
+    <Page Remove="Views\RemoteTrashWindow.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!--
       配布時設定。exe と同じ場所に出力され、ClickOnce 発行物にも含まれる。
       管理者が配布前に serverUrl / updateManifestUrl / enableDragDrop を編集する (利用者は変更不可)。

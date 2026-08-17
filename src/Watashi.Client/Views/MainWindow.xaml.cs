@@ -211,6 +211,7 @@ public partial class MainWindow : Window
     private void OnRemoteSearchDoubleClick(object sender, MouseButtonEventArgs e) =>
         _ = _vm.Remote.OpenSearchResultAsync(_vm.Remote.SelectedSearchResult);
 
+    /* リモートごみ箱は廃止。
     private async void OnOpenRemoteTrash(object sender, RoutedEventArgs e)
     {
         var sp = ((App)Application.Current).Services;
@@ -221,6 +222,7 @@ public partial class MainWindow : Window
         window.ShowDialog();
         await _vm.Remote.RefreshAsync();
     }
+    */
 
     // ===== 列ヘッダクリックでソート =====
     private void OnLocalHeaderClick(object sender, RoutedEventArgs e)
@@ -373,7 +375,7 @@ public partial class MainWindow : Window
         }
         var kind = target.Type == FileEntryTypes.Directory ? "フォルダ" : "ファイル";
         var ok = MessageBox.Show(
-            $"リモートの{kind} \"{target.Name}\" をごみ箱へ移動しますか？\n保管期限まではリモートごみ箱から復元できます。",
+            $"リモートの{kind} \"{target.Name}\" を完全に削除しますか？\nこの操作は元に戻せません。",
             "削除確認", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (ok != MessageBoxResult.OK) return;
         await _vm.Remote.DeleteSelectedAsync();
@@ -422,6 +424,7 @@ public partial class MainWindow : Window
     private void OnRemoteContextDownload(object sender, RoutedEventArgs e)
         => _ = _vm.DownloadManyAsync(SelectedEntries(RemoteList));
 
+    /* リモートコピー機能は廃止。
     private async void OnRemoteContextCopy(object sender, RoutedEventArgs e)
     {
         var entries = SelectedEntries(RemoteList);
@@ -444,6 +447,7 @@ public partial class MainWindow : Window
         if (answer != MessageBoxResult.Yes) return;
         await _vm.Remote.CopyEntriesAsync(entries, targetDirectory);
     }
+    */
 
     private async void OnRemoteContextRename(object sender, RoutedEventArgs e)
     {
