@@ -30,12 +30,16 @@ public sealed record DownloadQueueRequest(
 public sealed class TransferQueueService : IAsyncDisposable
 {
     public const int ChunkSize = 8 * 1024 * 1024;
+    internal const int MaxTerminalHistory = 1000;
+    internal static readonly TimeSpan CompletedHistoryRetention = TimeSpan.FromDays(30);
+    internal static readonly TimeSpan FailedHistoryRetention = TimeSpan.FromDays(90);
     private static readonly TimeSpan RemoteCancelTimeout = TimeSpan.FromSeconds(10);
 
     private readonly TransferQueueStore _store;
     private readonly ITransferProtocol _protocol;
     private readonly int _maxConcurrent;
     private readonly Func<int, TimeSpan> _retryDelayFactory;
+    private readonly Func<DateTime> _utcNow;
     private readonly SemaphoreSlim _mutex = new(1, 1);
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _signal = new(0, int.MaxValue);
@@ -60,12 +64,14 @@ public sealed class TransferQueueService : IAsyncDisposable
         TransferQueueStore store,
         ITransferProtocol protocol,
         int maxConcurrent = 2,
-        Func<int, TimeSpan>? retryDelayFactory = null)
+        Func<int, TimeSpan>? retryDelayFactory = null,
+        Func<DateTime>? utcNow = null)
     {
         _store = store;
         _protocol = protocol;
         _maxConcurrent = Math.Clamp(maxConcurrent, 1, 4);
         _retryDelayFactory = retryDelayFactory ?? DefaultRetryDelay;
+        _utcNow = utcNow ?? (() => DateTime.UtcNow);
     }
 
     public async Task InitializeAsync(CancellationToken ct = default)
@@ -103,6 +109,7 @@ public sealed class TransferQueueService : IAsyncDisposable
         finally { _mutex.Release(); }
 
         Publish(publication);
+        await CleanupExpiredHistoryBestEffortAsync(ct);
         foreach (var retry in publication.Jobs.Where(job => job.State == TransferJobStates.RetryWaiting))
             ScheduleRetryWake(retry.NextAttemptAtUtc);
         SignalPump();
@@ -418,6 +425,47 @@ public sealed class TransferQueueService : IAsyncDisposable
         }
         finally { _mutex.Release(); }
 
+        await RemoveJobsAsync(removable, ct);
+    }
+
+    private async Task CleanupExpiredHistoryAsync(CancellationToken ct = default)
+    {
+        TransferJobRecord[] removable;
+        await _mutex.WaitAsync(ct);
+        try
+        {
+            var now = _utcNow();
+            var terminal = _jobs.Where(job => IsTerminal(job.State)).ToList();
+            var expiredIds = terminal
+                .Where(job => IsExpiredHistory(job, now))
+                .Select(job => job.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var retained = terminal
+                .Where(job => !expiredIds.Contains(job.Id))
+                .OrderByDescending(HistoryTimestamp)
+                .ToList();
+            foreach (var excess in retained.Skip(MaxTerminalHistory))
+                expiredIds.Add(excess.Id);
+            removable = terminal
+                .Where(job => expiredIds.Contains(job.Id))
+                .Select(Clone)
+                .ToArray();
+        }
+        finally { _mutex.Release(); }
+
+        await RemoveJobsAsync(removable, ct);
+    }
+
+    private async Task CleanupExpiredHistoryBestEffortAsync(CancellationToken ct)
+    {
+        try { await CleanupExpiredHistoryAsync(ct); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex) { PublishError("転送履歴の自動整理に失敗しました: " + ex.Message); }
+    }
+
+    private async Task RemoveJobsAsync(IReadOnlyCollection<TransferJobRecord> removable, CancellationToken ct)
+    {
+        if (removable.Count == 0) return;
         await Parallel.ForEachAsync(
             removable.Where(job => job.Direction == TransferDirections.Upload &&
                                    Guid.TryParse(job.ServerSessionId, out _)),
@@ -427,6 +475,17 @@ public sealed class TransferQueueService : IAsyncDisposable
             DeletePartialBestEffort(job.LocalPath, job.Id);
         await RemoveAsync(job => removable.Any(x => IdEquals(job, x.Id)), ct);
     }
+
+    private static bool IsExpiredHistory(TransferJobRecord job, DateTime now)
+    {
+        var retention = job.State is TransferJobStates.Completed or TransferJobStates.Skipped
+            ? CompletedHistoryRetention
+            : FailedHistoryRetention;
+        return HistoryTimestamp(job) <= now - retention;
+    }
+
+    private static DateTime HistoryTimestamp(TransferJobRecord job)
+        => job.CompletedAtUtc ?? job.UpdatedAt;
 
     private async Task AddJobsAsync(IReadOnlyList<TransferJobRecord> jobs, CancellationToken ct)
     {
@@ -998,9 +1057,10 @@ public sealed class TransferQueueService : IAsyncDisposable
             if (state is TransferJobStates.Completed or TransferJobStates.Skipped)
             {
                 job.BytesTransferred = job.TotalBytes;
-                job.CompletedAtUtc = DateTime.UtcNow;
+                job.CompletedAtUtc = _utcNow();
             }
         }, signal: false, ct);
+        await CleanupExpiredHistoryBestEffortAsync(ct);
     }
 
     private async Task PersistTerminalSafelyAsync(string id, string state, string? error)

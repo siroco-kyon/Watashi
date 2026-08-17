@@ -9,6 +9,50 @@ namespace Watashi.Tests;
 public class TransferQueueServiceTests
 {
     [Fact]
+    public async Task Initialization_removes_expired_terminal_history_and_partial_files()
+    {
+        using var temp = new TemporaryDirectory();
+        var now = new DateTime(2026, 8, 17, 0, 0, 0, DateTimeKind.Utc);
+        var expiredPartialTarget = Path.Combine(temp.Path, "expired.bin");
+        var expiredCompleted = HistoryJob("completed-old", TransferJobStates.Completed, now.AddDays(-31));
+        var expiredFailed = HistoryJob("failed-old", TransferJobStates.Failed, now.AddDays(-91));
+        expiredFailed.Direction = TransferDirections.Download;
+        expiredFailed.LocalPath = expiredPartialTarget;
+        var partial = Path.Combine(temp.Path, $".expired.bin.{expiredFailed.Id}.watashi-part");
+        await File.WriteAllBytesAsync(partial, new byte[] { 1, 2, 3 });
+        var retainedCanceled = HistoryJob("canceled-recent", TransferJobStates.Canceled, now.AddDays(-89));
+        var active = HistoryJob("still-queued", TransferJobStates.Queued, now.AddYears(-1));
+        var store = new TransferQueueStore(Path.Combine(temp.Path, "queue.json"));
+        await store.SaveAsync(new[] { expiredCompleted, expiredFailed, retainedCanceled, active });
+        await using var queue = new TransferQueueService(store, new FakeProtocol(), utcNow: () => now);
+
+        await queue.InitializeAsync();
+
+        (await queue.SnapshotAsync()).Select(x => x.Id)
+            .Should().BeEquivalentTo(retainedCanceled.Id, active.Id);
+        File.Exists(partial).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Initialization_caps_terminal_history_at_one_thousand_newest_jobs()
+    {
+        using var temp = new TemporaryDirectory();
+        var now = new DateTime(2026, 8, 17, 0, 0, 0, DateTimeKind.Utc);
+        var jobs = Enumerable.Range(0, TransferQueueService.MaxTerminalHistory + 2)
+            .Select(i => HistoryJob($"job-{i:D4}", TransferJobStates.Completed, now.AddMinutes(-i)))
+            .ToArray();
+        var store = new TransferQueueStore(Path.Combine(temp.Path, "queue.json"));
+        await store.SaveAsync(jobs);
+        await using var queue = new TransferQueueService(store, new FakeProtocol(), utcNow: () => now);
+
+        await queue.InitializeAsync();
+
+        var retained = await queue.SnapshotAsync();
+        retained.Should().HaveCount(TransferQueueService.MaxTerminalHistory);
+        retained.Select(x => x.Id).Should().NotContain(new[] { jobs[1000].Id, jobs[1001].Id });
+    }
+
+    [Fact]
     public async Task Upload_resumes_from_server_offset_and_completes()
     {
         using var temp = new TemporaryDirectory();
@@ -29,6 +73,21 @@ public class TransferQueueServiceTests
         protocol.CreatedRequest!.Sha256.Should().Be(
             Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant());
     }
+
+    private static TransferJobRecord HistoryJob(string id, string state, DateTime timestamp) => new()
+    {
+        Id = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(id)))
+            .ToLowerInvariant()[..32],
+        Direction = TransferDirections.Upload,
+        LocalPath = $"C:\\history\\{id}.bin",
+        HostId = 1,
+        ShareId = 2,
+        RemotePath = $"/{id}.bin",
+        State = state,
+        CreatedAt = timestamp,
+        UpdatedAt = timestamp,
+        CompletedAtUtc = state is TransferJobStates.Completed or TransferJobStates.Skipped ? timestamp : null,
+    };
 
     [Fact]
     public async Task Download_resumes_matching_partial_file_and_commits_atomically()
