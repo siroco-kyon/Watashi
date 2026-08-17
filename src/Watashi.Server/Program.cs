@@ -97,14 +97,11 @@ builder.Services.AddSingleton<NodeRouter>();
 builder.Services.AddSingleton<RemoteQueryCursorStore>();
 builder.Services.AddScoped<IRemoteDirectoryLister, RemoteDirectoryLister>();
 builder.Services.AddScoped<RemoteSearchService>();
-builder.Services.AddScoped<RemoteTrashService>();
-builder.Services.AddScoped<RemoteCopyService>();
 builder.Services.AddHostedService<NodeHealthMonitor>();
 builder.Services.AddHostedService<AuditLogPurgeService>();
 builder.Services.AddHostedService<AuditOutboxDispatcher>();
 builder.Services.AddHostedService<DatabaseMaintenanceService>();
 builder.Services.AddHostedService<UploadSessionJanitor>();
-builder.Services.AddHostedService<RemoteTrashJanitor>();
 builder.Services.AddHttpClient("agent").AddMtls(builder.Configuration);
 
 // === mTLS (任意): Routing:UseMtls=true で Agent からの inbound にクライアント証明書を要求 ===
@@ -357,11 +354,13 @@ app.MapGet("/", () => Results.Ok(new
 
 app.MapHealthEndpoints();
 app.MapAuthEndpoints();
-app.MapWindowsAuthEndpoints(windowsAuth);
+// Windows SSO は現在使用しない。再開時はクライアント側のログインボタンと併せて戻す。
+// app.MapWindowsAuthEndpoints(windowsAuth);
 app.MapHostEndpoints();
 app.MapFileEndpoints();
+// 横断検索 UI は現在コメントアウト中。増分一覧も同じ endpoint 群にあるため登録は維持する。
 app.MapRemoteQueryEndpoints();
-app.MapRemoteTrashEndpoints();
+// app.MapRemoteTrashEndpoints(); // リモートごみ箱は廃止
 app.MapTransferV2Endpoints();
 app.MapAdminTemplateEndpoints();
 app.MapAdminUserPermissionEndpoints();

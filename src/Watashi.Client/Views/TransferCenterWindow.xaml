@@ -41,7 +41,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel>
-                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" Height="7"
+                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent, Mode=OneWay}" Height="7"
                                              AutomationProperties.Name="{Binding ProgressText}"/>
                                 <TextBlock Text="{Binding ProgressText}" FontSize="11" Margin="0,2,0,0"/>
                             </StackPanel>

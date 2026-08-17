@@ -429,7 +429,6 @@ public partial class App : Application
         services.AddTransient<TransferQueueService>();
         services.AddTransient<TransferQueueViewModel>();
         services.AddTransient<TrustedDevicesViewModel>();
-        services.AddTransient<RemoteTrashViewModel>();
 
         services.AddTransient<ConnectionSettingsViewModel>();
         services.AddTransient<LoginViewModel>();
@@ -445,7 +444,6 @@ public partial class App : Application
         services.AddTransient<InitialPasswordWindow>();
         services.AddTransient<MainWindow>();
         services.AddTransient<Views.TrustedDevicesWindow>();
-        services.AddTransient<Views.RemoteTrashWindow>();
         services.AddTransient<Views.Admin.AdminWindow>();
 
         services.AddTransient<ViewModels.Admin.AdminShellViewModel>();
