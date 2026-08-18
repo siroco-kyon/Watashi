@@ -34,6 +34,7 @@
 | `install-agent.ps1`          | 旧式: appsettings.json 生成 + sc.exe 登録（残置、互換用） |
 | `configure-iis-windows-auth.ps1` | 初回パスワード設定 API だけに IIS Windows 認証を設定 |
 | `IIS-WINDOWS-AUTH-SETUP.html` | 上記スクリプトの変更箇所・実行・確認・復元を説明する HTML ガイド |
+| `WINDOWS-AUTH-TROUBLESHOOTING.html` | **初回パスワード設定が動かないときの切り分けガイド (HTML)**: 症状から原因が見えない理由、/health と prepare-login による判定、場所別 Location 問題の仕組みと復旧 |
 | `IIS-MIME.md`                | ClickOnce 配信のための IIS MIME 設定 |
 | `CERTIFICATE.md`             | HTTPS 証明書の設定 (ストア参照 vs ファイル指定、Windows 推奨は前者) |
 | `INTERNAL-CA-HTTPS.html`     | **社内 CA 証明書での HTTPS 化ガイド (HTML)**: 受け取った .cer からルート/中間 CA の入手・チェーン結合・Server/Agent 両方の設定までを図解 |

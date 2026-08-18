@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>初回パスワード設定が動かないときの切り分けガイド</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #586474;
+      --paper: #fffdf9;
+      --surface: #ffffff;
+      --line: #e7dfd4;
+      --red: #a9342b;
+      --red-dark: #6e211d;
+      --red-soft: #fff1ed;
+      --gold: #ba7a1a;
+      --gold-soft: #fff8e7;
+      --green: #17643a;
+      --green-soft: #edf8f1;
+      --blue: #185d8f;
+      --blue-soft: #edf6fc;
+      --shadow: 0 18px 50px rgba(60, 44, 30, .08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(186, 122, 26, .10), transparent 30rem),
+        linear-gradient(180deg, #faf5ed 0, var(--paper) 28rem);
+      font-family: "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+      line-height: 1.75;
+    }
+
+    a { color: var(--blue); }
+    code, pre { font-family: "Cascadia Mono", Consolas, monospace; }
+    code {
+      padding: .12em .38em;
+      border-radius: 5px;
+      background: #f2eee8;
+      font-size: .92em;
+    }
+
+    .hero {
+      color: white;
+      background:
+        linear-gradient(120deg, rgba(74, 13, 13, .96), rgba(145, 40, 31, .94)),
+        repeating-linear-gradient(90deg, transparent 0 44px, rgba(255,255,255,.04) 44px 45px);
+      border-bottom: 5px solid var(--gold);
+    }
+
+    .hero-inner {
+      width: min(1120px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 64px 0 58px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #f6cf91;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-size: clamp(30px, 5vw, 54px);
+      line-height: 1.22;
+      letter-spacing: -.03em;
+    }
+
+    .lead {
+      max-width: 780px;
+      margin: 18px 0 0;
+      color: #f6e9e3;
+      font-size: 17px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 34px;
+      width: min(1120px, calc(100% - 36px));
+      margin: 34px auto 70px;
+    }
+
+    nav {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      padding: 18px;
+      background: rgba(255,255,255,.86);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    nav strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--red-dark);
+      font-size: 13px;
+      letter-spacing: .08em;
+    }
+
+    nav a {
+      display: block;
+      padding: 7px 9px;
+      color: #3f4854;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    nav a:hover { color: var(--red-dark); background: var(--red-soft); }
+    nav a.key { color: var(--red-dark); font-weight: 700; }
+
+    main { min-width: 0; }
+    section {
+      margin: 0 0 26px;
+      padding: 30px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    section.spotlight { border: 2px solid var(--red); }
+
+    h2 {
+      margin: 0 0 18px;
+      color: var(--red-dark);
+      font-size: 25px;
+      line-height: 1.35;
+    }
+
+    h3 {
+      margin: 30px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--red-soft);
+      font-size: 18px;
+      line-height: 1.45;
+    }
+
+    h4 { margin: 22px 0 6px; font-size: 15px; }
+
+    p { margin: 10px 0; }
+    ul, ol { padding-left: 1.5em; }
+    li + li { margin-top: 6px; }
+
+    .callout {
+      margin: 18px 0;
+      padding: 15px 17px;
+      border-left: 5px solid;
+      border-radius: 10px;
+    }
+    .callout p:first-child { margin-top: 0; }
+    .callout p:last-child { margin-bottom: 0; }
+    .danger { color: #64231f; background: var(--red-soft); border-color: var(--red); }
+    .note { color: #27495e; background: var(--blue-soft); border-color: var(--blue); }
+    .success { color: #1d5132; background: var(--green-soft); border-color: var(--green); }
+    .warning { color: #60450e; background: var(--gold-soft); border-color: var(--gold); }
+
+    .answer {
+      margin: 0 0 6px;
+      padding: 22px 24px;
+      color: #1d5132;
+      background: var(--green-soft);
+      border: 2px solid var(--green);
+      border-radius: 14px;
+      font-size: 17px;
+    }
+    .answer p { margin: 8px 0; }
+    .answer .yes {
+      display: inline-block;
+      margin-bottom: 6px;
+      padding: 3px 12px;
+      color: white;
+      background: var(--green);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+      margin: 18px 0;
+      counter-reset: step;
+    }
+    .step {
+      position: relative;
+      min-height: 54px;
+      padding: 14px 16px 14px 62px;
+      background: #fbfaf8;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      counter-increment: step;
+    }
+    .step::before {
+      content: counter(step);
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      color: white;
+      background: var(--red);
+      border-radius: 50%;
+      font-weight: 800;
+    }
+
+    .code-wrap { position: relative; margin: 14px 0 18px; }
+    pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 18px 20px;
+      color: #f5f1eb;
+      background: #20252d;
+      border-radius: 12px;
+      line-height: 1.6;
+      font-size: 13px;
+      white-space: pre;
+    }
+    pre code { padding: 0; color: inherit; background: none; font-size: inherit; }
+    pre .cmt { color: #93a4b5; }
+    pre .hl { color: #ffd479; font-weight: 700; }
+
+    figure.fig {
+      overflow-x: auto;
+      margin: 20px 0;
+      padding: 18px 20px 14px;
+      background: #fbfaf8;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    figure.fig svg {
+      display: block;
+      width: 100%;
+      min-width: 620px;
+      max-width: 880px;
+      height: auto;
+      margin: 0 auto;
+    }
+    figure.fig figcaption {
+      margin: 12px auto 0;
+      max-width: 640px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .copy {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      padding: 6px 10px;
+      color: #e8edf3;
+      background: #353d48;
+      border: 1px solid #566170;
+      border-radius: 7px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
+    .copy:hover { background: #46515f; }
+
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      min-width: 480px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--red-dark); background: #faf5ef; }
+    td.same { color: var(--muted); background: #fbfaf8; }
+    td.diff { background: var(--gold-soft); font-weight: 700; }
+
+    .machine {
+      display: inline-block;
+      margin: 0 0 10px;
+      padding: 4px 12px;
+      color: white;
+      background: var(--blue);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .machine.b { background: #6b4a9c; }
+    .machine.srv { background: var(--red); }
+
+    .result {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .result > div {
+      padding: 15px;
+      background: #fbfaf8;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      font-size: 14px;
+    }
+    .result strong { display: block; color: var(--red-dark); }
+
+    footer {
+      width: min(1120px, calc(100% - 36px));
+      margin: -38px auto 32px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: static; }
+      nav a { display: inline-block; }
+      section { padding: 23px 20px; }
+      .result { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      body { background: white; }
+      .hero { color: black; background: white; border-bottom: 2px solid #555; }
+      .hero-inner { padding: 20px 0; }
+      .lead, .eyebrow { color: #333; }
+      .layout { display: block; width: 100%; margin: 20px 0; }
+      nav, .copy { display: none; }
+      section, figure.fig { break-inside: avoid; box-shadow: none; }
+      pre { color: #111; background: #f4f4f4; border: 1px solid #ccc; }
+      pre .cmt { color: #555; }
+      pre .hl { color: #111; }
+    }
+  </style>
+
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Watashi troubleshooting guide</p>
+      <h1>初回パスワード設定が<br>動かないときの切り分け</h1>
+      <p class="lead">Windows 統合認証にならず、パスワードを設定していないのにパスワード入力画面が出る — この症状は原因が 8 通りあり、画面には何も表示されません。ランタイム更新や IIS 構成変更のあとに再発しやすい落とし穴を、切り分け手順つきでまとめます。</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="ページ内メニュー">
+      <strong>CONTENTS</strong>
+      <a href="#answer">0. 症状と結論</a>
+      <a href="#silent" class="key">1. なぜ原因が見えない ★</a>
+      <a href="#conditions">2. 成立に必要な条件</a>
+      <a href="#flow" class="key">3. 切り分けフロー ★</a>
+      <a href="#location" class="key">4. 最頻出の原因 ★</a>
+      <a href="#fix">5. 復旧手順</a>
+      <a href="#script">6. スクリプトの中身</a>
+      <a href="#whoami">7. whoami の読み方</a>
+      <a href="#checklist">8. 更新時チェックリスト</a>
+    </nav>
+
+    <main>
+      <section id="answer">
+        <h2>0. 症状と結論</h2>
+
+        <div class="answer">
+          <span class="yes">これは異常動作ではありません</span>
+          <p><strong>パスワード画面が出るのは「Windows 認証による判定に失敗したとき」の既定動作です。</strong>クライアントは失敗理由を一切表示せず、黙って通常のパスワードログインへ切り替えます。</p>
+          <p>したがって<strong>画面を見ても原因は分かりません</strong>。切り分けは必ず HTTP ステータスを取るところから始めてください。</p>
+        </div>
+
+        <div class="callout danger">
+          <p><strong>ランタイム更新 (.NET のバージョン上げ) や IIS 構成変更の直後に再発したなら、まず <a href="#location">4 章の場所別 Location 問題</a>を疑ってください。</strong>「昨日まで動いていたのに突然」というパターンはほぼこれです。復旧は <code>configure-iis-windows-auth.ps1</code> の再実行だけで済みます。</p>
+        </div>
+
+        <div class="callout note">
+          <p>このページは<strong>動かなくなったときの切り分け</strong>専用です。初回導入の手順は <a href="IIS-WINDOWS-AUTH-SETUP.html">IIS-WINDOWS-AUTH-SETUP.html</a> を参照してください。</p>
+        </div>
+      </section>
+
+      <section id="silent" class="spotlight">
+        <h2>1. なぜ画面から原因が分からないのか</h2>
+
+        <p>クライアントの <code>PrepareLoginAsync</code> は、<strong>あらゆる失敗を握りつぶして「パスワードモード」を返します</strong>。ドメイン非参加 PC や旧サーバーでも画面が進むようにするための意図的な実装ですが、副作用として障害時の原因が完全に隠れます。</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">// Watashi.Client/Services/ApiClient.cs</span>
+var fallback = new PrepareLoginResponse { Mode = LoginModes.Password };
+try
+{
+    using var res = await http.PostAsJsonAsync("api/auth/win/prepare-login", ...);
+    <span class="hl">if (!res.IsSuccessStatusCode) return fallback;</span>   <span class="cmt">// 404 / 401 / 403 を全部握りつぶす</span>
+    return await res.Content.ReadFromJsonAsync&lt;PrepareLoginResponse&gt;(...) ?? fallback;
+}
+catch
+{
+    <span class="hl">return fallback;</span>                                <span class="cmt">// 通信例外も握りつぶす</span>
+}</code></pre>
+        </div>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 272" role="img" aria-label="ログイン画面から prepare-login を呼び出したとき、404・401・403・通信例外のいずれもパスワードモードへフォールバックし、200 かつ Mode=Setup のときだけ初回パスワード設定ダイアログが出ることを示す図">
+            <defs>
+              <marker id="wa1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <rect x="14" y="104" width="184" height="76" rx="11" fill="#edf6fc" stroke="#185d8f" stroke-width="1.6"/>
+            <text x="106" y="134" font-size="13" font-weight="700" fill="#185d8f" text-anchor="middle">ID を入力して</text>
+            <text x="106" y="154" font-size="13" font-weight="700" fill="#185d8f" text-anchor="middle">「次へ」</text>
+            <text x="106" y="172" font-size="10.5" fill="#27495e" text-anchor="middle" opacity=".85">prepare-login を呼ぶ</text>
+
+            <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55" marker-end="url(#wa1-arrow)">
+              <line x1="200" y1="142" x2="242" y2="142"/>
+            </g>
+
+            <g stroke-width="1.5">
+              <rect x="246" y="14" width="186" height="34" rx="8" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="246" y="58" width="186" height="34" rx="8" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="246" y="102" width="186" height="34" rx="8" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="246" y="146" width="186" height="34" rx="8" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="246" y="206" width="186" height="34" rx="8" fill="#edf8f1" stroke="#17643a"/>
+            </g>
+            <g font-size="11.5" text-anchor="middle">
+              <text x="339" y="35" fill="#6e211d"><tspan font-weight="700">404</tspan> エンドポイント無し</text>
+              <text x="339" y="79" fill="#6e211d"><tspan font-weight="700">401</tspan> Windows 認証不成立</text>
+              <text x="339" y="123" fill="#6e211d"><tspan font-weight="700">403</tspan> HTTP 接続</text>
+              <text x="339" y="167" fill="#6e211d"><tspan font-weight="700">例外</tspan> 通信失敗</text>
+              <text x="339" y="227" fill="#17643a"><tspan font-weight="700">200</tspan> Mode=Setup</text>
+            </g>
+
+            <g fill="none" stroke="#a9342b" stroke-width="1.4" opacity=".6" marker-end="url(#wa1-arrow)">
+              <path d="M434,31 L498,31 L498,96"/>
+              <path d="M434,75 L498,75 L498,96"/>
+              <path d="M434,119 L498,119 L498,100"/>
+              <path d="M434,163 L498,163 L498,100"/>
+            </g>
+            <g fill="none" stroke="#17643a" stroke-width="1.4" opacity=".6" marker-end="url(#wa1-arrow)">
+              <line x1="434" y1="223" x2="546" y2="223"/>
+            </g>
+            <line x1="502" y1="98" x2="546" y2="98" stroke="#a9342b" stroke-width="1.4" opacity=".6" marker-end="url(#wa1-arrow)" fill="none"/>
+
+            <rect x="550" y="58" width="316" height="80" rx="11" fill="#fff1ed" stroke="#a9342b" stroke-width="1.8"/>
+            <text x="708" y="84" font-size="13" font-weight="700" fill="#6e211d" text-anchor="middle">パスワード入力画面へ</text>
+            <text x="708" y="105" font-size="11.5" fill="#6e211d" text-anchor="middle">Mode=Password にフォールバック</text>
+            <text x="708" y="124" font-size="11.5" fill="#6e211d" text-anchor="middle" font-weight="700">画面にエラーは一切出ない</text>
+
+            <rect x="550" y="196" width="316" height="56" rx="11" fill="#edf8f1" stroke="#17643a" stroke-width="1.8"/>
+            <text x="708" y="220" font-size="13" font-weight="700" fill="#17643a" text-anchor="middle">初回パスワード設定ダイアログ</text>
+            <text x="708" y="240" font-size="11.5" fill="#17643a" text-anchor="middle">これが本来の動作</text>
+          </svg>
+          <figcaption>左から右へ 5 通りの結果があるのに、利用者が見る画面は 2 種類しかありません。<strong>赤の 4 経路はすべて同じ見た目になる</strong>ため、症状から原因を推定することはできません。</figcaption>
+        </figure>
+      </section>
+
+      <section id="conditions">
+        <h2>2. 初回設定画面が出るために必要な条件</h2>
+
+        <p>以下の<strong>すべて</strong>を満たす必要があります。1 つでも欠けるとパスワード画面になります。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>条件</th><th>外れたときの応答</th><th>確認方法</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td><code>Auth:WindowsAuth:Mode</code> が <code>None</code> でない</td><td class="diff">404 (エンドポイント未登録)</td><td>配置済み appsettings.json</td></tr>
+              <tr><td>2</td><td><code>Mode</code> がホスティング方式と一致<br>(IIS ホスト→<code>IIS</code> / Kestrel 直受け→<code>Negotiate</code>)</td><td>401</td><td>同上</td></tr>
+              <tr><td>3</td><td>IIS で <code>/api/auth/win</code> に Windows 認証が届く</td><td class="diff">401 または 404</td><td><a href="#flow">3 章</a></td></tr>
+              <tr><td>4</td><td>接続が HTTPS (または <code>AllowHttp=true</code>)</td><td>403</td><td>接続先 URL</td></tr>
+              <tr><td>5</td><td>OS アカウント名 == Watashi ユーザー名</td><td class="same">200 だが Mode=Password</td><td><a href="#whoami">whoami</a></td></tr>
+              <tr><td>6</td><td>ドメイン部が許可されている</td><td class="same">200 だが Mode=Password</td><td><a href="#whoami">whoami</a></td></tr>
+              <tr><td>7</td><td>DB 上で <code>IsPasswordSetupPending = true</code></td><td class="same">200 だが Mode=Password</td><td>管理画面のパスワード状態</td></tr>
+              <tr><td>8</td><td>設定受付期限内・ロック/無効でない</td><td class="same">200 だが Mode=Password</td><td>管理画面</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout note">
+          <p><strong>1〜4 は「サーバーに届いていない」系、5〜8 は「届いたが本人と認められない」系</strong>です。境目は HTTP ステータスが 200 かどうかで、切り分けの分岐点もそこになります。</p>
+        </div>
+      </section>
+
+      <section id="flow" class="spotlight">
+        <h2>3. 切り分けフロー</h2>
+
+        <p>画面を見ても分からない以上、<strong>HTTP ステータスを取るのが唯一の入口</strong>です。2 つのリクエストで原因がほぼ確定します。</p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 344" role="img" aria-label="health が 200 かどうかで前提を確認し、次に prepare-login の応答が 404 401 403 200 のどれかで原因を四分岐させる判定フロー図">
+            <defs>
+              <marker id="wa2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <g fill="#ffffff" stroke="currentColor" stroke-width="1.6" opacity=".9">
+              <rect x="14" y="150" width="168" height="64" rx="9"/>
+              <rect x="232" y="150" width="182" height="64" rx="9"/>
+            </g>
+            <g font-size="12.5" fill="currentColor" text-anchor="middle">
+              <text x="98" y="176">GET /health は</text>
+              <text x="98" y="195">200 が返る？</text>
+              <text x="323" y="176">POST prepare-login</text>
+              <text x="323" y="195">の応答は？</text>
+            </g>
+
+            <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55" marker-end="url(#wa2-arrow)">
+              <path d="M98,148 L98,42 L226,42"/>
+              <line x1="184" y1="182" x2="228" y2="182"/>
+              <path d="M416,182 L442,182"/>
+              <path d="M323,148 L323,120"/>
+            </g>
+            <g font-size="11" fill="currentColor" opacity=".75">
+              <text x="106" y="136">NO</text>
+              <text x="196" y="174">YES</text>
+            </g>
+
+            <rect x="230" y="20" width="636" height="46" rx="9" fill="#fff8e7" stroke="#ba7a1a" stroke-width="1.5"/>
+            <text x="548" y="48" font-size="12.5" fill="#60450e" text-anchor="middle"><tspan font-weight="700">前提が崩れている</tspan>　サイト構成 / 物理パス / web.config を先に確認する</text>
+
+            <g fill="none" stroke="currentColor" stroke-width="1.4" opacity=".5" marker-end="url(#wa2-arrow)">
+              <path d="M446,182 L446,105 L462,105"/>
+              <path d="M446,182 L446,157 L462,157"/>
+              <path d="M446,182 L446,209 L462,209"/>
+              <path d="M446,182 L446,261 L462,261"/>
+            </g>
+
+            <g stroke-width="1.5">
+              <rect x="466" y="82" width="400" height="46" rx="9" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="466" y="134" width="400" height="46" rx="9" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="466" y="186" width="400" height="46" rx="9" fill="#fff8e7" stroke="#ba7a1a"/>
+              <rect x="466" y="238" width="400" height="46" rx="9" fill="#edf8f1" stroke="#17643a"/>
+            </g>
+            <g font-size="12" text-anchor="middle">
+              <text x="666" y="103" fill="#6e211d"><tspan font-weight="700">404</tspan>　場所別 Location が残存、または Mode=None</text>
+              <text x="666" y="120" font-size="10.5" fill="#6e211d" opacity=".85">→ 4 章・5 章。最頻出</text>
+              <text x="666" y="155" fill="#6e211d"><tspan font-weight="700">401</tspan>　IIS の Windows 認証が有効になっていない</text>
+              <text x="666" y="172" font-size="10.5" fill="#6e211d" opacity=".85">→ configure-iis-windows-auth.ps1 を実行</text>
+              <text x="666" y="207" fill="#60450e"><tspan font-weight="700">403</tspan>　HTTP で接続している</text>
+              <text x="666" y="224" font-size="10.5" fill="#60450e" opacity=".85">→ deployment.json の serverUrl を https へ</text>
+              <text x="666" y="259" fill="#17643a"><tspan font-weight="700">200</tspan>　通信経路は正常。本人確認の中身を見る</text>
+              <text x="666" y="276" font-size="10.5" fill="#17643a" opacity=".85">→ 7 章の whoami で 5〜8 を切り分け</text>
+            </g>
+
+            <text x="440" y="320" font-size="11" fill="currentColor" opacity=".7" text-anchor="middle">※ 必ず「症状が出ているクライアント PC」から実行すること。OS アカウントが変わると判定も変わる</text>
+          </svg>
+          <figcaption><code>/health</code> は匿名・常時マップされるエンドポイントなので、前提確認に使えます。ここが 404 なら Windows 認証以前の問題です。</figcaption>
+        </figure>
+
+        <h3>Step 1: 前提確認</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>curl.exe -i https://watashi.internal/health</code></pre>
+        </div>
+
+        <p><code>{"status":"ok",...}</code> が返れば、ベース URL・<code>web.config</code>・<code>aspNetCore</code> ハンドラー・アプリ起動はすべて正常です。<strong>ここが 404 ならサイト構成側の問題</strong>で、Windows 認証の話ではありません。サブアプリ配置ならパス接頭辞 (<code>/Watashi/...</code>) が必要な点も確認してください。</p>
+
+        <h3>Step 2: 症状が出ているクライアント PC から prepare-login を叩く</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>try {
+    (Invoke-WebRequest -Uri "https://watashi.internal/api/auth/win/prepare-login" `
+        -Method POST -UseDefaultCredentials -UseBasicParsing `
+        -ContentType "application/json" -Body '{"username":"<span class="hl">自分のGID</span>"}').StatusCode
+} catch {
+    $_.Exception.Response.StatusCode.value__
+}</code></pre>
+        </div>
+
+        <div class="callout danger">
+          <p><strong>必ず症状が出ている本人の PC・本人のログオンセッションで実行してください。</strong>Windows 統合認証はログオン中の OS アカウントを使うため、管理者が自分の PC から叩くと別人として判定され、結果が変わります。</p>
+        </div>
+      </section>
+
+      <section id="location" class="spotlight">
+        <h2>4. 最頻出の原因 — 場所別 Location 設定</h2>
+
+        <p><strong>旧版の設定スクリプトが <code>&lt;サイト名&gt;/api/auth/win</code> という場所別 Location を作っていました。</strong>これが残っていると、環境によっては IIS がそのパスを ASP.NET Core アプリに渡さず、静的ファイルとして探しにいきます。</p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 316" role="img" aria-label="正常な状態では web.config の aspNetCore ハンドラーが適用されてアプリが応答するのに対し、場所別 Location が残っている状態では StaticFile ハンドラーが選ばれ物理ファイルを探して 404.0 になる比較図">
+            <defs>
+              <marker id="wa3-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <rect x="14" y="14" width="412" height="288" rx="13" fill="#edf8f1" stroke="#17643a" stroke-width="1.6"/>
+            <rect x="454" y="14" width="412" height="288" rx="13" fill="#fff1ed" stroke="#a9342b" stroke-width="1.6"/>
+
+            <text x="220" y="42" font-size="13.5" font-weight="700" fill="#17643a" text-anchor="middle">正常 — 期待する状態</text>
+            <text x="660" y="42" font-size="13.5" font-weight="700" fill="#6e211d" text-anchor="middle">壊れている状態</text>
+
+            <g fill="#ffffff" stroke-width="1.4">
+              <rect x="36" y="58" width="368" height="56" rx="9" stroke="#17643a"/>
+              <rect x="36" y="140" width="368" height="56" rx="9" stroke="#17643a"/>
+              <rect x="36" y="222" width="368" height="56" rx="9" stroke="#17643a"/>
+              <rect x="476" y="58" width="368" height="56" rx="9" stroke="#a9342b"/>
+              <rect x="476" y="140" width="368" height="56" rx="9" stroke="#a9342b"/>
+              <rect x="476" y="222" width="368" height="56" rx="9" stroke="#a9342b"/>
+            </g>
+
+            <g text-anchor="middle" font-size="11.5">
+              <text x="220" y="80" font-weight="700" fill="#17643a">applicationHost.config</text>
+              <text x="220" y="100" fill="#1d5132">&lt;location path="Watashi.Server"&gt; の認証設定のみ</text>
+
+              <text x="220" y="162" font-weight="700" fill="#17643a">web.config の aspNetCore ハンドラーが適用される</text>
+              <text x="220" y="182" fill="#1d5132">リクエストがアプリへ渡る</text>
+
+              <text x="220" y="244" font-weight="700" fill="#17643a">アプリが /api/auth/win/* を処理</text>
+              <text x="220" y="264" fill="#1d5132">200 / 401 を正しく返す</text>
+
+              <text x="660" y="80" font-weight="700" fill="#6e211d">applicationHost.config</text>
+              <text x="660" y="100" fill="#64231f">+ &lt;location path="…/api/auth/win"&gt; が残存</text>
+
+              <text x="660" y="162" font-weight="700" fill="#6e211d">そのパスで StaticFile ハンドラーが選ばれる</text>
+              <text x="660" y="182" fill="#64231f">aspNetCore が継承されない</text>
+
+              <text x="660" y="244" font-weight="700" fill="#6e211d">物理ファイルを探しにいく</text>
+              <text x="660" y="264" fill="#64231f">…\api\auth\win\whoami が無い → 404.0</text>
+            </g>
+
+            <g fill="none" stroke-width="1.6" marker-end="url(#wa3-arrow)">
+              <line x1="220" y1="116" x2="220" y2="136" stroke="#17643a" opacity=".7"/>
+              <line x1="220" y1="198" x2="220" y2="218" stroke="#17643a" opacity=".7"/>
+              <line x1="660" y1="116" x2="660" y2="136" stroke="#a9342b" opacity=".7"/>
+              <line x1="660" y1="198" x2="660" y2="218" stroke="#a9342b" opacity=".7"/>
+            </g>
+          </svg>
+          <figcaption><code>/health</code> はアプリの Location 直下なので影響を受けず 200 のまま。<strong>「health は動くのに <code>/api/auth/win</code> だけ 404」という非対称な壊れ方が、この原因の特徴</strong>です。</figcaption>
+        </figure>
+
+        <h3>なぜ「今まで動いていたのに突然」起きるのか</h3>
+
+        <p>この場所別 Location は、<strong>作られた時点では必ずしも問題を起こしません</strong>。ハンドラーの解決結果が環境依存だからです。以下が引き金になります。</p>
+
+        <div class="steps">
+          <div class="step">
+            <p>旧版スクリプトが <code>&lt;location path="Watashi.Server/api/auth/win"&gt;</code> を作成する。この時点では <code>aspNetCore</code> ハンドラーが選ばれていて<strong>正常に動作している</strong>。</p>
+          </div>
+          <div class="step">
+            <p><strong>.NET ランタイム / ASP.NET Core Hosting Bundle を更新する。</strong>インストーラーが AspNetCoreModuleV2 を再登録し、applicationHost.config のモジュール・ハンドラー登録を書き換える。</p>
+          </div>
+          <div class="step">
+            <p>その場所別 Location 配下で <code>aspNetCore</code> が継承されなくなり、<strong><code>StaticFile</code> が選ばれるようになる</strong>。</p>
+          </div>
+          <div class="step">
+            <p><code>/api/auth/win/*</code> だけが <code>404.0</code> になる。クライアントは握りつぶしてパスワード画面へ。<strong>利用者からは「突然 Windows 認証が効かなくなった」ように見える</strong>。</p>
+          </div>
+        </div>
+
+        <div class="callout warning">
+          <p><strong>引き金はランタイム更新に限りません。</strong>IIS のサイト再作成、Hosting Bundle の修復インストール、Windows Update による IIS コンポーネント更新でも同じことが起こり得ます。「IIS 構成を触ったあとに Windows 認証が効かない」と感じたら、まずこれを疑ってください。</p>
+        </div>
+
+        <h3>確認コマンド</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>Import-Module WebAdministration
+(Get-WebConfigurationLocation -PSPath "IIS:\").Path</code></pre>
+        </div>
+
+        <p>出力に <code>Watashi.Server/api/auth/win</code>（実際のサイト名/api/auth/win）が含まれていれば<strong>原因確定</strong>です。5 章へ進んでください。</p>
+      </section>
+
+      <section id="fix">
+        <h2>5. 復旧手順</h2>
+
+        <p>最新版の <code>configure-iis-windows-auth.ps1</code> は、旧版が作った場所別 Location の撤去に対応しています。<strong>再実行するだけで復旧します。</strong></p>
+
+        <h3>Step 1: 空振り確認</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>powershell -ExecutionPolicy Bypass -File .\deploy\configure-iis-windows-auth.ps1 `
+    -SitePath "<span class="hl">Watashi.Server</span>" -AppPoolName "<span class="hl">Watashi.Server</span>" -WhatIf</code></pre>
+        </div>
+
+        <p>サイト名・アプリプール名は <strong>IIS マネージャーの実際の表示名</strong>に合わせてください。サイト配下のアプリとして配置している場合は <code>-SitePath "Default Web Site/Watashi"</code> のように書きます。</p>
+
+        <h3>Step 2: 本実行</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>powershell -ExecutionPolicy Bypass -File .\deploy\configure-iis-windows-auth.ps1 `
+    -SitePath "<span class="hl">Watashi.Server</span>" -AppPoolName "<span class="hl">Watashi.Server</span>"</code></pre>
+        </div>
+
+        <h3>Step 3: 確認</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">:: 場所別 Location が消えたか</span>
+powershell -Command "Import-Module WebAdministration; (Get-WebConfigurationLocation -PSPath 'IIS:\').Path"
+
+<span class="cmt">:: クライアント PC から疎通確認 (200 か 401 が返れば経路は復旧)</span>
+curl.exe -i --negotiate -u : https://watashi.internal/api/auth/win/whoami</code></pre>
+        </div>
+
+        <div class="callout note">
+          <p><strong>実行前に自動でバックアップが取られます</strong>（<code>Watashi-WindowsAuth-&lt;日時&gt;</code>）。問題があれば <code>Restore-WebConfiguration -Name "&lt;バックアップ名&gt;"</code> で戻せます。</p>
+        </div>
+
+        <div class="callout warning">
+          <p><strong>スクリプトが「認証以外の設定が残っているため自動削除できません」で停止した場合</strong>、それは安全装置です。旧 Location に誰かが別の設定（リダイレクト規則、MIME、圧縮設定など）を書いています。バックアップを保持したまま、IIS マネージャーでその Location の中身を確認し、必要な設定をアプリの Location 側へ移してから再実行してください。</p>
+        </div>
+
+        <div class="callout danger">
+          <p><strong>最後にアプリケーションプールが再起動されます。</strong>瞬断が困る時間帯なら <code>-SkipAppPoolRestart</code> を付けて実行し、あとで手動で再起動してください。再起動しないと設定が反映されません。</p>
+        </div>
+      </section>
+
+      <section id="script">
+        <h2>6. スクリプトは何をしているのか</h2>
+
+        <p>誤解されやすい設計なので、中身を明示しておきます。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>やること</th><th>実体</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>IIS 役割サービス <code>Web-Windows-Auth</code> の確認・導入</td><td><code>Install-WindowsFeature</code></td></tr>
+              <tr><td>2</td><td>IIS 構成のバックアップ</td><td><code>Backup-WebConfiguration</code></td></tr>
+              <tr><td>3</td><td><strong>サイト単位</strong>で匿名認証と Windows 認証を<strong>両方</strong>有効化</td><td><code>Set-WebConfigurationProperty -PSPath "IIS:\" -Location &lt;サイト名&gt;</code></td></tr>
+              <tr><td>4</td><td class="diff"><strong>旧版が作った場所別 Location を撤去</strong></td><td class="diff"><code>Clear-WebConfiguration</code> → 空なら <code>Remove-WebConfigurationLocation</code></td></tr>
+              <tr><td>5</td><td>検証してアプリプール再起動</td><td>両方 enabled か / 旧 Location が消えたか</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>なぜサイト全体に Windows 認証を有効化するのか</h3>
+
+        <div class="callout note">
+          <p>手順 3 は一見おかしく見えます。「初回設定 API だけに効かせたいのに、なぜサイト全体？」— これが正解です。</p>
+          <ul>
+            <li><strong>匿名認証も有効のまま残す</strong> → 通常 API・ClickOnce 配布ページは匿名で到達できる</li>
+            <li><strong>Windows 認証も有効にする</strong> → クライアントが Negotiate を要求されたときに応答できる状態を作る</li>
+            <li><strong>「どのパスで Windows 認証を必須にするか」はアプリが決める</strong> → <code>WindowsSetup</code> 認可ポリシーが <code>/api/auth/win/*</code> にだけ適用される</li>
+          </ul>
+          <p>つまり <strong>IIS は「使える状態にする」だけで、範囲の限定はアプリの責務</strong>という分担です。IIS 側でパスを絞ろうとしたのが旧版のミスであり、4 章の 404 の根本原因です。</p>
+        </div>
+
+        <h3>なぜ web.config ではなく applicationHost.config に書くのか</h3>
+
+        <p><code>system.webServer/security/authentication</code> は既定でサーバーレベルにロックされているため、<code>web.config</code> に書くと <code>500.19</code> になります。スクリプトが <code>-PSPath "IIS:\" -Location &lt;サイト名&gt;</code> の形で applicationHost.config 側へ書いているのはこのためで、ロック解除は不要になります。</p>
+
+        <div class="callout success">
+          <p>この設定は applicationHost.config に保存されるため、<strong>Watashi を再発行（publish）しても維持されます</strong>。publish のたびに実行し直す必要はありません。</p>
+        </div>
+      </section>
+
+      <section id="whoami">
+        <h2>7. 200 が返ったあと — whoami の読み方</h2>
+
+        <p>経路が正常なのにパスワード画面が出る場合、原因は<strong>本人確認の中身</strong>です。診断エンドポイントで一発で分かります。</p>
+
+        <div class="callout warning">
+          <p><code>whoami</code> は <code>Auth:WindowsAuth:EnableDiagnostics</code> が <code>true</code> のときだけ有効です。<strong>これが <code>false</code> だと whoami だけが 404 になります</strong>（<code>prepare-login</code> は生きている）。切り分けの際はこの違いに注意してください。</p>
+        </div>
+
+        <p>症状が出ているクライアント PC のブラウザで開きます。</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>https://watashi.internal/api/auth/win/whoami</code></pre>
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>{
+  "rawAccountName": "CORP\\G012345",
+  "normalizedName": "G012345",
+  "domain": "CORP",
+  "domainAllowed": true,
+  "watashiUserExists": true,
+  <span class="hl">"isPasswordSetupPending": false,</span>
+  "windowsAuthMode": "IIS"
+}</code></pre>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>フィールド</th><th>異常値</th><th>意味と対処</th></tr></thead>
+            <tbody>
+              <tr><td><code>rawAccountName</code></td><td>null / 空</td><td>ハンドシェイクは通ったが ID が取れていない。IIS の Windows 認証設定を確認</td></tr>
+              <tr><td><code>normalizedName</code></td><td>入力する ID と違う</td><td class="diff"><strong>OS アカウント名と Watashi ユーザー名の不一致。</strong>ログイン画面にはこの値と同じものを入力する必要がある（大文字小文字とドメイン部は無視される）</td></tr>
+              <tr><td><code>domainAllowed</code></td><td>false</td><td><code>DomainMatch=AllowList</code> なのに <code>AllowedDomains</code> が空か不一致。<strong>空のままだと全て拒否される</strong></td></tr>
+              <tr><td><code>watashiUserExists</code></td><td>false</td><td>その名前のユーザーが DB に無い。管理画面で作成する</td></tr>
+              <tr><td><code>isPasswordSetupPending</code></td><td>false</td><td class="diff"><strong>DB 上は「設定済み」扱い。パスワード画面が正しい動作。</strong>管理画面のパスワードリセットで「設定待ち」に戻せる</td></tr>
+              <tr><td><code>windowsAuthMode</code></td><td><code>None</code></td><td>そもそも機能が無効。appsettings.json を修正</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger">
+          <p><strong>初期管理者アカウントは <code>isPasswordSetupPending = false</code> で作られます。</strong>ブートストラップで作成した管理者でログインしようとしている場合、パスワード画面が出るのは正しい動作です。既知の初期パスワードでログインしてください。</p>
+        </div>
+      </section>
+
+      <section id="checklist">
+        <h2>8. 更新作業のチェックリスト</h2>
+
+        <p>この症状は「更新作業のあと」に出ます。以下を作業手順に組み込んでおくと再発に気づけます。</p>
+
+        <h3>.NET ランタイム / Hosting Bundle を更新したとき</h3>
+
+        <div class="steps">
+          <div class="step"><p><code>curl.exe -i https://watashi.internal/health</code> で 200 を確認</p></div>
+          <div class="step"><p><code>curl.exe -i https://watashi.internal/api/auth/win/whoami</code> で <strong>404 でないこと</strong>を確認（401 なら経路は生きている）</p></div>
+          <div class="step"><p>404 なら 4 章 → 5 章。<code>configure-iis-windows-auth.ps1</code> を再実行</p></div>
+          <div class="step"><p>アプリが動作するランタイムバージョンが引き続き導入されているか確認（新しい Hosting Bundle を入れても、アプリのターゲットに合うランタイムは別途必要）</p></div>
+        </div>
+
+        <h3>publish で入れ替えたとき</h3>
+
+        <div class="callout danger">
+          <p><strong><code>dotnet publish -o &lt;本番フォルダ&gt;</code> は本番の <code>appsettings.json</code> を上書きします。</strong>必ず publish 前にバックアップし、publish 後に本番用設定を戻してください。より安全にするなら、一度別フォルダへ publish してから必要なファイルだけを配備します。<code>Auth:WindowsAuth</code> セクションが巻き戻っていないか、入れ替え後に必ず確認してください。</p>
+        </div>
+
+        <h3>IIS のサイトを作り直した / 物理パスを移動したとき</h3>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>やったこと</th><th>再実行が必要か</th></tr></thead>
+            <tbody>
+              <tr><td>物理パスだけ移動（サイト名は同じ）</td><td class="same">Windows 認証設定は<strong>不要</strong>（サイト単位のため）。ただし移動先への ACL 付与は必要</td></tr>
+              <tr><td>サイトを作り直した / サイト名を変えた</td><td class="diff"><code>configure-iis-windows-auth.ps1</code> の<strong>再実行が必要</strong></td></tr>
+              <tr><td>サイト直下からサブアプリ配置に変えた</td><td class="diff">再実行に加えて、<strong>クライアントの接続先 URL にパス接頭辞が必要</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">:: 物理パス移動後の ACL 付与（パスは実際の値に合わせる）</span>
+icacls "C:\Sites\Watashi.Server" /grant "IIS AppPool\Watashi.Server:(OI)(CI)RX"</code></pre>
+        </div>
+
+        <h3>現在の IIS 構成を確認する</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>Import-Module WebAdministration
+Get-Website | Select-Object Name, State, PhysicalPath,
+    @{n='Binding';e={($_.bindings.Collection.bindingInformation) -join ', '}} | Format-List
+Get-WebApplication | Select-Object Path, PhysicalPath</code></pre>
+        </div>
+
+        <p><code>Get-WebApplication</code> に何か出力されればサブアプリ配置です。その場合 API の URL にはパス接頭辞が必要になります。</p>
+      </section>
+
+      <section>
+        <h2>関連ドキュメント</h2>
+        <ul>
+          <li><a href="IIS-WINDOWS-AUTH-SETUP.html">IIS-WINDOWS-AUTH-SETUP.html</a> — 初回導入の手順（このページは動かなくなったときの切り分け専用）</li>
+          <li><a href="IIS-HOSTING.md">IIS-HOSTING.md</a> — IIS ホスティングの全体構成。場所別 Location の警告は 11.5.2 節</li>
+          <li><a href="configure-iis-windows-auth.ps1">configure-iis-windows-auth.ps1</a> — 設定スクリプト本体</li>
+          <li><a href="../docs/SETUP.md">docs/SETUP.md</a> — 導入手順の全体像</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <footer>Watashi — Windows Authentication Troubleshooting Guide</footer>
+  <script>
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+      }
+
+      var area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      var copied = document.execCommand('copy');
+      document.body.removeChild(area);
+      return copied ? Promise.resolve() : Promise.reject(new Error('copy failed'));
+    }
+
+    document.querySelectorAll('.copy').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var code = button.parentElement.querySelector('code').innerText;
+        copyText(code).then(function () {
+          var original = button.textContent;
+          button.textContent = 'コピー済み';
+          setTimeout(function () { button.textContent = original; }, 1400);
+        }).catch(function () {
+          button.textContent = '選択してコピー';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
