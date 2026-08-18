@@ -1,0 +1,1089 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>社内 CA 証明書で Watashi を HTTPS 化するガイド</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #586474;
+      --paper: #fffdf9;
+      --surface: #ffffff;
+      --line: #e7dfd4;
+      --red: #a9342b;
+      --red-dark: #6e211d;
+      --red-soft: #fff1ed;
+      --gold: #ba7a1a;
+      --gold-soft: #fff8e7;
+      --green: #17643a;
+      --green-soft: #edf8f1;
+      --blue: #185d8f;
+      --blue-soft: #edf6fc;
+      --shadow: 0 18px 50px rgba(60, 44, 30, .08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(186, 122, 26, .10), transparent 30rem),
+        linear-gradient(180deg, #faf5ed 0, var(--paper) 28rem);
+      font-family: "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+      line-height: 1.75;
+    }
+
+    a { color: var(--blue); }
+    code, pre { font-family: "Cascadia Mono", Consolas, monospace; }
+    code {
+      padding: .12em .38em;
+      border-radius: 5px;
+      background: #f2eee8;
+      font-size: .92em;
+    }
+
+    .hero {
+      color: white;
+      background:
+        linear-gradient(120deg, rgba(74, 13, 13, .96), rgba(145, 40, 31, .94)),
+        repeating-linear-gradient(90deg, transparent 0 44px, rgba(255,255,255,.04) 44px 45px);
+      border-bottom: 5px solid var(--gold);
+    }
+
+    .hero-inner {
+      width: min(1120px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 64px 0 58px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #f6cf91;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-size: clamp(30px, 5vw, 54px);
+      line-height: 1.22;
+      letter-spacing: -.03em;
+    }
+
+    .lead {
+      max-width: 780px;
+      margin: 18px 0 0;
+      color: #f6e9e3;
+      font-size: 17px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 34px;
+      width: min(1120px, calc(100% - 36px));
+      margin: 34px auto 70px;
+    }
+
+    nav {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      padding: 18px;
+      background: rgba(255,255,255,.86);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    nav strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--red-dark);
+      font-size: 13px;
+      letter-spacing: .08em;
+    }
+
+    nav a {
+      display: block;
+      padding: 7px 9px;
+      color: #3f4854;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    nav a:hover { color: var(--red-dark); background: var(--red-soft); }
+    nav a.key { color: var(--red-dark); font-weight: 700; }
+
+    main { min-width: 0; }
+    section {
+      margin: 0 0 26px;
+      padding: 30px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    section.spotlight { border: 2px solid var(--red); }
+
+    h2 {
+      margin: 0 0 18px;
+      color: var(--red-dark);
+      font-size: 25px;
+      line-height: 1.35;
+    }
+
+    h3 {
+      margin: 30px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--red-soft);
+      font-size: 18px;
+      line-height: 1.45;
+    }
+
+    h4 { margin: 22px 0 6px; font-size: 15px; }
+
+    p { margin: 10px 0; }
+    ul, ol { padding-left: 1.5em; }
+    li + li { margin-top: 6px; }
+
+    .callout {
+      margin: 18px 0;
+      padding: 15px 17px;
+      border-left: 5px solid;
+      border-radius: 10px;
+    }
+    .callout p:first-child { margin-top: 0; }
+    .callout p:last-child { margin-bottom: 0; }
+    .danger { color: #64231f; background: var(--red-soft); border-color: var(--red); }
+    .note { color: #27495e; background: var(--blue-soft); border-color: var(--blue); }
+    .success { color: #1d5132; background: var(--green-soft); border-color: var(--green); }
+    .warning { color: #60450e; background: var(--gold-soft); border-color: var(--gold); }
+
+    .answer {
+      margin: 0 0 6px;
+      padding: 22px 24px;
+      color: #1d5132;
+      background: var(--green-soft);
+      border: 2px solid var(--green);
+      border-radius: 14px;
+      font-size: 17px;
+    }
+    .answer p { margin: 8px 0; }
+    .answer .yes {
+      display: inline-block;
+      margin-bottom: 6px;
+      padding: 3px 12px;
+      color: white;
+      background: var(--green);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+      margin: 18px 0;
+      counter-reset: step;
+    }
+    .step {
+      position: relative;
+      min-height: 54px;
+      padding: 14px 16px 14px 62px;
+      background: #fbfaf8;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      counter-increment: step;
+    }
+    .step::before {
+      content: counter(step);
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      color: white;
+      background: var(--red);
+      border-radius: 50%;
+      font-weight: 800;
+    }
+
+    .code-wrap { position: relative; margin: 14px 0 18px; }
+    pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 18px 20px;
+      color: #f5f1eb;
+      background: #20252d;
+      border-radius: 12px;
+      line-height: 1.6;
+      font-size: 13px;
+      white-space: pre;
+    }
+    pre code { padding: 0; color: inherit; background: none; font-size: inherit; }
+    pre .cmt { color: #93a4b5; }
+    pre .hl { color: #ffd479; font-weight: 700; }
+
+    figure.fig {
+      overflow-x: auto;
+      margin: 20px 0;
+      padding: 18px 20px 14px;
+      background: #fbfaf8;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    figure.fig svg {
+      display: block;
+      width: 100%;
+      min-width: 620px;
+      max-width: 880px;
+      height: auto;
+      margin: 0 auto;
+    }
+    figure.fig figcaption {
+      margin: 12px auto 0;
+      max-width: 640px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .copy {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      padding: 6px 10px;
+      color: #e8edf3;
+      background: #353d48;
+      border: 1px solid #566170;
+      border-radius: 7px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+    }
+    .copy:hover { background: #46515f; }
+
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table {
+      width: 100%;
+      min-width: 480px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--red-dark); background: #faf5ef; }
+    td.same { color: var(--muted); background: #fbfaf8; }
+    td.diff { background: var(--gold-soft); font-weight: 700; }
+
+    .machine {
+      display: inline-block;
+      margin: 0 0 10px;
+      padding: 4px 12px;
+      color: white;
+      background: var(--blue);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .machine.b { background: #6b4a9c; }
+    .machine.srv { background: var(--red); }
+
+    .result {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .result > div {
+      padding: 15px;
+      background: #fbfaf8;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      font-size: 14px;
+    }
+    .result strong { display: block; color: var(--red-dark); }
+
+    footer {
+      width: min(1120px, calc(100% - 36px));
+      margin: -38px auto 32px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: static; }
+      nav a { display: inline-block; }
+      section { padding: 23px 20px; }
+      .result { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      body { background: white; }
+      .hero { color: black; background: white; border-bottom: 2px solid #555; }
+      .hero-inner { padding: 20px 0; }
+      .lead, .eyebrow { color: #333; }
+      .layout { display: block; width: 100%; margin: 20px 0; }
+      nav, .copy { display: none; }
+      section, figure.fig { break-inside: avoid; box-shadow: none; }
+      pre { color: #111; background: #f4f4f4; border: 1px solid #ccc; }
+      pre .cmt { color: #555; }
+      pre .hl { color: #111; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Watashi deployment guide</p>
+      <h1>社内 CA 証明書で<br>Watashi を HTTPS 化する</h1>
+      <p class="lead">社内 CA に CSR を出して .cer ファイルを受け取ったところから、Server (IIS) と Agent (Kestrel) の両方を HTTPS で動かすまでの手順書です。CA サーバへ直接通信できない閉じたネットワークを前提にしています。</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="ページ内メニュー">
+      <strong>CONTENTS</strong>
+      <a href="#answer">0. 先に結論</a>
+      <a href="#chain" class="key">1. 証明書は 3 枚ある ★</a>
+      <a href="#where">2. 今どこで止まっているか</a>
+      <a href="#get" class="key">3. ルート CA の入手 ★</a>
+      <a href="#accept">4. サーバへ取り込む</a>
+      <a href="#map" class="key">5. 通信経路と証明書の配置 ★</a>
+      <a href="#server">6. Server (IIS) の設定</a>
+      <a href="#agent">7. Agent (Kestrel) の設定</a>
+      <a href="#url">8. 接続先 URL の切り替え</a>
+      <a href="#client">9. クライアント PC への配布</a>
+      <a href="#crl">10. 失効チェックについて</a>
+      <a href="#trouble">11. エラー別トラブル対応</a>
+    </nav>
+
+    <main>
+      <section id="answer">
+        <h2>0. 先に結論</h2>
+
+        <div class="answer">
+          <span class="yes">3 行でいうと</span>
+          <p><strong>① <code>.cer</code> 単体では HTTPS は張れません。</strong>秘密鍵が入っていないためです。ただし CSR をそのサーバで作っているなら、秘密鍵はマシン内に残っているので <code>certreq -accept</code> で結合できます。</p>
+          <p><strong>② ルート CA 証明書を <code>.cer</code> から取り出すことはできません。</strong>これが今いちばん詰まっている点です。ルート / 中間 CA は<u>別のファイルとして別途入手する</u>しかありません。</p>
+          <p><strong>③ Agent 用の証明書がもう 1 枚必要かもしれません。</strong>Server → Agent も HTTPS なので、Agent 自身のホスト名の証明書が要ります。</p>
+        </div>
+
+        <div class="callout danger">
+          <p><strong><code>0x800B010A</code> (証明書チェーンを信頼されたルート機関に構築できませんでした) が出ている状態は、秘密鍵の問題ではありません。</strong><br>
+          秘密鍵の紐付けはできているのに、その手前の<u>チェーン検証</u>で止まっています。つまり「この証明書を発行した CA の証明書が、このサーバに入っていない」というだけです。<strong>3 章でルート / 中間 CA を入れれば解消します。</strong></p>
+        </div>
+
+        <div class="callout note">
+          <p><strong>同時に出ている <code>0x80092013</code> (失効サーバーがオフライン) は無視して構いません。</strong><br>
+          CA サーバに到達できない環境なので当然の結果ですが、Watashi の運用には影響しません。理由は <a href="#crl">10 章</a>にコードの実装根拠つきでまとめています。</p>
+        </div>
+      </section>
+
+      <section id="chain" class="spotlight">
+        <h2>1. 証明書は 3 枚ある — <code>.cer</code> はそのうちの 1 枚</h2>
+
+        <p>ここが最大の誤解ポイントです。証明書は<strong>階層構造をもつ別々のファイル</strong>として存在します。手元にあるのは一番下の 1 枚だけです。</p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 310" role="img" aria-label="ルート CA 証明書、中間 CA 証明書、サーバ証明書の 3 階層。上位 2 枚は対象サーバに入っておらず別途入手が必要で、最下段のサーバ証明書だけが server.cer として手元にある">
+            <defs>
+              <marker id="ca-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <g fill="none" stroke="currentColor" stroke-width="1.6" opacity=".6" marker-end="url(#ca-arrow)">
+              <line x1="210" y1="80" x2="210" y2="122"/>
+              <line x1="210" y1="190" x2="210" y2="232"/>
+            </g>
+            <g font-size="11.5" fill="currentColor" opacity=".7">
+              <text x="222" y="107">署名</text>
+              <text x="222" y="217">署名</text>
+            </g>
+
+            <g stroke-width="1.6">
+              <rect x="60" y="16" width="300" height="64" rx="10" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="60" y="126" width="300" height="64" rx="10" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="60" y="236" width="300" height="64" rx="10" fill="#edf8f1" stroke="#17643a"/>
+            </g>
+
+            <g text-anchor="middle">
+              <text x="210" y="44" font-size="14" font-weight="700" fill="#6e211d">ルート CA 証明書</text>
+              <text x="210" y="65" font-size="11.5" fill="#6e211d">社内 CA の大元。全端末が信頼する必要がある</text>
+              <text x="210" y="154" font-size="14" font-weight="700" fill="#6e211d">中間 CA 証明書</text>
+              <text x="210" y="175" font-size="11.5" fill="#6e211d">2 階層構成のときだけ存在する</text>
+              <text x="210" y="264" font-size="14" font-weight="700" fill="#17643a">サーバ証明書 (server.cer)</text>
+              <text x="210" y="285" font-size="11.5" fill="#17643a">今あなたが持っているのはコレ 1 枚だけ</text>
+            </g>
+
+            <g stroke="currentColor" stroke-width="1.3" stroke-dasharray="5 4" opacity=".45">
+              <line x1="360" y1="48" x2="434" y2="48"/>
+              <line x1="360" y1="158" x2="434" y2="158"/>
+              <line x1="360" y1="268" x2="434" y2="268"/>
+            </g>
+
+            <g fill="#fbfaf8" stroke="currentColor" stroke-width="1.2" opacity=".9">
+              <rect x="438" y="16" width="428" height="64" rx="10"/>
+              <rect x="438" y="126" width="428" height="64" rx="10"/>
+              <rect x="438" y="236" width="428" height="64" rx="10"/>
+            </g>
+            <g font-size="12.5" fill="currentColor">
+              <text x="456" y="43" font-weight="700" fill="#a9342b">✕ 対象サーバに入っていない</text>
+              <text x="456" y="65">別途入手して <tspan font-weight="700">Root</tspan> ストアへ導入する (3〜4 章)</text>
+              <text x="456" y="153" font-weight="700" fill="#a9342b">✕ 対象サーバに入っていない</text>
+              <text x="456" y="175">別途入手して <tspan font-weight="700">CA</tspan> ストア (中間証明機関) へ導入する</text>
+              <text x="456" y="263" font-weight="700" fill="#17643a">✓ CA から受け取り済み</text>
+              <text x="456" y="285">秘密鍵は CSR 作成時からこのサーバの鍵ストアにある</text>
+            </g>
+          </svg>
+          <figcaption><code>.cer</code> の中身は最下段の 1 枚だけです。上位 2 枚はファイルの中に含まれていないため、「<code>.cer</code> からルート証明書を取り出す」という操作は<strong>原理的に存在しません</strong>。別のところから持ってくる必要があります。</figcaption>
+        </figure>
+
+        <div class="callout warning">
+          <p><strong>例外: もらったファイルが実はチェーン入りかもしれません。</strong><br>
+          拡張子が <code>.cer</code> でも中身が PKCS#7 (証明書の束) なら、その中にルート / 中間が同梱されています。次章の <code>certutil -dump</code> で「PKCS7」「証明書の数: 2」等と表示されたら、<strong>そのファイル 1 つで 3 章はスキップできます</strong>。</p>
+        </div>
+      </section>
+
+      <section id="where">
+        <h2>2. 今どこで止まっているか確認する</h2>
+
+        <p>まず受け取った証明書の中身を見ます。<span class="machine srv">対象サーバ</span> で管理者権限のコマンドプロンプトから:</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>certutil -dump C:\path\to\server.cer</code></pre>
+        </div>
+
+        <p>この出力から <strong>3 つ</strong>を読み取ってメモします。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>見る項目</th><th>何が分かるか</th><th>後でどう使うか</th></tr></thead>
+            <tbody>
+              <tr><td><code>発行者</code> (Issuer) の CN</td><td>どの社内 CA が発行したか</td><td class="diff">3 章でルート CA を探すときの検索キーワードになる</td></tr>
+              <tr><td><code>サブジェクト代替名</code> (SAN)</td><td>この証明書が名乗れるホスト名の一覧</td><td class="diff">Agent 用の証明書を追加発行してもらう必要があるかの判断材料 (5 章)</td></tr>
+              <tr><td>冒頭が <code>X509 証明書:</code> か <code>PKCS7</code> か</td><td>単体 1 枚か、チェーン入りの束か</td><td>PKCS7 ならチェーン同梱。3 章をスキップできる</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>チェーン検証の状態を見る</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>certutil -verify C:\path\to\server.cer</code></pre>
+        </div>
+
+        <div class="callout danger">
+          <p><strong><code>-urlfetch</code> は付けないでください。</strong><br>
+          <code>-urlfetch</code> は「不足している CA 証明書と CRL をネットワーク経由で取りに行く」オプションです。CA サーバに到達できない環境では必ず失敗し、本質と関係ない <code>0x80092013</code> (失効サーバーがオフライン) が大量に出てノイズになります。<u>ローカルに入れた証明書だけでチェーンが繋がるか</u>を見るのが、この環境での正しい検証です。</p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>エラーコード</th><th>意味</th><th>対処</th></tr></thead>
+            <tbody>
+              <tr><td><code>0x800B010A</code></td><td class="diff">チェーンを構築できない。発行元 CA の証明書がこのサーバに存在しない</td><td><strong>3〜4 章。今回のケースはこれ</strong></td></tr>
+              <tr><td><code>0x800B0109</code></td><td>チェーンは繋がったがルートが信頼されていない</td><td>ルート CA を <code>Root</code> ストアへ (4 章)</td></tr>
+              <tr><td><code>0x80092013</code></td><td class="same">失効サーバーがオフラインで CRL を確認できない</td><td class="same">無視してよい (<a href="#crl">10 章</a>)</td></tr>
+              <tr><td><code>0x80092009</code></td><td>対応する保留中の要求が見つからない</td><td>秘密鍵の紐付けが切れている → 4 章の <code>repairstore</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="get" class="spotlight">
+        <h2>3. ルート / 中間 CA 証明書を入手する</h2>
+
+        <p>対象サーバから CA サーバへ通信できないので、<strong>CA 証明書を別経路で持ち込みます</strong>。一番現実的なのは、<u>あなたが普段使っているドメイン参加 PC から取り出す</u>方法です。ドメイン参加 PC には GPO で社内ルート CA が既に配布されているので、そこに必ずあります。</p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 290" role="img" aria-label="対象サーバは CA サーバに到達できないため、GPO でルート CA が配布済みの手元の管理 PC から証明書ファイルをエクスポートし、ファイル共有や USB で対象サーバへ運搬する流れ">
+            <defs>
+              <marker id="ca2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <rect x="610" y="16" width="252" height="58" rx="10" fill="#f2eee8" stroke="currentColor" stroke-width="1.4" opacity=".9"/>
+            <g text-anchor="middle" fill="currentColor">
+              <text x="736" y="40" font-size="13.5" font-weight="700">社内 CA サーバ</text>
+              <text x="736" y="60" font-size="11.5" opacity=".8">certsrv / AIA / CDP を公開</text>
+            </g>
+
+            <g stroke="#a9342b" stroke-width="1.6" stroke-dasharray="6 5" opacity=".8">
+              <line x1="736" y1="168" x2="736" y2="78"/>
+            </g>
+            <g stroke="#a9342b" stroke-width="2.6" stroke-linecap="round">
+              <line x1="726" y1="113" x2="746" y2="133"/>
+              <line x1="746" y1="113" x2="726" y2="133"/>
+            </g>
+            <text x="756" y="128" font-size="12" font-weight="700" fill="#a9342b">到達不可</text>
+
+            <g stroke-width="1.6">
+              <rect x="14" y="170" width="236" height="100" rx="11" fill="#edf6fc" stroke="#185d8f"/>
+              <rect x="336" y="170" width="196" height="100" rx="11" fill="#fff8e7" stroke="#ba7a1a"/>
+              <rect x="618" y="170" width="246" height="100" rx="11" fill="#fff1ed" stroke="#a9342b"/>
+            </g>
+
+            <g text-anchor="middle">
+              <text x="132" y="198" font-size="13.5" font-weight="700" fill="#185d8f">① 手元の管理 PC</text>
+              <text x="132" y="222" font-size="11.5" fill="#27495e">ドメイン参加 → GPO で</text>
+              <text x="132" y="241" font-size="11.5" fill="#27495e">ルート CA が配布済み</text>
+              <text x="132" y="260" font-size="11" fill="#27495e" opacity=".8">ここから取り出せる</text>
+
+              <text x="434" y="198" font-size="13.5" font-weight="700" fill="#8a5a10">② 証明書ファイル</text>
+              <text x="434" y="222" font-size="11.5" fill="#60450e">rootCA.cer</text>
+              <text x="434" y="241" font-size="11.5" fill="#60450e">intermediateCA.cer</text>
+              <text x="434" y="260" font-size="11" fill="#60450e" opacity=".85">秘密鍵を含まない = 持ち回り可</text>
+
+              <text x="741" y="198" font-size="13.5" font-weight="700" fill="#6e211d">③ 対象サーバ</text>
+              <text x="741" y="222" font-size="11.5" fill="#6e211d">CA に到達できない</text>
+              <text x="741" y="241" font-size="11.5" fill="#6e211d">certreq -accept する場所</text>
+              <text x="741" y="260" font-size="11" fill="#6e211d" opacity=".85">Server / Agent 各マシン</text>
+            </g>
+
+            <g fill="none" stroke="currentColor" stroke-width="1.7" opacity=".7" marker-end="url(#ca2-arrow)">
+              <line x1="252" y1="220" x2="330" y2="220"/>
+              <line x1="534" y1="220" x2="612" y2="220"/>
+            </g>
+            <g font-size="11" fill="currentColor" text-anchor="middle" opacity=".8">
+              <text x="291" y="208">エクスポート</text>
+              <text x="573" y="208">ファイル運搬</text>
+            </g>
+          </svg>
+          <figcaption>エクスポートするのは公開情報である CA 証明書だけなので、共有フォルダや USB で運んでも秘密情報の漏洩にはあたりません。Server 機と Agent 機の<strong>両方</strong>に同じものを入れる必要があります。</figcaption>
+        </figure>
+
+        <h3>手順</h3>
+
+        <div class="steps">
+          <div class="step">
+            <span class="machine">手元の管理 PC</span>
+            <p>管理者 PowerShell で社内 CA 証明書を探します。検索キーワードには 2 章でメモした <strong>発行者の CN</strong> を使います。</p>
+          </div>
+          <div class="step">
+            <span class="machine">手元の管理 PC</span>
+            <p>出てきた <code>PSParentPath</code> を見て、末尾が <code>Root</code> ならルート CA、<code>CA</code> なら中間 CA です。それぞれの <code>Thumbprint</code> を控えます。</p>
+          </div>
+          <div class="step">
+            <span class="machine">手元の管理 PC</span>
+            <p><code>Export-Certificate</code> でファイルに書き出し、共有フォルダや USB で対象サーバへコピーします。</p>
+          </div>
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt"># 1) 社内 CA 証明書を Root / 中間 の両ストアから探す</span>
+Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\CA |
+    Where-Object { $_.Subject -like <span class="hl">"*社内CA名の一部*"</span> } |
+    Select-Object Subject, Thumbprint, NotAfter, PSParentPath | Format-List
+
+<span class="cmt"># 2) ルート CA を書き出す (Thumbprint は 1) の出力から)</span>
+Export-Certificate -Cert Cert:\LocalMachine\Root\<span class="hl">&lt;ルートのThumbprint&gt;</span> -FilePath C:\temp\rootCA.cer -Type CERT
+
+<span class="cmt"># 3) 中間 CA を書き出す (2 階層構成の場合のみ。無ければ不要)</span>
+Export-Certificate -Cert Cert:\LocalMachine\CA\<span class="hl">&lt;中間のThumbprint&gt;</span> -FilePath C:\temp\intermediateCA.cer -Type CERT</code></pre>
+        </div>
+
+        <div class="callout note">
+          <p><strong>手元 PC にも無い / ドメイン非参加の場合</strong>は、CA 担当者に「<u>ルート CA 証明書と中間 CA 証明書 (.cer または .p7b)</u>」と依頼してください。CSR を出した窓口に頼めば通常すぐ出てきます。<code>certsrv</code> に到達できる端末があるなら、<code>http://&lt;CAサーバ名&gt;/certsrv</code> →「CA 証明書、証明書チェーン、または CRL のダウンロード」→「<strong>CA 証明書チェーンのダウンロード</strong>」で <code>.p7b</code> として一括取得するのが最短です。</p>
+        </div>
+      </section>
+
+      <section id="accept">
+        <h2>4. 対象サーバへ取り込んで秘密鍵と結合する</h2>
+
+        <p><span class="machine srv">対象サーバ</span> で管理者権限で実行します。<strong>入れるストアを間違えるとチェーンが繋がりません。</strong></p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">:: 1) ルート CA →「信頼されたルート証明機関」ストア</span>
+certutil -addstore <span class="hl">Root</span> C:\temp\rootCA.cer
+
+<span class="cmt">:: 2) 中間 CA →「中間証明機関」ストア (2 階層構成の場合のみ)</span>
+certutil -addstore <span class="hl">CA</span> C:\temp\intermediateCA.cer
+
+<span class="cmt">:: 3) チェーンが繋がったか確認 (-urlfetch は付けない)</span>
+certutil -verify C:\path\to\server.cer
+
+<span class="cmt">:: 4) サーバ証明書を秘密鍵と結合する</span>
+certreq -accept -machine C:\path\to\server.cer
+
+<span class="cmt">:: 5) 結合できたか確認 → 「秘密キーがあります」が出れば成功</span>
+certutil -store My</code></pre>
+        </div>
+
+        <div class="callout success">
+          <p>3) で <code>0x800B010A</code> が消えれば目的達成です。<code>0x80092013</code> (失効サーバーがオフライン) は残っていて構いません。5) で「<strong>秘密キーがあります</strong>」が表示されれば、この証明書は TLS で使える状態になっています。</p>
+        </div>
+
+        <div class="callout warning">
+          <p><strong>4) でまだ弾かれる場合</strong>は、チェーン検証を行わない経路で紐付けだけ済ませられます。<code>-repairstore</code> は検証をしないため、この状況の回避策として有効です。</p>
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">:: 個人ストアに証明書だけ入れてから、鍵コンテナと紐付け直す</span>
+certutil -addstore My C:\path\to\server.cer
+certutil -repairstore My <span class="hl">"拇印をスペース無しで"</span></code></pre>
+        </div>
+
+        <div class="callout danger">
+          <p><strong><code>repairstore</code> はサーバ側の紐付けを直すだけです。</strong>中間 CA がサーバに入っていないと、TLS ハンドシェイクでサーバが中間証明書を提示できず、<u>クライアント側 (Watashi.Client / Agent) でチェーン検証に失敗します</u>。1) 2) は結局必須なので、順序を入れ替えているだけと考えてください。</p>
+        </div>
+      </section>
+
+      <section id="map" class="spotlight">
+        <h2>5. 通信経路と証明書の配置 — 何枚必要か</h2>
+
+        <p>Watashi は通信経路が 3 本あり、<strong>それぞれで「証明書を提示する側」と「ルート CA を信頼する側」が違います</strong>。ここを整理しないと、証明書を入れたのに繋がらない状態になります。</p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 300" role="img" aria-label="Watashi.Client から Watashi.Server への経路、Watashi.Server から Watashi.Agent への経路、Watashi.Agent から Watashi.Server への経路の 3 本と、各マシンに必要な証明書の対応">
+            <defs>
+              <marker id="ca3-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <g stroke-width="1.7">
+              <rect x="14" y="110" width="216" height="122" rx="12" fill="#edf6fc" stroke="#185d8f"/>
+              <rect x="332" y="110" width="216" height="122" rx="12" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="650" y="110" width="216" height="122" rx="12" fill="#f3edfa" stroke="#6b4a9c"/>
+            </g>
+
+            <g stroke-width="1" opacity=".35">
+              <line x1="30" y1="168" x2="214" y2="168" stroke="#185d8f"/>
+              <line x1="348" y1="168" x2="532" y2="168" stroke="#a9342b"/>
+              <line x1="666" y1="168" x2="850" y2="168" stroke="#6b4a9c"/>
+            </g>
+
+            <g text-anchor="middle">
+              <text x="122" y="136" font-size="13.5" font-weight="700" fill="#185d8f">Watashi.Client</text>
+              <text x="122" y="156" font-size="11" fill="#27495e" opacity=".85">各利用者 PC / WPF</text>
+              <text x="122" y="190" font-size="11.5" fill="#27495e" font-weight="700">要: ルート CA を信頼</text>
+              <text x="122" y="211" font-size="11" fill="#27495e" opacity=".85">サーバ証明書は持たない</text>
+
+              <text x="440" y="136" font-size="13.5" font-weight="700" fill="#6e211d">Watashi.Server</text>
+              <text x="440" y="156" font-size="11" fill="#6e211d" opacity=".85">IIS ホスト / TLS 終端は IIS</text>
+              <text x="440" y="190" font-size="11.5" fill="#6e211d" font-weight="700">要: サーバ証明書 + 秘密鍵</text>
+              <text x="440" y="211" font-size="11" fill="#6e211d" opacity=".85">+ ルート / 中間 CA</text>
+
+              <text x="758" y="136" font-size="13.5" font-weight="700" fill="#553a80">Watashi.Agent</text>
+              <text x="758" y="156" font-size="11" fill="#553a80" opacity=".85">Windows サービス / Kestrel 直受け</text>
+              <text x="758" y="190" font-size="11.5" fill="#553a80" font-weight="700">要: Agent 用証明書 + 秘密鍵</text>
+              <text x="758" y="211" font-size="11" fill="#553a80" opacity=".85">+ ルート / 中間 CA</text>
+            </g>
+
+            <g fill="none" stroke="currentColor" stroke-width="1.8" opacity=".75" marker-end="url(#ca3-arrow)">
+              <line x1="232" y1="150" x2="326" y2="150"/>
+              <line x1="550" y1="150" x2="644" y2="150"/>
+              <line x1="644" y1="200" x2="550" y2="200"/>
+            </g>
+            <g font-size="11.5" fill="currentColor" text-anchor="middle" font-weight="700">
+              <text x="279" y="140">(1) https</text>
+              <text x="597" y="140">(2) https</text>
+              <text x="597" y="222">(3) https</text>
+            </g>
+
+            <rect x="14" y="252" width="852" height="40" rx="10" fill="#fff8e7" stroke="#ba7a1a" stroke-width="1.5"/>
+            <text x="440" y="277" font-size="13" text-anchor="middle" fill="#60450e" font-weight="700">(2) があるため、Agent 側にも Agent 自身のホスト名の証明書が別途必要</text>
+          </svg>
+          <figcaption>(1) Client → Server、(2) Server → Agent、(3) Agent → Server (<code>Agent:CentralUrl</code>)。矢印の<strong>先</strong>にあるマシンが証明書を提示し、矢印の<strong>元</strong>にあるマシンがルート CA を信頼している必要があります。</figcaption>
+        </figure>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>経路</th><th>証明書を提示する側</th><th>ルート CA を信頼させる側</th><th>設定場所</th></tr></thead>
+            <tbody>
+              <tr><td><strong>(1)</strong> Client → Server</td><td>Server (IIS バインド)</td><td class="diff">全クライアント PC</td><td><a href="#server">6 章</a> / <a href="#client">9 章</a></td></tr>
+              <tr><td><strong>(2)</strong> Server → Agent</td><td class="diff">Agent (Kestrel)</td><td>Server マシン</td><td><a href="#agent">7 章</a></td></tr>
+              <tr><td><strong>(3)</strong> Agent → Server</td><td>Server (同上)</td><td>Agent マシン</td><td><a href="#url">8 章</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger">
+          <p><strong>先に確認してください: 証明書は何枚必要ですか。</strong><br>
+          今回もらった <code>server.cer</code> が中央サーバのホスト名 (例 <code>watashi.internal</code>) だけのものなら、<u>Agent 用にもう 1 枚 CA に発行してもらう必要があります</u>。2 章で確認した <strong>SAN (サブジェクト代替名)</strong> に Agent のホスト名が入っているかを見てください。</p>
+          <ul>
+            <li>Agent が複数台 → 台数分、または SAN に全ホスト名を入れた 1 枚</li>
+            <li>Agent を中央サーバと同居させている → 1 枚で足りる</li>
+            <li>SAN に入っていない → Agent 機で CSR を作って追加発行を依頼する</li>
+          </ul>
+        </div>
+
+        <h4>Agent 用 CSR の作成例</h4>
+        <p>Agent 機で以下の INF を用意し、<code>certreq -new</code> で CSR を生成して CA へ提出します。</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">; agent-request.inf</span>
+[NewRequest]
+Subject = <span class="hl">"CN=agent01.internal"</span>
+KeyLength = 2048
+KeyAlgorithm = RSA
+HashAlgorithm = SHA256
+MachineKeySet = True
+Exportable = False
+KeyUsage = 0xa0
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
+RequestType = PKCS10
+
+[Extensions]
+2.5.29.17 = "{text}"
+_continue_ = <span class="hl">"dns=agent01.internal&amp;"</span>
+_continue_ = <span class="hl">"dns=agent01&amp;"</span>
+
+[EnhancedKeyUsageExtension]
+OID = 1.3.6.1.5.5.7.3.1</code></pre>
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>certreq -new agent-request.inf agent-request.req</code></pre>
+        </div>
+
+        <div class="callout note">
+          <p><strong>SAN には、クライアントが実際にアクセスに使う名前をすべて入れてもらってください。</strong>FQDN・短縮名・必要なら IP。8 章で設定する接続先 URL のホスト名が SAN に無いと、証明書は正しくても検証に失敗します。</p>
+        </div>
+      </section>
+
+      <section id="server">
+        <h2>6. Server 側 (IIS ホスト) の設定</h2>
+
+        <div class="callout warning">
+          <p><strong>本番の Server は IIS ホストなので、Kestrel の HTTPS 設定は使いません。</strong><br>
+          In-process ホスティングでは TLS 終端を IIS が行うため、<code>appsettings.json</code> の <code>Kestrel:Endpoints:Https</code> を書いても無視されます。証明書は<u>IIS のサイトバインド</u>に割り当てます。</p>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <span class="machine srv">Server 機</span>
+            <p>4 章まで完了させ、証明書が <code>LocalMachine\My</code> に<strong>秘密鍵付き</strong>で入っている状態にする。</p>
+          </div>
+          <div class="step">
+            <span class="machine srv">Server 機</span>
+            <p>IIS マネージャ → 対象サイト → <strong>バインド</strong> → 追加 → 種類 <code>https</code> / ポート <code>443</code> → 証明書を選択。ホスト名を指定するなら <strong>SNI</strong> にチェック。</p>
+          </div>
+          <div class="step">
+            <span class="machine srv">Server 機</span>
+            <p><code>appsettings.json</code> の <code>Kestrel:Endpoints</code> は <code>Http</code> のままで OK。<code>Auth:AllowHttpForAutoLogin</code> も本番既定の <code>false</code> のままにする。</p>
+          </div>
+        </div>
+
+        <p>IIS 側の詳細な構成 (アプリプール、Windows 認証、アップロード上限など) は <a href="IIS-HOSTING.md">IIS-HOSTING.md</a> を参照してください。</p>
+
+        <div class="callout note">
+          <p><strong>Kestrel 直受け構成 (IIS を挟まない) にする場合のみ</strong>、<code>appsettings.json</code> にストア参照を書きます。書き方は次章の Agent と同じです。証明書ストア参照 / PFX ファイル指定の使い分けは <a href="CERTIFICATE.md">CERTIFICATE.md</a> に詳しくまとめてあります。</p>
+        </div>
+      </section>
+
+      <section id="agent">
+        <h2>7. Agent 側 (Kestrel 直受け) の設定</h2>
+
+        <p>Agent は <code>UseWindowsService</code> で動く独立した Windows サービスで、<strong>IIS を挟みません</strong>。したがってこちらは Kestrel に直接証明書を設定します。</p>
+
+        <div class="steps">
+          <div class="step">
+            <span class="machine b">Agent 機</span>
+            <p>3〜4 章と同じ手順で、ルート / 中間 CA の導入と Agent 用証明書の <code>certreq -accept</code> を実施する。</p>
+          </div>
+          <div class="step">
+            <span class="machine b">Agent 機</span>
+            <p><code>appsettings.json</code> に <code>Https</code> エンドポイントと証明書ストア参照を追加する (下記)。</p>
+          </div>
+          <div class="step">
+            <span class="machine b">Agent 機</span>
+            <p>サービス起動アカウントに<strong>秘密鍵の読み取り権限</strong>を付与する。</p>
+          </div>
+          <div class="step">
+            <span class="machine b">Agent 機</span>
+            <p>サービスを再起動し、<code>curl</code> で HTTPS 応答を確認する。</p>
+          </div>
+        </div>
+
+        <h3>appsettings.json</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>"Kestrel": {
+  "Limits": { "MaxRequestBodySize": 10737418240 },
+  "Endpoints": {
+    "Https": {
+      "Url": "https://0.0.0.0:8443",
+      "Certificate": {
+        "Subject": <span class="hl">"agent01.internal"</span>,
+        "Store": "My",
+        "Location": "LocalMachine",
+        "AllowInvalid": false
+      }
+    }
+  }
+}</code></pre>
+        </div>
+
+        <div class="callout danger">
+          <p><strong><code>Subject</code> に <code>CN=</code> を付けないでください。</strong><br>
+          Kestrel は内部で <code>X509FindType.FindBySubjectName</code> を使い、<u>CN 値 (Simple Name) に対する部分一致</u>を行います。<code>"CN=agent01.internal"</code> と書くと「Simple Name に <code>CN=</code> という文字列が含まれるか」を探してしまい、<strong>必ずマッチしません</strong>。値だけを書きます。</p>
+          <ul>
+            <li>正: <code>"Subject": "agent01.internal"</code></li>
+            <li>誤: <code>"Subject": "CN=agent01.internal"</code></li>
+            <li>誤: <code>"Subject": "CN = agent01.internal"</code> (PowerShell の出力をそのまま貼ると陥りやすい)</li>
+          </ul>
+        </div>
+
+        <h3>秘密鍵へのアクセス権付与</h3>
+
+        <p>Agent サービスは既定で <strong>LocalSystem</strong> 起動です。LocalSystem は大抵そのまま読めますが、社内 PKI 配布の証明書では明示的な権限付与が必要な場合があります。CNG / CAPI を自動判定して ACL を付与するコピペ用スクリプトを <a href="CERTIFICATE.md">CERTIFICATE.md</a> の「Step 3」に用意してあるので、そちらを使ってください。</p>
+
+        <div class="callout warning">
+          <p><code>certlm.msc</code> の「<strong>秘密キーの管理</strong>」メニューがグレーアウトして操作できないことがあります (CNG キーで生成された証明書に多い)。その場合は GUI を諦めて PowerShell 手順で行ってください。</p>
+        </div>
+
+        <h3>反映と確認</h3>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>Restart-Service Watashi.Agent
+curl.exe https://<span class="hl">agent01.internal</span>:8443/health</code></pre>
+        </div>
+
+        <div class="callout success">
+          <p><code>-k</code> を<strong>付けずに</strong>成功すれば、証明書チェーンも含めて正しく組めています。<code>-k</code> が必要な状態はチェーンが繋がっていないので、4 章に戻ってください。</p>
+        </div>
+      </section>
+
+      <section id="url">
+        <h2>8. 接続先 URL の切り替え (見落としやすい)</h2>
+
+        <p>証明書を入れただけでは通信は HTTPS になりません。接続先 URL の設定が <strong>3 箇所</strong>あり、格納場所がそれぞれ違います。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>経路</th><th>設定の格納場所</th><th>変更内容</th><th>変更方法</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>(2)</strong> Server → Agent</td>
+                <td class="diff">DB (<code>Node.Endpoint</code>)</td>
+                <td><code>http://agent01:8081</code> → <code>https://agent01.internal:8443</code></td>
+                <td>管理画面の<strong>ノード管理</strong>から変更 (appsettings ではない)</td>
+              </tr>
+              <tr>
+                <td><strong>(3)</strong> Agent → Server</td>
+                <td>Agent の <code>appsettings.json</code></td>
+                <td><code>Agent:CentralUrl</code> を実サーバの FQDN に合わせる</td>
+                <td>ファイル編集 → サービス再起動</td>
+              </tr>
+              <tr>
+                <td><strong>(1)</strong> Client → Server</td>
+                <td class="diff"><code>deployment.json</code></td>
+                <td><code>serverUrl</code> を実サーバの FQDN に合わせる</td>
+                <td>配布パッケージの作り直しが必要</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger">
+          <p><strong>URL のホスト名は、証明書の SAN に入っている名前と完全一致させてください。</strong><br>
+          IP アドレスや短縮名で接続すると、それが SAN に含まれていない限り証明書の検証に失敗します。「証明書は正しいのに繋がらない」の原因の大半がこれです。</p>
+        </div>
+
+        <div class="callout note">
+          <p><code>deployment.json</code> は<strong>配布時に管理者が固定する値</strong>で、利用者側からは変更できません。URL を変えるときは再配布パッケージを作り直す必要があるため、Server の FQDN は最初に確定させておくのが安全です。</p>
+        </div>
+      </section>
+
+      <section id="client">
+        <h2>9. クライアント PC へのルート CA 配布</h2>
+
+        <p>経路 (1) のために、<strong>Watashi.Client が動く全 PC が社内ルート CA を信頼している必要があります</strong>。サーバ側が完璧でも、ここが抜けていると利用者側で接続エラーになります。</p>
+
+        <div class="result">
+          <div>
+            <strong>ドメイン参加 PC</strong>
+            通常は GPO で配布済みです。念のため 1 台で <code>certutil -store Root</code> を実行し、社内 CA が入っているか確認してください。
+          </div>
+          <div>
+            <strong>ドメイン非参加 PC</strong>
+            <u>手動インポートが必須</u>です。配布対象にこうした端末が含まれていないか、展開前に必ず洗い出してください。
+          </div>
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">:: クライアント PC でルート CA が信頼されているか確認</span>
+certutil -store Root | findstr /i <span class="hl">"社内CA名の一部"</span>
+
+<span class="cmt">:: 入っていなければ管理者権限でインポート</span>
+certutil -addstore Root C:\temp\rootCA.cer</code></pre>
+        </div>
+
+        <div class="callout warning">
+          <p>ドメイン参加 PC で GPO 配布が反映されていない場合は、<code>gpupdate /force</code> または <code>certutil -pulse</code> で強制的に取り込めます。</p>
+        </div>
+      </section>
+
+      <section id="crl">
+        <h2>10. 失効チェック (<code>0x80092013</code>) を放置してよい理由</h2>
+
+        <p>CRL 配布ポイントに到達できないまま本番運用して問題ないか、Watashi のコードを確認した結果をまとめます。<strong>結論として影響ありません。</strong></p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>コンポーネント</th><th>失効チェックの挙動</th><th>根拠</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>IIS (Server)</td>
+                <td class="same">自分自身のサーバ証明書の失効確認はしない</td>
+                <td class="same">提示するだけ。TLS の仕様上そもそも行わない</td>
+              </tr>
+              <tr>
+                <td>Watashi.Client</td>
+                <td class="same">CRL を取りに行かない</td>
+                <td class="same">既定の <code>HttpClientHandler</code> を使用。<code>CheckCertificateRevocationList</code> は既定値 <code>false</code></td>
+              </tr>
+              <tr>
+                <td>Watashi.Agent</td>
+                <td class="same">CRL を取りに行かない</td>
+                <td class="same">サーバ証明書の検証は <code>HttpClientHandler</code> の標準検証に委譲。独自の失効チェックは実装していない</td>
+              </tr>
+              <tr>
+                <td>mTLS のクライアント証明書認証</td>
+                <td>明示的に <code>X509RevocationMode.NoCheck</code></td>
+                <td>Server / Agent 双方の <code>AddCertificate</code> 設定。<strong>今回のサーバ証明書とは別系統</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout success">
+          <p>つまり必要なのは<strong>ルート CA が信頼されていることだけ</strong>で、CRL 到達性は不要です。<code>certutil -verify</code> に <code>0x80092013</code> が残っていても、そのまま先へ進んで構いません。</p>
+        </div>
+
+        <div class="callout note">
+          <p><strong>長期的な改善として</strong>、証明書の CDP / AIA に書かれた URL が Server・Agent・クライアントの各セグメントから到達できるかを CA 担当者に確認してもらうのが望ましい状態です。ただし今回の HTTPS 化には必須ではないため、後回しで問題ありません。</p>
+        </div>
+      </section>
+
+      <section id="trouble">
+        <h2>11. エラー別トラブル対応</h2>
+
+        <h3><code>0x800B010A</code> — チェーンを構築できない</h3>
+        <p>発行元 CA の証明書がマシンに存在しません。<a href="#get">3 章</a>で入手し、<a href="#accept">4 章</a>で <code>Root</code> / <code>CA</code> ストアへ導入してください。<strong>ルートを <code>CA</code> ストアに入れる、中間を <code>Root</code> に入れる、といった取り違えでも同じエラーになります。</strong></p>
+
+        <h3><code>0x800B0109</code> — ルートが信頼されていない</h3>
+        <p>チェーンは繋がっているが、ルート CA が「信頼されたルート証明機関」に無い状態です。<code>certutil -addstore Root</code> でルート CA を導入してください。</p>
+
+        <h3><code>0x80092009</code> — 対応する保留中の要求が見つからない</h3>
+        <p>秘密鍵との紐付けが切れています。誰かが <code>.cer</code> をダブルクリックして個人ストアに取り込み済みだと発生しやすいです。<a href="#accept">4 章</a>の <code>certutil -repairstore</code> で修復します。保留中の要求が残っているかは以下で確認できます。</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>certutil -store REQUEST
+certutil -user -store REQUEST</code></pre>
+        </div>
+
+        <p>マシン側に出るなら <code>certreq -accept -machine</code>、ユーザ側にしか出ないなら CSR をユーザコンテキストで作っています。その場合は <code>certreq -accept -user</code> で受け入れてから PFX 経由でマシンストアへ入れ直してください (IIS / サービスはユーザストアを見ません)。どちらにも無ければ <code>repairstore</code> を試し、それも駄目なら CSR の作り直しと再発行が必要です。</p>
+
+        <h3>Kestrel 起動時 <code>The requested certificate ... could not be found</code></h3>
+        <p>最頻出は <code>Subject</code> に <code>CN=</code> を含めているケースです (<a href="#agent">7 章</a>参照)。次に多いのが <code>Store</code> の指定違いで、IIS の証明書要求機能や Win-ACME で取得したものは <code>My</code> ではなく <code>WebHosting</code> ストアに入ります。全ストアを横断検索するには:</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>@("My","WebHosting","Root","CA") | ForEach-Object {
+    Write-Host "=== $_ ==="
+    Get-ChildItem "Cert:\LocalMachine\$_" -ErrorAction SilentlyContinue |
+        Where-Object { $_.HasPrivateKey } | Select-Object Subject, Thumbprint
+}</code></pre>
+        </div>
+
+        <h3>Kestrel 起動時 <code>Access denied</code></h3>
+        <p>秘密鍵へのアクセス権限不足です。サービス起動アカウントを確認し、そのアカウントに読み取り権限を付与してください。</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>sc.exe qc Watashi.Agent | findstr SERVICE_START_NAME</code></pre>
+        </div>
+
+        <h3>クライアントで証明書エラーが出る</h3>
+        <ul>
+          <li>クライアント PC にルート CA が入っていない → <a href="#client">9 章</a></li>
+          <li>接続先 URL のホスト名が証明書の SAN に無い → <a href="#url">8 章</a></li>
+          <li>サーバが中間証明書を提示できていない → Server / Agent 機の <code>CA</code> ストアに中間 CA を導入 (<a href="#accept">4 章</a>)</li>
+        </ul>
+
+        <h3>証明書の更新時</h3>
+        <p>ストア参照方式なら、新しい証明書を同じ Subject でインポートし、秘密鍵の ACL を付与してサービスを再起動するだけです。<strong><code>appsettings.json</code> の変更は不要</strong>です。Kestrel は Subject 一致かつ有効期限が最も遠い証明書を自動選択します。詳細な更新手順は <a href="CERTIFICATE.md">CERTIFICATE.md</a> にあります。</p>
+      </section>
+
+      <section>
+        <h2>関連ドキュメント</h2>
+        <ul>
+          <li><a href="CERTIFICATE.md">CERTIFICATE.md</a> — Kestrel の証明書設定 (ストア参照 / PFX ファイル指定) の詳細、秘密鍵 ACL 付与スクリプト、更新手順</li>
+          <li><a href="AGENT-HTTPS-ACME.html">AGENT-HTTPS-ACME.html</a> — Win-ACME (Let's Encrypt / 内部 ACME) で自動更新する場合の構成</li>
+          <li><a href="IIS-HOSTING.md">IIS-HOSTING.md</a> — Server を IIS でホストする際の全体構成</li>
+          <li><a href="../docs/SETUP.md">docs/SETUP.md</a> — 導入手順の全体像</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <footer>Watashi — Internal CA Certificate / HTTPS Setup Guide</footer>
+  <script>
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+      }
+
+      var area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      var copied = document.execCommand('copy');
+      document.body.removeChild(area);
+      return copied ? Promise.resolve() : Promise.reject(new Error('copy failed'));
+    }
+
+    document.querySelectorAll('.copy').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var code = button.parentElement.querySelector('code').innerText;
+        copyText(code).then(function () {
+          var original = button.textContent;
+          button.textContent = 'コピー済み';
+          setTimeout(function () { button.textContent = original; }, 1400);
+        }).catch(function () {
+          button.textContent = '選択してコピー';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
