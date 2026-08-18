@@ -296,10 +296,13 @@ public partial class MainViewModel : ObservableObject
                     ? $"フォルダ \"{Local.Selected.Name}\" をフォルダごとアップロードしますか？"
                     : $"リモートに同名フォルダがあります。\nフォルダを結合してアップロードしますか？";
                 if (MessageBox.Show(prompt, "フォルダアップロード", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-                var conflictPolicy = Views.TransferConflictDialog.Show(Application.Current?.MainWindow);
+
+                var plan = BuildLocalUploadPlan(di, remote);
+                var conflictPolicy = await ResolveUploadPolicyAsync(
+                    location.HostId, location.ShareId, Remote.CurrentPath, plan.Files.Select(f => f.RemotePath));
                 if (conflictPolicy is null) return;
 
-                await UploadDirectoryAsync(di, remote, location.HostId, location.ShareId, conflictPolicy);
+                await UploadDirectoryAsync(di.Name, plan, remote, location.HostId, location.ShareId, conflictPolicy);
                 StatusMessage = $"転送キューに追加しました: {Local.Selected.Name}";
                 return;
             }
@@ -359,10 +362,12 @@ public partial class MainViewModel : ObservableObject
                     ? $"ローカルに同名の項目があります。\nフォルダを結合してダウンロードしますか？"
                     : $"フォルダ \"{Remote.Selected.Name}\" をフォルダごとダウンロードしますか？";
                 if (MessageBox.Show(prompt, "フォルダダウンロード", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-                var conflictPolicy = Views.TransferConflictDialog.Show(Application.Current?.MainWindow);
+
+                var plan = await BuildDownloadPlanAsync(remotePath, destination, location.HostId, location.ShareId);
+                var conflictPolicy = ResolveDownloadPolicy(plan.Files.Select(f => f.LocalPath));
                 if (conflictPolicy is null) return;
 
-                await DownloadDirectoryAsync(remotePath, destination, location.HostId, location.ShareId, conflictPolicy);
+                await DownloadDirectoryAsync(plan, destination, location.HostId, location.ShareId, conflictPolicy);
                 StatusMessage = $"転送キューに追加しました: {Remote.Selected.Name}";
                 return;
             }
@@ -433,8 +438,6 @@ public partial class MainViewModel : ObservableObject
         var location = Remote.SelectedLocation;
         try
         {
-            var conflictPolicy = Views.TransferConflictDialog.Show(Application.Current?.MainWindow);
-            if (conflictPolicy is null) return;
             var remoteDirs = new List<string>();
             var files = new List<(FileInfo File, string RemotePath)>();
             foreach (var p in paths)
@@ -457,6 +460,10 @@ public partial class MainViewModel : ObservableObject
                 }
             }
             if (files.Count == 0 && remoteDirs.Count == 0) { StatusMessage = "アップロード対象が見つかりません。"; return; }
+
+            var conflictPolicy = await ResolveUploadPolicyAsync(
+                location.HostId, location.ShareId, Remote.CurrentPath, files.Select(f => f.RemotePath));
+            if (conflictPolicy is null) return;
 
             Transfer.FileName = Path.GetFileName(paths[0].TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             Transfer.TotalBytes = files.Sum(f => f.File.Length);
@@ -501,8 +508,6 @@ public partial class MainViewModel : ObservableObject
         var location = Remote.SelectedLocation;
         try
         {
-            var conflictPolicy = Views.TransferConflictDialog.Show(Application.Current?.MainWindow);
-            if (conflictPolicy is null) return;
             var directories = new List<string>();
             var files = new List<RemoteDownloadItem>();
             var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -515,6 +520,9 @@ public partial class MainViewModel : ObservableObject
                 else if (entry.Type == FileEntryTypes.File)
                     files.Add(new RemoteDownloadItem(remotePath, destination, entry.Size ?? 0));
             }
+
+            var conflictPolicy = ResolveDownloadPolicy(files.Select(f => f.LocalPath));
+            if (conflictPolicy is null) return;
 
             Transfer.FileName = $"{targets.Count} 件";
             Transfer.TotalBytes = files.Sum(f => f.Size);
@@ -534,30 +542,73 @@ public partial class MainViewModel : ObservableObject
         finally { EndTransfer(); }
     }
 
-    private async Task UploadDirectoryAsync(
-        DirectoryInfo source, string remoteRoot, int hostId, int shareId, string conflictPolicy)
+    /// <summary>
+    /// アップロードの競合方針を決める。転送先に同名項目が無ければダイアログを出さず
+    /// <see cref="TransferConflictPolicies.Ask"/> を返す (万一あとから同名が現れてもジョブが停止して確認される)。
+    /// 戻り値 null はユーザーがダイアログをキャンセルしたことを示す。
+    /// </summary>
+    private async Task<string?> ResolveUploadPolicyAsync(
+        int hostId, int shareId, string baseRemoteDir, IEnumerable<string> plannedRemotePaths)
     {
-        var files = source.EnumerateFiles("*", RecursiveLocalOptions)
-            .Select(f => new LocalUploadItem(f, ToRemoteRelativePath(source.FullName, f.FullName)))
-            .ToList();
+        bool hasConflict;
+        try
+        {
+            StatusMessage = "リモートの同名項目を確認しています…";
+            hasConflict = await TransferConflictPlanner.HasRemoteConflictAsync(
+                baseRemoteDir, plannedRemotePaths,
+                dir => ListAllRemoteEntriesAsync(hostId, shareId, dir));
+        }
+        catch (Exception ex)
+        {
+            // 確認できないときは安全側に倒し、従来どおり方針をユーザーに選ばせる。
+            AppLog.Info("同名項目の事前確認に失敗したため競合方針を確認します: " + ex.Message);
+            hasConflict = true;
+        }
+        return hasConflict
+            ? Views.TransferConflictDialog.Show(Application.Current?.MainWindow)
+            : TransferConflictPolicies.Ask;
+    }
+
+    /// <summary>
+    /// ダウンロードの競合方針を決める。保存先に同名のファイル/フォルダが無ければダイアログを出さない。
+    /// 戻り値 null はユーザーがダイアログをキャンセルしたことを示す。
+    /// </summary>
+    private static string? ResolveDownloadPolicy(IEnumerable<string> plannedLocalPaths)
+        => TransferConflictPlanner.HasLocalConflict(plannedLocalPaths)
+            ? Views.TransferConflictDialog.Show(Application.Current?.MainWindow)
+            : TransferConflictPolicies.Ask;
+
+    /// <summary>
+    /// フォルダ配下を再帰的に列挙し、リモートの絶対パスへ対応付けた転送計画を作る。
+    /// 競合判定 (<see cref="ResolveUploadPolicyAsync"/>) とキュー投入で同じ計画を使い、二重列挙を避ける。
+    /// </summary>
+    private static LocalUploadPlan BuildLocalUploadPlan(DirectoryInfo source, string remoteRoot)
+    {
         var directories = source.EnumerateDirectories("*", RecursiveLocalOptions)
-            .Select(d => ToRemoteRelativePath(source.FullName, d.FullName))
+            .Select(d => JoinRemotePath(remoteRoot, ToRemoteRelativePath(source.FullName, d.FullName)))
             .OrderBy(x => x.Count(c => c == '/'))
             .ToList();
+        var files = source.EnumerateFiles("*", RecursiveLocalOptions)
+            .Select(f => new LocalUploadItem(f, JoinRemotePath(remoteRoot, ToRemoteRelativePath(source.FullName, f.FullName))))
+            .ToList();
+        return new LocalUploadPlan(directories, files);
+    }
 
-        Transfer.FileName = source.Name;
-        Transfer.TotalBytes = files.Sum(f => f.File.Length);
+    private async Task UploadDirectoryAsync(
+        string displayName, LocalUploadPlan plan, string remoteRoot, int hostId, int shareId, string conflictPolicy)
+    {
+        Transfer.FileName = displayName;
+        Transfer.TotalBytes = plan.Files.Sum(f => f.File.Length);
         Transfer.BytesTransferred = 0;
         Transfer.IsActive = true;
 
         await EnsureRemoteDirectoryAsync(remoteRoot, hostId, shareId);
-        foreach (var relativeDir in directories)
-            await EnsureRemoteDirectoryAsync(JoinRemotePath(remoteRoot, relativeDir), hostId, shareId);
+        foreach (var dir in plan.RemoteDirectories)
+            await EnsureRemoteDirectoryAsync(dir, hostId, shareId);
 
         await TransferQueue.EnqueueUploadsAsync(
-            files.Select(item => new UploadQueueRequest(
-                item.File.FullName, hostId, shareId,
-                JoinRemotePath(remoteRoot, item.RelativePath), conflictPolicy)),
+            plan.Files.Select(item => new UploadQueueRequest(
+                item.File.FullName, hostId, shareId, item.RemotePath, conflictPolicy)),
             TransferToken);
     }
 
@@ -574,23 +625,32 @@ public partial class MainViewModel : ObservableObject
             file.FullName, hostId, shareId, remotePath, conflictPolicy, TransferToken);
     }
 
-    private async Task DownloadDirectoryAsync(
-        string remoteRoot, string localRoot, int hostId, int shareId, string conflictPolicy)
+    /// <summary>
+    /// リモートフォルダ配下を再帰的に走査し、ローカルの保存先へ対応付けた転送計画を作る。
+    /// 競合判定 (<see cref="ResolveDownloadPolicy"/>) とキュー投入で同じ計画を使い、二重走査を避ける。
+    /// </summary>
+    private async Task<RemoteDownloadPlan> BuildDownloadPlanAsync(
+        string remoteRoot, string localRoot, int hostId, int shareId)
     {
         var directories = new List<string>();
         var files = new List<RemoteDownloadItem>();
         await BuildDownloadPlanAsync(remoteRoot, localRoot, directories, files, new HashSet<string>(StringComparer.OrdinalIgnoreCase), hostId, shareId);
+        return new RemoteDownloadPlan(directories, files);
+    }
 
+    private async Task DownloadDirectoryAsync(
+        RemoteDownloadPlan plan, string localRoot, int hostId, int shareId, string conflictPolicy)
+    {
         Transfer.FileName = Path.GetFileName(localRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        Transfer.TotalBytes = files.Sum(f => f.Size);
+        Transfer.TotalBytes = plan.Files.Sum(f => f.Size);
         Transfer.BytesTransferred = 0;
         Transfer.IsActive = true;
 
-        foreach (var dir in directories)
+        foreach (var dir in plan.Directories)
             EnsureLocalDirectory(dir);
 
         await TransferQueue.EnqueueDownloadsAsync(
-            files.Select(item => new DownloadQueueRequest(
+            plan.Files.Select(item => new DownloadQueueRequest(
                 hostId, shareId, item.RemotePath, item.LocalPath, item.Size, conflictPolicy)),
             TransferToken);
     }
@@ -707,6 +767,8 @@ public partial class MainViewModel : ObservableObject
     private static string ToRemoteRelativePath(string root, string fullPath)
         => Path.GetRelativePath(root, fullPath).Replace('\\', '/');
 
-    private record LocalUploadItem(FileInfo File, string RelativePath);
+    private record LocalUploadItem(FileInfo File, string RemotePath);
+    private record LocalUploadPlan(IReadOnlyList<string> RemoteDirectories, IReadOnlyList<LocalUploadItem> Files);
     private record RemoteDownloadItem(string RemotePath, string LocalPath, long Size);
+    private record RemoteDownloadPlan(IReadOnlyList<string> Directories, IReadOnlyList<RemoteDownloadItem> Files);
 }

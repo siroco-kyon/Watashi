@@ -98,7 +98,7 @@ public partial class MainWindow
                 Activate();
                 _ = _vm.UploadLocalPathsAsync(
                     paths,
-                    confirmMessage: $"{paths.Length} 件をアップロードします。\nリモートの同名項目は上書きされます。よろしいですか？",
+                    confirmMessage: $"{paths.Length} 件をアップロードします。よろしいですか？",
                     completedMessage: $"転送キューに追加しました: {paths.Length} 件");
             }));
         }
