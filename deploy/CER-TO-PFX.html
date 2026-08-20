@@ -367,14 +367,15 @@
       <strong>CONTENTS</strong>
       <a href="#answer">0. 先に結論</a>
       <a href="#files" class="key">1. 3 つのファイルの関係 ★</a>
-      <a href="#which" class="key">2. どのケースか判定 ★</a>
-      <a href="#overview">3. 手順の全体像</a>
-      <a href="#case-a" class="key">4. ケース A: ストアから ★</a>
-      <a href="#case-b" class="key">5. ケース B: OpenSSL ★</a>
-      <a href="#verify">6. 作った PFX を検証</a>
-      <a href="#handling">7. 取り扱いの注意</a>
-      <a href="#watashi">8. Watashi での設定</a>
-      <a href="#trouble">9. トラブル対応</a>
+      <a href="#issue" class="key">2. 証明書を用意する流れ ★</a>
+      <a href="#which" class="key">3. どのケースか判定 ★</a>
+      <a href="#overview">4. 手順の全体像</a>
+      <a href="#case-a" class="key">5. ケース A: ストアから ★</a>
+      <a href="#case-b" class="key">6. ケース B: OpenSSL ★</a>
+      <a href="#verify">7. 作った PFX を検証</a>
+      <a href="#handling">8. 取り扱いの注意</a>
+      <a href="#watashi">9. Watashi での設定</a>
+      <a href="#trouble">10. トラブル対応</a>
     </nav>
 
     <main>
@@ -440,8 +441,178 @@
         </figure>
       </section>
 
+      <section id="issue" class="spotlight">
+        <h2>2. サーバ証明書を用意するまでの流れ</h2>
+
+        <p>ケース A（サーバで CSR を作る）では、PFX を作る前段としてこの 4 ステップが必要です。順序が重要で、<strong>③ を飛ばすと ④ が失敗します。</strong></p>
+
+        <figure class="fig">
+          <svg viewBox="0 0 880 350" role="img" aria-label="サーバで CSR を作成し、社内 CA へ申請してサーバ証明書を受け取り、ルート CA と中間 CA 証明書をストアへ登録してから、サーバ証明書を取り込んで秘密鍵と結合するという4ステップの流れ。3番目の CA 証明書登録を飛ばすと4番目が失敗する">
+            <defs>
+              <marker id="pfx4-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <g stroke-width="1.5">
+              <rect x="14" y="30" width="110" height="32" rx="16" fill="#edf6fc" stroke="#185d8f"/>
+              <rect x="14" y="116" width="110" height="32" rx="16" fill="#f2eee8" stroke="currentColor"/>
+              <rect x="14" y="202" width="110" height="32" rx="16" fill="#fff1ed" stroke="#a9342b"/>
+              <rect x="14" y="288" width="110" height="32" rx="16" fill="#edf6fc" stroke="#185d8f"/>
+            </g>
+            <g font-size="11" text-anchor="middle" font-weight="700">
+              <text x="69" y="51" fill="#185d8f">サーバ</text>
+              <text x="69" y="137" fill="currentColor">社内 CA</text>
+              <text x="69" y="223" fill="#a9342b">CA → サーバ</text>
+              <text x="69" y="309" fill="#185d8f">サーバ</text>
+            </g>
+
+            <g stroke-width="1.6">
+              <rect x="140" y="14" width="726" height="64" rx="10" fill="#ffffff" stroke="#185d8f"/>
+              <rect x="140" y="100" width="726" height="64" rx="10" fill="#ffffff" stroke="currentColor"/>
+              <rect x="140" y="186" width="726" height="64" rx="10" fill="#fff1ed" stroke="#a9342b" stroke-width="2.2"/>
+              <rect x="140" y="272" width="726" height="64" rx="10" fill="#ffffff" stroke="#185d8f"/>
+            </g>
+
+            <g text-anchor="middle">
+              <text x="503" y="40" font-size="13.5" font-weight="700" fill="#185d8f">① サーバで CSR を作成する</text>
+              <text x="503" y="62" font-size="11.5" fill="#27495e">certreq -new　—　秘密鍵はこのマシンの鍵ストアに残り、外へ出ない</text>
+
+              <text x="503" y="126" font-size="13.5" font-weight="700" fill="currentColor">② 社内 CA へ申請し、サーバ証明書 (.cer) を受け取る</text>
+              <text x="503" y="148" font-size="11.5" fill="currentColor" opacity=".85">提出するのは CSR (.req) だけ。受け取る .cer に秘密鍵は含まれない</text>
+
+              <text x="503" y="212" font-size="13.5" font-weight="700" fill="#6e211d">③ ルート CA / 中間 CA 証明書を入手してストアへ登録する</text>
+              <text x="503" y="234" font-size="11.5" fill="#6e211d">certutil -addstore Root / CA　—　これを飛ばすと ④ が 0x800B010A で失敗する</text>
+
+              <text x="503" y="298" font-size="13.5" font-weight="700" fill="#185d8f">④ サーバ証明書を取り込み、秘密鍵と結合する</text>
+              <text x="503" y="320" font-size="11.5" fill="#27495e">certreq -accept -machine　—　ここで初めて PFX 化が可能になる</text>
+            </g>
+
+            <g fill="none" stroke="currentColor" stroke-width="1.6" opacity=".6" marker-end="url(#pfx4-arrow)">
+              <line x1="503" y1="80" x2="503" y2="96"/>
+              <line x1="503" y1="166" x2="503" y2="182"/>
+              <line x1="503" y1="252" x2="503" y2="268"/>
+            </g>
+          </svg>
+          <figcaption>③ は「証明書を申請する」作業とは別に、<strong>CA から証明書チェーンを入手して自分のマシンに信頼を組む</strong>作業です。申請フローの中で案内されないことが多く、抜けやすいステップです。</figcaption>
+        </figure>
+
+        <h3>① サーバで CSR を作成する</h3>
+
+        <p>証明書を使うマシン自身で作ります。<strong>秘密鍵はこの操作でマシン内に生成され、以降そのマシンから出ません。</strong>別のマシンで作ると、そちらに秘密鍵が残ってしまいます。</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">; request.inf</span>
+[NewRequest]
+Subject = <span class="hl">"CN=watashi.internal"</span>
+KeyLength = 2048
+KeyAlgorithm = RSA
+HashAlgorithm = SHA256
+MachineKeySet = True
+<span class="cmt">; PFX にして別マシンへ持ち出す予定があるなら True にする</span>
+Exportable = <span class="hl">True</span>
+KeyUsage = 0xa0
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
+RequestType = PKCS10
+
+[Extensions]
+2.5.29.17 = "{text}"
+_continue_ = <span class="hl">"dns=watashi.internal&amp;"</span>
+_continue_ = <span class="hl">"dns=watashi&amp;"</span>
+
+[EnhancedKeyUsageExtension]
+OID = 1.3.6.1.5.5.7.3.1</code></pre>
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>certreq -new request.inf request.req</code></pre>
+        </div>
+
+        <div class="callout danger">
+          <p><strong><code>Exportable</code> の値はここで決まります。</strong>PFX にして別マシンへ持ち込む予定があるなら <code>True</code> にしてください。<code>False</code> で発行してしまうと、後から変更する手段はなく、5 章の手順が使えません。同じマシンで使うだけなら <code>False</code>（秘密鍵が外に出せない）のほうが安全です。</p>
+        </div>
+
+        <div class="callout warning">
+          <p><strong>SAN には、クライアントが実際にアクセスに使う名前をすべて入れてください。</strong>FQDN・短縮名・必要なら IP。最近の .NET やブラウザは CN を見ずに SAN だけで判定するため、SAN に無い名前で接続すると証明書エラーになります。</p>
+        </div>
+
+        <h3>② 社内 CA へ申請してサーバ証明書を受け取る</h3>
+
+        <p>生成された <code>request.req</code> を社内 CA へ提出します。AD CS なら Web 登録ページから申請できます。</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code>http://&lt;CAサーバ名&gt;/certsrv</code></pre>
+        </div>
+
+        <p>「証明書を要求する」→「証明書の要求の詳細設定」→「Base 64 エンコード ... を使用して要求を送信する」で <code>request.req</code> の中身を貼り付けます。証明書テンプレートは <strong>Web サーバー</strong>（サーバー認証用）を選びます。Web 登録ページが無い環境では、CA 担当者に <code>.req</code> を渡して発行を依頼してください。</p>
+
+        <p>発行された <code>.cer</code> をダウンロードします。<strong>この時点ではまだ使えません。</strong>秘密鍵と結合されていないうえ、チェーンも繋がっていないためです。</p>
+
+        <h3>③ ルート CA / 中間 CA 証明書を登録する</h3>
+
+        <div class="callout danger">
+          <p><strong>ここが最も抜けやすいステップです。</strong>「サーバ証明書を申請する」作業とは別に、<u>その証明書を発行した CA を自分のマシンが信頼できる状態にする</u>必要があります。申請フローの案内に含まれていないことが多く、飛ばしたまま ④ に進んで <code>0x800B010A</code>（証明書チェーンを信頼されたルート機関に構築できませんでした）で止まる、というのが典型的な詰まり方です。</p>
+        </div>
+
+        <p>同じ <code>certsrv</code> のトップページから入手できます。</p>
+
+        <div class="steps">
+          <div class="step">
+            <p><code>http://&lt;CAサーバ名&gt;/certsrv</code> を開き、「<strong>CA 証明書、証明書チェーン、または CRL のダウンロード</strong>」を選ぶ</p>
+          </div>
+          <div class="step">
+            <p>「<strong>CA 証明書チェーンのダウンロード</strong>」を選ぶと、ルートと中間がまとめて <code>.p7b</code> で取得できる（個別の <code>.cer</code> でも可）</p>
+          </div>
+          <div class="step">
+            <p>サーバへ持ち込み、<strong>ルートは <code>Root</code>、中間は <code>CA</code> ストア</strong>へ登録する</p>
+          </div>
+        </div>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">:: ルート CA →「信頼されたルート証明機関」</span>
+certutil -addstore <span class="hl">Root</span> C:\temp\rootCA.cer
+
+<span class="cmt">:: 中間 CA →「中間証明機関」(2 階層構成の場合)</span>
+certutil -addstore <span class="hl">CA</span> C:\temp\intermediateCA.cer</code></pre>
+        </div>
+
+        <div class="callout warning">
+          <p><strong>入れるストアを取り違えるとチェーンは繋がりません。</strong>ルートを <code>CA</code> に、中間を <code>Root</code> に入れても、見た目は成功しますが ④ で同じエラーになります。</p>
+        </div>
+
+        <p>サーバから CA サーバへ到達できない閉じたネットワークの場合は、ドメイン参加 PC から <code>Export-Certificate</code> で取り出して持ち込みます。手順は <a href="INTERNAL-CA-HTTPS.html">INTERNAL-CA-HTTPS.html</a> の 3 章にまとめてあります。</p>
+
+        <h3>④ サーバ証明書を取り込んで秘密鍵と結合する</h3>
+
+        <p>チェーンが繋がったことを先に確認してから取り込みます。</p>
+
+        <div class="code-wrap">
+          <button class="copy" type="button">コピー</button>
+          <pre><code><span class="cmt">:: チェーンが構築できるか確認 (-urlfetch は付けない)</span>
+certutil -verify C:\temp\server.cer
+
+<span class="cmt">:: 秘密鍵と結合する</span>
+certreq -accept -machine C:\temp\server.cer
+
+<span class="cmt">:: 結合できたか確認 →「秘密キーがあります」が出れば成功</span>
+certutil -store My</code></pre>
+        </div>
+
+        <div class="callout success">
+          <p>「<strong>秘密キーがあります</strong>」が表示されれば、この証明書は TLS で使える状態です。ここまで来て初めて <a href="#case-a">5 章</a>の PFX 書き出しが可能になります。</p>
+        </div>
+
+        <div class="callout note">
+          <p><strong>③ を飛ばしたまま <code>certutil -repairstore</code> で無理に紐付けた場合</strong>、④ 自体は通ることがあります。しかしその状態で PFX を作ると <code>-ChainOption BuildChain</code> がチェーンを構築できず、<u>中間 CA の入っていない PFX</u> ができあがります。配布先で証明書エラーになるため、結局 ③ からやり直しになります。</p>
+        </div>
+      </section>
+
       <section id="which" class="spotlight">
-        <h2>2. どのケースかを判定する</h2>
+        <h2>3. どのケースかを判定する</h2>
 
         <p>秘密鍵の所在は <strong>CSR をどこで、何で作ったか</strong>で決まります。次のコマンドで確認します。</p>
 
@@ -492,10 +663,10 @@ certutil -store My</code></pre>
             </g>
             <g text-anchor="middle">
               <text x="701" y="50" font-size="13" font-weight="700" fill="#185d8f">ケース A — 証明書ストアから出す</text>
-              <text x="701" y="70" font-size="11" fill="#27495e">Export-PfxCertificate　→ 4 章</text>
+              <text x="701" y="70" font-size="11" fill="#27495e">Export-PfxCertificate　→ 5 章</text>
 
               <text x="701" y="134" font-size="13" font-weight="700" fill="#8a5a10">ケース B — OpenSSL で結合する</text>
-              <text x="701" y="154" font-size="11" fill="#60450e">openssl pkcs12 -export　→ 5 章</text>
+              <text x="701" y="154" font-size="11" fill="#60450e">openssl pkcs12 -export　→ 6 章</text>
 
               <text x="701" y="226" font-size="13" font-weight="700" fill="#6e211d">ケース C — 作成できない</text>
               <text x="701" y="246" font-size="11" fill="#6e211d">秘密鍵が存在しない。再発行が必要</text>
@@ -516,7 +687,7 @@ certutil -store My</code></pre>
       </section>
 
       <section id="overview">
-        <h2>3. 手順の全体像</h2>
+        <h2>4. 手順の全体像</h2>
 
         <figure class="fig">
           <svg viewBox="0 0 880 300" role="img" aria-label="ケースAは拇印の確認、エクスポート可否の確認、Export-PfxCertificate の3ステップ。ケースBは形式の確認、鍵と証明書の結合、チェーンの同梱の3ステップという比較図">
@@ -573,7 +744,7 @@ certutil -store My</code></pre>
       </section>
 
       <section id="case-a" class="spotlight">
-        <h2>4. ケース A — Windows 証明書ストアから書き出す</h2>
+        <h2>5. ケース A — Windows 証明書ストアから書き出す</h2>
 
         <p>そのマシンで CSR を作り、<code>certreq -accept</code> で証明書を取り込み済みの状態が前提です。</p>
 
@@ -660,7 +831,7 @@ Export-PfxCertificate -Cert "Cert:\LocalMachine\My\$thumb" `
         </div>
 
         <div class="callout warning">
-          <p><code>BuildChain</code> は<strong>そのマシンでチェーンを構築できることが前提</strong>です。中間 CA がマシンに入っていないと、サーバ証明書だけの PFX ができてしまいます。書き出したあと 6 章で必ず中身を確認してください。</p>
+          <p><code>BuildChain</code> は<strong>そのマシンでチェーンを構築できることが前提</strong>です。中間 CA がマシンに入っていないと、サーバ証明書だけの PFX ができてしまいます。書き出したあと 7 章で必ず中身を確認してください。</p>
         </div>
 
         <h3>GUI で行う場合</h3>
@@ -674,7 +845,7 @@ Export-PfxCertificate -Cert "Cert:\LocalMachine\My\$thumb" `
       </section>
 
       <section id="case-b" class="spotlight">
-        <h2>5. ケース B — OpenSSL で結合する</h2>
+        <h2>6. ケース B — OpenSSL で結合する</h2>
 
         <p>OpenSSL で CSR を作った場合、対になる <code>.key</code> が手元にあるはずです。Windows の証明書ストアは一切関係ありません。</p>
 
@@ -738,7 +909,7 @@ openssl pkcs12 -export -out server.pfx \
       </section>
 
       <section id="verify">
-        <h2>6. 作った PFX を検証する</h2>
+        <h2>7. 作った PFX を検証する</h2>
 
         <p><strong>配布する前に必ず中身を確認してください。</strong>特に「中間 CA が入っているか」は見落としやすく、入っていないと配布先で証明書エラーになります。</p>
 
@@ -761,7 +932,7 @@ $data.OtherCertificates | Select-Object Subject</code></pre>
               <tr><td><code>HasPrivateKey</code></td><td class="diff"><code>True</code></td><td class="diff">秘密鍵が入っていない。手順をやり直す</td></tr>
               <tr><td><code>DnsNameList</code> (SAN)</td><td>接続に使うホスト名を含む</td><td>証明書自体が用途に合っていない。再発行が必要</td></tr>
               <tr><td><code>NotAfter</code></td><td>十分先の日付</td><td>期限切れ間近。更新を検討</td></tr>
-              <tr><td><code>OtherCertificates</code></td><td class="diff">中間 CA が並ぶ</td><td class="diff">空なら配布先でチェーンエラー。4 章の <code>-ChainOption BuildChain</code> / 5 章の <code>-certfile</code> を確認</td></tr>
+              <tr><td><code>OtherCertificates</code></td><td class="diff">中間 CA が並ぶ</td><td class="diff">空なら配布先でチェーンエラー。5 章の <code>-ChainOption BuildChain</code> / 6 章の <code>-certfile</code> を確認</td></tr>
             </tbody>
           </table>
         </div>
@@ -780,7 +951,7 @@ openssl pkcs12 -in server.pfx -nokeys -info</code></pre>
       </section>
 
       <section id="handling">
-        <h2>7. 取り扱いの注意</h2>
+        <h2>8. 取り扱いの注意</h2>
 
         <div class="callout danger">
           <p><strong>.pfx は秘密鍵入りのファイルです。</strong>これ 1 つが漏れると、そのホスト名を騙る通信が可能になります。.cer とは扱いのレベルが根本的に違います。</p>
@@ -807,7 +978,7 @@ icacls "C:\Apps\Watashi\server.pfx" /inheritance:r /grant "SYSTEM:R" /grant "Adm
       </section>
 
       <section id="watashi">
-        <h2>8. Watashi での設定</h2>
+        <h2>9. Watashi での設定</h2>
 
         <p>作った PFX を使う場所は 2 つあります。どちらもパスワードは環境変数で渡すのが安全です。</p>
 
@@ -858,19 +1029,19 @@ icacls "C:\Apps\Watashi\server.pfx" /inheritance:r /grant "SYSTEM:R" /grant "Adm
       </section>
 
       <section id="trouble">
-        <h2>9. トラブル対応</h2>
+        <h2>10. トラブル対応</h2>
 
         <h3>「はい、秘密キーをエクスポートします」がグレーアウトする</h3>
-        <p>エクスポート不可で発行された証明書です。後から可能にする手段はありません。ストア参照方式に切り替えるか、CA へエクスポート可能での再発行を依頼してください（4 章 Step 2）。</p>
+        <p>エクスポート不可で発行された証明書です。後から可能にする手段はありません。ストア参照方式に切り替えるか、CA へエクスポート可能での再発行を依頼してください（5 章 Step 2）。</p>
 
         <h3><code>Export-PfxCertificate</code> がアクセス拒否になる</h3>
         <p>管理者権限で実行しているか確認してください。<code>LocalMachine</code> ストアの秘密鍵は管理者権限が必要です。専用サービスアカウントで運用している場合は、秘密鍵への読み取り権限も確認してください。</p>
 
         <h3>PFX のインポートで「パスワードが正しくありません」と言われる</h3>
-        <p>パスワードが合っているのにこれが出る場合、OpenSSL 3.x の既定の暗号化方式を読めていない可能性があります。<code>-legacy</code> を付けて作り直してください（5 章）。</p>
+        <p>パスワードが合っているのにこれが出る場合、OpenSSL 3.x の既定の暗号化方式を読めていない可能性があります。<code>-legacy</code> を付けて作り直してください（6 章）。</p>
 
         <h3>配布先でチェーンエラーになる</h3>
-        <p>PFX に中間 CA が入っていません。6 章の <code>OtherCertificates</code> が空になっているはずです。<code>-ChainOption BuildChain</code> / <code>-certfile</code> を付けて作り直すか、配布先のマシンに中間 CA を直接インポートしてください。</p>
+        <p>PFX に中間 CA が入っていません。7 章の <code>OtherCertificates</code> が空になっているはずです。<code>-ChainOption BuildChain</code> / <code>-certfile</code> を付けて作り直すか、配布先のマシンに中間 CA を直接インポートしてください。</p>
 
         <div class="code-wrap">
           <button class="copy" type="button">コピー</button>
