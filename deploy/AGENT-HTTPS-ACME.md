@@ -408,4 +408,5 @@ http / https は区間ごとに独立しているため、Server → A だけ HT
 | サービス起動に失敗 (イベントログに証明書エラー) | `appsettings.json` の PFX パス/パスワードの誤り。`certutil -dump <pfx> -p <password>` で開けるか確認 |
 | 更新後も古い証明書で応答する | `after-renew.ps1` が実行されていない。`C:\ProgramData\WatashiAgent\logs\cert-renew.log` と、タスクスケジューラの `win-acme renew` の前回実行結果を確認 |
 | ノードが Unhealthy になる | Endpoint の `https://` 化を Step 3 (Agent 側) より先に行うと、HTTP で待ち受け中の Agent に HTTPS で接続しようとして失敗します。順序は必ず Agent 側 → ノード Endpoint の順で |
+| `test-agent-https.ps1` が「SSPI への呼び出しに失敗しました」で止まる | Windows PowerShell 5.1 の既定プロトコル (SSL3/TLS1.0) では Kestrel と握手できないのが原因。スクリプトは TLS1.2/1.3 を明示指定するよう修正済みなので、古いコピーを使っていないか確認。修正版でも失敗する場合は「プロトコル別の再試行」の出力を確認 (全 NG ならその待ち受けポートが TLS を喋っていない) |
 | heartbeat は通るがファイル操作が失敗する | heartbeat は Agent→Server (逆方向) なので Agent 側 HTTPS 化と無関係に通ります。Server→Agent 方向の証明書検証エラーを疑い、中央サーバの Serilog (`C:\ProgramData\Watashi\logs\server-*.log`) を確認 |
