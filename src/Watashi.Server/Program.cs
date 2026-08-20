@@ -354,8 +354,11 @@ app.MapGet("/", () => Results.Ok(new
 
 app.MapHealthEndpoints();
 app.MapAuthEndpoints();
-// Windows SSO は現在使用しない。再開時はクライアント側のログインボタンと併せて戻す。
-// app.MapWindowsAuthEndpoints(windowsAuth);
+// Windows SSO (/sso) は現在使用しない。ただし無効化は Auth:WindowsAuth:EnableSso=false と
+// クライアント側のログインボタン非表示で足りる。この登録ごと外すと初回パスワード設定に必要な
+// prepare-login / initialize-password まで 404 になり、クライアントは失敗を握りつぶして
+// パスワード入力画面へフォールバックするため、原因が分からないまま初回ログインが不能になる。
+app.MapWindowsAuthEndpoints(windowsAuth);
 app.MapHostEndpoints();
 app.MapFileEndpoints();
 // 横断検索 UI は現在コメントアウト中。増分一覧も同じ endpoint 群にあるため登録は維持する。
