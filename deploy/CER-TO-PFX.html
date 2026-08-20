@@ -439,6 +439,32 @@
           </svg>
           <figcaption>左の 2 つが揃って初めて右が作れます。<strong>.cer だけを見ていても .pfx にはなりません。</strong>中間 CA を同梱しておくと、配布先で別途チェーンを入れる手間が省けます。</figcaption>
         </figure>
+
+        <h3>この「+」はどのコマンドが行うのか</h3>
+
+        <p>結合を担うコマンドは環境によって違います。<strong>とくに Windows では、結合と書き出しが別のコマンドに分かれています。</strong></p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th></th><th>ケース A: Windows 証明書ストア</th><th>ケース B: OpenSSL</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>「+」= 結合</strong></td>
+                <td class="diff"><code>certreq -accept -machine server.cer</code><br>証明書ストアの中で秘密鍵と結びつく（<a href="#issue">2 章 ④</a>）</td>
+                <td rowspan="2"><code>openssl pkcs12 -export</code><br>結合と書き出しを<strong>1 コマンドで同時に</strong>行う（<a href="#case-b">6 章</a>）</td>
+              </tr>
+              <tr>
+                <td><strong>「=」= 書き出し</strong></td>
+                <td><code>Export-PfxCertificate</code><br>結合済みのものを PFX として出力（<a href="#case-a">5 章</a>）</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warning">
+          <p><strong>Windows では <code>Export-PfxCertificate</code> の引数に <code>.cer</code> ファイルが出てきません。</strong>指定するのは証明書ストア内の場所（拇印）だけです。<code>certreq -accept</code> の時点で <code>.cer</code> と秘密鍵はストアの中で結合済みなので、<u>そこから先はファイルとしての <code>.cer</code> を使わない</u>ためです。</p>
+          <p>「<code>.cer</code> ファイルと鍵ファイルを並べて 1 コマンドで作る」形になるのは、<strong>OpenSSL のケース B だけ</strong>です。</p>
+        </div>
       </section>
 
       <section id="issue" class="spotlight">
@@ -746,7 +772,7 @@ certutil -store My</code></pre>
       <section id="case-a" class="spotlight">
         <h2>5. ケース A — Windows 証明書ストアから書き出す</h2>
 
-        <p>そのマシンで CSR を作り、<code>certreq -accept</code> で証明書を取り込み済みの状態が前提です。</p>
+        <p>そのマシンで CSR を作り、<code>certreq -accept</code> で証明書を取り込み済みの状態が前提です。<strong>この時点で <code>.cer</code> と秘密鍵はストアの中で結合が完了している</strong>ため、ここでの作業は「結合済みのものを PFX ファイルとして書き出す」ことだけになります。<code>.cer</code> ファイルを引数に取るコマンドは出てきません。</p>
 
         <h3>Step 1: 拇印を調べる</h3>
 
