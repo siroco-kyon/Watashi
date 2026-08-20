@@ -38,6 +38,7 @@
 | `IIS-MIME.md`                | ClickOnce 配信のための IIS MIME 設定 |
 | `CERTIFICATE.md`             | HTTPS 証明書の設定 (ストア参照 vs ファイル指定、Windows 推奨は前者) |
 | `INTERNAL-CA-HTTPS.html`     | **社内 CA 証明書での HTTPS 化ガイド (HTML)**: 受け取った .cer からルート/中間 CA の入手・チェーン結合・Server/Agent 両方の設定までを図解 |
+| `CER-TO-PFX.html`            | **.cer から .pfx を作る手順 (HTML)**: 秘密鍵の所在判定、証明書ストアからのエクスポート、OpenSSL での結合、チェーン同梱の確認までを図解 |
 | `AGENT-HTTPS-ACME.html`      | **Agent の HTTPS 化ガイド (HTML)**: スクリプトの使い分けと、CA に到達できない Agent への PFX 代理取得・配布を重点解説 |
 | `AGENT-HTTPS-ACME.md`        | 上記のテキスト版 (社内 ACME CA + Win-ACME、IIS 不要) |
 | `agent-https\register-agent-acme.ps1` | Win-ACME へ Agent 証明書の取得・自動更新を登録 (初回のみ) |
