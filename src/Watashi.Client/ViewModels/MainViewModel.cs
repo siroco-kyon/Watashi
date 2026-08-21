@@ -26,6 +26,7 @@ public partial class MainViewModel : ObservableObject
     public RemotePaneViewModel Remote { get; }
     public TransferViewModel Transfer { get; } = new();
     public TransferQueueViewModel TransferQueue { get; }
+    public ThemeService Theme { get; }
 
     [ObservableProperty] private string statusMessage = string.Empty;
     [ObservableProperty] private string latestStatusMessage = string.Empty;
@@ -49,9 +50,10 @@ public partial class MainViewModel : ObservableObject
         LocalPaneViewModel local,
         RemotePaneViewModel remote,
         AppSettings settings,
+        ThemeService theme,
         TransferQueueViewModel transferQueue)
     {
-        _api = api; _session = session; Local = local; Remote = remote; TransferQueue = transferQueue;
+        _api = api; _session = session; Local = local; Remote = remote; Theme = theme; TransferQueue = transferQueue;
         TransferQueue.JobCompleted += SchedulePaneRefresh;
         ProtocolLabel = settings.IsHttps ? "HTTPS" : settings.IsHttp ? "HTTP" : "不明";
         IsHttpConnection = settings.IsHttp;

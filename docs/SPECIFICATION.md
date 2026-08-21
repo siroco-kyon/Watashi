@@ -67,9 +67,9 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 
 ### 2.1 技術スタック
 
-- **言語/基盤**: .NET 8 / C#
-- **クライアント**: WPF (`net8.0-windows`)、MVVM (CommunityToolkit.Mvvm の `[ObservableProperty]` / `[RelayCommand]`)
-- **サーバー / Agent**: ASP.NET Core Minimal API、`Microsoft.Extensions.Hosting.WindowsServices` で常駐サービス化
+- **言語/基盤**: C#。クライアントは .NET 10、サーバー / Agent / Shared は .NET 8
+- **クライアント**: WPF (`net10.0-windows`)、MVVM (CommunityToolkit.Mvvm の `[ObservableProperty]` / `[RelayCommand]`)
+- **サーバー / Agent**: .NET 8 ASP.NET Core Minimal API、`Microsoft.Extensions.Hosting.WindowsServices` で常駐サービス化
 - **DB**: SQLite + EF Core (マイグレーション、WAL モード、`AsNoTracking`、`ExecuteUpdate`/`ExecuteDelete`)
 - **ログ**: Serilog (日次ローテーション)
 - **CIFS/SMB**: SMBLibrary (SMB2/3)
@@ -326,7 +326,7 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 
 | 操作 | API | 補足 |
 |---|---|---|
-| 一覧 | `GET /api/files/incremental` | 200件ずつの安定snapshot cursor + ソート |
+| 一覧 | `GET /api/files/incremental` | 安定 snapshot cursor + ソート。クライアントは許容上限の 500 件ずつ要求 |
 | 横断検索 | `POST /api/files/search` | 全許可ルート、取消/走査件数/時間/結果上限付き |
 | ダウンロード | `GET /api/files/download` | ストリーミング |
 | アップロード | `POST /api/files/upload` | ストリーミング |
@@ -365,9 +365,10 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 
 ### 7.2 メイン画面 (FFFTP 風 2 ペイン)
 
-- **ヘッダー**: 鳥居ロゴ + Watashi、右上にユーザー名・プロトコル (HTTP/HTTPS)・管理ボタン (管理者のみ)・更新・ログアウト・情報
+- **ヘッダー**: 鳥居ロゴ + Watashi、右上にユーザー名・プロトコル (HTTP/HTTPS)・テーマ・管理ボタン (管理者のみ)・更新・ログアウト・情報
 - **左ペイン (ローカル) 💻**: PC のフォルダ。📂 ボタンで Windows のフォルダ選択ダイアログ
-- **右ペイン (リモート) ⛩**: 中央サーバー経由の CIFS 共有。「場所」ドロップダウンで切替
+- **右ペイン (リモート) ⛩**: 中央サーバー経由の CIFS 共有。「場所」ドロップダウンで切替。ホバー時は現在選択中の表示名・ホスト・共有・許可ルートを全文表示
+- **一覧ページング**: 初回 500 件、残りがあるときだけ「さらに読み込む」で 500 件ずつ追加
 - **ステータスバー**: 接続プロトコル ●、直近の操作/エラー (時刻 + 発生元)、ログイン中ユーザー、転送進捗 %
 
 ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneViewModel` / `TransferViewModel`。
@@ -400,10 +401,14 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 ### 7.6 UI のきめ細かさ
 
 - 朱色 (鳥居) アクセントのモダンテーマ、Card レイアウト、ホバーフィードバック
+- .NET 10 WPF `ThemeMode` を基盤に System / Light / Dark を即時切替し、利用者設定へ保存。Watashi 固有色はライト／ダーク別パレット
+- `ContextMenu` と `ToolTip` はアプリ側パレットで補正し、OS 所有のタイトルバーシステムメニュー・ファイル選択・緊急 `MessageBox` は Windows の表示に委ねる
+- 最大化は `WM_GETMINMAXINFO` で現在のモニター作業領域を通知し、Windows の最大化状態と復元サイズを保持
 - 長いファイル名/パスはツールチップで全文表示 (`CharacterEllipsis`)
 - 空状態 (ユーザー 0 件 / 付与パス 0 件 / リモート場所無し / フィルタ無一致) に案内文
 - ListBox/ListView 仮想化で大量データでも軽量
 - ペインごとのフィルタ/検索ボックス、マルチセレクト一括転送、転送キャンセル + 二重起動防止、転送速度/ETA + エラーバナー
+- 別フォルダーへの移動成功時は該当ペインの `FilterText` だけを初期化し、列ソート (`SortKey`) は維持。同一パス更新や F5 ではフィルターも維持
 
 ---
 

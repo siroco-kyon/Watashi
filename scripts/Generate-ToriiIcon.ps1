@@ -31,7 +31,7 @@ if (-not $OutPath) {
 
 Add-Type -AssemblyName System.Drawing
 
-# Mirrors Colors.xaml: AccentColor (vermilion / shu-iro) and AccentDeepColor.
+# Mirrors Colors.Light.xaml: AccentColor (vermilion / shu-iro) and AccentDeepColor.
 $ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC7, 0x3E, 0x1D)
 $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)
 

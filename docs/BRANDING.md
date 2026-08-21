@@ -28,7 +28,7 @@
 | 画面に出るアプリ名「Watashi」 | クライアントの XAML / `App.xaml.cs` | [§2](#2-画面に表示されるアプリ名watashi) |
 | exe ファイル名 (`Watashi.Client.exe`) | `Watashi.Client.csproj` | [§3](#3-exe-ファイル名watashiclientexe) |
 | 配布物・インストーラの名前 | `ClickOnceProfile.pubxml` | [§4](#4-配布物インストーラの名前-clickonce) |
-| アイコン (鳥居) | `Watashi.ico` + `Icons.xaml` + `Colors.xaml` | [§5](#5-アイコン-鳥居マーク) |
+| アイコン (鳥居) とテーマ色 | `Watashi.ico` + `Icons.xaml` + `Colors.Light.xaml` + `Colors.Dark.xaml` | [§5](#5-アイコン-鳥居マーク) |
 | A/B を別アプリとして同時利用 | ClickOnce ID・配布 URL・ローカル保存先 | [§7](#7-ab-版を同じ-pc-で共存させる場合) |
 
 1 種類だけを配布する通常のリブランドは **§2・§4・§5 の 3 つ**を変えれば足ります。
@@ -166,17 +166,31 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIcon.ps1
 > Icons.xaml を 1 箇所差し替えれば全画面に反映されます (個別の修正は不要)。
 
 ### 5-4. 色 (朱色アクセント)
-ブランドカラーは `src/Watashi.Client/Themes/Colors.xaml`:
-- `AccentColor` = `#C73E1D` (朱色 / 鳥居の色)
-- `AccentDeepColor` = `#5C1A0B` (濃い朱)
+テーマ色は次の 3 ファイルに役割を分けています。
 
-色を変える場合、**`Generate-ToriiIcon.ps1` の `$ACCENT` / `$ACCENT_DEEP` も同じ値に合わせてください**
-(`.ico` とアプリ内ロゴの色を一致させるため)。現在のスクリプト値:
+| ファイル | 役割 | リブランド時の扱い |
+|---|---|---|
+| `Themes/Colors.Light.xaml` | ライトテーマの実色 | `AccentColor`、`AccentDeepColor` と派生色を変更 |
+| `Themes/Colors.Dark.xaml` | ダークテーマの実色 | 同じ色相で、暗い背景でも読める明度・コントラストに調整 |
+| `Themes/Colors.xaml` | 共通のブラシ名とパレット読込 | 原則変更しない。色値は置かない |
+
+ライトテーマの既定ブランド色は `AccentColor = #C73E1D` (朱色) と
+`AccentDeepColor = #5C1A0B` (濃い朱) です。ダークテーマでは識別性を保つため、
+同じ色相を `#E15B3A` / `#FFC1B1` のように明るくしています。ライト側の値をそのまま
+ダーク側へコピーせず、文字・背景とのコントラストを確認してください。
+
+固定画像である `.ico` は Windows テーマで切り替わらないため、
+**`Generate-ToriiIcon.ps1` の `$ACCENT` / `$ACCENT_DEEP` はライトパレットの値に合わせます**。
+現在のスクリプト値:
 
 ```powershell
 $ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC7, 0x3E, 0x1D)   # = #C73E1D
 $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5C1A0B
 ```
+
+変更後はログイン画面またはメイン画面のテーマ選択でライト／ダークを切り替え、
+主ボタン、選択行、フォーカス枠、リンク、エラー表示、鳥居ロゴを両方で確認します。
+Windows ハイコントラストでも文字と操作対象が判別できることを確認してください。
 
 ### 5-5. 色違いアイコン (接続先 DB / サーバごとの区別用)
 
@@ -218,7 +232,8 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5
 
 > `.ico` の差し替えで変わるのは exe・タスクバー・インストーラ・スタートメニューのアイコンです。
 > アプリ画面内のロゴ (ベクター) の色も揃えたい場合は、[§5-4](#5-4-色-朱色アクセント) の
-> `Colors.xaml` (`AccentColor` / `AccentDeepColor`) を上表の 2 色に合わせて変更してください。
+> 画面内ロゴの色も揃える場合は、`Colors.Light.xaml` の `AccentColor` / `AccentDeepColor` を
+> 上表の 2 色に合わせ、`Colors.Dark.xaml` に同じ色相の高コントラスト版を用意してください。
 
 > アイコンを色分けしても、Windows 上のアプリ ID は分かれません。
 > A/B が `Watashi (2)` と同じタスクバーグループに入る場合は [§7](#7-ab-版を同じ-pc-で共存させる場合) の対応が必要です。
@@ -567,13 +582,15 @@ powershell -NoProfile -File scripts/Check-BrandSetup.ps1
 
 ## 8. 変更後の確認手順
 
-1. クライアントをリビルド: `dotnet build src\Watashi.Client\Watashi.Client.csproj`
+1. .NET 10 SDK でクライアントをリビルド: `dotnet build src\Watashi.Client\Watashi.Client.csproj`
 2. アイコンを変えた場合は `scripts/Generate-ToriiIcon.ps1` を再実行して `.ico` を更新
 3. クライアント起動 → **ログイン画面・メイン画面・管理画面**の表示名を目視確認
-4. エクスプローラで `Watashi.Client.exe` (または新 exe 名) のアイコン、タスクバー表示を確認
-5. ClickOnce 発行 (`MSBuild.exe src\Watashi.Client\Watashi.Client.csproj /t:Publish /p:Configuration=Release /p:PublishProfile=ClickOnceProfile`) →
+4. テーマをライト／ダークへ切り替え、背景、文字、アクセント、入力欄、ComboBox、ToolTip、右クリックメニューを確認
+5. Windows のテーマに合わせる設定とハイコントラストで、OS 所有のタイトルバーやファイル選択画面も含め操作可能か確認
+6. エクスプローラで `Watashi.Client.exe` (または新 exe 名) のアイコン、タスクバー表示を確認
+7. ClickOnce 発行 (`MSBuild.exe src\Watashi.Client\Watashi.Client.csproj /t:Publish /p:Configuration=Release /p:PublishProfile=ClickOnceProfile`) →
    インストーラ画面・スタートメニュー・「アプリと機能」の名前/アイコンを確認
-6. A/B 共存が必要な場合は [§7-5](#7-5-発行後にマニフェストを確認する) と
+8. A/B 共存が必要な場合は [§7-5](#7-5-発行後にマニフェストを確認する) と
    [§7-6](#7-6-既に同じアプリとして入っている-pc-での再確認) の確認も実施
 
 ---

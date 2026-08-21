@@ -17,6 +17,7 @@ public partial class LocalPaneViewModel : ObservableObject
     private readonly Stack<string> _back = new();
     private readonly Stack<string> _forward = new();
     private DateTime _lastSettingsSave = DateTime.MinValue;
+    private string _lastSuccessfulPath = string.Empty;
 
     // 取得した全件 (Parent を除く)。表示用 Entries はここからソート+絞り込みして作る。
     private readonly List<FileEntry> _all = new();
@@ -56,6 +57,7 @@ public partial class LocalPaneViewModel : ObservableObject
         currentPath = string.IsNullOrEmpty(settings.LastLocalPath) || !Directory.Exists(settings.LastLocalPath)
             ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
             : settings.LastLocalPath;
+        _lastSuccessfulPath = currentPath;
         _ = RefreshAsync();
     }
 
@@ -67,16 +69,17 @@ public partial class LocalPaneViewModel : ObservableObject
     {
         var target = (newPath ?? CurrentPath)?.Trim() ?? string.Empty;
         if (string.IsNullOrEmpty(target)) return;
-        if (string.Equals(target, CurrentPath, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(target, _lastSuccessfulPath, StringComparison.OrdinalIgnoreCase))
         {
+            CurrentPath = target;
             await RefreshAsync();
             return;
         }
-        if (!string.IsNullOrEmpty(CurrentPath)) _back.Push(CurrentPath);
+        if (!string.IsNullOrEmpty(_lastSuccessfulPath)) _back.Push(_lastSuccessfulPath);
         _forward.Clear();
         CurrentPath = target;
         UpdateHistoryFlags();
-        await RefreshAsync();
+        await RefreshCoreAsync(clearFilterOnSuccess: true);
     }
 
     [RelayCommand]
@@ -84,10 +87,10 @@ public partial class LocalPaneViewModel : ObservableObject
     {
         if (_back.Count == 0) return Task.CompletedTask;
         var prev = _back.Pop();
-        if (!string.IsNullOrEmpty(CurrentPath)) _forward.Push(CurrentPath);
+        if (!string.IsNullOrEmpty(_lastSuccessfulPath)) _forward.Push(_lastSuccessfulPath);
         CurrentPath = prev;
         UpdateHistoryFlags();
-        return RefreshAsync();
+        return RefreshCoreAsync(clearFilterOnSuccess: true);
     }
 
     [RelayCommand]
@@ -95,10 +98,10 @@ public partial class LocalPaneViewModel : ObservableObject
     {
         if (_forward.Count == 0) return Task.CompletedTask;
         var next = _forward.Pop();
-        if (!string.IsNullOrEmpty(CurrentPath)) _back.Push(CurrentPath);
+        if (!string.IsNullOrEmpty(_lastSuccessfulPath)) _back.Push(_lastSuccessfulPath);
         CurrentPath = next;
         UpdateHistoryFlags();
-        return RefreshAsync();
+        return RefreshCoreAsync(clearFilterOnSuccess: true);
     }
 
     [RelayCommand]
@@ -106,14 +109,16 @@ public partial class LocalPaneViewModel : ObservableObject
     {
         var parent = await Task.Run(() =>
         {
-            try { return Directory.GetParent(CurrentPath); }
+            try { return Directory.GetParent(_lastSuccessfulPath); }
             catch { return null; }
         });
         if (parent is not null) await NavigateAsync(parent.FullName);
     }
 
     [RelayCommand]
-    public async Task RefreshAsync()
+    public Task RefreshAsync() => RefreshCoreAsync(clearFilterOnSuccess: false);
+
+    private async Task RefreshCoreAsync(bool clearFilterOnSuccess)
     {
         try
         {
@@ -128,11 +133,17 @@ public partial class LocalPaneViewModel : ObservableObject
             _all.Clear();
             _all.AddRange(items);
             _hasParent = hasParent;
+            if (clearFilterOnSuccess) FilterText = string.Empty;
             ApplyView();
+            _lastSuccessfulPath = path;
             SaveLastPathThrottled(path);
             StatusMessage = string.Empty;
         }
-        catch (Exception ex) { StatusMessage = ex.Message; }
+        catch (Exception ex)
+        {
+            CurrentPath = _lastSuccessfulPath;
+            StatusMessage = ex.Message;
+        }
         finally { IsBusy = false; }
     }
 

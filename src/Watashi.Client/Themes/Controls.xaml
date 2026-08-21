@@ -636,6 +636,21 @@
     <!-- ============================================================ -->
     <!-- 10. Menu / MenuItem                                          -->
     <!-- ============================================================ -->
+    <!-- ContextMenu / ToolTip は別 Popup で描画されるため、アプリ資源を明示する。 -->
+    <Style TargetType="ContextMenu">
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="4" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource {x:Static wpf:SystemColors.MenuBrushKey}}" />
+                <Setter Property="Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.MenuTextBrushKey}}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource {x:Static wpf:SystemColors.MenuTextBrushKey}}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
     <Style TargetType="Menu">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
@@ -644,7 +659,35 @@
     </Style>
     <Style TargetType="MenuItem">
         <Setter Property="Padding" Value="10,4" />
-        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+            </Trigger>
+            <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource {x:Static wpf:SystemColors.MenuBrushKey}}" />
+                <Setter Property="Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.MenuTextBrushKey}}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+    <Style TargetType="ToolTip">
+        <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,5" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource {x:Static wpf:SystemColors.InfoBrushKey}}" />
+                <Setter Property="Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.InfoTextBrushKey}}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource {x:Static wpf:SystemColors.InfoTextBrushKey}}" />
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!-- ============================================================ -->

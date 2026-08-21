@@ -16,6 +16,8 @@ namespace Watashi.Client.Services;
 
 public class ApiClient : ITransferProtocol
 {
+    public const int RemoteListPageSize = 500;
+
     private static readonly HttpRequestOptionsKey<long> SessionGenerationKey =
         new("Watashi.SessionGeneration");
     private readonly HttpClient _http;
@@ -167,7 +169,7 @@ public class ApiClient : ITransferProtocol
         int shareId,
         string path,
         string? sort = null,
-        int limit = 200,
+        int limit = RemoteListPageSize,
         string? cursor = null,
         CancellationToken ct = default)
     {

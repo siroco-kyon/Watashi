@@ -83,6 +83,14 @@
                             ToolTip="再読み込み (F5)">
                         <TextBlock Text="⟳" FontSize="15"/>
                     </Button>
+                    <ComboBox Width="142" Margin="0,0,6,0"
+                              ItemsSource="{Binding Theme.Options}"
+                              DisplayMemberPath="Label"
+                              SelectedValuePath="Value"
+                              SelectedValue="{Binding Theme.SelectedMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              AutomationProperties.Name="表示テーマ"
+                              AutomationProperties.HelpText="Windows に合わせる、ライト、ダークから表示テーマを選択します。"
+                              ToolTip="表示テーマを切り替え"/>
                     <Button Style="{StaticResource IconButton}" Click="OnChangePassword"
                             AutomationProperties.Name="パスワード変更" ToolTip="パスワード変更">
                         <TextBlock Text="🔑" FontSize="14"/>
@@ -422,11 +430,12 @@
                                        Target="{Binding ElementName=RemoteLocationBox}"
                                        Style="{StaticResource FieldLabel}"
                                        Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                <ComboBox x:Name="RemoteLocationBox"
-                                          ItemsSource="{Binding Remote.Locations}" SelectedItem="{Binding Remote.SelectedLocation}"
-                                          DisplayMemberPath="DisplayName" Width="240" MinWidth="160"
-                                          AutomationProperties.Name="リモート接続場所"
-                                          AutomationProperties.HelpText="操作する共有フォルダを選択します。"/>
+                                 <ComboBox x:Name="RemoteLocationBox"
+                                           ItemsSource="{Binding Remote.Locations}" SelectedItem="{Binding Remote.SelectedLocation}"
+                                           DisplayMemberPath="DisplayName" Width="240" MinWidth="160"
+                                           AutomationProperties.Name="リモート接続場所"
+                                           AutomationProperties.HelpText="{Binding Remote.SelectedLocationTooltip}"
+                                           ToolTip="{Binding Remote.SelectedLocationTooltip}"/>
                             </StackPanel>
                         </WrapPanel>
                     </Border>

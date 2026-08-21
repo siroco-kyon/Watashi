@@ -42,6 +42,7 @@
     <Compile Include="..\..\src\Watashi.Client\Services\TransferQueueStore.cs" Link="Client\TransferQueueStore.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\TransferConflictPlanner.cs" Link="Client\TransferConflictPlanner.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\ITransferProtocol.cs" Link="Client\ITransferProtocol.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\MonitorWorkAreaMath.cs" Link="Client\MonitorWorkAreaMath.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\TransferQueueService.cs" Link="Client\TransferQueueService.cs" />
   </ItemGroup>
 

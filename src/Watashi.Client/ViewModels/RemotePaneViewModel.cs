@@ -75,6 +75,9 @@ public partial class RemotePaneViewModel : ObservableObject
         Locations.Contains(location) &&
         PathHelper.IsPathWithin(location.Path, CurrentPath);
     public bool NeedsLocationSelection => Locations.Count > 0 && SelectedLocation is null;
+    public string SelectedLocationTooltip => SelectedLocation is null
+        ? "接続場所を選択してください。"
+        : BuildLocationTooltip(SelectedLocation);
     public bool HasNoFilterMatches =>
         SelectedLocation is not null &&
         !string.IsNullOrWhiteSpace(FilterText) &&
@@ -101,11 +104,13 @@ public partial class RemotePaneViewModel : ObservableObject
     partial void OnSelectedLocationChanged(LocationDto? value)
     {
         CancelCurrentRefresh();
+        FilterText = string.Empty;
         OnPropertyChanged(nameof(HasLocation));
         OnPropertyChanged(nameof(NeedsLocationSelection));
         OnPropertyChanged(nameof(HasNoFilterMatches));
         OnPropertyChanged(nameof(IsFolderEmpty));
         OnPropertyChanged(nameof(CanSaveCurrentPlace));
+        OnPropertyChanged(nameof(SelectedLocationTooltip));
         if (value is null)
         {
             _all.Clear();
@@ -227,7 +232,7 @@ public partial class RemotePaneViewModel : ObservableObject
         Selected = null;
         CurrentPath = target;
         UpdateHistoryFlags();
-        await RefreshCoreAsync(recordRecent: true);
+        await RefreshCoreAsync(recordRecent: true, clearFilterOnSuccess: true);
     }
 
     [RelayCommand]
@@ -244,7 +249,7 @@ public partial class RemotePaneViewModel : ObservableObject
         Selected = null;
         CurrentPath = prev;
         UpdateHistoryFlags();
-        return RefreshCoreAsync(recordRecent: true);
+        return RefreshCoreAsync(recordRecent: true, clearFilterOnSuccess: true);
     }
 
     [RelayCommand]
@@ -261,22 +266,22 @@ public partial class RemotePaneViewModel : ObservableObject
         Selected = null;
         CurrentPath = next;
         UpdateHistoryFlags();
-        return RefreshCoreAsync(recordRecent: true);
+        return RefreshCoreAsync(recordRecent: true, clearFilterOnSuccess: true);
     }
 
     [RelayCommand]
     public Task GoUpAsync()
     {
         if (!CanGoUp) return Task.CompletedTask;
-        var parent = PathHelper.GetParent(CurrentPath);
-        if (parent == CurrentPath) return Task.CompletedTask;
+        var parent = PathHelper.GetParent(_lastSuccessfulPath);
+        if (parent == _lastSuccessfulPath) return Task.CompletedTask;
         return NavigateAsync(parent);
     }
 
     [RelayCommand]
     public Task RefreshAsync() => RefreshCoreAsync(recordRecent: false);
 
-    private async Task RefreshCoreAsync(bool recordRecent)
+    private async Task RefreshCoreAsync(bool recordRecent, bool clearFilterOnSuccess = false)
     {
         var location = SelectedLocation;
         if (location is null) return;
@@ -303,7 +308,7 @@ public partial class RemotePaneViewModel : ObservableObject
                 location.ShareId,
                 path,
                 sort,
-                limit: 200,
+                limit: ApiClient.RemoteListPageSize,
                 ct: cts.Token);
 
             if (generation != Volatile.Read(ref _refreshGeneration) ||
@@ -328,6 +333,7 @@ public partial class RemotePaneViewModel : ObservableObject
             IsListTruncated = res.Truncated;
             UpdateListProgress();
             _lastSuccessfulPath = path;
+            if (clearFilterOnSuccess) FilterText = string.Empty;
             ApplyView();
             StatusMessage = res.Truncated
                 ? "このフォルダーは上限を超えたため、先頭10万件まで表示できます。"
@@ -377,7 +383,7 @@ public partial class RemotePaneViewModel : ObservableObject
                 location.ShareId,
                 path,
                 sort,
-                limit: 200,
+                limit: ApiClient.RemoteListPageSize,
                 cursor: cursor,
                 ct: cts.Token);
 
@@ -454,6 +460,14 @@ public partial class RemotePaneViewModel : ObservableObject
 
     partial void OnSortKeyChanged(string? value) => _ = RefreshAsync();
     partial void OnFilterTextChanged(string value) => ApplyView();
+
+    private static string BuildLocationTooltip(LocationDto location)
+    {
+        var displayName = string.IsNullOrWhiteSpace(location.DisplayName)
+            ? $"{location.HostName} / {location.ShareName}"
+            : location.DisplayName.Trim();
+        return $"{displayName}\nホスト: {location.HostName}\n共有: {location.ShareName}\n許可ルート: {PathHelper.NormalizePath(location.Path)}";
+    }
 
     [RelayCommand]
     public async Task OpenSelectedAsync()
