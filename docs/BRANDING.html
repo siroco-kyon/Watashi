@@ -813,8 +813,8 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
         <p>
           アイコンは「exe・タスクバー・ClickOnce用の<code>.ico</code>」と
           「画面内で描画するXAML」の2系統です。外側だけでなく画面内も揃える場合は両方変更します。
-          色は<strong>1ファイル（<code>Colors.xaml</code>）に集約</strong>されているので、
-          ツール全体の色替えはそこの6行と、<code>.ico</code>生成スクリプトの2行を合わせるだけです。
+          色は<strong>ライト用（<code>Colors.Light.xaml</code>）とダーク用（<code>Colors.Dark.xaml</code>）</strong>に分かれています。
+          両パレットを同じブランド色相で調整し、固定画像の<code>.ico</code>生成スクリプトも合わせます。
         </p>
 
         <h3>5-1. どこを変えると何が変わるか</h3>
@@ -838,8 +838,8 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
               </tr>
               <tr>
                 <td><strong>ツール全体の色</strong></td>
-                <td><code>src/Watashi.Client/Themes/Colors.xaml</code></td>
-                <td><code>AccentColor</code>／<code>AccentHoverColor</code>／<code>AccentPressedColor</code>／<code>AccentSoftColor</code>／<code>AccentDeepColor</code>＋<code>FocusColor</code>の<strong>6行</strong></td>
+                <td><code>Colors.Light.xaml</code>＋<code>Colors.Dark.xaml</code></td>
+                <td>両ファイルの<code>AccentColor</code>／<code>AccentHoverColor</code>／<code>AccentPressedColor</code>／<code>AccentSoftColor</code>／<code>AccentDeepColor</code>＋<code>FocusColor</code></td>
                 <td>主ボタン、入力欄のフォーカス枠、選択行、リンク文字、見出しの強調、画面内ロゴの色</td>
               </tr>
               <tr>
@@ -855,7 +855,7 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
         <div class="callout success">
           <strong>色を変えるとき<code>Icons.xaml</code>は触りません。</strong>
           鳥居の各パーツは色を直書きせず<code>{StaticResource AccentBrush}</code>／<code>AccentDeepBrush</code>を参照しているため、
-          <code>Colors.xaml</code>を変えるだけで画面内ロゴの色も追従します。
+          ライト／ダークのパレットを変えると画面内ロゴの色も追従します。
           もう1つの<code>ToriiIconLight</code>は<code>TextOnAccentBrush</code>（白）固定の濃色背景用ですが、
           現状どの画面からも参照されていません（<code>ToriiLogo</code>／<code>ToriiLogoLight</code>テンプレートも未使用）。
           色替えでは無視して構いません。形を変えるときだけ、後で使ったときにズレないよう合わせて直します。
@@ -863,13 +863,14 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
 
         <h3 id="icon-color">5-2. ツールの色を変える（最短手順）</h3>
         <div class="flow">
-          <div><code>Colors.xaml</code>の6行を新しい色に置き換える</div>
+          <div><code>Colors.Light.xaml</code>の6行を新しい色に置き換える</div>
+          <div><code>Colors.Dark.xaml</code>に同じ色相の高コントラスト版を用意する</div>
           <div><code>Generate-ToriiIcon.ps1</code>の<code>$ACCENT</code>／<code>$ACCENT_DEEP</code>を同じ値にする</div>
           <div>スクリプトを実行して<code>.ico</code>を再生成する</div>
           <div>リビルドして各画面とタスクバーを目視確認する</div>
         </div>
 
-        <p><strong>① <code>Themes/Colors.xaml</code></strong>（瑠璃色に変える例）</p>
+        <p><strong>① <code>Themes/Colors.Light.xaml</code></strong>（瑠璃色に変える例）</p>
         <pre><code>&lt;!-- ===== ボーダー ===== --&gt;
 &lt;Color x:Key="FocusColor"&gt;#1D48C9&lt;/Color&gt;          &lt;!-- 旧 #C73E1D / AccentColor と同値にする --&gt;
 
@@ -880,12 +881,13 @@ powershell -NoProfile -File scripts/Rename-Brand.ps1 `
 &lt;Color x:Key="AccentSoftColor"&gt;#E1E7F9&lt;/Color&gt;     &lt;!-- 旧 #F9E5E0 選択行・淡い背景 --&gt;
 &lt;Color x:Key="AccentDeepColor"&gt;#0B1F5B&lt;/Color&gt;     &lt;!-- 旧 #5C1A0B 濃色・鳥居の島木 --&gt;</code></pre>
         <p>
-          下段の<code>&lt;SolidColorBrush&gt;</code>群は上の<code>&lt;Color&gt;</code>を参照しているだけなので、
-          書き換えるのは<code>&lt;Color&gt;</code>の行だけです。
+          <code>Colors.xaml</code>は共通ブラシとパレット読込だけを持つため変更しません。
+          続けて<code>Colors.Dark.xaml</code>の同じ6キーを同じ色相で調整します。暗背景ではライト側の値を
+          そのままコピーせず、アクセントと文字が十分に判別できる明度にしてください。
         </p>
 
-        <p><strong>② <code>scripts/Generate-ToriiIcon.ps1</code></strong>（<code>Colors.xaml</code>と必ず同じ値に）</p>
-        <pre><code># Mirrors Colors.xaml: AccentColor and AccentDeepColor.
+        <p><strong>② <code>scripts/Generate-ToriiIcon.ps1</code></strong>（<code>Colors.Light.xaml</code>と同じ値に）</p>
+        <pre><code># Mirrors Colors.Light.xaml: AccentColor and AccentDeepColor.
 $ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0x1D, 0x48, 0xC9)   # = #1D48C9
 $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x1F, 0x5B)   # = #0B1F5B</code></pre>
 
@@ -897,12 +899,12 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIcon.ps1
 dotnet build src\Watashi.Client\Watashi.Client.csproj</code></pre>
 
         <div class="callout warning">
-          <strong><code>Colors.xaml</code>と<code>Generate-ToriiIcon.ps1</code>は必ずセットで直します。</strong>
+          <strong>ライト／ダーク両パレットと<code>Generate-ToriiIcon.ps1</code>は必ずセットで直します。</strong>
           片方だけ変えると、画面内のロゴとタスクバーのアイコンで色が食い違います。
-          <code>.ico</code>を差し替えるだけなら<code>Colors.xaml</code>は変わらず、ボタンなどUIの色は元のままです。
+          <code>.ico</code>を差し替えるだけなら両パレットは変わらず、ボタンなどUIの色は元のままです。
         </div>
 
-        <h4>6つの値の決め方</h4>
+        <h4>ライトパレット6値の決め方</h4>
         <p>
           既定の朱と同じトーンを保つなら、色相（Hue）だけを変えて彩度・明度は下表のまま使います。
           <code>AccentDeepColor</code>と<code>AccentColor</code>は<code>.ico</code>の配色にもそのまま使われます。
@@ -965,7 +967,7 @@ function Get-BrandHex([double]$h, [double]$s, [double]$l) {
               <tr><th>やりたいこと</th><th>触るもの</th><th>手順</th></tr>
             </thead>
             <tbody>
-              <tr><td>鳥居のまま色だけ変えたい</td><td><code>Colors.xaml</code>＋<code>Generate-ToriiIcon.ps1</code></td><td><a href="#icon-color">5-2</a></td></tr>
+              <tr><td>鳥居のまま色だけ変えたい</td><td><code>Colors.Light.xaml</code>＋<code>Colors.Dark.xaml</code>＋<code>Generate-ToriiIcon.ps1</code></td><td><a href="#icon-color">5-2</a></td></tr>
               <tr><td>環境ごとに色を分けたい（絵柄は鳥居）</td><td>同梱<code>.ico</code>をコピーするだけ</td><td><a href="#icon-variants">5-4</a></td></tr>
               <tr><td>用意した画像／ロゴに差し替えたい</td><td><code>Watashi.ico</code>＋<code>Icons.xaml</code></td><td>5-3-A</td></tr>
               <tr><td>鳥居の形を自分で描き直したい</td><td><code>Icons.xaml</code>＋<code>Generate-ToriiIcon.ps1</code>の描画コード</td><td>5-3-B</td></tr>
@@ -1073,7 +1075,8 @@ function Get-BrandHex([double]$h, [double]$s, [double]$l) {
         <p>
           <code>.ico</code>だけ差し替えるなら<strong>ファイル名の列</strong>だけ見れば足ります。
           UIの色（ボタン・フォーカス枠・選択行など）も揃える場合は、
-          その行の5つの値を<code>Colors.xaml</code>へ、<code>Accent</code>と<code>Deep</code>を<code>Generate-ToriiIcon.ps1</code>へ入れます。
+          その行の5つの値を<code>Colors.Light.xaml</code>へ、<code>Accent</code>と<code>Deep</code>を<code>Generate-ToriiIcon.ps1</code>へ入れます。
+          <code>Colors.Dark.xaml</code>には同じ色相の高コントラスト版を別途用意します。
           <code>FocusColor</code>は<code>AccentColor</code>と同じ値です。
         </p>
         <div class="table-wrap file-list">
@@ -1103,13 +1106,14 @@ function Get-BrandHex([double]$h, [double]$s, [double]$l) {
 
         <h4>色ごとのコピペ用（クリックで開く）</h4>
         <p>
-          各色の<code>Colors.xaml</code>6行と<code>Generate-ToriiIcon.ps1</code>2行をそのまま貼り付けられます。
-          <code>Colors.xaml</code>では<code>FocusColor</code>だけ「ボーダー」節にあり、他の5つは「アクセント」節にあります。
+          各色の<code>Colors.Light.xaml</code>6行と<code>Generate-ToriiIcon.ps1</code>2行をそのまま貼り付けられます。
+          <code>Colors.Light.xaml</code>では<code>FocusColor</code>だけ「ボーダー」節にあり、他の5つは「アクセント」節にあります。
+          適用後は必ずダークパレットも同じ色相へ調整してください。
         </p>
         <details class="recipe" style="--swatch:#C73E1D">
           <summary>朱（既定）<span class="hex">Hue 12　/　#C73E1D　/　Watashi-shu.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#C73E1D&lt;/Color&gt;
 
@@ -1131,7 +1135,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5
         <details class="recipe" style="--swatch:#C9731D">
           <summary>橙<span class="hex">Hue 30　/　#C9731D　/　Watashi-orange.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#C9731D&lt;/Color&gt;
 
@@ -1153,7 +1157,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5B, 0x33, 0x0B)   # = #5
         <details class="recipe" style="--swatch:#C9A61D">
           <summary>山吹<span class="hex">Hue 48　/　#C9A61D　/　Watashi-gold.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#C9A61D&lt;/Color&gt;
 
@@ -1175,7 +1179,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5B, 0x4B, 0x0B)   # = #5
         <details class="recipe" style="--swatch:#73C91D">
           <summary>若草<span class="hex">Hue 90　/　#73C91D　/　Watashi-lime.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#73C91D&lt;/Color&gt;
 
@@ -1197,7 +1201,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x33, 0x5B, 0x0B)   # = #3
         <details class="recipe" style="--swatch:#1DC956">
           <summary>常磐<span class="hex">Hue 140　/　#1DC956　/　Watashi-green.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#1DC956&lt;/Color&gt;
 
@@ -1219,7 +1223,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x5B, 0x26)   # = #0
         <details class="recipe" style="--swatch:#1DC9AC">
           <summary>青碧<span class="hex">Hue 170　/　#1DC9AC　/　Watashi-teal.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#1DC9AC&lt;/Color&gt;
 
@@ -1241,7 +1245,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x5B, 0x4E)   # = #0
         <details class="recipe" style="--swatch:#1D8FC9">
           <summary>浅葱<span class="hex">Hue 200　/　#1D8FC9　/　Watashi-cyan.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#1D8FC9&lt;/Color&gt;
 
@@ -1263,7 +1267,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x40, 0x5B)   # = #0
         <details class="recipe" style="--swatch:#1D48C9">
           <summary>瑠璃<span class="hex">Hue 225　/　#1D48C9　/　Watashi-blue.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#1D48C9&lt;/Color&gt;
 
@@ -1285,7 +1289,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x0B, 0x1F, 0x5B)   # = #0
         <details class="recipe" style="--swatch:#5C1DC9">
           <summary>菫<span class="hex">Hue 262　/　#5C1DC9　/　Watashi-violet.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#5C1DC9&lt;/Color&gt;
 
@@ -1307,7 +1311,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x28, 0x0B, 0x5B)   # = #2
         <details class="recipe" style="--swatch:#C91DC9">
           <summary>紫<span class="hex">Hue 300　/　#C91DC9　/　Watashi-magenta.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#C91DC9&lt;/Color&gt;
 
@@ -1329,7 +1333,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5B, 0x0B, 0x5B)   # = #5
         <details class="recipe" style="--swatch:#C91D64">
           <summary>躑躅<span class="hex">Hue 335　/　#C91D64　/　Watashi-rose.ico</span></summary>
           <div class="recipe-body">
-            <p><strong>src/Watashi.Client/Themes/Colors.xaml</strong></p>
+            <p><strong>src/Watashi.Client/Themes/Colors.Light.xaml</strong></p>
             <pre><code>&lt;!-- ボーダー節 --&gt;
 &lt;Color x:Key="FocusColor"&gt;#C91D64&lt;/Color&gt;
 
@@ -1354,7 +1358,7 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5B, 0x0B, 0x2C)   # = #5
           <li><code>deployment.json</code>の<code>serverUrl</code>をその環境の中央サーバにする</li>
           <li>選んだ色で<code>Watashi.ico</code>を上書き<br>
             <code>Copy-Item assets\icons\Watashi-blue.ico src\Watashi.Client\Watashi.ico -Force</code></li>
-          <li>画面内の色も揃えるなら<a href="#icon-color">5-2</a>の手順で<code>Colors.xaml</code>を同じ色相に変更（<code>.ico</code>だけならこの手順は不要）</li>
+          <li>画面内の色も揃えるなら<a href="#icon-color">5-2</a>の手順でライト／ダーク両パレットを同じ色相に変更（<code>.ico</code>だけならこの手順は不要）</li>
           <li>ClickOnceを再発行（マニフェストがハッシュ検証するため再発行は必須）</li>
           <li>発行後に既定へ戻す<br>
             <code>Copy-Item assets\icons\Watashi-shu.ico src\Watashi.Client\Watashi.ico -Force</code>（<code>git restore src/Watashi.Client/Watashi.ico</code>でも可）</li>
@@ -1377,7 +1381,8 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
               <tr><th>症状</th><th>確認する場所</th></tr>
             </thead>
             <tbody>
-              <tr><td>ボタンなどUIの色が変わらない</td><td><code>Colors.xaml</code>の<code>&lt;Color&gt;</code>行を直したか（<code>&lt;SolidColorBrush&gt;</code>側だけ直していないか）</td></tr>
+              <tr><td>ボタンなどUIの色が変わらない</td><td>表示中テーマに対応する<code>Colors.Light.xaml</code>／<code>Colors.Dark.xaml</code>の<code>&lt;Color&gt;</code>行を直したか</td></tr>
+              <tr><td>ライトだけ／ダークだけ旧色のまま</td><td>もう一方のパレットの変更漏れ。<code>Colors.xaml</code>自体には色値を置かない</td></tr>
               <tr><td>画面内ロゴだけ古い色</td><td>同上。ロゴは<code>AccentBrush</code>／<code>AccentDeepBrush</code>経由</td></tr>
               <tr><td>タスクバーのアイコンだけ古い色</td><td><code>Generate-ToriiIcon.ps1</code>の再実行漏れ、または<code>.ico</code>のコピー漏れ</td></tr>
               <tr><td>フォーカス枠だけ前の色</td><td><code>FocusColor</code>の変更漏れ</td></tr>
@@ -1643,8 +1648,10 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
 
         <h3>通常の改名</h3>
         <ul class="checklist">
-          <li>クライアントをリビルドした</li>
+          <li>.NET 10 SDKでクライアントをリビルドした</li>
           <li>ログイン・メイン・管理画面の表示名を確認した</li>
+          <li>ライト／ダークを切り替え、背景・文字・アクセント・入力欄・右クリックメニュー・ツールチップを確認した</li>
+          <li>「Windowsに合わせる」とハイコントラストで、OS所有画面を含め操作可能なことを確認した</li>
           <li>exeとタスクバーのアイコンを確認した</li>
           <li>ClickOnceを再発行した</li>
           <li>スタートメニューと「アプリと機能」の名前を確認した</li>

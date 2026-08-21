@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _vm;
     private readonly SessionManager _session;
     private readonly TaskCompletionSource _cleanupCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private IDisposable? _monitorWorkAreaHook;
 
     public Task CleanupCompleted => _cleanupCompleted.Task;
 
@@ -29,21 +30,14 @@ public partial class MainWindow : Window
         InitializeDragDrop(settings);
         Loaded += OnLoaded;
         Closed += OnClosed;
-        StateChanged += OnWindowStateChanged;
+        SourceInitialized += OnSourceInitialized;
         _vm.PropertyChanged += OnViewModelPropertyChanged;
     }
 
-    // 特定のマルチモニター環境で WindowState=Maximized にすると、ネイティブの
-    // ウィンドウ自体はモニターの解像度まで正しくリサイズされるものの、WPF 側の
-    // コンテンツは追従せず左上に小さいまま残る現象を確認した(InvalidateMeasure/
-    // Arrange/UpdateLayout の強制実行では解消しなかった)。ネイティブの最大化を
-    // 使わず、現在のモニタの作業領域に合わせてウィンドウを手動でリサイズすることで
-    // 回避する。
-    private void OnWindowStateChanged(object? sender, System.EventArgs e)
+    private void OnSourceInitialized(object? sender, EventArgs e)
     {
-        if (WindowState != WindowState.Maximized) return;
-        WindowState = WindowState.Normal;
-        MonitorHelper.ApplyWorkAreaBounds(this);
+        SourceInitialized -= OnSourceInitialized;
+        _monitorWorkAreaHook = MonitorHelper.AttachWorkAreaHook(this);
     }
 
     // ドラッグ＆ドロップの実装は MainWindow.DragDrop.cs に隔離している。
@@ -64,6 +58,9 @@ public partial class MainWindow : Window
     {
         try
         {
+            SourceInitialized -= OnSourceInitialized;
+            _monitorWorkAreaHook?.Dispose();
+            _monitorWorkAreaHook = null;
             _vm.PropertyChanged -= OnViewModelPropertyChanged;
             Closed -= OnClosed;
             await _vm.DisposeTransferQueueAsync();

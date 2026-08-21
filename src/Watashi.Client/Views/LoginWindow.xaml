@@ -35,6 +35,25 @@
                            HorizontalAlignment="Center"/>
             </StackPanel>
 
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Margin="0,0,0,12">
+                <Label Content="テーマ"
+                       Target="{Binding ElementName=LoginThemeBox}"
+                       Style="{StaticResource FieldLabel}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0"/>
+                <ComboBox x:Name="LoginThemeBox"
+                          Width="150"
+                          ItemsSource="{Binding Theme.Options}"
+                          DisplayMemberPath="Label"
+                          SelectedValuePath="Value"
+                          SelectedValue="{Binding Theme.SelectedMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          AutomationProperties.Name="表示テーマ"
+                          AutomationProperties.HelpText="Watashi の表示を Windows に合わせる、ライト、ダークから選びます。"
+                          ToolTip="表示テーマを選択します。"/>
+            </StackPanel>
+
             <!-- HTTP は検証用途として許可するが、認証前からリスクを明示する。 -->
             <Border Style="{StaticResource AccessibleWarningBanner}"
                     CornerRadius="6"

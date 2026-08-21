@@ -8,13 +8,15 @@ namespace Watashi.Client.Views.Admin;
 public partial class AdminWindow : Window
 {
     private bool _initialLoadCompleted;
+    private IDisposable? _monitorWorkAreaHook;
 
     public AdminWindow(AdminShellViewModel vm)
     {
         InitializeComponent();
         DataContext = vm;
         Loaded += OnLoaded;
-        StateChanged += OnWindowStateChanged;
+        SourceInitialized += OnSourceInitialized;
+        Closed += OnClosed;
         async void OnLoaded(object? _, RoutedEventArgs __)
         {
             Loaded -= OnLoaded;
@@ -34,16 +36,18 @@ public partial class AdminWindow : Window
         }
     }
 
-    // 特定のマルチモニター環境で WindowState=Maximized にすると、ネイティブの
-    // ウィンドウ自体はモニターの解像度まで正しくリサイズされるものの、WPF 側の
-    // コンテンツは追従せず左上に小さいまま残る現象を確認した。ネイティブの最大化を
-    // 使わず、現在のモニタの作業領域に合わせてウィンドウを手動でリサイズすることで
-    // 回避する。
-    private void OnWindowStateChanged(object? sender, System.EventArgs e)
+    private void OnSourceInitialized(object? sender, EventArgs e)
     {
-        if (WindowState != WindowState.Maximized) return;
-        WindowState = WindowState.Normal;
-        MonitorHelper.ApplyWorkAreaBounds(this);
+        SourceInitialized -= OnSourceInitialized;
+        _monitorWorkAreaHook = MonitorHelper.AttachWorkAreaHook(this);
+    }
+
+    private void OnClosed(object? sender, EventArgs e)
+    {
+        SourceInitialized -= OnSourceInitialized;
+        Closed -= OnClosed;
+        _monitorWorkAreaHook?.Dispose();
+        _monitorWorkAreaHook = null;
     }
 
     private async void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)

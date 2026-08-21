@@ -51,6 +51,8 @@ public class AppSettings
     /// リモート側の管理ごみ箱とは独立した利用者設定。
     /// </summary>
     public bool UseRecycleBinForLocalDeletes { get; set; } = true;
+    /// <summary>クライアントの外観。System / Light / Dark のいずれか。</summary>
+    public string ThemeMode { get; set; } = AppThemeModes.System;
     public List<RemotePlaceSetting> RemoteFavorites { get; set; } = new();
     public List<RemotePlaceSetting> RecentRemotePlaces { get; set; } = new();
 
@@ -104,6 +106,7 @@ public class AppSettings
                 ? new AppSettings()
                 : JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
             settings.NormalizeRemotePlaces();
+            settings.ThemeMode = AppThemeModes.Normalize(settings.ThemeMode);
             return settings;
         }
         catch
@@ -183,6 +186,7 @@ public class AppSettings
     public void Save()
     {
         NormalizeRemotePlaces();
+        ThemeMode = AppThemeModes.Normalize(ThemeMode);
         var dir = Path.GetDirectoryName(SettingsPath)!;
         Directory.CreateDirectory(dir);
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
@@ -262,6 +266,20 @@ public class AppSettings
                 return false;
         }
         return true;
+    }
+}
+
+public static class AppThemeModes
+{
+    public const string System = "System";
+    public const string Light = "Light";
+    public const string Dark = "Dark";
+
+    public static string Normalize(string? value)
+    {
+        if (string.Equals(value, Light, StringComparison.OrdinalIgnoreCase)) return Light;
+        if (string.Equals(value, Dark, StringComparison.OrdinalIgnoreCase)) return Dark;
+        return System;
     }
 }
 

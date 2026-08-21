@@ -15,6 +15,7 @@ public partial class App : Application
 {
     public IServiceProvider Services { get; private set; } = null!;
     private AppSettings _settings = null!;
+    private ThemeService? _themeService;
     private SplashWindow? _splash;
 
     /// <summary>
@@ -49,14 +50,16 @@ public partial class App : Application
 
         try
         {
+            // 最初のウィンドウを作る前に保存済みテーマを反映し、ライト画面の瞬間表示を防ぐ。
+            _settings = AppSettings.Load();
+            _themeService = new ThemeService(_settings);
+
             // 起動処理 (更新確認・自動ログイン等) はウィンドウ表示前にネットワークへ出るため、
             // 環境によっては十数秒かかる。無反応に見えないよう最初にスプラッシュを表示し、
             // 進捗 (%) と現在の工程を出す。
             _splash = new SplashWindow();
             _splash.Show();
             _splash.SetProgress(5, "設定を読み込んでいます...");
-
-            _settings = AppSettings.Load();
 
             // 接続先サーバと機能設定はアプリ同梱の deployment.json で固定する (管理者が配布時に設定)。
             // クライアントからは変更できない。settings.json の ServerUrl より優先される。
@@ -81,7 +84,7 @@ public partial class App : Application
             }
 
             _splash.SetProgress(60, "アプリケーションを初期化しています...");
-            Services = BuildServices(_settings);
+            Services = BuildServices(_settings, _themeService);
             Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
 
             await StartLoginFlowAsync();
@@ -92,6 +95,12 @@ public partial class App : Application
             ShowFatal("起動失敗", ex);
             Shutdown();
         }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _themeService?.Dispose();
+        base.OnExit(e);
     }
 
     // 旧 API 互換（直接呼ぶ箇所がもう無くなったらこのメソッドごと削除可）。
@@ -380,10 +389,11 @@ public partial class App : Application
         }
     }
 
-    private static IServiceProvider BuildServices(AppSettings settings)
+    private static IServiceProvider BuildServices(AppSettings settings, ThemeService themeService)
     {
         var services = new ServiceCollection();
         services.AddSingleton(settings);
+        services.AddSingleton(themeService);
         services.AddSingleton<CredentialStore>();
         services.AddSingleton<SessionManager>();
         services.AddSingleton<LocalFileService>();
