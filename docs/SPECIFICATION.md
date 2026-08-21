@@ -419,10 +419,12 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 
 ### 8.1 ユーザー
 一覧 / 追加 / 削除 / 管理者フラグ変更 / ロック解除 / 初期 PW 発行 / 初回設定に戻す。
+任意の `DisplayName` (最大100文字、重複可) を登録・編集でき、管理画面では `名前（Username）`、未設定時は Username のみを表示する。
+`DisplayName` は認証・Windows 本人確認・権限判定・JWT には使わない。
 **新規ユーザーはパスワードを持たず、`IsPasswordSetupPending=true` で作成される** (§4.7)。
 管理者リセット (`初期PW発行`) の場合のみ `MustChangePassword=true`。
-**CSV インポート** (`Username,IsAdmin`、新規のみ/上書きの 2 モード、行単位エラー表示。上書きは `IsAdmin` のみ更新しパスワードには触れない) と
-**CSV エクスポート** (棚卸し用、BOM 付き UTF-8、`PasswordStatus` 列付き)。
+**CSV インポート** (`Username,IsAdmin,DisplayName`、`DisplayName` は任意、新規のみ/上書きの 2 モード、行単位エラー表示。上書きは列がある `IsAdmin` / `DisplayName` だけを更新しパスワードには触れない) と
+**CSV エクスポート** (棚卸し用、BOM 付き UTF-8、既存列の末尾に `DisplayName`)。
 
 ### 8.2 ホスト (CIFS ファイルサーバー)
 表示名 / ホスト名・IP / ポート (デフォルト 445) / CIFS 資格情報 / 実行ノード。
@@ -437,7 +439,7 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 表示は権限スコア降順。使用中は削除不可。
 
 ### 8.5 ユーザー権限 (パスブラウザ付き)
-- 左サイドバー: ユーザー一覧 (絞り込み + 件数バッジ、仮想化)
+- 左サイドバー: `名前（Username）` のユーザー一覧 (名前・Username の絞り込み + 件数バッジ、仮想化)
 - 右パネル: 付与済みパス + 「＋ パスを追加」
 - サーバー → 共有のドロップダウン階層、テンプレートは強い順 (デフォルト フルアクセス)
 - 実ディレクトリツリーから許可パスを選択
@@ -447,7 +449,7 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 部署/役割単位で権限行をまとめて登録 → ユーザーへ一括適用 (§5.3)。
 
 ### 8.7 信頼デバイス
-ユーザーごとの複数自動ログインデバイス一覧 / 「全デバイス失効」(`ExecuteUpdateAsync` で原子的)。
+ユーザーごとの複数自動ログインデバイスを `名前（Username）` 付きで一覧 / 「全デバイス失効」(`ExecuteUpdateAsync` で原子的)。
 利用者自身にも自分の端末だけを一覧・個別失効する画面を提供する。
 
 ### 8.8 実行ノード
@@ -456,9 +458,10 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 削除前にホストでの使用チェック。mTLS モードでは `ClientCertificateThumbprint` で識別。
 
 ### 8.9 操作ログ
-フィルタ (ユーザー/カテゴリ/操作/結果/ホスト/共有/パス/端末/IP/期間)、1 ページ 100 件降順、
+フィルタ (名前・ユーザー名・ユーザーID/カテゴリ/操作/結果/ホスト/共有/パス/端末/IP/期間)、1 ページ 100 件降順、
 先頭/前/次/末尾と総件数を表示。CSVは画面と同じ条件でストリーミング出力する。
 ファイル操作 (`READ/WRITE/DELETE/RENAME`) と管理操作 (`ADMIN_*`) の両方。
+監査証跡の `Username` は変更せず、在籍ユーザーの現在の `DisplayName` を取得時に補助表示する。
 
 ### 8.10 システム設定
 `PasswordExpiryDays` (90) / `PasswordWarningDays` (14) / `AgentMaxConcurrency` (20) /
@@ -614,7 +617,7 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 主要エンティティ (SQLite + EF Core)。`[JsonIgnore]` 付きフィールドは API レスポンスから自動除外。
 
 ### User
-`Id` / `Username` / `PasswordHash` `[JsonIgnore]` / `IsAdmin` / `IsLocked` /
+`Id` / `Username` / `DisplayName` (nullable、最大100文字、表示専用) / `PasswordHash` `[JsonIgnore]` / `IsAdmin` / `IsLocked` /
 `FailedLoginAttempts` / `MustChangePassword` / `PasswordExpiresAt` / `LastLoginAt` / `CreatedAt` /
 `IsPasswordSetupPending` / `PasswordSetupExpiresAt` / `WindowsAccountName`
 

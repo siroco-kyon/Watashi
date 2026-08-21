@@ -70,6 +70,35 @@ public sealed class ClientUiChangeTests
     }
 
     [Fact]
+    public void Admin_user_surfaces_bind_the_optional_display_name_and_safe_fallback_label()
+    {
+        var users = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/UserManagementView.xaml"));
+        var permissions = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/UserPermissionView.xaml"));
+        var devices = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/DeviceManagementView.xaml"));
+        var audit = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/AuditLogView.xaml"));
+        var userVm = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/Admin/UserManagementViewModel.cs"));
+        var permissionVm = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/Admin/UserPermissionViewModel.cs"));
+        var deviceVm = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/Admin/DeviceManagementViewModel.cs"));
+
+        users.Should().Contain("Header=\"名前\"")
+            .And.Contain("{Binding DisplayName}")
+            .And.Contain("{Binding Selected.DisplayLabel")
+            .And.Contain("{Binding EditDisplayName")
+            .And.Contain("{Binding NewDisplayName");
+        permissions.Should().Contain("{Binding DisplayLabel}")
+            .And.Contain("DisplayMemberPath=\"DisplayLabel\"");
+        devices.Should().Contain("{Binding DisplayLabel}");
+        audit.Should().Contain("{Binding UserDisplayLabel}");
+        userVm.Should().Contain("u.DisplayName")
+            .And.Contain("DisplayName = EditDisplayName")
+            .And.Contain("DisplayName = NewDisplayName");
+        permissionVm.Should().Contain("u.DisplayName?.Contains")
+            .And.Contain("SelectedUser.DisplayLabel");
+        deviceVm.Should().Contain("d.DisplayName")
+            .And.Contain("SelectedDevice.DisplayLabel");
+    }
+
+    [Fact]
     public void Folder_navigation_clears_filters_without_resetting_sort()
     {
         var local = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/LocalPaneViewModel.cs"));

@@ -221,6 +221,7 @@ public static class AdminUserPermissionEndpoints
                 Id = p.Id,
                 UserId = u.Id,
                 Username = u.Username,
+                UserDisplayName = u.DisplayName,
                 ShareId = s.Id,
                 ShareName = s.DisplayName,
                 HostName = h.Name,
@@ -252,6 +253,7 @@ public static class AdminUserPermissionEndpoints
             Id = row.Id,
             UserId = row.UserId,
             Username = row.Username,
+            UserDisplayName = row.UserDisplayName,
             ShareId = row.ShareId,
             ShareName = row.ShareName,
             HostName = row.HostName,
@@ -287,6 +289,7 @@ public static class AdminUserPermissionEndpoints
         public int Id { get; init; }
         public int UserId { get; init; }
         public string? Username { get; init; }
+        public string? UserDisplayName { get; init; }
         public int ShareId { get; init; }
         public string? ShareName { get; init; }
         public string? HostName { get; init; }

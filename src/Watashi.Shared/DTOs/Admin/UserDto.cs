@@ -1,3 +1,5 @@
+using Watashi.Shared.Helpers;
+
 namespace Watashi.Shared.DTOs.Admin;
 
 /// <summary>管理画面に見せるパスワードの状態。ハッシュそのものは決して返さない。</summary>
@@ -27,6 +29,7 @@ public class UserDto
 {
     public int Id { get; set; }
     public string Username { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
     public bool IsAdmin { get; set; }
     public bool IsLocked { get; set; }
     public bool IsDisabled { get; set; }
@@ -44,6 +47,9 @@ public class UserDto
     /// <summary>初回設定時に Windows 認証で確認できた OS アカウント名。</summary>
     public string? WindowsAccountName { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>管理画面共通の「名前（Username）」表示。名前がなければ Username のみ。</summary>
+    public string DisplayLabel => UserDisplayNames.FormatLabel(DisplayName, Username);
 
     /// <summary>画面表示用のラベル。</summary>
     public string PasswordStatusLabel => PasswordStatuses.ToLabel(PasswordStatus);
@@ -68,11 +74,14 @@ public class UserDto
 public class CreateUserRequest
 {
     public string Username { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
     public bool IsAdmin { get; set; }
 }
 
 public class UpdateUserRequest
 {
+    /// <summary>null は変更なし、空文字は表示名を消去する。</summary>
+    public string? DisplayName { get; set; }
     public bool? IsAdmin { get; set; }
 }
 

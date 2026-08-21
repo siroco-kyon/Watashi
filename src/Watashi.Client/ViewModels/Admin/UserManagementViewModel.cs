@@ -18,6 +18,7 @@ public partial class UserManagementViewModel : AdminViewModelBase
     public ObservableCollection<AdminSortOption> SortOptions { get; } = new()
     {
         new("ユーザー名", nameof(UserDto.Username)),
+        new("名前", nameof(UserDto.DisplayName)),
         new("ID", nameof(UserDto.Id)),
         new("管理者", nameof(UserDto.IsAdmin), ListSortDirection.Descending),
         new("状態", nameof(UserDto.AccountStatusLabel)),
@@ -30,7 +31,9 @@ public partial class UserManagementViewModel : AdminViewModelBase
     [ObservableProperty] private string searchText = string.Empty;
     [ObservableProperty] private AdminSortOption? selectedSortOption;
     [ObservableProperty] private string newUsername = string.Empty;
+    [ObservableProperty] private string newDisplayName = string.Empty;
     [ObservableProperty] private bool newIsAdmin;
+    [ObservableProperty] private string editDisplayName = string.Empty;
     [ObservableProperty] private bool editIsAdmin;
 
     public bool HasSelected => Selected is not null;
@@ -42,7 +45,7 @@ public partial class UserManagementViewModel : AdminViewModelBase
         _api = api;
         ItemsView = CollectionViewSource.GetDefaultView(Items);
         ItemsView.Filter = item => item is UserDto u && MatchesSearch(
-            SearchText, u.Id, u.Username, u.IsAdmin ? "管理者 admin" : "一般 user",
+            SearchText, u.Id, u.Username, u.DisplayName, u.IsAdmin ? "管理者 admin" : "一般 user",
             u.AccountStatusLabel, u.IsDisabled ? "無効 disabled" : u.IsLocked ? "ロック locked" : "有効 active",
             u.DisabledAt, u.DisabledReason, u.DisabledByUserId, u.DisabledByUsername,
             u.PasswordStatus, u.PasswordStatusLabel, u.PasswordExpiresAt, u.LastLoginAt);
@@ -59,6 +62,7 @@ public partial class UserManagementViewModel : AdminViewModelBase
         OnPropertyChanged(nameof(HasSelected));
         OnPropertyChanged(nameof(CanDisableSelected));
         OnPropertyChanged(nameof(CanEnableSelected));
+        EditDisplayName = value?.DisplayName ?? string.Empty;
         EditIsAdmin = value?.IsAdmin ?? false;
     }
 
@@ -89,9 +93,9 @@ public partial class UserManagementViewModel : AdminViewModelBase
         var mode = System.Windows.MessageBox.Show(
             "新規ユーザーのみ追加しますか？\n\n" +
             "[はい] 新規追加のみ (既存ユーザーはスキップ)\n" +
-            "[いいえ] 既存ユーザーの管理者フラグも更新する\n" +
+            "[いいえ] CSV にある既存ユーザーの管理者フラグと名前も更新する\n" +
             "[キャンセル] 中止\n\n" +
-            "※ CSV の形式は Username,IsAdmin です。どちらのモードでも既存ユーザーの\n" +
+            "※ CSV の形式は Username,IsAdmin,DisplayName（名前は任意）です。どちらのモードでも既存ユーザーの\n" +
             "　 パスワードには影響しません。",
             "CSV インポートモード",
             System.Windows.MessageBoxButton.YesNoCancel,
@@ -130,8 +134,15 @@ public partial class UserManagementViewModel : AdminViewModelBase
     public Task CreateAsync() => SafeAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(NewUsername)) { StatusMessage = "ユーザー名を入力してください。"; return; }
-        await _api.CreateUserAsync(new CreateUserRequest { Username = NewUsername, IsAdmin = NewIsAdmin });
-        NewUsername = string.Empty; NewIsAdmin = false;
+        await _api.CreateUserAsync(new CreateUserRequest
+        {
+            Username = NewUsername,
+            DisplayName = NewDisplayName,
+            IsAdmin = NewIsAdmin,
+        });
+        NewUsername = string.Empty;
+        NewDisplayName = string.Empty;
+        NewIsAdmin = false;
         await RefreshAsync();
     }, successMessage: "ユーザーを作成しました。本人が初回ログイン時にパスワードを設定します。");
 
@@ -139,7 +150,11 @@ public partial class UserManagementViewModel : AdminViewModelBase
     public Task SaveAsync() => SafeAsync(async () =>
     {
         if (Selected is null) { StatusMessage = "保存するユーザーを選択してください。"; return; }
-        await _api.UpdateUserAsync(Selected.Id, new UpdateUserRequest { IsAdmin = EditIsAdmin });
+        await _api.UpdateUserAsync(Selected.Id, new UpdateUserRequest
+        {
+            DisplayName = EditDisplayName,
+            IsAdmin = EditIsAdmin,
+        });
         await RefreshAsync();
     }, successMessage: "保存しました。");
 
@@ -148,7 +163,7 @@ public partial class UserManagementViewModel : AdminViewModelBase
     {
         if (Selected is null) { StatusMessage = "削除するユーザーを選択してください。"; return; }
         var confirm = System.Windows.MessageBox.Show(
-            $"ユーザー \"{Selected.Username}\" を削除しますか？\nこのユーザーの権限・信頼デバイス・セッションも削除されます。",
+            $"ユーザー \"{Selected.DisplayLabel}\" を削除しますか？\nこのユーザーの権限・信頼デバイス・セッションも削除されます。",
             "削除確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
         if (confirm != System.Windows.MessageBoxResult.OK) return;
         await _api.DeleteUserAsync(Selected.Id);
@@ -190,7 +205,7 @@ public partial class UserManagementViewModel : AdminViewModelBase
     {
         if (Selected is null) { StatusMessage = "対象のユーザーを選択してください。"; return; }
         var confirm = System.Windows.MessageBox.Show(
-            $"ユーザー \"{Selected.Username}\" のパスワードを破棄し、初回設定待ちに戻しますか？\n\n" +
+            $"ユーザー \"{Selected.DisplayLabel}\" のパスワードを破棄し、初回設定待ちに戻しますか？\n\n" +
             "・現在のパスワードは使えなくなります\n" +
             "・ログイン中のセッションと「このPCを記憶」も失効します\n" +
             "・本人が Windows 認証で確認されると、自分で新しいパスワードを設定できます",

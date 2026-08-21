@@ -15,7 +15,7 @@ public partial class DeviceManagementViewModel : AdminViewModelBase
     public ICollectionView DevicesView { get; }
     public ObservableCollection<AdminSortOption> SortOptions { get; } = new()
     {
-        new("ユーザー", nameof(DeviceDto.Username)),
+        new("ユーザー", nameof(DeviceDto.DisplayLabel)),
         new("ID", nameof(DeviceDto.Id)),
         new("マシン", nameof(DeviceDto.MachineName)),
         new("Windowsユーザー", nameof(DeviceDto.WindowsUsername)),
@@ -34,7 +34,7 @@ public partial class DeviceManagementViewModel : AdminViewModelBase
         _api = api;
         DevicesView = CollectionViewSource.GetDefaultView(Devices);
         DevicesView.Filter = item => item is DeviceDto d && MatchesSearch(
-            SearchText, d.Id, d.UserId, d.Username, d.MachineName, d.WindowsUsername,
+            SearchText, d.Id, d.UserId, d.Username, d.DisplayName, d.MachineName, d.WindowsUsername,
             d.RegisteredAt, d.LastUsedAt, d.IsRevoked ? "失効 revoked" : "有効 active", d.RevokedReason);
         SelectedSortOption = SortOptions[0];
         ApplySort(DevicesView, SelectedSortOption);
@@ -59,7 +59,9 @@ public partial class DeviceManagementViewModel : AdminViewModelBase
     public Task RevokeAllAsync() => SafeAsync(async () =>
     {
         if (SelectedDevice is null) { StatusMessage = "対象ユーザーのデバイス行を選択してください。"; return; }
-        var username = string.IsNullOrWhiteSpace(SelectedDevice.Username) ? $"user#{SelectedDevice.UserId}" : SelectedDevice.Username;
+        var username = string.IsNullOrWhiteSpace(SelectedDevice.Username)
+            ? $"user#{SelectedDevice.UserId}"
+            : SelectedDevice.DisplayLabel;
         var confirm = System.Windows.MessageBox.Show(
             $"\"{username}\" の信頼デバイスを全て失効しますか？\n対象ユーザーは次回ログインで再度パスワード入力が必要になります。",
             "失効確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);

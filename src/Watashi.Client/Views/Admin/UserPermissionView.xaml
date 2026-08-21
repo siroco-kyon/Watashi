@@ -32,7 +32,7 @@
                     <Grid>
                         <TextBox Text="{Binding UserFilter, UpdateSourceTrigger=PropertyChanged}"
                                  Padding="30,5,8,5"
-                                 ToolTip="ユーザー名で絞り込み"/>
+                                 ToolTip="名前またはユーザー名で絞り込み"/>
                         <TextBlock Text="🔍" FontSize="13" Margin="9,0,0,0"
                                    IsHitTestVisible="False"
                                    VerticalAlignment="Center"
@@ -56,7 +56,7 @@
                             <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                 <Setter Property="Padding" Value="0"/>
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                <Setter Property="ToolTip" Value="{Binding Username}"/>
+                                <Setter Property="ToolTip" Value="{Binding DisplayLabel}"/>
                             </Style>
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
@@ -68,7 +68,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="{Binding Username}" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding DisplayLabel}" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Text="管理者"
                                                        Style="{StaticResource Caption}"
@@ -188,7 +188,7 @@
                                             Command="{Binding CopyFromUserCommand}"/>
                                     <ComboBox ItemsSource="{Binding CopyFromCandidates}"
                                               SelectedItem="{Binding CopyFromUser}"
-                                              DisplayMemberPath="Username"
+                                              DisplayMemberPath="DisplayLabel"
                                               ToolTip="このユーザーの全権限を上の選択ユーザーへ複製"/>
                                 </DockPanel>
                             </StackPanel>

@@ -21,6 +21,7 @@ public static class AdminDeviceEndpoints
                     Id = d.Id,
                     UserId = d.UserId,
                     Username = u.Username,
+                    DisplayName = u.DisplayName,
                     MachineName = d.MachineName,
                     WindowsUsername = d.WindowsUsername,
                     RegisteredAt = d.RegisteredAt,

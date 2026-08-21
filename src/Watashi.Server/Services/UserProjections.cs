@@ -18,6 +18,7 @@ public static class UserProjections
     {
         Id = u.Id,
         Username = u.Username,
+        DisplayName = u.DisplayName,
         IsAdmin = u.IsAdmin,
         IsLocked = u.IsLocked,
         IsDisabled = u.IsDisabled,

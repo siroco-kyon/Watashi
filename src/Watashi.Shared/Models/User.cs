@@ -6,6 +6,8 @@ public class User
 {
     public int Id { get; set; }
     public string Username { get; set; } = string.Empty;
+    /// <summary>管理画面で利用者を識別しやすくする任意の名前。認証や権限判定には使わない。</summary>
+    public string? DisplayName { get; set; }
     [JsonIgnore] public string PasswordHash { get; set; } = string.Empty;
     public bool IsAdmin { get; set; }
     public bool IsLocked { get; set; }

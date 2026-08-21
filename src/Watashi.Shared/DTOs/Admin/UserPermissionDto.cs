@@ -1,3 +1,5 @@
+using Watashi.Shared.Helpers;
+
 namespace Watashi.Shared.DTOs.Admin;
 
 public class UserPermissionDto
@@ -5,6 +7,8 @@ public class UserPermissionDto
     public int Id { get; set; }
     public int UserId { get; set; }
     public string? Username { get; set; }
+    public string? UserDisplayName { get; set; }
+    public string UserDisplayLabel => UserDisplayNames.FormatLabel(UserDisplayName, Username);
     public int ShareId { get; set; }
     public string? ShareName { get; set; }
     public string? HostName { get; set; }

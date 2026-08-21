@@ -20,7 +20,7 @@
                 <StackPanel>
                     <WrapPanel>
                         <StackPanel Margin="0,0,12,6">
-                            <TextBlock Text="ユーザー / ID" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
+                            <TextBlock Text="名前 / ユーザー名 / ID" Style="{StaticResource Caption}" Margin="0,0,0,2"/>
                             <TextBox Width="130" Text="{Binding FilterUser, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
                         <StackPanel Margin="0,0,12,6">
@@ -103,7 +103,7 @@
                     <GridView>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="60"/>
                         <GridViewColumn Header="時刻" DisplayMemberBinding="{Binding Timestamp, Converter={StaticResource Utc}}" Width="160"/>
-                        <GridViewColumn Header="User" DisplayMemberBinding="{Binding Username}" Width="110"/>
+                        <GridViewColumn Header="User" DisplayMemberBinding="{Binding UserDisplayLabel}" Width="200"/>
                         <GridViewColumn Header="端末 / IP" Width="130">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
