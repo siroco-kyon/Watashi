@@ -15,6 +15,7 @@ public partial class App : Application
 {
     public IServiceProvider Services { get; private set; } = null!;
     private AppSettings _settings = null!;
+    private ThemeManager _theme = null!;
     private SplashWindow? _splash;
 
     /// <summary>
@@ -49,14 +50,18 @@ public partial class App : Application
 
         try
         {
+            // 配色は最初のウィンドウを出す前に確定させる。後から適用すると
+            // スプラッシュだけ明るい状態で表示されてしまう。
+            _settings = AppSettings.Load();
+            _theme = new ThemeManager(_settings, this);
+            _theme.Initialize();
+
             // 起動処理 (更新確認・自動ログイン等) はウィンドウ表示前にネットワークへ出るため、
             // 環境によっては十数秒かかる。無反応に見えないよう最初にスプラッシュを表示し、
             // 進捗 (%) と現在の工程を出す。
             _splash = new SplashWindow();
             _splash.Show();
             _splash.SetProgress(5, "設定を読み込んでいます...");
-
-            _settings = AppSettings.Load();
 
             // 接続先サーバと機能設定はアプリ同梱の deployment.json で固定する (管理者が配布時に設定)。
             // クライアントからは変更できない。settings.json の ServerUrl より優先される。
@@ -81,7 +86,7 @@ public partial class App : Application
             }
 
             _splash.SetProgress(60, "アプリケーションを初期化しています...");
-            Services = BuildServices(_settings);
+            Services = BuildServices(_settings, _theme);
             Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
 
             await StartLoginFlowAsync();
@@ -380,10 +385,11 @@ public partial class App : Application
         }
     }
 
-    private static IServiceProvider BuildServices(AppSettings settings)
+    private static IServiceProvider BuildServices(AppSettings settings, ThemeManager theme)
     {
         var services = new ServiceCollection();
         services.AddSingleton(settings);
+        services.AddSingleton(theme);
         services.AddSingleton<CredentialStore>();
         services.AddSingleton<SessionManager>();
         services.AddSingleton<LocalFileService>();

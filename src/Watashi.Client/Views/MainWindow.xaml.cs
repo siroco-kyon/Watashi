@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
@@ -16,21 +17,26 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm;
     private readonly SessionManager _session;
+    private readonly ThemeManager _theme;
     private readonly TaskCompletionSource _cleanupCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public Task CleanupCompleted => _cleanupCompleted.Task;
 
-    public MainWindow(MainViewModel vm, AppSettings settings, SessionManager session)
+    public MainWindow(MainViewModel vm, AppSettings settings, SessionManager session, ThemeManager theme)
     {
         InitializeComponent();
         _vm = vm;
         _session = session;
+        _theme = theme;
         DataContext = vm;
         InitializeDragDrop(settings);
         Loaded += OnLoaded;
         Closed += OnClosed;
         StateChanged += OnWindowStateChanged;
         _vm.PropertyChanged += OnViewModelPropertyChanged;
+        // OS 側の設定変更でも配色は変わるため、ボタン側から一方的に更新せず通知で同期する。
+        _theme.ThemeChanged += SyncThemeMenu;
+        SyncThemeMenu();
     }
 
     // 特定のマルチモニター環境で WindowState=Maximized にすると、ネイティブの
@@ -65,6 +71,7 @@ public partial class MainWindow : Window
         try
         {
             _vm.PropertyChanged -= OnViewModelPropertyChanged;
+            _theme.ThemeChanged -= SyncThemeMenu;
             Closed -= OnClosed;
             await _vm.DisposeTransferQueueAsync();
         }
@@ -180,6 +187,35 @@ public partial class MainWindow : Window
         var version = AppVersion.Display;
         MessageBox.Show($"Watashi - 社内 CIFS ファイル管理ツール\nバージョン {version}\n\n⛩ 鳥居をくぐって、信頼できる場所へ。",
                         "バージョン情報", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void OnOpenThemeMenu(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.ContextMenu is null) return;
+        button.ContextMenu.PlacementTarget = button;
+        button.ContextMenu.Placement = PlacementMode.Bottom;
+        button.ContextMenu.IsOpen = true;
+    }
+
+    private void OnSelectSystemTheme(object sender, RoutedEventArgs e) => SelectTheme(ThemeMode.System);
+    private void OnSelectLightTheme(object sender, RoutedEventArgs e) => SelectTheme(ThemeMode.Light);
+    private void OnSelectDarkTheme(object sender, RoutedEventArgs e) => SelectTheme(ThemeMode.Dark);
+
+    private void SelectTheme(ThemeMode mode)
+    {
+        _theme.Select(mode);
+        // 同じ項目を選び直した場合は ThemeChanged が発生しないので、
+        // IsCheckable のトグルで外れたチェックをここで戻す。
+        SyncThemeMenu();
+    }
+
+    /// <summary>メニューのチェックとアイコンを、実際に適用されている配色へ合わせる。</summary>
+    private void SyncThemeMenu()
+    {
+        ThemeSystemItem.IsChecked = _theme.Mode == ThemeMode.System;
+        ThemeLightItem.IsChecked = _theme.Mode == ThemeMode.Light;
+        ThemeDarkItem.IsChecked = _theme.Mode == ThemeMode.Dark;
+        ThemeGlyph.Text = _theme.IsDarkApplied ? "☾" : "☀";
     }
 
     private void OnOpenTrustedDevices(object sender, RoutedEventArgs e)

@@ -91,6 +91,22 @@
                             AutomationProperties.Name="信頼端末の管理" ToolTip="信頼端末の管理">
                         <TextBlock Text="▣" FontSize="14"/>
                     </Button>
+                    <Button x:Name="ThemeButton" Style="{StaticResource IconButton}" Click="OnOpenThemeMenu"
+                            AutomationProperties.Name="表示テーマ"
+                            AutomationProperties.HelpText="画面の配色をライト・ダーク・OS の設定に従う から選びます。"
+                            ToolTip="表示テーマ">
+                        <TextBlock x:Name="ThemeGlyph" Text="☀" FontSize="14"/>
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem x:Name="ThemeSystemItem" Header="OS の設定に従う"
+                                          IsCheckable="True" Click="OnSelectSystemTheme"/>
+                                <MenuItem x:Name="ThemeLightItem" Header="ライト"
+                                          IsCheckable="True" Click="OnSelectLightTheme"/>
+                                <MenuItem x:Name="ThemeDarkItem" Header="ダーク"
+                                          IsCheckable="True" Click="OnSelectDarkTheme"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
                     <Button Style="{StaticResource IconButton}" Click="OnLogout"
                             AutomationProperties.Name="ログアウト" ToolTip="ログアウト">
                         <TextBlock Text="⏻" FontSize="14"/>

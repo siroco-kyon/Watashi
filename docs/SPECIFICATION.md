@@ -137,7 +137,13 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 ### 3.2 利用者ごとの可変設定 settings.json
 
 `%LocalAppData%\Watashi\settings.json` には**接続先を含まない**、利用者ごとの軽微な状態のみ保存する
-(例: 最終ローカルパス `LastLocalPath`)。
+(例: 最終ローカルパス `LastLocalPath`、表示テーマ `Theme`)。
+
+`Theme` は `"system"` (既定) / `"light"` / `"dark"` の文字列。列挙型ではなく文字列で持つのは、
+未知の値が入っていても `ThemeModes.Parse` が既定へ倒すだけで済ませ、
+ファイル全体を初期値へ巻き戻さないため。適用は `Services/ThemeManager.cs` が担当し、
+`"system"` のときは Windows の `AppsUseLightTheme` を参照して OS 設定に追従する
+(ハイコントラストモード時は OS 側を優先し、常にライト配色 + システム色を使う)。
 
 ### 3.3 接続テスト画面 (編集 UI は持たない)
 

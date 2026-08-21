@@ -1,71 +1,57 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <!--
+        ブラシ層。色の実値は Colors.Light.xaml / Colors.Dark.xaml が持ち、
+        Services/ThemeManager.cs が Application.Resources のマージ辞書を差し替える。
+
+        ここで Color を DynamicResource で引くのがテーマ切替の要になっている:
+        辞書を差し替えても SolidColorBrush のインスタンス自体は同じまま Color だけが
+        更新されるため、各画面は今までどおり {StaticResource XxxBrush} で掴んだままでよく、
+        169 箇所の参照を書き換える必要がない。
+
+        この仕組みが壊れるので、以下をやらないこと:
+        - この辞書に配色ファイル (Colors.Light.xaml 等) をマージする
+          (自分の辞書が先に検索され、テーマ切替が効かなくなる)
+        - PresentationOptions:Freeze をブラシに付ける (凍結すると色を変更できない)
+        - 画面側で {StaticResource XxxColor} と Color 値を直接参照する
+          (構造体の値コピーになり、切替時に取り残される)
+    -->
+
     <!-- ===== ベース ===== -->
-    <Color x:Key="BgColor">#F6F7F9</Color>
-    <Color x:Key="SurfaceColor">#FFFFFF</Color>
-    <Color x:Key="SurfaceAltColor">#F0F2F5</Color>
-    <Color x:Key="SurfaceHoverColor">#EAEEF3</Color>
-    <Color x:Key="OverlayColor">#0F1B2D</Color>
+    <SolidColorBrush x:Key="BgBrush"            Color="{DynamicResource BgColor}" />
+    <SolidColorBrush x:Key="SurfaceBrush"       Color="{DynamicResource SurfaceColor}" />
+    <SolidColorBrush x:Key="SurfaceAltBrush"    Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="SurfaceHoverBrush"  Color="{DynamicResource SurfaceHoverColor}" />
 
     <!-- ===== ボーダー ===== -->
-    <Color x:Key="BorderColor">#D5D9DE</Color>
-    <Color x:Key="BorderStrongColor">#9CA3AF</Color>
-    <Color x:Key="FocusColor">#C73E1D</Color>
+    <SolidColorBrush x:Key="BorderBrush"        Color="{DynamicResource BorderColor}" />
+    <SolidColorBrush x:Key="BorderStrongBrush"  Color="{DynamicResource BorderStrongColor}" />
+    <SolidColorBrush x:Key="FocusBrush"         Color="{DynamicResource FocusColor}" />
 
     <!-- ===== テキスト ===== -->
-    <Color x:Key="TextPrimaryColor">#1F2328</Color>
-    <Color x:Key="TextSecondaryColor">#4A535C</Color>
-    <Color x:Key="TextMutedColor">#6B7280</Color>
-    <Color x:Key="TextOnAccentColor">#FFFFFF</Color>
+    <SolidColorBrush x:Key="TextPrimaryBrush"   Color="{DynamicResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondaryColor}" />
+    <SolidColorBrush x:Key="TextMutedBrush"     Color="{DynamicResource TextMutedColor}" />
+    <SolidColorBrush x:Key="TextOnAccentBrush"  Color="{DynamicResource TextOnAccentColor}" />
 
     <!-- ===== アクセント (鳥居の朱色) ===== -->
-    <Color x:Key="AccentColor">#C73E1D</Color>
-    <Color x:Key="AccentHoverColor">#A83216</Color>
-    <Color x:Key="AccentPressedColor">#8C2911</Color>
-    <Color x:Key="AccentSoftColor">#F9E5E0</Color>
-    <Color x:Key="AccentDeepColor">#5C1A0B</Color>
+    <SolidColorBrush x:Key="AccentBrush"        Color="{DynamicResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentHoverBrush"   Color="{DynamicResource AccentHoverColor}" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="{DynamicResource AccentPressedColor}" />
+    <SolidColorBrush x:Key="AccentSoftBrush"    Color="{DynamicResource AccentSoftColor}" />
+    <SolidColorBrush x:Key="AccentDeepBrush"    Color="{DynamicResource AccentDeepColor}" />
 
     <!-- ===== セカンダリ (深い藍/紺) ===== -->
-    <Color x:Key="HeaderColor">#1B2A41</Color>
-    <Color x:Key="HeaderAltColor">#243B5C</Color>
+    <SolidColorBrush x:Key="HeaderBrush"        Color="{DynamicResource HeaderColor}" />
+    <SolidColorBrush x:Key="HeaderAltBrush"     Color="{DynamicResource HeaderAltColor}" />
 
     <!-- ===== ステータス ===== -->
-    <Color x:Key="DangerColor">#CF222E</Color>
-    <Color x:Key="DangerSoftColor">#FFE9EA</Color>
-    <Color x:Key="WarningColor">#BF8700</Color>
-    <Color x:Key="SuccessColor">#1F883D</Color>
-    <Color x:Key="InfoColor">#0969DA</Color>
-
-    <!-- ===== ブラシ ===== -->
-    <SolidColorBrush x:Key="BgBrush"            Color="{StaticResource BgColor}" />
-    <SolidColorBrush x:Key="SurfaceBrush"       Color="{StaticResource SurfaceColor}" />
-    <SolidColorBrush x:Key="SurfaceAltBrush"    Color="{StaticResource SurfaceAltColor}" />
-    <SolidColorBrush x:Key="SurfaceHoverBrush"  Color="{StaticResource SurfaceHoverColor}" />
-
-    <SolidColorBrush x:Key="BorderBrush"        Color="{StaticResource BorderColor}" />
-    <SolidColorBrush x:Key="BorderStrongBrush"  Color="{StaticResource BorderStrongColor}" />
-    <SolidColorBrush x:Key="FocusBrush"         Color="{StaticResource FocusColor}" />
-
-    <SolidColorBrush x:Key="TextPrimaryBrush"   Color="{StaticResource TextPrimaryColor}" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
-    <SolidColorBrush x:Key="TextMutedBrush"     Color="{StaticResource TextMutedColor}" />
-    <SolidColorBrush x:Key="TextOnAccentBrush"  Color="{StaticResource TextOnAccentColor}" />
-
-    <SolidColorBrush x:Key="AccentBrush"        Color="{StaticResource AccentColor}" />
-    <SolidColorBrush x:Key="AccentHoverBrush"   Color="{StaticResource AccentHoverColor}" />
-    <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressedColor}" />
-    <SolidColorBrush x:Key="AccentSoftBrush"    Color="{StaticResource AccentSoftColor}" />
-    <SolidColorBrush x:Key="AccentDeepBrush"    Color="{StaticResource AccentDeepColor}" />
-
-    <SolidColorBrush x:Key="HeaderBrush"        Color="{StaticResource HeaderColor}" />
-    <SolidColorBrush x:Key="HeaderAltBrush"     Color="{StaticResource HeaderAltColor}" />
-
-    <SolidColorBrush x:Key="DangerBrush"        Color="{StaticResource DangerColor}" />
-    <SolidColorBrush x:Key="DangerSoftBrush"    Color="{StaticResource DangerSoftColor}" />
-    <SolidColorBrush x:Key="WarningBrush"       Color="{StaticResource WarningColor}" />
-    <SolidColorBrush x:Key="SuccessBrush"       Color="{StaticResource SuccessColor}" />
-    <SolidColorBrush x:Key="InfoBrush"          Color="{StaticResource InfoColor}" />
+    <SolidColorBrush x:Key="DangerBrush"        Color="{DynamicResource DangerColor}" />
+    <SolidColorBrush x:Key="DangerSoftBrush"    Color="{DynamicResource DangerSoftColor}" />
+    <SolidColorBrush x:Key="WarningBrush"       Color="{DynamicResource WarningColor}" />
+    <SolidColorBrush x:Key="SuccessBrush"       Color="{DynamicResource SuccessColor}" />
+    <SolidColorBrush x:Key="InfoBrush"          Color="{DynamicResource InfoColor}" />
 
     <!-- ===== 角丸 ===== -->
     <CornerRadius x:Key="RadiusSm">4</CornerRadius>

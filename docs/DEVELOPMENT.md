@@ -31,7 +31,7 @@ src/
 ├── Watashi.Server/    # 中央サーバー (ASP.NET Core 8)
 ├── Watashi.Agent/     # エージェント (踏み台に配置)
 └── Watashi.Client/    # WPF デスクトップアプリ
-    ├── Themes/        # Colors.xaml / Icons.xaml (鳥居アイコン) / Controls.xaml
+    ├── Themes/        # Colors.Light/Dark.xaml (配色) / Colors.xaml (ブラシ) / Icons.xaml (鳥居アイコン) / Controls.xaml
     ├── Views/         # XAML
     ├── ViewModels/    # MVVM (CommunityToolkit.Mvvm)
     ├── Services/      # ApiClient / SessionManager / CredentialStore

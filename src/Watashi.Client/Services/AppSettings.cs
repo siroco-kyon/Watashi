@@ -51,6 +51,21 @@ public class AppSettings
     /// リモート側の管理ごみ箱とは独立した利用者設定。
     /// </summary>
     public bool UseRecycleBinForLocalDeletes { get; set; } = true;
+
+    /// <summary>
+    /// 配色設定 ("system" / "light" / "dark")。列挙型ではなく文字列で保存するのは、
+    /// 未知の値が入っていても他の設定ごと既定へ巻き戻さずに済ませるため
+    /// (<see cref="ThemeModes.Parse"/> が既定へ倒す)。読み書きには <see cref="ThemeMode"/> を使う。
+    /// </summary>
+    public string Theme { get; set; } = ThemeModes.SystemValue;
+
+    [JsonIgnore]
+    public ThemeMode ThemeMode
+    {
+        get => ThemeModes.Parse(Theme);
+        set => Theme = ThemeModes.ToSettingValue(value);
+    }
+
     public List<RemotePlaceSetting> RemoteFavorites { get; set; } = new();
     public List<RemotePlaceSetting> RecentRemotePlaces { get; set; } = new();
 
@@ -104,6 +119,7 @@ public class AppSettings
                 ? new AppSettings()
                 : JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
             settings.NormalizeRemotePlaces();
+            settings.Theme = ThemeModes.Normalize(settings.Theme);
             return settings;
         }
         catch
@@ -183,6 +199,7 @@ public class AppSettings
     public void Save()
     {
         NormalizeRemotePlaces();
+        Theme = ThemeModes.Normalize(Theme);
         var dir = Path.GetDirectoryName(SettingsPath)!;
         Directory.CreateDirectory(dir);
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });

@@ -28,7 +28,7 @@
 | 画面に出るアプリ名「Watashi」 | クライアントの XAML / `App.xaml.cs` | [§2](#2-画面に表示されるアプリ名watashi) |
 | exe ファイル名 (`Watashi.Client.exe`) | `Watashi.Client.csproj` | [§3](#3-exe-ファイル名watashiclientexe) |
 | 配布物・インストーラの名前 | `ClickOnceProfile.pubxml` | [§4](#4-配布物インストーラの名前-clickonce) |
-| アイコン (鳥居) | `Watashi.ico` + `Icons.xaml` + `Colors.xaml` | [§5](#5-アイコン-鳥居マーク) |
+| アイコン (鳥居) | `Watashi.ico` + `Icons.xaml` + `Colors.Light.xaml` / `Colors.Dark.xaml` | [§5](#5-アイコン-鳥居マーク) |
 | A/B を別アプリとして同時利用 | ClickOnce ID・配布 URL・ローカル保存先 | [§7](#7-ab-版を同じ-pc-で共存させる場合) |
 
 1 種類だけを配布する通常のリブランドは **§2・§4・§5 の 3 つ**を変えれば足ります。
@@ -166,17 +166,40 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIcon.ps1
 > Icons.xaml を 1 箇所差し替えれば全画面に反映されます (個別の修正は不要)。
 
 ### 5-4. 色 (朱色アクセント)
-ブランドカラーは `src/Watashi.Client/Themes/Colors.xaml`:
-- `AccentColor` = `#C73E1D` (朱色 / 鳥居の色)
-- `AccentDeepColor` = `#5C1A0B` (濃い朱)
+ブランドカラーは配色ファイルに定義しています。**ライトとダークで 2 ファイルあり、両方を直す必要があります**:
 
-色を変える場合、**`Generate-ToriiIcon.ps1` の `$ACCENT` / `$ACCENT_DEEP` も同じ値に合わせてください**
-(`.ico` とアプリ内ロゴの色を一致させるため)。現在のスクリプト値:
+| ファイル | 役割 |
+|---|---|
+| `src/Watashi.Client/Themes/Colors.Light.xaml` | ライトテーマの色 (`Color` 値のみ) |
+| `src/Watashi.Client/Themes/Colors.Dark.xaml` | ダークテーマの色 (`Color` 値のみ) |
+| `src/Watashi.Client/Themes/Colors.xaml` | 上記を参照するブラシ定義。**色の実値は持ちません** |
 
-```powershell
-$ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC7, 0x3E, 0x1D)   # = #C73E1D
-$ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5C1A0B
-```
+| キー | ライト | ダーク |
+|---|---|---|
+| `AccentColor` (朱色 / 鳥居の色) | `#C73E1D` | `#E35B3B` |
+| `AccentDeepColor` (濃い朱) | `#5C1A0B` | `#FFB8A3` |
+
+ダーク側は色相・彩度を保ったまま明度だけ変えています。`AccentDeepColor` は
+「`AccentSoftColor` の上に載る文字色」という役割なので、ダークでは逆に淡い朱になります。
+
+色を変える場合の注意:
+
+1. **`Generate-ToriiIcon.ps1` の `$ACCENT` / `$ACCENT_DEEP` も同じ値に合わせてください**
+   (`.ico` とアプリ内ロゴの色を一致させるため)。基準にするのは**ライト側の値**です。
+   現在のスクリプト値:
+
+   ```powershell
+   $ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC7, 0x3E, 0x1D)   # = #C73E1D
+   $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5C1A0B
+   ```
+
+2. **両ファイルのキーは常に 1:1 で対応させてください**。片方だけにキーがあると、
+   そのテーマで色が解決できません。
+3. コントラスト比 (文字 4.5:1 / 枠線・フォーカス 3:1) は
+   `tests/Watashi.Tests/ThemeContractTests.cs` が hex 値から計算して検証します。
+   色を変えたらこのテストを実行してください。
+4. 色は配色ファイルにだけ書きます。画面側の XAML に `#RRGGBB` を直接書くと
+   テーマ切替から取り残されるため、同テストが検出して失敗します。
 
 ### 5-5. 色違いアイコン (接続先 DB / サーバごとの区別用)
 
@@ -218,7 +241,8 @@ $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5
 
 > `.ico` の差し替えで変わるのは exe・タスクバー・インストーラ・スタートメニューのアイコンです。
 > アプリ画面内のロゴ (ベクター) の色も揃えたい場合は、[§5-4](#5-4-色-朱色アクセント) の
-> `Colors.xaml` (`AccentColor` / `AccentDeepColor`) を上表の 2 色に合わせて変更してください。
+> `Colors.Light.xaml` と `Colors.Dark.xaml` の (`AccentColor` / `AccentDeepColor`) を
+> 上表の 2 色に合わせて変更してください (ダーク側は明度を上げた値にします)。
 
 > アイコンを色分けしても、Windows 上のアプリ ID は分かれません。
 > A/B が `Watashi (2)` と同じタスクバーグループに入る場合は [§7](#7-ab-版を同じ-pc-で共存させる場合) の対応が必要です。
