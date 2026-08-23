@@ -61,6 +61,27 @@ public sealed class ClientUiChangeTests
     }
 
     [Fact]
+    public void Combo_boxes_pair_windows_background_and_foreground_colors()
+    {
+        var controls = File.ReadAllText(RepoFile("src/Watashi.Client/Themes/Controls.xaml"));
+
+        controls.Should().Contain("<Style TargetType=\"ComboBoxItem\">")
+            .And.Contain("{x:Static wpf:SystemColors.WindowBrushKey}")
+            .And.Contain("{x:Static wpf:SystemColors.WindowTextBrushKey}")
+            .And.Contain("TextElement.Foreground");
+    }
+
+    [Fact]
+    public void File_lists_propagate_the_theme_foreground_to_generated_cell_text()
+    {
+        var controls = File.ReadAllText(RepoFile("src/Watashi.Client/Themes/Controls.xaml"));
+
+        controls.Should().Contain("<Style TargetType=\"ListView\">")
+            .And.Contain("<Style TargetType=\"ListViewItem\">")
+            .And.Contain("<Setter Property=\"TextElement.Foreground\" Value=\"{StaticResource TextPrimaryBrush}\" />");
+    }
+
+    [Fact]
     public void Remote_list_uses_the_server_supported_five_hundred_item_page()
     {
         ApiClient.RemoteListPageSize.Should().Be(500);
