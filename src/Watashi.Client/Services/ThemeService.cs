@@ -8,54 +8,45 @@ namespace Watashi.Client.Services;
 /// WPF 標準 ThemeMode と Watashi 固有のカラーパレットを同期する。
 /// ThemeMode は .NET 10 でも experimental のため、このクラス以外へ依存を広げない。
 /// </summary>
-public sealed class ThemeService : ObservableObject, IDisposable
+public sealed class ThemeService : ObservableObject
 {
     private const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
     private const string AppsUseLightTheme = "AppsUseLightTheme";
 
     private readonly AppSettings _settings;
     private string _selectedMode;
-    private bool _disposed;
 
     public ThemeService(AppSettings settings)
     {
         _settings = settings;
-        _selectedMode = AppThemeModes.Normalize(settings.ThemeMode);
-        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+        var storedMode = AppThemeModes.Normalize(settings.ThemeMode);
+        _selectedMode = storedMode == AppThemeModes.System
+            ? AppThemeModes.ResolveInitialMode(storedMode, IsSystemDarkMode())
+            : storedMode;
         ApplyCore();
-    }
-
-    public IReadOnlyList<ThemeOption> Options { get; } =
-    [
-        new(AppThemeModes.System, "Windows に合わせる"),
-        new(AppThemeModes.Light, "ライト"),
-        new(AppThemeModes.Dark, "ダーク"),
-    ];
-
-    public string SelectedMode
-    {
-        get => _selectedMode;
-        set
+        if (!string.Equals(settings.ThemeMode, _selectedMode, StringComparison.Ordinal))
         {
-            var normalized = AppThemeModes.Normalize(value);
-            if (!SetProperty(ref _selectedMode, normalized)) return;
-
-            ApplyCore();
-            _settings.ThemeMode = normalized;
-            try
-            {
-                _settings.Save();
-            }
-            catch (Exception ex)
-            {
-                AppLog.Error("テーマ設定の保存に失敗しました。", ex);
-            }
+            _settings.ThemeMode = _selectedMode;
+            TrySave();
         }
     }
 
-    public bool IsDarkEffective =>
-        SelectedMode == AppThemeModes.Dark ||
-        (SelectedMode == AppThemeModes.System && IsSystemDarkMode());
+    public bool IsDarkEffective => _selectedMode == AppThemeModes.Dark;
+
+    /// <summary>現在表示しているテーマとは反対側の、ボタンを押した後の状態を説明する。</summary>
+    public string ToggleLabel => IsDarkEffective
+        ? "ライトモードに切り替え"
+        : "ダークモードに切り替え";
+
+    public void Toggle()
+    {
+        var nextMode = IsDarkEffective ? AppThemeModes.Light : AppThemeModes.Dark;
+        if (!SetProperty(ref _selectedMode, nextMode)) return;
+
+        ApplyCore();
+        _settings.ThemeMode = nextMode;
+        TrySave();
+    }
 
     private void ApplyCore()
     {
@@ -63,16 +54,12 @@ public sealed class ThemeService : ObservableObject, IDisposable
         if (application is null) return;
 
 #pragma warning disable WPF0001
-        application.ThemeMode = SelectedMode switch
-        {
-            AppThemeModes.Dark => ThemeMode.Dark,
-            AppThemeModes.Light => ThemeMode.Light,
-            _ => ThemeMode.System,
-        };
+        application.ThemeMode = IsDarkEffective ? ThemeMode.Dark : ThemeMode.Light;
 #pragma warning restore WPF0001
 
         ReplacePaletteDictionaries(application.Resources, IsDarkEffective ? "Dark" : "Light");
         OnPropertyChanged(nameof(IsDarkEffective));
+        OnPropertyChanged(nameof(ToggleLabel));
     }
 
     private static void ReplacePaletteDictionaries(ResourceDictionary dictionary, string palette)
@@ -126,20 +113,15 @@ public sealed class ThemeService : ObservableObject, IDisposable
         }
     }
 
-    private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    private void TrySave()
     {
-        if (SelectedMode != AppThemeModes.System) return;
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.HasShutdownStarted) return;
-        _ = dispatcher.BeginInvoke(ApplyCore);
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+        try
+        {
+            _settings.Save();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("テーマ設定の保存に失敗しました。", ex);
+        }
     }
 }
-
-public sealed record ThemeOption(string Value, string Label);

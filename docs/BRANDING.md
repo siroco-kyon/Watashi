@@ -188,7 +188,7 @@ $ACCENT      = [System.Drawing.Color]::FromArgb(0xFF, 0xC7, 0x3E, 0x1D)   # = #C
 $ACCENT_DEEP = [System.Drawing.Color]::FromArgb(0xFF, 0x5C, 0x1A, 0x0B)   # = #5C1A0B
 ```
 
-変更後はログイン画面またはメイン画面のテーマ選択でライト／ダークを切り替え、
+変更後はメイン画面右上の月／太陽ボタンでライト／ダークを切り替え、
 主ボタン、選択行、フォーカス枠、リンク、エラー表示、鳥居ロゴを両方で確認します。
 Windows ハイコントラストでも文字と操作対象が判別できることを確認してください。
 
@@ -585,8 +585,8 @@ powershell -NoProfile -File scripts/Check-BrandSetup.ps1
 1. .NET 10 SDK でクライアントをリビルド: `dotnet build src\Watashi.Client\Watashi.Client.csproj`
 2. アイコンを変えた場合は `scripts/Generate-ToriiIcon.ps1` を再実行して `.ico` を更新
 3. クライアント起動 → **ログイン画面・メイン画面・管理画面**の表示名を目視確認
-4. テーマをライト／ダークへ切り替え、背景、文字、アクセント、入力欄、ComboBox、ToolTip、右クリックメニューを確認
-5. Windows のテーマに合わせる設定とハイコントラストで、OS 所有のタイトルバーやファイル選択画面も含め操作可能か確認
+4. メイン画面右上の月／太陽ボタンでライト／ダークへ切り替え、背景、文字、アクセント、入力欄、ComboBox、ToolTip、右クリックメニューを確認
+5. Windows ハイコントラストで、OS 所有のタイトルバーやファイル選択画面も含め操作可能か確認
 6. エクスプローラで `Watashi.Client.exe` (または新 exe 名) のアイコン、タスクバー表示を確認
 7. ClickOnce 発行 (`MSBuild.exe src\Watashi.Client\Watashi.Client.csproj /t:Publish /p:Configuration=Release /p:PublishProfile=ClickOnceProfile`) →
    インストーラ画面・スタートメニュー・「アプリと機能」の名前/アイコンを確認

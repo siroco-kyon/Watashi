@@ -83,14 +83,35 @@
                             ToolTip="再読み込み (F5)">
                         <TextBlock Text="⟳" FontSize="15"/>
                     </Button>
-                    <ComboBox Width="142" Margin="0,0,6,0"
-                              ItemsSource="{Binding Theme.Options}"
-                              DisplayMemberPath="Label"
-                              SelectedValuePath="Value"
-                              SelectedValue="{Binding Theme.SelectedMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                              AutomationProperties.Name="表示テーマ"
-                              AutomationProperties.HelpText="Windows に合わせる、ライト、ダークから表示テーマを選択します。"
-                              ToolTip="表示テーマを切り替え"/>
+                    <Button Style="{StaticResource IconButton}"
+                            Click="OnToggleTheme"
+                            Margin="0,0,6,0"
+                            AutomationProperties.Name="{Binding Theme.ToggleLabel}"
+                            AutomationProperties.HelpText="{Binding Theme.ToggleLabel}"
+                            ToolTip="{Binding Theme.ToggleLabel}">
+                        <!-- アイコンは現在値ではなく、押した後のテーマを示す。 -->
+                        <Path Width="16" Height="16"
+                              Stretch="Uniform"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.7"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              IsHitTestVisible="False">
+                            <Path.Style>
+                                <Style TargetType="Path">
+                                    <!-- ライト表示中は、クリック先であるダークを月で示す。 -->
+                                    <Setter Property="Data" Value="{StaticResource MoonIconGeometry}"/>
+                                    <Style.Triggers>
+                                        <!-- ダーク表示中は、クリック先であるライトを太陽で示す。 -->
+                                        <DataTrigger Binding="{Binding Theme.IsDarkEffective}" Value="True">
+                                            <Setter Property="Data" Value="{StaticResource SunIconGeometry}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Path.Style>
+                        </Path>
+                    </Button>
                     <Button Style="{StaticResource IconButton}" Click="OnChangePassword"
                             AutomationProperties.Name="パスワード変更" ToolTip="パスワード変更">
                         <TextBlock Text="🔑" FontSize="14"/>
