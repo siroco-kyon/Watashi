@@ -12,8 +12,6 @@ public partial class LoginViewModel : ObservableObject
     private readonly SessionManager _session;
     private readonly AppSettings _settings;
 
-    public ThemeService Theme { get; }
-
     [ObservableProperty] private string username = string.Empty;
     [ObservableProperty] private string password = string.Empty;
     [ObservableProperty] private bool rememberDevice;
@@ -51,13 +49,11 @@ public partial class LoginViewModel : ObservableObject
     public LoginViewModel(
         ApiClient api,
         SessionManager session,
-        AppSettings settings,
-        ThemeService theme)
+        AppSettings settings)
     {
         _api = api;
         _session = session;
         _settings = settings;
-        Theme = theme;
     }
 
     // ID を編集し直したらパスワード段階を解除する。別の ID には別の判定が要るため。

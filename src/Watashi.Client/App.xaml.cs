@@ -99,7 +99,6 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _themeService?.Dispose();
         base.OnExit(e);
     }
 

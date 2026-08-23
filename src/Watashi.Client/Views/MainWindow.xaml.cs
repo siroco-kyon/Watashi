@@ -97,6 +97,8 @@ public partial class MainWindow : Window
         _ = _vm.Remote.RefreshAsync();
     }
 
+    private void OnToggleTheme(object sender, RoutedEventArgs e) => _vm.Theme.Toggle();
+
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         _session.ResetIdleTimer();

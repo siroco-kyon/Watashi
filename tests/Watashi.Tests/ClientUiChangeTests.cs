@@ -8,18 +8,34 @@ namespace Watashi.Tests;
 public sealed class ClientUiChangeTests
 {
     [Fact]
-    public void Theme_setting_defaults_and_normalizes_safely()
+    public void Theme_setting_defaults_to_light_and_normalizes_safely()
     {
-        AppSettings.DeserializeOrDefault("{}").ThemeMode.Should().Be(AppThemeModes.System);
+        AppSettings.DeserializeOrDefault("{}").ThemeMode.Should().Be(AppThemeModes.Light);
         AppSettings.DeserializeOrDefault("""{ "ThemeMode": "dark" }""")
             .ThemeMode.Should().Be(AppThemeModes.Dark);
         AppSettings.DeserializeOrDefault("""{ "ThemeMode": "LIGHT" }""")
             .ThemeMode.Should().Be(AppThemeModes.Light);
-        AppSettings.DeserializeOrDefault("""{ "ThemeMode": "unknown" }""")
+        // 旧版の System は ThemeService が起動時に現在の見た目へ一度だけ移行する。
+        AppSettings.DeserializeOrDefault("""{ "ThemeMode": "System" }""")
             .ThemeMode.Should().Be(AppThemeModes.System);
+        AppSettings.DeserializeOrDefault("""{ "ThemeMode": "unknown" }""")
+            .ThemeMode.Should().Be(AppThemeModes.Light);
 
         var persisted = JsonSerializer.Serialize(new AppSettings { ThemeMode = AppThemeModes.Dark });
         AppSettings.DeserializeOrDefault(persisted).ThemeMode.Should().Be(AppThemeModes.Dark);
+    }
+
+    [Fact]
+    public void Legacy_system_theme_is_resolved_once_to_a_concrete_mode()
+    {
+        AppThemeModes.ResolveInitialMode(AppThemeModes.System, isSystemDark: true)
+            .Should().Be(AppThemeModes.Dark);
+        AppThemeModes.ResolveInitialMode(AppThemeModes.System, isSystemDark: false)
+            .Should().Be(AppThemeModes.Light);
+        AppThemeModes.ResolveInitialMode(AppThemeModes.Dark, isSystemDark: false)
+            .Should().Be(AppThemeModes.Dark);
+        AppThemeModes.ResolveInitialMode(AppThemeModes.Light, isSystemDark: true)
+            .Should().Be(AppThemeModes.Light);
     }
 
     [Fact]
@@ -47,17 +63,28 @@ public sealed class ClientUiChangeTests
     }
 
     [Fact]
-    public void Login_and_main_windows_expose_theme_and_selected_location_accessibility()
+    public void Main_window_exposes_a_compact_theme_toggle_and_login_has_no_theme_control()
     {
         var main = File.ReadAllText(RepoFile("src/Watashi.Client/Views/MainWindow.xaml"));
         var login = File.ReadAllText(RepoFile("src/Watashi.Client/Views/LoginWindow.xaml"));
+        var icons = File.ReadAllText(RepoFile("src/Watashi.Client/Themes/Icons.xaml"));
+        var service = File.ReadAllText(RepoFile("src/Watashi.Client/Services/ThemeService.cs"));
 
-        main.Should().Contain("Theme.SelectedMode")
-            .And.Contain("AutomationProperties.Name=\"表示テーマ\"")
+        main.Should().Contain("Click=\"OnToggleTheme\"")
+            .And.Contain("Theme.ToggleLabel")
+            .And.Contain("Theme.IsDarkEffective")
+            .And.Contain("MoonIconGeometry")
+            .And.Contain("SunIconGeometry")
             .And.Contain("ToolTip=\"{Binding Remote.SelectedLocationTooltip}\"")
             .And.Contain("AutomationProperties.HelpText=\"{Binding Remote.SelectedLocationTooltip}\"");
-        login.Should().Contain("Theme.SelectedMode")
-            .And.Contain("AutomationProperties.Name=\"表示テーマ\"");
+        login.Should().NotContain("LoginThemeBox")
+            .And.NotContain("Theme.SelectedMode")
+            .And.NotContain("AutomationProperties.Name=\"表示テーマ\"");
+        icons.Should().Contain("x:Key=\"MoonIconGeometry\"")
+            .And.Contain("x:Key=\"SunIconGeometry\"");
+        service.Should().NotContain("SystemEvents.UserPreferenceChanged")
+            .And.NotContain("IReadOnlyList<ThemeOption>")
+            .And.NotContain("ThemeMode.System");
     }
 
     [Fact]

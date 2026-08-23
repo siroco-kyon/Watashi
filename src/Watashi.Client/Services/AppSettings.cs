@@ -51,8 +51,8 @@ public class AppSettings
     /// リモート側の管理ごみ箱とは独立した利用者設定。
     /// </summary>
     public bool UseRecycleBinForLocalDeletes { get; set; } = true;
-    /// <summary>クライアントの外観。System / Light / Dark のいずれか。</summary>
-    public string ThemeMode { get; set; } = AppThemeModes.System;
+    /// <summary>クライアントの外観。Light / Dark のいずれか。System は旧版からの移行時だけ受け付ける。</summary>
+    public string ThemeMode { get; set; } = AppThemeModes.Light;
     public List<RemotePlaceSetting> RemoteFavorites { get; set; } = new();
     public List<RemotePlaceSetting> RecentRemotePlaces { get; set; } = new();
 
@@ -271,6 +271,7 @@ public class AppSettings
 
 public static class AppThemeModes
 {
+    /// <summary>旧版の保存値。起動時に Light / Dark へ一度だけ移行する。</summary>
     public const string System = "System";
     public const string Light = "Light";
     public const string Dark = "Dark";
@@ -279,7 +280,20 @@ public static class AppThemeModes
     {
         if (string.Equals(value, Light, StringComparison.OrdinalIgnoreCase)) return Light;
         if (string.Equals(value, Dark, StringComparison.OrdinalIgnoreCase)) return Dark;
-        return System;
+        if (string.Equals(value, System, StringComparison.OrdinalIgnoreCase)) return System;
+        return Light;
+    }
+
+    /// <summary>
+    /// 旧版の System 設定は、更新時点の見た目を一度だけ Light / Dark へ固定して引き継ぐ。
+    /// 以後は Windows のテーマ変更へ追従しない。
+    /// </summary>
+    public static string ResolveInitialMode(string? storedMode, bool isSystemDark)
+    {
+        var normalized = Normalize(storedMode);
+        return normalized == System
+            ? isSystemDark ? Dark : Light
+            : normalized;
     }
 }
 
