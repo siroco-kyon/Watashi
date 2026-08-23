@@ -111,6 +111,22 @@ public class UserProjectionsTests
     }
 
     [Fact]
+    public async Task Display_name_is_carried_through_without_affecting_username()
+    {
+        using var db = new TestDb();
+        var u = Mk("G012345");
+        u.DisplayName = "山田 太郎";
+        db.Db.Users.Add(u);
+        await db.Db.SaveChangesAsync();
+
+        var dto = (await ProjectAsync(db))["G012345"];
+
+        dto.Username.Should().Be("G012345");
+        dto.DisplayName.Should().Be("山田 太郎");
+        dto.DisplayLabel.Should().Be("山田 太郎（G012345）");
+    }
+
+    [Fact]
     public async Task Disable_evidence_is_carried_through()
     {
         using var db = new TestDb();

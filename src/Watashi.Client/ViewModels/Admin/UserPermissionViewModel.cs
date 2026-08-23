@@ -16,6 +16,8 @@ public partial class UserPermissionSummary : ObservableObject
     public UserDto User { get; }
     public int Id => User.Id;
     public string Username => User.Username;
+    public string? DisplayName => User.DisplayName;
+    public string DisplayLabel => User.DisplayLabel;
     public bool IsAdmin => User.IsAdmin;
     [ObservableProperty] private int permissionCount;
 
@@ -45,6 +47,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     public ObservableCollection<AdminSortOption> UserSortOptions { get; } = new()
     {
         new("ユーザー名", nameof(UserPermissionSummary.Username)),
+        new("名前", nameof(UserPermissionSummary.DisplayName)),
         new("ID", nameof(UserPermissionSummary.Id)),
         new("権限数", nameof(UserPermissionSummary.PermissionCount), ListSortDirection.Descending),
         new("管理者", nameof(UserPermissionSummary.IsAdmin), ListSortDirection.Descending),
@@ -106,14 +109,14 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     public bool HasNoItems => Items.Count == 0 && HasSelectedUser;
     public string SelectedUserHeader => SelectedUser is null
         ? "ユーザーを選択してください"
-        : $"👤 {SelectedUser.Username}{(SelectedUser.IsAdmin ? "  (管理者)" : "")}";
+        : $"👤 {SelectedUser.DisplayLabel}{(SelectedUser.IsAdmin ? "  (管理者)" : "")}";
 
     public UserPermissionViewModel(ApiClient api)
     {
         _api = api;
         ItemsView = CollectionViewSource.GetDefaultView(Items);
         ItemsView.Filter = item => item is UserPermissionDto p && MatchesSearch(
-            PermissionSearchText, p.Id, p.Username, p.HostName, p.ShareName, p.AllowedPath, p.TemplateName,
+            PermissionSearchText, p.Id, p.Username, p.UserDisplayName, p.HostName, p.ShareName, p.AllowedPath, p.TemplateName,
             p.DisplayName, p.EffectiveStatus, p.EffectiveStatusLabel, p.ValidFrom, p.ExpiresAt,
             p.Reason, p.TicketNumber, p.WarningSummary);
         SelectedUserSortOption = UserSortOptions[0];
@@ -352,7 +355,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     {
         if (Selected is null) { StatusMessage = "削除する付与済みパスを選択してください。"; return; }
         var confirm = System.Windows.MessageBox.Show(
-            $"\"{Selected.Username}\" の {Selected.HostName} / {Selected.ShareName} / {Selected.AllowedPath} の権限を削除しますか？",
+            $"\"{Selected.UserDisplayLabel}\" の {Selected.HostName} / {Selected.ShareName} / {Selected.AllowedPath} の権限を削除しますか？",
             "権限削除確認", System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Warning);
         if (confirm != System.Windows.MessageBoxResult.OK) return;
         await _api.DeleteUserPermissionAsync(Selected.Id);
@@ -368,7 +371,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         if (SelectedUser is null) { StatusMessage = "先にユーザーを選択してください。"; return; }
         if (SelectedBundle is null) { StatusMessage = "適用するセットを選択してください。"; return; }
         var owMsg = System.Windows.MessageBox.Show(
-            $"セット \"{SelectedBundle.Name}\" ({SelectedBundle.Entries.Count} 行) を {SelectedUser.Username} に適用します。\n\n" +
+            $"セット \"{SelectedBundle.Name}\" ({SelectedBundle.Entries.Count} 行) を {SelectedUser.DisplayLabel} に適用します。\n\n" +
             "[はい] 既存の重複行も上書き (テンプレ・表示名を更新)\n" +
             "[いいえ] 重複行はスキップ (推奨)\n" +
             "[キャンセル] 中止",
@@ -393,7 +396,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         if (CopyFromUser is null) { StatusMessage = "コピー元のユーザーを選択してください。"; return; }
         if (CopyFromUser.Id == SelectedUser.Id) { StatusMessage = "コピー元とコピー先が同じです。"; return; }
         var owMsg = System.Windows.MessageBox.Show(
-            $"{CopyFromUser.Username} の全権限を {SelectedUser.Username} にコピーします。\n\n" +
+            $"{CopyFromUser.DisplayLabel} の全権限を {SelectedUser.DisplayLabel} にコピーします。\n\n" +
             "[はい] 既存の重複行も上書き\n" +
             "[いいえ] 重複行はスキップ (推奨)\n" +
             "[キャンセル] 中止",
@@ -434,7 +437,9 @@ public partial class UserPermissionViewModel : AdminViewModelBase
         var filter = UserFilter.Trim();
         var filtered = string.IsNullOrEmpty(filter)
             ? _allUsers
-            : _allUsers.Where(u => u.Username.Contains(filter, StringComparison.OrdinalIgnoreCase));
+            : _allUsers.Where(u =>
+                u.Username.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                (u.DisplayName?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false));
         var list = SortUsers(filtered).ToList();
 
         UserSummaries.Clear();
@@ -466,11 +471,17 @@ public partial class UserPermissionViewModel : AdminViewModelBase
             nameof(UserPermissionSummary.IsAdmin) => descending
                 ? users.OrderByDescending(u => u.IsAdmin).ThenBy(u => u.Username)
                 : users.OrderBy(u => u.IsAdmin).ThenBy(u => u.Username),
+            nameof(UserPermissionSummary.DisplayName) => descending
+                ? users.OrderByDescending(UserSortName).ThenByDescending(u => u.Username)
+                : users.OrderBy(UserSortName).ThenBy(u => u.Username),
             _ => descending
                 ? users.OrderByDescending(u => u.Username)
                 : users.OrderBy(u => u.Username),
         };
     }
+
+    private static string UserSortName(UserDto user)
+        => string.IsNullOrWhiteSpace(user.DisplayName) ? user.Username : user.DisplayName;
 
     private static bool TryParseWindow(
         string validFromText,

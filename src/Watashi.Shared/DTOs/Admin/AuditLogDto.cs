@@ -1,4 +1,5 @@
 using Watashi.Shared.Constants;
+using Watashi.Shared.Helpers;
 
 namespace Watashi.Shared.DTOs.Admin;
 
@@ -8,6 +9,9 @@ public class AuditLogDto
     public DateTime Timestamp { get; set; }
     public int? UserId { get; set; }
     public string Username { get; set; } = string.Empty;
+    /// <summary>取得時点で解決された現在の User.DisplayName。監査証跡そのものではない。</summary>
+    public string? DisplayName { get; set; }
+    public string UserDisplayLabel => UserDisplayNames.FormatLabel(DisplayName, Username);
     public string Operation { get; set; } = string.Empty;
     public int? HostId { get; set; }
     public int? ShareId { get; set; }

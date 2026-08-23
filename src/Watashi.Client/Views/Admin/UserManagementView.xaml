@@ -48,7 +48,7 @@
                               ToolTip="並び替え"
                               Margin="6,0,0,0"/>
                     <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="ユーザー一覧を検索"/>
+                             ToolTip="名前またはユーザー名で検索"/>
                 </DockPanel>
                 <Grid>
                     <ListView x:Name="UserList"
@@ -60,7 +60,8 @@
                         <ListView.View>
                             <GridView>
                                 <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
-                                <GridViewColumn Header="ユーザー名" DisplayMemberBinding="{Binding Username}" Width="180"/>
+                                <GridViewColumn Header="名前" DisplayMemberBinding="{Binding DisplayName}" Width="160"/>
+                                <GridViewColumn Header="ユーザー名" DisplayMemberBinding="{Binding Username}" Width="140"/>
                                 <GridViewColumn Header="管理者" DisplayMemberBinding="{Binding IsAdmin}" Width="64"/>
                                 <GridViewColumn Header="状態" DisplayMemberBinding="{Binding AccountStatusLabel}" Width="72"/>
                                 <GridViewColumn Header="無効日時" DisplayMemberBinding="{Binding DisabledAt, Converter={StaticResource Utc}}" Width="150"/>
@@ -111,15 +112,21 @@
                 <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
                     <TextBlock Text="ユーザー情報" Style="{StaticResource H3}"/>
                 </Border>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="16">
                     <TextBlock Text="選択中のユーザー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBlock Text="{Binding Selected.Username, TargetNullValue=ユーザーを選択してください}"
+                    <TextBlock Text="{Binding Selected.DisplayLabel, TargetNullValue=ユーザーを選択してください}"
                                FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock Text="{Binding Selected.AccountStatusLabel, StringFormat=状態: {0}}"
                                Style="{StaticResource Muted}" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding Selected.DisabledReason, StringFormat=直近の無効理由: {0}}"
                                ToolTip="{Binding Selected.DisabledReason}" TextWrapping="Wrap"
                                Style="{StaticResource Caption}" Margin="0,0,0,10"/>
+
+                    <TextBlock Text="名前（任意・空欄で未設定）" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding EditDisplayName, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="100" IsEnabled="{Binding HasSelected}" Margin="0,0,0,12"/>
 
                     <CheckBox Content="管理者"
                               IsChecked="{Binding EditIsAdmin}"
@@ -141,6 +148,10 @@
                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
                                Text="Windows のログオン名と同じ GID にしてください。初回ログイン時の本人確認に使われます。"/>
 
+                    <TextBlock Text="名前（任意）" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                    <TextBox Text="{Binding NewDisplayName, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="100" Margin="0,0,0,10"/>
+
                     <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
                                Text="初期パスワードの設定は不要です。本人が初回ログイン時に自分で決めます。Windows 認証が使えない端末の場合は、作成後に「初期PW発行」を使ってください。"/>
 
@@ -151,6 +162,7 @@
                     <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                                TextWrapping="Wrap" Margin="0,12,0,0"/>
                 </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
     </Grid>

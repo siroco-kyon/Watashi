@@ -52,6 +52,43 @@ public class AdminLogFilterTests
         rows.Should().ContainSingle().Which.Id.Should().Be(seeded.RenameLogId);
     }
 
+    [Fact]
+    public async Task ApplyFilter_supports_the_current_user_display_name()
+    {
+        using var testDb = new TestDb();
+        var seeded = Seed(testDb);
+
+        var rows = await AdminLogEndpoints.ApplyFilter(testDb.Db, new AuditLogQueryDto
+        {
+            User = "山田",
+        }).ToListAsync();
+
+        rows.Should().ContainSingle().Which.Id.Should().Be(seeded.FileLogId);
+    }
+
+    [Fact]
+    public async Task LoadRows_enriches_current_users_and_falls_back_after_user_deletion()
+    {
+        using var testDb = new TestDb();
+        var seeded = Seed(testDb);
+        var query = testDb.Db.AuditLogs.AsNoTracking().Where(x => x.Id == seeded.FileLogId);
+
+        var current = await AdminLogEndpoints.LoadRowsAsync(testDb.Db, query, 0, 10);
+        current.Should().ContainSingle();
+        current[0].Username.Should().Be("alice");
+        current[0].DisplayName.Should().Be("山田 太郎");
+        current[0].UserDisplayLabel.Should().Be("山田 太郎（alice）");
+
+        var user = await testDb.Db.Users.SingleAsync(x => x.Id == 11);
+        testDb.Db.Users.Remove(user);
+        await testDb.Db.SaveChangesAsync();
+
+        var deleted = await AdminLogEndpoints.LoadRowsAsync(testDb.Db, query, 0, 10);
+        deleted.Should().ContainSingle();
+        deleted[0].DisplayName.Should().BeNull();
+        deleted[0].UserDisplayLabel.Should().Be("alice");
+    }
+
     [Theory]
     [InlineData(AuditLogFilterValues.FileCategory, Operations.Download)]
     [InlineData(AuditLogFilterValues.AuthCategory, AuthOperations.LoginDeviceChanged)]
@@ -170,6 +207,18 @@ public class AdminLogFilterTests
             DisplayName = "経理共有",
         };
         db.CifsShares.Add(share);
+        db.SaveChanges();
+
+        db.Users.Add(new User
+        {
+            Id = 11,
+            Username = "alice",
+            DisplayName = "山田 太郎",
+            PasswordHash = "hash",
+            PasswordChangedAt = DateTime.UtcNow,
+            PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
+            CreatedAt = DateTime.UtcNow,
+        });
         db.SaveChanges();
 
         var fileTime = new DateTime(2026, 8, 10, 12, 0, 0, DateTimeKind.Utc);

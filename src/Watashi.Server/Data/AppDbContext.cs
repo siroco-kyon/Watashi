@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Watashi.Shared.DTOs.Admin;
+using Watashi.Shared.Helpers;
 using Watashi.Shared.Models;
 
 namespace Watashi.Server.Data;
@@ -56,6 +57,7 @@ public class AppDbContext : DbContext
             // OrdinalIgnoreCase にすると KU_EM / ku_em を別ユーザーとして登録でき、
             // 同じ OS アカウントが両方を初回設定できてしまうため DB 制約も揃える。
             b.Property(u => u.Username).IsRequired().UseCollation("NOCASE");
+            b.Property(u => u.DisplayName).HasMaxLength(UserDisplayNames.MaxLength);
             // 初回設定待ちでも PasswordHash には使用不能ハッシュが入るため NOT NULL を維持する
             // (PasswordSetup のコメント参照)。nullable 化はテーブル再構築を招くので行わない。
             b.Property(u => u.PasswordHash).IsRequired();

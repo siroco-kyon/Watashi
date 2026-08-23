@@ -17,7 +17,7 @@
                 <ComboBox DockPanel.Dock="Right" Width="130" ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSortOption}"
                           DisplayMemberPath="Label" ToolTip="並び替え" Margin="6,0,0,0"/>
                 <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="ユーザー、端末、Windowsユーザーを検索"/>
+                         ToolTip="名前、ユーザー名、端末、Windowsユーザーを検索"/>
             </DockPanel>
             <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                        Margin="16,8,16,0" DockPanel.Dock="Top" TextWrapping="Wrap"/>
@@ -25,7 +25,7 @@
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
-                        <GridViewColumn Header="ユーザー" DisplayMemberBinding="{Binding Username}" Width="160"/>
+                        <GridViewColumn Header="ユーザー" DisplayMemberBinding="{Binding DisplayLabel}" Width="220"/>
                         <GridViewColumn Header="マシン" DisplayMemberBinding="{Binding MachineName}" Width="200"/>
                         <GridViewColumn Header="Windowsユーザー" DisplayMemberBinding="{Binding WindowsUsername}" Width="200"/>
                         <GridViewColumn Header="登録" DisplayMemberBinding="{Binding RegisteredAt, Converter={StaticResource Utc}}" Width="160"/>

@@ -29,39 +29,7 @@ public static class AdminLogEndpoints
             var p = Math.Clamp(page ?? 1, 1, totalPages);
 
             // 関連マスタへ left-join し、削除済みの場合は ID を残したまま名前だけ null にする。
-            var rows = await (
-                from l in q.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.Id)
-                    .Skip((p - 1) * PageSize).Take(PageSize)
-                join h in db.CifsHosts.AsNoTracking() on l.HostId equals h.Id into hj
-                from h in hj.DefaultIfEmpty()
-                join s in db.CifsShares.AsNoTracking() on l.ShareId equals s.Id into sj
-                from s in sj.DefaultIfEmpty()
-                join n in db.ExecutionNodes.AsNoTracking() on l.ExecutionNodeId equals n.Id into nj
-                from n in nj.DefaultIfEmpty()
-                select new AuditLogDto
-                {
-                    Id = l.Id,
-                    Timestamp = l.Timestamp,
-                    UserId = l.UserId,
-                    Username = l.Username,
-                    Operation = l.Operation,
-                    HostId = l.HostId,
-                    ShareId = l.ShareId,
-                    HostName = h != null ? h.Name : null,
-                    ShareName = s != null ? s.DisplayName : null,
-                    Path = l.Path,
-                    TargetPath = l.TargetPath,
-                    Result = l.Result,
-                    ErrorMessage = l.ErrorMessage,
-                    ClientIp = l.ClientIp,
-                    ClientHostname = l.ClientHostname,
-                    BytesTransferred = l.BytesTransferred,
-                    DurationMs = l.DurationMs,
-                    Protocol = l.Protocol,
-                    ExecutionNodeId = l.ExecutionNodeId,
-                    ExecutionNodeName = n != null ? n.Name : null,
-                    UsedPermissionId = l.UsedPermissionId,
-                }).ToListAsync(ct);
+            var rows = await LoadRowsAsync(db, q, (p - 1) * PageSize, PageSize, ct);
             return Results.Ok(new AuditLogPageDto
             {
                 TotalCount = total,
@@ -82,6 +50,8 @@ public static class AdminLogEndpoints
                 .OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.Id);
             var q =
                 from l in filtered
+                join u in db.Users.AsNoTracking() on l.UserId equals (int?)u.Id into uj
+                from u in uj.DefaultIfEmpty()
                 join h in db.CifsHosts.AsNoTracking() on l.HostId equals h.Id into hj
                 from h in hj.DefaultIfEmpty()
                 join s in db.CifsShares.AsNoTracking() on l.ShareId equals s.Id into sj
@@ -94,7 +64,8 @@ public static class AdminLogEndpoints
                     l.ShareId, s != null ? s.DisplayName : null,
                     l.Path, l.TargetPath, l.Result, l.ErrorMessage,
                     l.ClientIp, l.ClientHostname, l.BytesTransferred, l.DurationMs, l.Protocol,
-                    l.ExecutionNodeId, n != null ? n.Name : null, l.UsedPermissionId);
+                    l.ExecutionNodeId, n != null ? n.Name : null, l.UsedPermissionId,
+                    u != null ? u.DisplayName : null);
 
             ctx.Response.ContentType = "text/csv; charset=utf-8";
             ctx.Response.Headers.ContentDisposition = "attachment; filename=audit_logs.csv";
@@ -102,7 +73,8 @@ public static class AdminLogEndpoints
             await using var writer = new StreamWriter(ctx.Response.Body, Encoding.UTF8, leaveOpen: true);
             // 「どこのどの共有のどのパスか」が一目で分かるよう Location 列を追加。
             // 既存運用のために HostId/ShareId/Path/HostName/ShareName 各列もそのまま残す。
-            await writer.WriteLineAsync("Id,Timestamp,Username,Operation,OperationLabel,Location,HostId,HostName,ShareId,ShareName,Path,TargetPath,Result,Error,ClientIp,ClientHostname,Bytes,DurationMs,Protocol,NodeId,PermId,OperationCategory,NodeName");
+            // 既存の列位置を維持し、現在の表示名は補助情報として末尾へ追加する。
+            await writer.WriteLineAsync("Id,Timestamp,Username,Operation,OperationLabel,Location,HostId,HostName,ShareId,ShareName,Path,TargetPath,Result,Error,ClientIp,ClientHostname,Bytes,DurationMs,Protocol,NodeId,PermId,OperationCategory,NodeName,DisplayName");
 
             int batched = 0;
             await foreach (var l in q.AsAsyncEnumerable().WithCancellation(ct))
@@ -132,6 +104,7 @@ public static class AdminLogEndpoints
                     l.UsedPermissionId?.ToString() ?? string.Empty,
                     AuditLogFilterValues.CategoryFor(l.Operation),
                     l.ExecutionNodeName ?? string.Empty,
+                    l.DisplayName ?? string.Empty,
                 };
                 await writer.WriteLineAsync(string.Join(',', fields.Select(Csv)));
                 if (++batched % 500 == 0) await writer.FlushAsync();
@@ -143,6 +116,49 @@ public static class AdminLogEndpoints
         return app;
     }
 
+    internal static Task<List<AuditLogDto>> LoadRowsAsync(
+        AppDbContext db,
+        IQueryable<AuditLog> query,
+        int skip,
+        int take,
+        CancellationToken ct = default)
+        => (
+                from l in query.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.Id)
+                    .Skip(skip).Take(take)
+                join u in db.Users.AsNoTracking() on l.UserId equals (int?)u.Id into uj
+                from u in uj.DefaultIfEmpty()
+                join h in db.CifsHosts.AsNoTracking() on l.HostId equals h.Id into hj
+                from h in hj.DefaultIfEmpty()
+                join s in db.CifsShares.AsNoTracking() on l.ShareId equals s.Id into sj
+                from s in sj.DefaultIfEmpty()
+                join n in db.ExecutionNodes.AsNoTracking() on l.ExecutionNodeId equals n.Id into nj
+                from n in nj.DefaultIfEmpty()
+                select new AuditLogDto
+                {
+                    Id = l.Id,
+                    Timestamp = l.Timestamp,
+                    UserId = l.UserId,
+                    Username = l.Username,
+                    DisplayName = u != null ? u.DisplayName : null,
+                    Operation = l.Operation,
+                    HostId = l.HostId,
+                    ShareId = l.ShareId,
+                    HostName = h != null ? h.Name : null,
+                    ShareName = s != null ? s.DisplayName : null,
+                    Path = l.Path,
+                    TargetPath = l.TargetPath,
+                    Result = l.Result,
+                    ErrorMessage = l.ErrorMessage,
+                    ClientIp = l.ClientIp,
+                    ClientHostname = l.ClientHostname,
+                    BytesTransferred = l.BytesTransferred,
+                    DurationMs = l.DurationMs,
+                    Protocol = l.Protocol,
+                    ExecutionNodeId = l.ExecutionNodeId,
+                    ExecutionNodeName = n != null ? n.Name : null,
+                    UsedPermissionId = l.UsedPermissionId,
+                }).ToListAsync(ct);
+
     internal static IQueryable<AuditLog> ApplyFilter(AppDbContext db, AuditLogQueryDto filter)
     {
         var q = db.AuditLogs.AsNoTracking();
@@ -152,7 +168,11 @@ public static class AdminLogEndpoints
         {
             var lowered = user.ToLowerInvariant();
             var hasUserId = int.TryParse(user, NumberStyles.Integer, CultureInfo.InvariantCulture, out var userId);
-            q = q.Where(l => l.Username.ToLower().Contains(lowered) || (hasUserId && l.UserId == userId));
+            q = q.Where(l =>
+                l.Username.ToLower().Contains(lowered) ||
+                (hasUserId && l.UserId == userId) ||
+                db.Users.Any(u => u.Id == l.UserId &&
+                    u.DisplayName != null && u.DisplayName.ToLower().Contains(lowered)));
         }
 
         var operation = NormalizeOperationFilter(filter.Op);
@@ -284,5 +304,5 @@ public static class AdminLogEndpoints
         int? HostId, string? HostName, int? ShareId, string? ShareName,
         string? Path, string? TargetPath, string Result, string? ErrorMessage,
         string? ClientIp, string? ClientHostname, long? BytesTransferred, long? DurationMs, string? Protocol,
-        int? ExecutionNodeId, string? ExecutionNodeName, int? UsedPermissionId);
+        int? ExecutionNodeId, string? ExecutionNodeName, int? UsedPermissionId, string? DisplayName);
 }

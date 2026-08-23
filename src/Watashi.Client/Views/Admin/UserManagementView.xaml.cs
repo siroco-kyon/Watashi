@@ -18,7 +18,7 @@ public partial class UserManagementView : UserControl
             return;
         }
         var input = Watashi.Client.Views.PromptDialog.ShowPassword(
-            $"\"{vm.Selected.Username}\" の新しいパスワード (12文字以上 / 英大・英小・数字・記号 各1):",
+            $"\"{vm.Selected.DisplayLabel}\" の新しいパスワード (12文字以上 / 英大・英小・数字・記号 各1):",
             Window.GetWindow(this));
         if (string.IsNullOrWhiteSpace(input)) return;
         await vm.ResetPasswordAsync(input);
@@ -34,7 +34,7 @@ public partial class UserManagementView : UserControl
         }
 
         var reason = PromptDialog.Show(
-            $"\"{vm.Selected.Username}\" を無効化する理由を入力してください。",
+            $"\"{vm.Selected.DisplayLabel}\" を無効化する理由を入力してください。",
             owner: Window.GetWindow(this));
         if (reason is null) return;
         reason = reason.Trim();
@@ -46,7 +46,7 @@ public partial class UserManagementView : UserControl
         }
 
         var confirm = MessageBox.Show(
-            $"ユーザー \"{vm.Selected.Username}\" を無効化しますか？\n\n" +
+            $"ユーザー \"{vm.Selected.DisplayLabel}\" を無効化しますか？\n\n" +
             "・ログイン中の全セッションが直ちに無効になります\n" +
             "・記憶済み端末も全て失効します\n" +
             "・再有効化しても以前の認証情報は復活しません",
@@ -65,7 +65,7 @@ public partial class UserManagementView : UserControl
         }
 
         var confirm = MessageBox.Show(
-            $"ユーザー \"{vm.Selected.Username}\" を再有効化しますか？\n\n" +
+            $"ユーザー \"{vm.Selected.DisplayLabel}\" を再有効化しますか？\n\n" +
             "以前のセッションと記憶済み端末は失効したままです。通常のログインが必要です。",
             "ユーザー再有効化", MessageBoxButton.OKCancel, MessageBoxImage.Question);
         if (confirm != MessageBoxResult.OK) return;

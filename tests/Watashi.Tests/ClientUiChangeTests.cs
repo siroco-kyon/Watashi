@@ -61,12 +61,62 @@ public sealed class ClientUiChangeTests
     }
 
     [Fact]
+    public void Combo_boxes_pair_windows_background_and_foreground_colors()
+    {
+        var controls = File.ReadAllText(RepoFile("src/Watashi.Client/Themes/Controls.xaml"));
+
+        controls.Should().Contain("<Style TargetType=\"ComboBoxItem\">")
+            .And.Contain("{x:Static wpf:SystemColors.WindowBrushKey}")
+            .And.Contain("{x:Static wpf:SystemColors.WindowTextBrushKey}")
+            .And.Contain("TextElement.Foreground");
+    }
+
+    [Fact]
+    public void File_lists_propagate_the_theme_foreground_to_generated_cell_text()
+    {
+        var controls = File.ReadAllText(RepoFile("src/Watashi.Client/Themes/Controls.xaml"));
+
+        controls.Should().Contain("<Style TargetType=\"ListView\">")
+            .And.Contain("<Style TargetType=\"ListViewItem\">")
+            .And.Contain("<Setter Property=\"TextElement.Foreground\" Value=\"{StaticResource TextPrimaryBrush}\" />");
+    }
+
+    [Fact]
     public void Remote_list_uses_the_server_supported_five_hundred_item_page()
     {
         ApiClient.RemoteListPageSize.Should().Be(500);
         var vm = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/RemotePaneViewModel.cs"));
 
         Count(vm, "limit: ApiClient.RemoteListPageSize").Should().Be(2);
+    }
+
+    [Fact]
+    public void Admin_user_surfaces_bind_the_optional_display_name_and_safe_fallback_label()
+    {
+        var users = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/UserManagementView.xaml"));
+        var permissions = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/UserPermissionView.xaml"));
+        var devices = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/DeviceManagementView.xaml"));
+        var audit = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/AuditLogView.xaml"));
+        var userVm = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/Admin/UserManagementViewModel.cs"));
+        var permissionVm = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/Admin/UserPermissionViewModel.cs"));
+        var deviceVm = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/Admin/DeviceManagementViewModel.cs"));
+
+        users.Should().Contain("Header=\"名前\"")
+            .And.Contain("{Binding DisplayName}")
+            .And.Contain("{Binding Selected.DisplayLabel")
+            .And.Contain("{Binding EditDisplayName")
+            .And.Contain("{Binding NewDisplayName");
+        permissions.Should().Contain("{Binding DisplayLabel}")
+            .And.Contain("DisplayMemberPath=\"DisplayLabel\"");
+        devices.Should().Contain("{Binding DisplayLabel}");
+        audit.Should().Contain("{Binding UserDisplayLabel}");
+        userVm.Should().Contain("u.DisplayName")
+            .And.Contain("DisplayName = EditDisplayName")
+            .And.Contain("DisplayName = NewDisplayName");
+        permissionVm.Should().Contain("u.DisplayName?.Contains")
+            .And.Contain("SelectedUser.DisplayLabel");
+        deviceVm.Should().Contain("d.DisplayName")
+            .And.Contain("SelectedDevice.DisplayLabel");
     }
 
     [Fact]

@@ -359,7 +359,7 @@
 
       <!-- ===================================================== 3 -->
       <h2 id="users"><span class="num">3</span>ユーザー（タブ）</h2>
-      <p>ユーザーアカウントの作成・削除・管理者フラグ・ロック解除・パスワードリセット・CSV一括取込／出力を行います。</p>
+      <p>ユーザーアカウントの作成・削除・管理者フラグ・ロック解除・パスワードリセット・CSV一括取込／出力を行います。任意の「名前」を登録すると、管理画面では <strong>山田 太郎（G012345）</strong> のように表示されます。名前は表示・検索用で、ログインには引き続きユーザー名（GID）を使います。</p>
 
       <div class="tip">
         <strong>Windows 統合認証を有効にした環境では、初期パスワードの配布は不要です</strong>
@@ -367,7 +367,7 @@
       </div>
 
       <h4>一覧の列</h4>
-      <p><code>ID</code> ／ <code>ユーザー名</code> ／ <code>管理者</code> ／ <code>Lock</code>（ロック状態） ／ <code>PW状態</code> ／ <code>PW期限</code> ／ <code>最終ログイン</code>。検索ボックスと並び替えで絞り込めます。</p>
+      <p><code>ID</code> ／ <code>名前</code> ／ <code>ユーザー名</code> ／ <code>管理者</code> ／ <code>Lock</code>（ロック状態） ／ <code>PW状態</code> ／ <code>PW期限</code> ／ <code>最終ログイン</code>。名前とユーザー名の両方を検索できます。</p>
 
       <table>
         <thead><tr><th>PW状態</th><th>意味</th></tr></thead>
@@ -396,6 +396,7 @@
       <h3>3-1. 新規ユーザーの作成</h3>
       <ol class="steps">
         <li>右パネル「新規ユーザー」で <strong>ユーザー名（GID）</strong> を入力。Windows のログオン名と同じ GID にします。</li>
+        <li>必要なら任意の<strong>名前</strong>（最大100文字）を入力します。空欄でも構いません。</li>
         <li>管理者にするなら「<strong>管理者として作成</strong>」にチェック。</li>
         <li><span class="uibtn">＋ 作成</span> を押す。</li>
       </ol>
@@ -461,13 +462,14 @@
         以前は既存ユーザーのパスワードも再設定していましたが、現在はしません。CSVを再取り込みしただけで全員が締め出される事故を防ぐためです。パスワードの再設定が必要な場合は <span class="uibtn">🔑 初期PW発行</span> か <span class="uibtn">↩ 初回設定に戻す</span> を明示的に使ってください。
       </div>
       <h4>CSVフォーマット</h4>
-      <p>UTF-8（BOM推奨）、1行目はヘッダー必須。必須列 <code>Username</code> ／ 任意列 <code>IsAdmin</code>（省略時 false）。列順は問いません。<strong>パスワードはCSVに書きません。</strong></p>
-      <pre class="code">Username,IsAdmin
-G012345,false
-G012346,true
-G012347,false</pre>
+      <p>UTF-8（BOM推奨）、1行目はヘッダー必須。必須列 <code>Username</code> ／ 任意列 <code>IsAdmin</code>（新規作成時は省略すると false）と <code>DisplayName</code>（最大100文字）。列順は問いません。<strong>パスワードはCSVに書きません。</strong></p>
+      <pre class="code">Username,IsAdmin,DisplayName
+G012345,false,山田 太郎
+G012346,true,佐藤 花子
+G012347,false,</pre>
       <ul>
         <li>取り込まれた新規ユーザーは<strong>初回設定待ち</strong>になります。</li>
+        <li>上書きモードで <code>DisplayName</code> のセルを空にすると名前を消去します。列やその行の末尾セル自体が無い場合は、既存の名前を維持します。</li>
         <li>旧形式（<code>Username,Password,IsAdmin</code>）もそのまま取り込めます。<code>Password</code> 列は<strong>無視され</strong>、完了ダイアログにその旨が出ます。手元の古いCSVを作り直す必要はありません（CSVに書かれたパスワードではログインできません）。</li>
         <li>値にカンマ・改行・ダブルクォートを含む場合は <code>"..."</code> で囲む（RFC4180風）。</li>
         <li>全行を1件ずつ処理します。途中で失敗しても<strong>他の行は処理されます</strong>。</li>
@@ -476,7 +478,7 @@ G012347,false</pre>
 
       <h3>3-5. CSVエクスポート（棚卸し用）</h3>
       <p><span class="uibtn ghost">📤 CSV出力</span> → 保存先を指定。ファイル名は <code>watashi-users-YYYYMMDD-HHmmss.csv</code>。<br>
-      列：<code>Username, IsAdmin, IsLocked, PasswordStatus, PasswordExpiresAt, LastLoginAt, CreatedAt</code>。<strong>パスワード列は含まれません</strong>（DBに平文がないため）。<code>PasswordStatus</code> は <code>PendingSetup</code> ／ <code>Active</code> ／ <code>MustChange</code> ／ <code>Expired</code> のいずれかです。BOM付きUTF-8でExcelでそのまま開けます（数式インジェクション対策済み）。</p>
+      既存の列順を維持し、末尾に <code>DisplayName</code> が追加されます。<strong>パスワード列は含まれません</strong>（DBに平文がないため）。<code>PasswordStatus</code> は <code>PendingSetup</code> ／ <code>Active</code> ／ <code>MustChange</code> ／ <code>Expired</code> のいずれかです。BOM付きUTF-8でExcelでそのまま開けます（数式インジェクション対策済み）。</p>
 
       <div class="tip">
         <strong>退職者の扱い</strong>
@@ -580,7 +582,7 @@ G012347,false</pre>
       <h2 id="userperm"><span class="num">7</span>ユーザー権限（核心機能）</h2>
       <p class="lead">Watashi の中心となる機能。<strong>ユーザー × 共有 × サブパス × テンプレート</strong>の粒度で「誰がどこで何をできるか」を割り当てます。</p>
 
-      <p>画面は <strong>左：ユーザー一覧（検索＋件数バッジ）</strong>／<strong>右：選択ユーザーの付与済みパス＋追加カード</strong>の構成です。</p>
+      <p>画面は <strong>左：ユーザー一覧（検索＋件数バッジ）</strong>／<strong>右：選択ユーザーの付与済みパス＋追加カード</strong>の構成です。ユーザーは <strong>名前（Username）</strong> で表示され、名前と Username のどちらでも検索できます。</p>
 
       <figure>
         <svg viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ユーザー権限画面の構成">
@@ -674,7 +676,7 @@ G012347,false</pre>
       <h2 id="devices"><span class="num">9</span>信頼デバイス</h2>
       <p>ユーザーの「このPCを記憶する（自動ログイン）」を管理します。</p>
       <h4>一覧の列</h4>
-      <p><code>ID</code> ／ <code>ユーザー</code> ／ <code>マシン</code> ／ <code>Windowsユーザー</code> ／ <code>登録</code> ／ <code>最終使用</code> ／ <code>失効</code>。検索で絞り込めます。</p>
+      <p><code>ID</code> ／ <code>ユーザー</code>（名前＋Username） ／ <code>マシン</code> ／ <code>Windowsユーザー</code> ／ <code>登録</code> ／ <code>最終使用</code> ／ <code>失効</code>。名前、Username、端末、Windowsユーザーで絞り込めます。</p>
       <ul>
         <li><strong>1ユーザー＝1デバイスのみ</strong>（DBユニーク制約）。別PCで記憶をオンにすると古い方は失効します。</li>
         <li><strong>退職者対応／紛失対応</strong>：対象の行を選び <span class="uibtn danger">選択ユーザーを失効</span>。確認後、その自動ログインは拒否され、ユーザーは手動ログインに戻ります。</li>
@@ -738,18 +740,18 @@ G012347,false</pre>
       <p>全ファイル操作と管理者操作の監査ログを閲覧・出力します。</p>
       <h4>フィルタ</h4>
       <ul>
-        <li><strong>User</strong>：ユーザー名で完全一致</li>
+        <li><strong>User</strong>：名前・ユーザー名の部分一致、またはユーザーID</li>
         <li><strong>Operation</strong>：<code>READ</code> / <code>WRITE</code> / <code>DELETE</code> / <code>RENAME</code> または <code>ADMIN_*</code></li>
         <li><strong>From / To (UTC)</strong>：期間指定</li>
         <li><span class="uibtn">🔍 検索</span> でクエリ実行</li>
       </ul>
 
       <h4>カラム</h4>
-      <p><code>ID</code> ／ <code>時刻</code> ／ <code>User</code> ／ <code>端末</code> ／ <code>Op</code> ／ <code>Result</code>（success/failure）／ <code>ホスト / 共有</code> ／ <code>Path</code> ／ <code>Bytes</code> ／ <code>Dur(ms)</code> ／ <code>Err</code>。<br>
+      <p><code>ID</code> ／ <code>時刻</code> ／ <code>User</code>（名前＋Username） ／ <code>端末</code> ／ <code>Op</code> ／ <code>Result</code>（success/failure）／ <code>ホスト / 共有</code> ／ <code>Path</code> ／ <code>Bytes</code> ／ <code>Dur(ms)</code> ／ <code>Err</code>。User列は保存済みのUsernameを証跡として維持し、現在も存在するユーザーだけ現在の名前を補助表示します。削除済みユーザーはUsernameのみです。<br>
       「ホスト / 共有」列はホスト名（1行目）と共有表示名（2行目）の2行表示。<strong>Path列にホバー</strong>すると「ホスト / 共有 :: パス」のフル表記がツールチップで出ます（例 <code>経理部FS / share-keiri :: /dept-A/file.txt</code>）。ログ取得後にホスト/共有が削除された場合は <code>(削除済 host#42)</code> のように表示されます（ログ自体は保全）。</p>
 
       <h4>CSVエクスポート</h4>
-      <p><span class="uibtn ghost">📤 CSV出力</span>で、現在のフィルタ条件のまま全件CSVをダウンロード。BOM付きUTF-8でExcelでそのまま開けます（数式インジェクション対策済み）。列に <code>Location</code>（「ホスト / 共有 :: パス」）・<code>HostName</code>・<code>ShareName</code> を含み、<code>HostId/ShareId</code> も後方互換で残ります。</p>
+      <p><span class="uibtn ghost">📤 CSV出力</span>で、現在のフィルタ条件のまま全件CSVをダウンロード。BOM付きUTF-8でExcelでそのまま開けます（数式インジェクション対策済み）。列に <code>Location</code>（「ホスト / 共有 :: パス」）・<code>HostName</code>・<code>ShareName</code> を含み、既存列の位置と <code>HostId/ShareId</code> を後方互換で維持したまま、末尾へ現在の <code>DisplayName</code> を追加します。</p>
 
       <div class="note">
         <strong>保管期間</strong>

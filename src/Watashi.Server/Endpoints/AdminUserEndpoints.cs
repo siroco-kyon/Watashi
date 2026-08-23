@@ -30,12 +30,15 @@ public static class AdminUserEndpoints
         {
             if (string.IsNullOrWhiteSpace(req.Username))
                 return Results.BadRequest(new { error = "Username は必須です。" });
+            if (!UserDisplayNames.TryNormalize(req.DisplayName, out var displayName))
+                return Results.BadRequest(new { error = $"名前は {UserDisplayNames.MaxLength} 文字以内で入力してください。" });
 
             var days = await GetExpiryDaysAsync(db, ct);
             var now = DateTime.UtcNow;
             var u = new User
             {
                 Username = req.Username.Trim(),
+                DisplayName = displayName,
                 // 未設定でも PasswordHash は NOT NULL。誰も知り得ない値を入れて照合が必ず失敗するようにする。
                 PasswordHash = PasswordSetup.CreateUnusableHash(),
                 IsAdmin = req.IsAdmin,
@@ -65,6 +68,11 @@ public static class AdminUserEndpoints
 
         group.MapPatch("/{id:int}", async (int id, UpdateUserRequest req, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
+            // null は旧クライアントや IsAdmin だけの PATCH による「変更なし」。
+            // 空文字は明示的な表示名の消去として扱う。
+            if (!TryNormalizeDisplayNamePatch(req.DisplayName, out var hasDisplayNameUpdate, out var displayName))
+                return Results.BadRequest(new { error = $"名前は {UserDisplayNames.MaxLength} 文字以内で入力してください。" });
+
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
             // 管理権限を剥がす変更については、自己降格と最後の管理者降格を禁ずる。
@@ -83,6 +91,8 @@ public static class AdminUserEndpoints
                 // 昇格前・降格前の access/refresh token を直ちに使えなくする。
                 UserAuthorizationVersion.ApplyAdminRole(u, req.IsAdmin.Value, DateTime.UtcNow);
             }
+            if (hasDisplayNameUpdate)
+                u.DisplayName = displayName;
             await db.SaveChangesAsync(ct);
             await audit.LogAdminAsync(principal, ctx, AdminOperations.UserUpdate, $"user:{id}", ct: ct);
             return Results.NoContent();
@@ -263,6 +273,7 @@ public static class AdminUserEndpoints
                     Id = d.Id,
                     UserId = d.UserId,
                     Username = u.Username,
+                    DisplayName = u.DisplayName,
                     MachineName = d.MachineName,
                     WindowsUsername = d.WindowsUsername,
                     RegisteredAt = d.RegisteredAt,
@@ -298,7 +309,7 @@ public static class AdminUserEndpoints
         });
 
         // ===== CSV エクスポート =====
-        // Username, IsAdmin, IsLocked, IsDisabled, disable metadata, password/login metadata
+        // Username, IsAdmin, IsLocked, IsDisabled, disable metadata, password/login metadata, DisplayName
         // Password 列はあえて含めない (DB に平文無いので)
         group.MapGet("/export.csv", async (AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
@@ -309,7 +320,8 @@ public static class AdminUserEndpoints
             ctx.Response.Headers.ContentDisposition = "attachment; filename=watashi-users.csv";
             ctx.Response.ContentType = "text/csv; charset=utf-8";
             await using var w = new StreamWriter(ctx.Response.Body, new System.Text.UTF8Encoding(true));
-            await w.WriteLineAsync("Username,IsAdmin,IsLocked,IsDisabled,DisabledAt,DisabledReason,DisabledByUserId,DisabledByUsername,PasswordStatus,PasswordExpiresAt,LastLoginAt,CreatedAt");
+            // 既存の列位置に依存する運用を壊さないよう、DisplayName は末尾へ追加する。
+            await w.WriteLineAsync("Username,IsAdmin,IsLocked,IsDisabled,DisabledAt,DisabledReason,DisabledByUserId,DisabledByUsername,PasswordStatus,PasswordExpiresAt,LastLoginAt,CreatedAt,DisplayName");
             foreach (var u in users)
             {
                 await w.WriteLineAsync(string.Join(",",
@@ -324,7 +336,8 @@ public static class AdminUserEndpoints
                     u.PasswordStatus,
                     u.PasswordExpiresAt.ToString("o"),
                     u.LastLoginAt?.ToString("o") ?? "",
-                    u.CreatedAt.ToString("o")));
+                    u.CreatedAt.ToString("o"),
+                    CsvEscape(u.DisplayName)));
             }
             await audit.LogAdminAsync(principal, ctx, AdminOperations.UserExport, $"count:{users.Count}", ct: ct);
             return Results.Empty;
@@ -332,7 +345,7 @@ public static class AdminUserEndpoints
 
         // ===== CSV インポート =====
         // multipart/form-data: file=<CSV>, mode=add-only|upsert (default add-only)
-        // CSV format: Username,IsAdmin   (IsAdmin は任意)
+        // CSV format: Username,IsAdmin,DisplayName   (IsAdmin / DisplayName は任意)
         //
         // 新規ユーザーは初回設定待ちで登録され、パスワードは CSV に一切載せない。
         // 旧形式の Password 列があっても取り込みは通し、無視した旨を Warnings で返す。
@@ -367,8 +380,9 @@ public static class AdminUserEndpoints
             int idxUser = Array.FindIndex(header, h => string.Equals(h, "Username", StringComparison.OrdinalIgnoreCase));
             int idxPw = Array.FindIndex(header, h => string.Equals(h, "Password", StringComparison.OrdinalIgnoreCase));
             int idxAdm = Array.FindIndex(header, h => string.Equals(h, "IsAdmin", StringComparison.OrdinalIgnoreCase));
+            int idxDisplay = Array.FindIndex(header, h => string.Equals(h, "DisplayName", StringComparison.OrdinalIgnoreCase));
             if (idxUser < 0)
-                return Results.BadRequest(new { error = "ヘッダーに Username 列が必要です (IsAdmin は任意)。" });
+                return Results.BadRequest(new { error = "ヘッダーに Username 列が必要です (IsAdmin / DisplayName は任意)。" });
             if (idxPw >= 0)
             {
                 // 旧形式をそのまま読み込めるようにするが、値は使わない。
@@ -390,6 +404,17 @@ public static class AdminUserEndpoints
                 var username = cols[idxUser].Trim();
                 var isAdmin = idxAdm >= 0 && idxAdm < cols.Length
                     && bool.TryParse(cols[idxAdm].Trim(), out var b) && b;
+                if (!TryReadDisplayNameCell(cols, idxDisplay, out var hasDisplayNameCell, out var displayName))
+                {
+                    result.Failed++;
+                    result.Errors.Add(new()
+                    {
+                        LineNumber = lineNo,
+                        Username = username,
+                        Error = $"DisplayName は {UserDisplayNames.MaxLength} 文字以内で入力してください",
+                    });
+                    continue;
+                }
                 if (string.IsNullOrWhiteSpace(username))
                 {
                     result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Error = "Username が空" });
@@ -419,10 +444,12 @@ public static class AdminUserEndpoints
                         });
                         continue;
                     }
-                    // upsert が触るのは IsAdmin だけ。パスワード・ロック状態・初回設定待ちの
-                    // いずれも変更しない (CSV の再取り込みで既存ユーザーが締め出されないように)。
+                    // upsert が触るのは、列がある IsAdmin / DisplayName だけ。
+                    // パスワード・ロック状態・初回設定待ちは変更しない
+                    // (CSV の再取り込みで既存ユーザーが締め出されないように)。
                     // PATCH と同じく、CSV 経由の権限変更も古い role claim を即時失効させる。
                     UserAuthorizationVersion.ApplyAdminRole(existing, newIsAdmin, DateTime.UtcNow);
+                    ApplyDisplayNameCsvUpdate(existing, hasDisplayNameCell, displayName);
                     try { await db.SaveChangesAsync(ct); result.Updated++; }
                     catch (DbUpdateException ex)
                     {
@@ -436,6 +463,7 @@ public static class AdminUserEndpoints
                     var u = new User
                     {
                         Username = username,
+                        DisplayName = displayName,
                         PasswordHash = PasswordSetup.CreateUnusableHash(),
                         IsAdmin = isAdmin,
                         IsPasswordSetupPending = true,
@@ -464,6 +492,48 @@ public static class AdminUserEndpoints
     }
 
     private static string CsvEscape(string? v) => CsvHelper.Escape(v);
+
+    /// <summary>
+    /// PATCH の null (旧クライアントを含む) と、明示された空文字による消去を区別する。
+    /// </summary>
+    internal static bool TryNormalizeDisplayNamePatch(
+        string? requested,
+        out bool hasUpdate,
+        out string? normalized)
+    {
+        hasUpdate = requested is not null;
+        if (!hasUpdate)
+        {
+            normalized = null;
+            return true;
+        }
+        return UserDisplayNames.TryNormalize(requested, out normalized);
+    }
+
+    /// <summary>
+    /// CSV の「ヘッダーはあるが、その行の末尾セル自体が欠ける」と「明示的な空セル」を区別する。
+    /// </summary>
+    internal static bool TryReadDisplayNameCell(
+        string[] columns,
+        int displayNameIndex,
+        out bool hasCell,
+        out string? normalized)
+    {
+        hasCell = displayNameIndex >= 0 && displayNameIndex < columns.Length;
+        if (!hasCell)
+        {
+            normalized = null;
+            return true;
+        }
+        return UserDisplayNames.TryNormalize(columns[displayNameIndex], out normalized);
+    }
+
+    /// <summary>列または行末セルがない旧 CSV では現在名を維持し、セルがあれば値または null を反映する。</summary>
+    internal static void ApplyDisplayNameCsvUpdate(User user, bool hasCell, string? normalized)
+    {
+        if (hasCell)
+            user.DisplayName = normalized;
+    }
 
     /// <summary>シンプルな RFC4180 風 CSV パーサ (1行)。クォート含むセルにも対応。</summary>
     private static string[] ParseCsvLine(string line)

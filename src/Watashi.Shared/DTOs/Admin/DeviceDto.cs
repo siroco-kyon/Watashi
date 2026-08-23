@@ -1,3 +1,5 @@
+using Watashi.Shared.Helpers;
+
 namespace Watashi.Shared.DTOs.Admin;
 
 public class DeviceDto
@@ -5,6 +7,8 @@ public class DeviceDto
     public int Id { get; set; }
     public int UserId { get; set; }
     public string? Username { get; set; }
+    public string? DisplayName { get; set; }
+    public string DisplayLabel => UserDisplayNames.FormatLabel(DisplayName, Username);
     public string MachineName { get; set; } = string.Empty;
     public string WindowsUsername { get; set; } = string.Empty;
     public DateTime RegisteredAt { get; set; }

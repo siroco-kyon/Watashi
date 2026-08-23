@@ -50,6 +50,7 @@ public class PasswordSetupMigrationTests
                     .ToListAsync();
                 columns.Should().NotContain("IsPasswordSetupPending");
                 columns.Should().NotContain("IsDisabled");
+                columns.Should().NotContain("DisplayName");
 
                 var permissionColumns = await db.Database
                     .SqlQueryRaw<string>("SELECT name AS Value FROM pragma_table_info('UserPermissions')")
@@ -97,6 +98,7 @@ public class PasswordSetupMigrationTests
                 users.Should().OnlyContain(u => u.DisabledReason == null);
                 users.Should().OnlyContain(u => u.DisabledByUserId == null);
                 users.Should().OnlyContain(u => u.DisabledByUsername == null);
+                users.Should().OnlyContain(u => u.DisplayName == null);
             }
 
             // --- 5. テーブル再構築の痕跡が残っていないこと ---
