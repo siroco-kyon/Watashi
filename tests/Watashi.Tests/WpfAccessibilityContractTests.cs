@@ -19,6 +19,7 @@ public class WpfAccessibilityContractTests
     [InlineData("src/Watashi.Client/Views/ChangePasswordWindow.xaml")]
     [InlineData("src/Watashi.Client/Views/InitialPasswordWindow.xaml")]
     [InlineData("src/Watashi.Client/Views/ConnectionSettingsWindow.xaml")]
+    [InlineData("src/Watashi.Client/Views/PersonalSettingsWindow.xaml")]
     [InlineData("src/Watashi.Client/Views/PromptDialog.xaml")]
     public void Accessibility_xaml_is_well_formed(string relativePath)
     {

@@ -18,6 +18,7 @@ public partial class LocalPaneViewModel : ObservableObject
     private readonly Stack<string> _forward = new();
     private DateTime _lastSettingsSave = DateTime.MinValue;
     private string _lastSuccessfulPath = string.Empty;
+    private bool _initialized;
 
     // 取得した全件 (Parent を除く)。表示用 Entries はここからソート+絞り込みして作る。
     private readonly List<FileEntry> _all = new();
@@ -54,11 +55,38 @@ public partial class LocalPaneViewModel : ObservableObject
     public LocalPaneViewModel(LocalFileService files, AppSettings settings)
     {
         _files = files; _settings = settings;
-        currentPath = string.IsNullOrEmpty(settings.LastLocalPath) || !Directory.Exists(settings.LastLocalPath)
-            ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-            : settings.LastLocalPath;
-        _lastSuccessfulPath = currentPath;
-        _ = RefreshAsync();
+        currentPath = LocalStartupPathCandidates.Build(settings).FirstOrDefault()
+            ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        sortKey = settings.RememberSortOrder ? settings.LocalSortKey : null;
+    }
+
+    /// <summary>
+    /// 起動候補を順に一覧取得し、固定先が一時的に使えない場合も前回場所／ユーザープロファイルへ退避する。
+    /// コンストラクタから非同期処理を開始せず、MainWindow.Loaded から一度だけ待機して呼ぶ。
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        if (_initialized) return;
+        _initialized = true;
+        var candidates = LocalStartupPathCandidates.Build(_settings);
+        var preferred = candidates.FirstOrDefault();
+        foreach (var candidate in candidates)
+        {
+            var exists = await Task.Run(() =>
+            {
+                try { return Directory.Exists(candidate); }
+                catch { return false; }
+            });
+            if (!exists) continue;
+            CurrentPath = candidate;
+            if (!await RefreshCoreAsync(clearFilterOnSuccess: false)) continue;
+            if (!string.Equals(candidate, preferred, StringComparison.OrdinalIgnoreCase))
+                StatusMessage = "前回または設定された開始フォルダを開けなかったため、利用可能なフォルダを表示しました。";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(StatusMessage))
+            StatusMessage = "開始フォルダを開けませんでした。パスを確認してください。";
     }
 
     /// <summary>
@@ -83,25 +111,25 @@ public partial class LocalPaneViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public Task GoBackAsync()
+    public async Task GoBackAsync()
     {
-        if (_back.Count == 0) return Task.CompletedTask;
+        if (_back.Count == 0) return;
         var prev = _back.Pop();
         if (!string.IsNullOrEmpty(_lastSuccessfulPath)) _forward.Push(_lastSuccessfulPath);
         CurrentPath = prev;
         UpdateHistoryFlags();
-        return RefreshCoreAsync(clearFilterOnSuccess: true);
+        await RefreshCoreAsync(clearFilterOnSuccess: true);
     }
 
     [RelayCommand]
-    public Task GoForwardAsync()
+    public async Task GoForwardAsync()
     {
-        if (_forward.Count == 0) return Task.CompletedTask;
+        if (_forward.Count == 0) return;
         var next = _forward.Pop();
         if (!string.IsNullOrEmpty(_lastSuccessfulPath)) _back.Push(_lastSuccessfulPath);
         CurrentPath = next;
         UpdateHistoryFlags();
-        return RefreshCoreAsync(clearFilterOnSuccess: true);
+        await RefreshCoreAsync(clearFilterOnSuccess: true);
     }
 
     [RelayCommand]
@@ -116,9 +144,9 @@ public partial class LocalPaneViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public Task RefreshAsync() => RefreshCoreAsync(clearFilterOnSuccess: false);
+    public async Task RefreshAsync() => await RefreshCoreAsync(clearFilterOnSuccess: false);
 
-    private async Task RefreshCoreAsync(bool clearFilterOnSuccess)
+    private async Task<bool> RefreshCoreAsync(bool clearFilterOnSuccess)
     {
         try
         {
@@ -136,13 +164,15 @@ public partial class LocalPaneViewModel : ObservableObject
             if (clearFilterOnSuccess) FilterText = string.Empty;
             ApplyView();
             _lastSuccessfulPath = path;
-            SaveLastPathThrottled(path);
             StatusMessage = string.Empty;
+            SaveLastPathThrottled(path);
+            return true;
         }
         catch (Exception ex)
         {
             CurrentPath = _lastSuccessfulPath;
             StatusMessage = ex.Message;
+            return false;
         }
         finally { IsBusy = false; }
     }
@@ -162,7 +192,13 @@ public partial class LocalPaneViewModel : ObservableObject
     /// <summary>列ヘッダクリックで昇順 ⇄ 降順を切り替える (ローカルはクライアント側ソート)。</summary>
     public void SortBy(string column) => SortKey = FileEntrySort.Toggle(SortKey, column);
 
-    partial void OnSortKeyChanged(string? value) => ApplyView();
+    partial void OnSortKeyChanged(string? value)
+    {
+        ApplyView();
+        if (!_settings.RememberSortOrder || string.Equals(_settings.LocalSortKey, value, StringComparison.Ordinal)) return;
+        _settings.LocalSortKey = value;
+        TrySavePreference();
+    }
     partial void OnFilterTextChanged(string value) => ApplyView();
 
     [RelayCommand]
@@ -300,7 +336,22 @@ public partial class LocalPaneViewModel : ObservableObject
         var now = DateTime.UtcNow;
         if ((now - _lastSettingsSave).TotalSeconds < 5 && _settings.LastLocalPath == path) return;
         _settings.LastLocalPath = path;
-        _settings.Save();
-        _lastSettingsSave = now;
+        try
+        {
+            _settings.Save();
+            _lastSettingsSave = now;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "フォルダは表示できましたが、前回場所を保存できませんでした: " + ex.Message;
+        }
+    }
+
+    public void ApplyUserPreferences() => OnPropertyChanged(nameof(UseRecycleBinForDeletes));
+
+    private void TrySavePreference()
+    {
+        try { _settings.Save(); }
+        catch (Exception ex) { StatusMessage = "設定の保存に失敗しました: " + ex.Message; }
     }
 }

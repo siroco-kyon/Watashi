@@ -15,6 +15,7 @@ namespace Watashi.Client;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm;
+    private readonly AppSettings _settings;
     private readonly SessionManager _session;
     private readonly TaskCompletionSource _cleanupCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private IDisposable? _monitorWorkAreaHook;
@@ -25,6 +26,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _vm = vm;
+        _settings = settings;
         _session = session;
         DataContext = vm;
         InitializeDragDrop(settings);
@@ -48,6 +50,7 @@ public partial class MainWindow : Window
     private async void OnLoaded(object? sender, RoutedEventArgs e)
     {
         Loaded -= OnLoaded;
+        await _vm.Local.InitializeAsync();
         await _vm.InitializeTransferQueueAsync();
         await _vm.Remote.LoadHostsAndLocationsAsync();
         if (Keyboard.FocusedElement is null || ReferenceEquals(Keyboard.FocusedElement, this))
@@ -98,6 +101,19 @@ public partial class MainWindow : Window
     }
 
     private void OnToggleTheme(object sender, RoutedEventArgs e) => _vm.Theme.Toggle();
+
+    private void OnOpenPersonalSettings(object sender, RoutedEventArgs e)
+    {
+        var settingsVm = new PersonalSettingsViewModel(
+            _settings,
+            _vm.Theme,
+            _vm.Local.SortKey,
+            _vm.Remote.SortKey);
+        var window = new Views.PersonalSettingsWindow(settingsVm, _vm.Local.CurrentPath) { Owner = this };
+        var saved = window.ShowDialog() == true;
+        if (saved) _vm.Local.ApplyUserPreferences();
+        if (saved || window.RemoteHistoryChanged) _vm.Remote.ApplyUserPreferences();
+    }
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
