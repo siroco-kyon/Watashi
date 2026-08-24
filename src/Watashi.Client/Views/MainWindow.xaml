@@ -366,6 +366,7 @@
                                   MouseDoubleClick="OnLocalDoubleClick"
                                   KeyDown="OnLocalListKeyDown"
                                   GridViewColumnHeader.Click="OnLocalHeaderClick"
+                                  ItemContainerStyle="{StaticResource FileListViewItemStyle}"
                                   AutomationProperties.Name="ローカルファイル一覧"
                                   AutomationProperties.HelpText="複数選択できます。Enter で開き、F2 で名前変更、Delete で削除します。"
                                   BorderThickness="0,1,0,0">
@@ -682,7 +683,7 @@
                                   ScrollViewer.CanContentScroll="True"
                                   BorderThickness="0,1,0,0">
                             <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
+                                <Style TargetType="ListViewItem" BasedOn="{StaticResource FileListViewItemStyle}">
                                     <Style.Triggers>
                                         <MultiDataTrigger>
                                             <MultiDataTrigger.Conditions>

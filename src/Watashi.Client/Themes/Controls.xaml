@@ -536,7 +536,11 @@
         <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
     </Style>
 
-    <Style TargetType="ListViewItem">
+    <!--
+        ファイル一覧専用。Fluent の GridViewItemContainerStyle は選択面に左端のアクセント線を
+        重ねるため、ここでは全面を単色にして選択 + ホバーでも色を変えない。
+    -->
+    <Style x:Key="FileListViewItemStyle" TargetType="ListViewItem">
         <Setter Property="Padding" Value="4,5" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
@@ -544,30 +548,56 @@
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
         <Setter Property="TextElement.Foreground" Value="{StaticResource TextPrimaryBrush}" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
-            </Trigger>
-            <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-            </Trigger>
-            <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
-                <Setter Property="Background" Value="{DynamicResource {x:Static wpf:SystemColors.WindowBrushKey}}" />
-                <Setter Property="Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.WindowTextBrushKey}}" />
-                <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.WindowTextBrushKey}}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource {x:Static wpf:SystemColors.WindowTextBrushKey}}" />
-            </DataTrigger>
-            <MultiDataTrigger>
-                <MultiDataTrigger.Conditions>
-                    <Condition Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True" />
-                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsSelected}" Value="True" />
-                </MultiDataTrigger.Conditions>
-                <Setter Property="Background" Value="{DynamicResource {x:Static wpf:SystemColors.HighlightBrushKey}}" />
-                <Setter Property="Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.HighlightTextBrushKey}}" />
-                <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.HighlightTextBrushKey}}" />
-            </MultiDataTrigger>
-        </Style.Triggers>
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource AccessibleFocusVisual}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                    <Border x:Name="RootBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            SnapsToDevicePixels="True">
+                        <GridViewRowPresenter Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsSelected" Value="False" />
+                                <Condition Property="IsMouseOver" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="RootBorder" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                        </MultiTrigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="RootBorder" Property="Background" Value="{StaticResource SelectionBackgroundBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource SelectionTextBrush}" />
+                            <Setter Property="TextElement.Foreground" Value="{StaticResource SelectionTextBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="RootBorder" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
+                            <Setter TargetName="RootBorder" Property="Background" Value="{DynamicResource {x:Static wpf:SystemColors.WindowBrushKey}}" />
+                            <Setter TargetName="RootBorder" Property="BorderBrush" Value="{DynamicResource {x:Static wpf:SystemColors.WindowTextBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.WindowTextBrushKey}}" />
+                            <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.WindowTextBrushKey}}" />
+                        </DataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True" />
+                                <Condition Binding="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=IsSelected}" Value="True" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter TargetName="RootBorder" Property="Background" Value="{DynamicResource {x:Static wpf:SystemColors.HighlightBrushKey}}" />
+                            <Setter Property="Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.HighlightTextBrushKey}}" />
+                            <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.HighlightTextBrushKey}}" />
+                        </MultiDataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="ListBoxItem">
@@ -655,44 +685,12 @@
     <!-- ============================================================ -->
     <!-- 10. Menu / MenuItem                                          -->
     <!-- ============================================================ -->
-    <!-- ContextMenu / ToolTip は別 Popup で描画されるため、アプリ資源を明示する。 -->
-    <Style TargetType="ContextMenu">
-        <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="4" />
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
-                <Setter Property="Background" Value="{DynamicResource {x:Static wpf:SystemColors.MenuBrushKey}}" />
-                <Setter Property="Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.MenuTextBrushKey}}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource {x:Static wpf:SystemColors.MenuTextBrushKey}}" />
-            </DataTrigger>
-        </Style.Triggers>
-    </Style>
+    <!-- ContextMenu / MenuItem は ThemeMode の Fluent スタイルを一式使い、背景と文字の食い違いを防ぐ。 -->
     <Style TargetType="Menu">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-    </Style>
-    <Style TargetType="MenuItem">
-        <Setter Property="Padding" Value="10,4" />
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-        <Style.Triggers>
-            <Trigger Property="IsHighlighted" Value="True">
-                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
-                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-            </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-            </Trigger>
-            <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
-                <Setter Property="Background" Value="{DynamicResource {x:Static wpf:SystemColors.MenuBrushKey}}" />
-                <Setter Property="Foreground" Value="{DynamicResource {x:Static wpf:SystemColors.MenuTextBrushKey}}" />
-            </DataTrigger>
-        </Style.Triggers>
     </Style>
     <Style TargetType="ToolTip">
         <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}" />
