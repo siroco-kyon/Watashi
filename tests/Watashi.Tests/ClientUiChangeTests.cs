@@ -79,13 +79,13 @@ public sealed class ClientUiChangeTests
     }
 
     [Fact]
-    public void Admin_grid_views_use_the_shared_row_presenter_instead_of_object_text()
+    public void All_client_grid_views_use_the_shared_row_presenter_instead_of_object_text()
     {
         XNamespace p = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
-        var adminDirectory = Path.GetDirectoryName(
-            RepoFile("src/Watashi.Client/Views/Admin/UserManagementView.xaml"))!;
+        var viewsDirectory = Path.GetDirectoryName(
+            RepoFile("src/Watashi.Client/Views/TrustedDevicesWindow.xaml"))!;
 
-        var gridLists = Directory.GetFiles(adminDirectory, "*.xaml")
+        var gridLists = Directory.GetFiles(viewsDirectory, "*.xaml", SearchOption.AllDirectories)
             .Select(path => (Path: path, Document: XDocument.Load(path)))
             .SelectMany(item => item.Document.Descendants(p + "ListView")
                 .Where(list => list.Descendants(p + "GridView").Any())
@@ -95,8 +95,11 @@ public sealed class ClientUiChangeTests
         gridLists.Should().NotBeEmpty();
         foreach (var (path, list) in gridLists)
         {
-            list.ToString().Should().Contain("{StaticResource GridViewListViewItemStyle}",
-                $"{Path.GetFileName(path)} の GridView 行を DTO の ToString() 表示へフォールバックさせないため");
+            var listText = list.ToString();
+            var usesRowPresenter = listText.Contains("{StaticResource GridViewListViewItemStyle}", StringComparison.Ordinal) ||
+                                   listText.Contains("{StaticResource FileListViewItemStyle}", StringComparison.Ordinal);
+            usesRowPresenter.Should().BeTrue(
+                $"{Path.GetFileName(path)} の GridView 行をオブジェクトの ToString() 表示へフォールバックさせないため");
         }
     }
 
