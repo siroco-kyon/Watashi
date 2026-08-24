@@ -89,6 +89,7 @@ public partial class RemotePaneViewModel : ObservableObject
     {
         _api = api;
         _settings = settings;
+        sortKey = settings.RememberSortOrder ? settings.RemoteSortKey : null;
         Locations.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasLocations));
@@ -201,6 +202,26 @@ public partial class RemotePaneViewModel : ObservableObject
                             l.HostId == previous.HostId &&
                             l.ShareId == previous.ShareId &&
                             string.Equals(l.Path, previous.Path, StringComparison.OrdinalIgnoreCase));
+                }
+                finally { _suppressLocationRecent = false; }
+            }
+            else if (_settings.GetRemoteStartupPlace() is { } startup &&
+                     FindCurrentLocation(startup) is { } startupLocation)
+            {
+                _suppressLocationRecent = true;
+                try
+                {
+                    SelectedLocation = startupLocation;
+                    var startupPath = PathHelper.NormalizePath(startup.Path);
+                    CurrentPath = startupPath;
+                    await RefreshCoreAsync(recordRecent: false);
+                    if (!string.Equals(_lastSuccessfulPath, startupPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        CurrentPath = PathHelper.NormalizePath(startupLocation.Path);
+                        await RefreshCoreAsync(recordRecent: false);
+                        if (string.IsNullOrWhiteSpace(StatusMessage))
+                            StatusMessage = "保存された開始場所を開けなかったため、権限の最上位を表示しました。";
+                    }
                 }
                 finally { _suppressLocationRecent = false; }
             }
@@ -458,7 +479,16 @@ public partial class RemotePaneViewModel : ObservableObject
     /// <summary>列ヘッダクリックで昇順 ⇄ 降順を切り替え、サーバから並べ直して取得する。</summary>
     public void SortBy(string column) => SortKey = FileEntrySort.Toggle(SortKey, column);
 
-    partial void OnSortKeyChanged(string? value) => _ = RefreshAsync();
+    partial void OnSortKeyChanged(string? value)
+    {
+        if (_settings.RememberSortOrder &&
+            !string.Equals(_settings.RemoteSortKey, value, StringComparison.Ordinal))
+        {
+            _settings.RemoteSortKey = value;
+            TrySaveSettings();
+        }
+        _ = RefreshAsync();
+    }
     partial void OnFilterTextChanged(string value) => ApplyView();
 
     private static string BuildLocationTooltip(LocationDto location)
@@ -673,7 +703,9 @@ public partial class RemotePaneViewModel : ObservableObject
     private void RecordSuccessfulPlace(LocationDto location, string path)
     {
         var place = CreatePlace(location, path);
-        if (!_settings.RecordRecentRemotePlace(place)) return;
+        var changed = _settings.RecordLastRemotePlace(place);
+        changed |= _settings.RecordRecentRemotePlace(place);
+        if (!changed) return;
         SyncSavedPlaces();
         TrySaveSettings();
     }
@@ -727,6 +759,8 @@ public partial class RemotePaneViewModel : ObservableObject
             : RecentPlaces.FirstOrDefault(p => AppSettings.SameRemotePlace(p, recentSelection))
               ?? RecentPlaces.FirstOrDefault();
     }
+
+    public void ApplyUserPreferences() => SyncSavedPlaces();
 
     private bool TrySaveSettings(string? successMessage = null)
     {

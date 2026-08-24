@@ -46,6 +46,10 @@ public class AppSettings
     public int FileTransferTimeoutMinutes { get; set; } = 30;
 
     public string LastLocalPath { get; set; } = string.Empty;
+    /// <summary>ローカルペインの開始位置。LastUsed / Fixed。</summary>
+    public string LocalStartupMode { get; set; } = LocalStartupModes.LastUsed;
+    /// <summary>LocalStartupMode が Fixed のときに開く利用者指定フォルダ。</summary>
+    public string FixedLocalStartupPath { get; set; } = string.Empty;
     /// <summary>
     /// trueならローカル削除をWindowsごみ箱へ送る。falseは従来どおり完全削除。
     /// リモート側の管理ごみ箱とは独立した利用者設定。
@@ -53,6 +57,16 @@ public class AppSettings
     public bool UseRecycleBinForLocalDeletes { get; set; } = true;
     /// <summary>クライアントの外観。Light / Dark のいずれか。System は旧版からの移行時だけ受け付ける。</summary>
     public string ThemeMode { get; set; } = AppThemeModes.Light;
+    /// <summary>リモートペインの開始位置。None / LastUsed / Favorite。</summary>
+    public string RemoteStartupMode { get; set; } = RemoteStartupModes.None;
+    /// <summary>RemoteStartupMode が Favorite のときに開くお気に入り。</summary>
+    public RemotePlaceSetting? RemoteStartupPlace { get; set; }
+    /// <summary>最後に一覧取得へ成功したリモート場所。LastUsed の起動復元に使う。</summary>
+    public RemotePlaceSetting? LastRemotePlace { get; set; }
+    /// <summary>ローカル／リモート一覧の並び順を次回起動時も復元する。</summary>
+    public bool RememberSortOrder { get; set; }
+    public string? LocalSortKey { get; set; }
+    public string? RemoteSortKey { get; set; }
     public List<RemotePlaceSetting> RemoteFavorites { get; set; } = new();
     public List<RemotePlaceSetting> RecentRemotePlaces { get; set; } = new();
 
@@ -107,6 +121,7 @@ public class AppSettings
                 : JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
             settings.NormalizeRemotePlaces();
             settings.ThemeMode = AppThemeModes.Normalize(settings.ThemeMode);
+            settings.NormalizePersonalPreferences();
             return settings;
         }
         catch
@@ -124,7 +139,52 @@ public class AppSettings
         var recentChanged = !PlacesEqual(RecentRemotePlaces, recent);
         if (favoritesChanged) RemoteFavorites = favorites;
         if (recentChanged) RecentRemotePlaces = recent;
-        var changed = favoritesChanged || recentChanged;
+        var startup = NormalizePlace(RemoteStartupPlace);
+        var last = NormalizePlace(LastRemotePlace);
+        var startupChanged = !OptionalPlacesEqual(RemoteStartupPlace, startup);
+        var lastChanged = !OptionalPlacesEqual(LastRemotePlace, last);
+        if (startupChanged) RemoteStartupPlace = startup;
+        if (lastChanged) LastRemotePlace = last;
+        var changed = favoritesChanged || recentChanged || startupChanged || lastChanged;
+        return changed;
+    }
+
+    /// <summary>利用者設定の列挙値と保存パス／ソートキーを安全な値へ正規化する。</summary>
+    public bool NormalizePersonalPreferences()
+    {
+        var localMode = LocalStartupModes.Normalize(LocalStartupMode);
+        var remoteMode = RemoteStartupModes.Normalize(RemoteStartupMode);
+        var fixedPath = FixedLocalStartupPath?.Trim() ?? string.Empty;
+        var localSort = NormalizeSortKey(LocalSortKey);
+        var remoteSort = NormalizeSortKey(RemoteSortKey);
+        var changed = !string.Equals(LocalStartupMode, localMode, StringComparison.Ordinal) ||
+                      !string.Equals(RemoteStartupMode, remoteMode, StringComparison.Ordinal) ||
+                      !string.Equals(FixedLocalStartupPath, fixedPath, StringComparison.Ordinal) ||
+                      !string.Equals(LocalSortKey, localSort, StringComparison.Ordinal) ||
+                      !string.Equals(RemoteSortKey, remoteSort, StringComparison.Ordinal);
+        LocalStartupMode = localMode;
+        RemoteStartupMode = remoteMode;
+        FixedLocalStartupPath = fixedPath;
+        LocalSortKey = localSort;
+        RemoteSortKey = remoteSort;
+        if (!RememberSortOrder)
+        {
+            changed |= LocalSortKey is not null || RemoteSortKey is not null;
+            LocalSortKey = null;
+            RemoteSortKey = null;
+        }
+        if (RemoteStartupMode == RemoteStartupModes.Favorite &&
+            (RemoteStartupPlace is null || !RemoteFavorites.Any(x => SamePlace(x, RemoteStartupPlace))))
+        {
+            RemoteStartupMode = RemoteStartupModes.None;
+            RemoteStartupPlace = null;
+            changed = true;
+        }
+        if (RemoteStartupMode == RemoteStartupModes.LastUsed && LastRemotePlace is null)
+        {
+            RemoteStartupMode = RemoteStartupModes.None;
+            changed = true;
+        }
         return changed;
     }
 
@@ -143,7 +203,73 @@ public class AppSettings
         if (favoritesChanged) RemoteFavorites = favorites;
         if (recentChanged) RecentRemotePlaces = recent;
         changed |= favoritesChanged || recentChanged;
+        var startup = NormalizePlace(RemoteStartupPlace);
+        if (startup is not null && !IsAllowed(startup, locations)) startup = null;
+        var last = NormalizePlace(LastRemotePlace);
+        if (last is not null && !IsAllowed(last, locations)) last = null;
+        if (!OptionalPlacesEqual(RemoteStartupPlace, startup))
+        {
+            RemoteStartupPlace = startup;
+            changed = true;
+        }
+        if (!OptionalPlacesEqual(LastRemotePlace, last))
+        {
+            LastRemotePlace = last;
+            changed = true;
+        }
+        if (RemoteStartupMode == RemoteStartupModes.Favorite && RemoteStartupPlace is null)
+        {
+            RemoteStartupMode = RemoteStartupModes.None;
+            changed = true;
+        }
+        if (RemoteStartupMode == RemoteStartupModes.LastUsed && LastRemotePlace is null)
+        {
+            RemoteStartupMode = RemoteStartupModes.None;
+            changed = true;
+        }
         return changed;
+    }
+
+    public RemotePlaceSetting? GetRemoteStartupPlace() => RemoteStartupMode switch
+    {
+        RemoteStartupModes.LastUsed => NormalizePlace(LastRemotePlace),
+        RemoteStartupModes.Favorite => NormalizePlace(RemoteStartupPlace),
+        _ => null,
+    };
+
+    public bool RecordLastRemotePlace(RemotePlaceSetting place)
+    {
+        var normalized = NormalizePlace(place);
+        if (normalized is null || OptionalPlacesEqual(LastRemotePlace, normalized)) return false;
+        LastRemotePlace = normalized;
+        return true;
+    }
+
+    public bool ClearRemoteHistory()
+    {
+        var changed = RecentRemotePlaces.Count > 0 || LastRemotePlace is not null;
+        RecentRemotePlaces = new List<RemotePlaceSetting>();
+        LastRemotePlace = null;
+        if (RemoteStartupMode == RemoteStartupModes.LastUsed)
+        {
+            RemoteStartupMode = RemoteStartupModes.None;
+            changed = true;
+        }
+        return changed;
+    }
+
+    /// <summary>お気に入りと利用履歴は残し、選択式の個人設定だけを既定値へ戻す。</summary>
+    public void ResetPersonalPreferences()
+    {
+        LocalStartupMode = LocalStartupModes.LastUsed;
+        FixedLocalStartupPath = string.Empty;
+        RemoteStartupMode = RemoteStartupModes.None;
+        RemoteStartupPlace = null;
+        UseRecycleBinForLocalDeletes = true;
+        ThemeMode = AppThemeModes.Light;
+        RememberSortOrder = false;
+        LocalSortKey = null;
+        RemoteSortKey = null;
     }
 
     public bool AddRemoteFavorite(RemotePlaceSetting place)
@@ -166,6 +292,13 @@ public class AppSettings
         var updated = RemoteFavorites.Where(p => !SamePlace(p, place)).ToList();
         var changed = updated.Count != RemoteFavorites.Count;
         RemoteFavorites = updated;
+        if (RemoteStartupPlace is not null && SamePlace(RemoteStartupPlace, place))
+        {
+            RemoteStartupPlace = null;
+            if (RemoteStartupMode == RemoteStartupModes.Favorite)
+                RemoteStartupMode = RemoteStartupModes.None;
+            changed = true;
+        }
         return changed;
     }
 
@@ -187,6 +320,7 @@ public class AppSettings
     {
         NormalizeRemotePlaces();
         ThemeMode = AppThemeModes.Normalize(ThemeMode);
+        NormalizePersonalPreferences();
         var dir = Path.GetDirectoryName(SettingsPath)!;
         Directory.CreateDirectory(dir);
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
@@ -266,6 +400,71 @@ public class AppSettings
                 return false;
         }
         return true;
+    }
+
+    private static bool OptionalPlacesEqual(RemotePlaceSetting? left, RemotePlaceSetting? right)
+    {
+        if (left is null || right is null) return left is null && right is null;
+        return SamePlace(left, right) &&
+               left.PermissionId == right.PermissionId &&
+               string.Equals(left.Path, right.Path, StringComparison.Ordinal) &&
+               string.Equals(left.DisplayName, right.DisplayName, StringComparison.Ordinal);
+    }
+
+    private static string? NormalizeSortKey(string? value) => value switch
+    {
+        FileEntrySort.Name => FileEntrySort.Name,
+        FileEntrySort.NameDesc => FileEntrySort.NameDesc,
+        FileEntrySort.Date => FileEntrySort.Date,
+        FileEntrySort.DateDesc => FileEntrySort.DateDesc,
+        FileEntrySort.Size => FileEntrySort.Size,
+        FileEntrySort.SizeDesc => FileEntrySort.SizeDesc,
+        _ => null,
+    };
+}
+
+public static class LocalStartupModes
+{
+    public const string LastUsed = "LastUsed";
+    public const string Fixed = "Fixed";
+
+    public static string Normalize(string? value) =>
+        string.Equals(value, Fixed, StringComparison.OrdinalIgnoreCase) ? Fixed : LastUsed;
+}
+
+public static class RemoteStartupModes
+{
+    public const string None = "None";
+    public const string LastUsed = "LastUsed";
+    public const string Favorite = "Favorite";
+
+    public static string Normalize(string? value)
+    {
+        if (string.Equals(value, LastUsed, StringComparison.OrdinalIgnoreCase)) return LastUsed;
+        if (string.Equals(value, Favorite, StringComparison.OrdinalIgnoreCase)) return Favorite;
+        return None;
+    }
+}
+
+public static class LocalStartupPathCandidates
+{
+    public static IReadOnlyList<string> Build(AppSettings settings, string? userProfile = null)
+    {
+        var candidates = new List<string>();
+        if (LocalStartupModes.Normalize(settings.LocalStartupMode) == LocalStartupModes.Fixed)
+            Add(settings.FixedLocalStartupPath);
+        Add(settings.LastLocalPath);
+        Add(userProfile ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        return candidates;
+
+        void Add(string? value)
+        {
+            var path = value?.Trim();
+            if (string.IsNullOrWhiteSpace(path) ||
+                candidates.Any(existing => string.Equals(existing, path, StringComparison.OrdinalIgnoreCase)))
+                return;
+            candidates.Add(path);
+        }
     }
 }
 

@@ -112,6 +112,12 @@
                             </Path.Style>
                         </Path>
                     </Button>
+                    <Button Style="{StaticResource IconButton}" Click="OnOpenPersonalSettings"
+                            AutomationProperties.Name="個人設定"
+                            AutomationProperties.HelpText="起動位置、表示、ローカル削除方法を設定します。"
+                            ToolTip="個人設定">
+                        <TextBlock Text="⚙" FontSize="15"/>
+                    </Button>
                     <Button Style="{StaticResource IconButton}" Click="OnChangePassword"
                             AutomationProperties.Name="パスワード変更" ToolTip="パスワード変更">
                         <TextBlock Text="🔑" FontSize="14"/>

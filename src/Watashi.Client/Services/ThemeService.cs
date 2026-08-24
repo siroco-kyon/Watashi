@@ -41,6 +41,14 @@ public sealed class ThemeService : ObservableObject
     public void Toggle()
     {
         var nextMode = IsDarkEffective ? AppThemeModes.Light : AppThemeModes.Dark;
+        SetMode(nextMode);
+    }
+
+    public void SetMode(string? mode)
+    {
+        var nextMode = AppThemeModes.Normalize(mode) == AppThemeModes.Dark
+            ? AppThemeModes.Dark
+            : AppThemeModes.Light;
         if (!SetProperty(ref _selectedMode, nextMode)) return;
 
         ApplyCore();
