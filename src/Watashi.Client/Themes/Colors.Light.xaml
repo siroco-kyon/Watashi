@@ -19,6 +19,10 @@
     <Color x:Key="TextMutedColor">#6B7280</Color>
     <Color x:Key="TextOnAccentColor">#FFFFFF</Color>
 
+    <!-- 一覧の選択行。ホバー時も同じ単色面を維持する。 -->
+    <Color x:Key="SelectionBackgroundColor">#F2D4CC</Color>
+    <Color x:Key="SelectionTextColor">#1F2328</Color>
+
     <!-- アクセント (鳥居の朱色) -->
     <Color x:Key="AccentColor">#C73E1D</Color>
     <Color x:Key="AccentHoverColor">#A83216</Color>

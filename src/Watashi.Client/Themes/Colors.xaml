@@ -23,6 +23,8 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondaryColor}" />
     <SolidColorBrush x:Key="TextMutedBrush"     Color="{DynamicResource TextMutedColor}" />
     <SolidColorBrush x:Key="TextOnAccentBrush"  Color="{DynamicResource TextOnAccentColor}" />
+    <SolidColorBrush x:Key="SelectionBackgroundBrush" Color="{DynamicResource SelectionBackgroundColor}" />
+    <SolidColorBrush x:Key="SelectionTextBrush"       Color="{DynamicResource SelectionTextColor}" />
 
     <SolidColorBrush x:Key="AccentBrush"        Color="{DynamicResource AccentColor}" />
     <SolidColorBrush x:Key="AccentHoverBrush"   Color="{DynamicResource AccentHoverColor}" />

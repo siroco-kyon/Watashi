@@ -54,6 +54,44 @@ public sealed class ClientUiChangeTests
     }
 
     [Fact]
+    public void Dark_file_selection_uses_one_readable_surface_and_fluent_context_menus()
+    {
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var controls = XDocument.Load(RepoFile("src/Watashi.Client/Themes/Controls.xaml"));
+        var styles = controls.Root!.Elements().Where(e => e.Name.LocalName == "Style").ToList();
+
+        styles.Where(e => e.Attribute(x + "Key") is null)
+            .Select(e => e.Attribute("TargetType")?.Value)
+            .Should().NotContain(new[] { "ContextMenu", "MenuItem" });
+
+        var fileItemStyle = styles.Single(e => e.Attribute(x + "Key")?.Value == "FileListViewItemStyle");
+        var fileItemText = fileItemStyle.ToString();
+        fileItemText.Should().Contain("SelectionBackgroundBrush")
+            .And.Contain("SelectionTextBrush")
+            .And.Contain("TextElement.Foreground")
+            .And.NotContain("ActiveRectangle");
+
+        var main = File.ReadAllText(RepoFile("src/Watashi.Client/Views/MainWindow.xaml"));
+        Count(main, "{StaticResource FileListViewItemStyle}").Should().Be(2);
+    }
+
+    [Fact]
+    public void Selection_text_meets_contrast_target_in_both_palettes()
+    {
+        foreach (var path in new[]
+                 {
+                     "src/Watashi.Client/Themes/Colors.Light.xaml",
+                     "src/Watashi.Client/Themes/Colors.Dark.xaml",
+                 })
+        {
+            var colors = Palette(path);
+            Contrast(colors["SelectionBackgroundColor"], colors["SelectionTextColor"])
+                .Should().BeGreaterThanOrEqualTo(4.5, path);
+            colors["SelectionBackgroundColor"].Should().NotBe(colors["SurfaceColor"]);
+        }
+    }
+
+    [Fact]
     public void Theme_palette_uri_survives_a_branded_assembly_name()
     {
         var service = File.ReadAllText(RepoFile("src/Watashi.Client/Services/ThemeService.cs"));
@@ -104,7 +142,7 @@ public sealed class ClientUiChangeTests
         var controls = File.ReadAllText(RepoFile("src/Watashi.Client/Themes/Controls.xaml"));
 
         controls.Should().Contain("<Style TargetType=\"ListView\">")
-            .And.Contain("<Style TargetType=\"ListViewItem\">")
+            .And.Contain("<Style x:Key=\"FileListViewItemStyle\" TargetType=\"ListViewItem\">")
             .And.Contain("<Setter Property=\"TextElement.Foreground\" Value=\"{StaticResource TextPrimaryBrush}\" />");
     }
 
@@ -188,6 +226,32 @@ public sealed class ClientUiChangeTests
             .Where(value => value is not null)
             .Select(value => value!)
             .ToHashSet(StringComparer.Ordinal);
+    }
+
+    private static Dictionary<string, string> Palette(string relativePath)
+    {
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        return XDocument.Load(RepoFile(relativePath)).Root!
+            .Elements()
+            .Where(e => e.Name.LocalName == "Color")
+            .ToDictionary(e => e.Attribute(x + "Key")!.Value, e => e.Value, StringComparer.Ordinal);
+    }
+
+    private static double Contrast(string first, string second)
+    {
+        static double Luminance(string hex)
+        {
+            var rgb = Enumerable.Range(0, 3)
+                .Select(i => Convert.ToInt32(hex.Substring(1 + (i * 2), 2), 16) / 255d)
+                .Select(value => value <= 0.04045
+                    ? value / 12.92
+                    : Math.Pow((value + 0.055) / 1.055, 2.4))
+                .ToArray();
+            return (0.2126 * rgb[0]) + (0.7152 * rgb[1]) + (0.0722 * rgb[2]);
+        }
+
+        var values = new[] { Luminance(first), Luminance(second) };
+        return (values.Max() + 0.05) / (values.Min() + 0.05);
     }
 
     private static int Count(string text, string value)

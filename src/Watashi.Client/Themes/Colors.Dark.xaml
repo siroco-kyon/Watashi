@@ -19,6 +19,10 @@
     <Color x:Key="TextMutedColor">#9BA5B2</Color>
     <Color x:Key="TextOnAccentColor">#FFFFFF</Color>
 
+    <!-- 一覧の選択行。暗背景から識別でき、白文字とのコントラストを確保する。 -->
+    <Color x:Key="SelectionBackgroundColor">#573127</Color>
+    <Color x:Key="SelectionTextColor">#FFFFFF</Color>
+
     <!-- アクセント。暗背景でも識別できるようライト版より明るくする。 -->
     <Color x:Key="AccentColor">#E15B3A</Color>
     <Color x:Key="AccentHoverColor">#F0785B</Color>
