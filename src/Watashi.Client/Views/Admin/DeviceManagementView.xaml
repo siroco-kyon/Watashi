@@ -21,7 +21,8 @@
             </DockPanel>
             <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                        Margin="16,8,16,0" DockPanel.Dock="Top" TextWrapping="Wrap"/>
-            <ListView ItemsSource="{Binding DevicesView}" SelectedItem="{Binding SelectedDevice}" BorderThickness="0,1,0,0">
+            <ListView ItemsSource="{Binding DevicesView}" SelectedItem="{Binding SelectedDevice}" BorderThickness="0,1,0,0"
+                      ItemContainerStyle="{StaticResource GridViewListViewItemStyle}">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>

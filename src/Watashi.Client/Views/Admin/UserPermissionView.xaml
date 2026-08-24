@@ -198,7 +198,7 @@
                     <Grid>
                         <ListView ItemsSource="{Binding ItemsView}" SelectedItem="{Binding Selected}">
                             <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
+                                <Style TargetType="ListViewItem" BasedOn="{StaticResource GridViewListViewItemStyle}">
                                     <Setter Property="ToolTip">
                                         <Setter.Value>
                                             <StackPanel>

@@ -55,6 +55,7 @@
                               ItemsSource="{Binding ItemsView}"
                               SelectedItem="{Binding Selected}"
                               BorderThickness="0,1,0,0"
+                              ItemContainerStyle="{StaticResource GridViewListViewItemStyle}"
                               VirtualizingPanel.IsVirtualizing="True"
                               VirtualizingPanel.VirtualizationMode="Recycling">
                         <ListView.View>

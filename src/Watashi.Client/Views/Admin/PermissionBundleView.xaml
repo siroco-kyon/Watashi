@@ -210,7 +210,8 @@
                                  DockPanel.Dock="Right"
                                  Margin="0,0,6,0"/>
                     </DockPanel>
-                    <ListView ItemsSource="{Binding EditingEntriesView}" SelectedItem="{Binding SelectedEntry}">
+                    <ListView ItemsSource="{Binding EditingEntriesView}" SelectedItem="{Binding SelectedEntry}"
+                              ItemContainerStyle="{StaticResource GridViewListViewItemStyle}">
                         <ListView.View>
                             <GridView>
                                 <GridViewColumn Header="ホスト" Width="120">

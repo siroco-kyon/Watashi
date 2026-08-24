@@ -65,6 +65,7 @@
                         <TextBlock Text="実行ノード" Style="{StaticResource H3}"/>
                     </Border>
                     <ListView ItemsSource="{Binding Nodes}" BorderThickness="0,1,0,0"
+                              ItemContainerStyle="{StaticResource GridViewListViewItemStyle}"
                               AutomationProperties.Name="実行ノード診断一覧">
                         <ListView.View>
                             <GridView>

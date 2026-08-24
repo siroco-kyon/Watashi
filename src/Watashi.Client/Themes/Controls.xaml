@@ -537,10 +537,11 @@
     </Style>
 
     <!--
-        ファイル一覧専用。Fluent の GridViewItemContainerStyle は選択面に左端のアクセント線を
-        重ねるため、ここでは全面を単色にして選択 + ホバーでも色を変えない。
+        GridView 共通。Fluent の既定テンプレートへ任せると、環境によっては行データが
+        ToString() 表示へフォールバックするため、GridViewRowPresenter を明示する。
+        選択面は全面を単色にして、選択 + ホバーでも色を変えない。
     -->
-    <Style x:Key="FileListViewItemStyle" TargetType="ListViewItem">
+    <Style x:Key="GridViewListViewItemStyle" TargetType="ListViewItem">
         <Setter Property="Padding" Value="4,5" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
@@ -599,6 +600,11 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- ホーム画面の既存参照名を維持する。 -->
+    <Style x:Key="FileListViewItemStyle"
+           TargetType="ListViewItem"
+           BasedOn="{StaticResource GridViewListViewItemStyle}" />
 
     <Style TargetType="ListBoxItem">
         <Setter Property="Padding" Value="8,6" />
