@@ -98,7 +98,8 @@
                 </DockPanel>
             </Border>
 
-            <ListView ItemsSource="{Binding Items}" BorderThickness="0,1,0,0">
+            <ListView ItemsSource="{Binding Items}" BorderThickness="0,1,0,0"
+                      ItemContainerStyle="{StaticResource GridViewListViewItemStyle}">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="60"/>

@@ -23,7 +23,8 @@
                               DisplayMemberPath="Label" ToolTip="並び替え" Margin="6,0,0,0"/>
                     <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="設定を検索"/>
                 </DockPanel>
-                <ListView ItemsSource="{Binding ItemsView}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0">
+                <ListView ItemsSource="{Binding ItemsView}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0"
+                          ItemContainerStyle="{StaticResource GridViewListViewItemStyle}">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Key" DisplayMemberBinding="{Binding Key}" Width="240"/>

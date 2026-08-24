@@ -64,15 +64,40 @@ public sealed class ClientUiChangeTests
             .Select(e => e.Attribute("TargetType")?.Value)
             .Should().NotContain(new[] { "ContextMenu", "MenuItem" });
 
-        var fileItemStyle = styles.Single(e => e.Attribute(x + "Key")?.Value == "FileListViewItemStyle");
-        var fileItemText = fileItemStyle.ToString();
-        fileItemText.Should().Contain("SelectionBackgroundBrush")
+        var gridItemStyle = styles.Single(e => e.Attribute(x + "Key")?.Value == "GridViewListViewItemStyle");
+        var gridItemText = gridItemStyle.ToString();
+        gridItemText.Should().Contain("SelectionBackgroundBrush")
             .And.Contain("SelectionTextBrush")
             .And.Contain("TextElement.Foreground")
             .And.NotContain("ActiveRectangle");
 
+        var fileItemStyle = styles.Single(e => e.Attribute(x + "Key")?.Value == "FileListViewItemStyle");
+        fileItemStyle.Attribute("BasedOn")?.Value.Should().Be("{StaticResource GridViewListViewItemStyle}");
+
         var main = File.ReadAllText(RepoFile("src/Watashi.Client/Views/MainWindow.xaml"));
         Count(main, "{StaticResource FileListViewItemStyle}").Should().Be(2);
+    }
+
+    [Fact]
+    public void Admin_grid_views_use_the_shared_row_presenter_instead_of_object_text()
+    {
+        XNamespace p = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        var adminDirectory = Path.GetDirectoryName(
+            RepoFile("src/Watashi.Client/Views/Admin/UserManagementView.xaml"))!;
+
+        var gridLists = Directory.GetFiles(adminDirectory, "*.xaml")
+            .Select(path => (Path: path, Document: XDocument.Load(path)))
+            .SelectMany(item => item.Document.Descendants(p + "ListView")
+                .Where(list => list.Descendants(p + "GridView").Any())
+                .Select(list => (item.Path, List: list)))
+            .ToList();
+
+        gridLists.Should().NotBeEmpty();
+        foreach (var (path, list) in gridLists)
+        {
+            list.ToString().Should().Contain("{StaticResource GridViewListViewItemStyle}",
+                $"{Path.GetFileName(path)} の GridView 行を DTO の ToString() 表示へフォールバックさせないため");
+        }
     }
 
     [Fact]
@@ -142,7 +167,8 @@ public sealed class ClientUiChangeTests
         var controls = File.ReadAllText(RepoFile("src/Watashi.Client/Themes/Controls.xaml"));
 
         controls.Should().Contain("<Style TargetType=\"ListView\">")
-            .And.Contain("<Style x:Key=\"FileListViewItemStyle\" TargetType=\"ListViewItem\">")
+            .And.Contain("x:Key=\"GridViewListViewItemStyle\"")
+            .And.Contain("x:Key=\"FileListViewItemStyle\"")
             .And.Contain("<Setter Property=\"TextElement.Foreground\" Value=\"{StaticResource TextPrimaryBrush}\" />");
     }
 

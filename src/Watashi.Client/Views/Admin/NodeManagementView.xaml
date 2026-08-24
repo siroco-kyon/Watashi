@@ -25,6 +25,7 @@
                     <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="ノードを検索"/>
                 </DockPanel>
                 <ListView ItemsSource="{Binding ItemsView}" SelectedItem="{Binding Selected}" BorderThickness="0,1,0,0"
+                          ItemContainerStyle="{StaticResource GridViewListViewItemStyle}"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto">
                     <ListView.View>
                         <GridView>
