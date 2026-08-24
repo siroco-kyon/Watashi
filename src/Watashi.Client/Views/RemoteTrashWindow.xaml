@@ -50,6 +50,7 @@
 
         <Border Style="{StaticResource Card}" Padding="0">
             <ListView ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" BorderThickness="0"
+                      ItemContainerStyle="{StaticResource GridViewListViewItemStyle}"
                       AutomationProperties.Name="ごみ箱項目一覧">
                 <ListView.View>
                     <GridView>

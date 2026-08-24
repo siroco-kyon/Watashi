@@ -20,6 +20,7 @@
             <Button Content="閉じる" IsCancel="True" Style="{StaticResource GhostButton}"/>
         </StackPanel>
         <ListView ItemsSource="{Binding Devices}" SelectedItem="{Binding Selected}"
+                  ItemContainerStyle="{StaticResource GridViewListViewItemStyle}"
                   VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
             <ListView.View>
                 <GridView>
