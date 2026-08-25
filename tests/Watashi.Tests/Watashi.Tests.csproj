@@ -36,6 +36,7 @@
     <Compile Include="..\..\src\Watashi.Client\Services\ApiException.cs" Link="Client\ApiException.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\ApiClient.cs" Link="Client\ApiClient.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\AppSettings.cs" Link="Client\AppSettings.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\AtomicFileWriter.cs" Link="Client\AtomicFileWriter.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\Brand.cs" Link="Client\Brand.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\DirectoryAvailability.cs" Link="Client\DirectoryAvailability.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\ProgressStreamContent.cs" Link="Client\ProgressStreamContent.cs" />

@@ -7,8 +7,7 @@
         Icon="{StaticResource ToriiIcon}"
         AutomationProperties.Name="Watashi ファイル管理"
         KeyboardNavigation.TabNavigation="Cycle"
-        PreviewKeyDown="OnPreviewKeyDown"
-        PreviewMouseDown="OnPreviewMouseDown">
+        PreviewKeyDown="OnPreviewKeyDown">
 
     <Window.Resources>
         <Style x:Key="ClearFilterButton" TargetType="Button" BasedOn="{StaticResource BaseButton}">

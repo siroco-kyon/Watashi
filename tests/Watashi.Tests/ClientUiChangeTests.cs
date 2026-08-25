@@ -185,6 +185,42 @@ public sealed class ClientUiChangeTests
     }
 
     [Fact]
+    public void Client_async_and_startup_safety_guards_are_kept()
+    {
+        var permissions = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/Admin/UserPermissionViewModel.cs"));
+        var main = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/MainViewModel.cs"));
+        var app = File.ReadAllText(RepoFile("src/Watashi.Client/App.xaml.cs"));
+        var session = File.ReadAllText(RepoFile("src/Watashi.Client/Services/SessionManager.cs"));
+        var tokenMethod = session[session.IndexOf("GetValidAccessTokenSnapshotAsync", StringComparison.Ordinal)..
+            session.IndexOf("public void ResetIdleTimer", StringComparison.Ordinal)];
+        var userChanged = permissions[permissions.IndexOf("partial void OnSelectedUserChanged", StringComparison.Ordinal)..
+            permissions.IndexOf("partial void OnSelectedSummaryChanged", StringComparison.Ordinal)];
+
+        permissions.Should().Contain("Interlocked.Increment(ref _loadItemsGeneration)")
+            .And.Contain("SelectedUser?.Id != user.Id");
+        userChanged.Should().Contain("Interlocked.Increment(ref _loadItemsGeneration);")
+            .And.Contain("Selected = null;")
+            .And.Contain("Items.Clear();");
+        userChanged.IndexOf("Items.Clear();", StringComparison.Ordinal).Should().BeLessThan(
+            userChanged.IndexOf("LoadItemsAsync();", StringComparison.Ordinal));
+        main.Should().Contain("var remoteBasePath = Remote.CurrentPath;")
+            .And.Contain("var localBasePath = Local.CurrentPath;")
+            .And.Contain("JoinPath(remoteBasePath, entry.Name)")
+            .And.Contain("Path.Combine(localBasePath, entry.Name)");
+        app.Should().Contain("InputManager.Current.PreProcessInput += OnPreProcessInput")
+            .And.Contain("StartupUpdateCheckOutcome.CheckFailed")
+            .And.Contain("Shutdown();");
+        tokenMethod.Should().NotContain("ResetIdleTimer();");
+    }
+
+    [Fact]
+    public void Operations_view_localizes_every_diagnostic_status()
+    {
+        var operations = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/OperationsView.xaml"));
+        Count(operations, "Converter={StaticResource DiagnosticStatusLabel}").Should().Be(6);
+    }
+
+    [Fact]
     public void Admin_user_surfaces_bind_the_optional_display_name_and_safe_fallback_label()
     {
         var users = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/UserManagementView.xaml"));

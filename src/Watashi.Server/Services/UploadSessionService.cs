@@ -46,6 +46,7 @@ public sealed class UploadSessionService
     private const long DefaultMaxFileBytes = 10L * 1024 * 1024 * 1024 * 1024;
     private static readonly KeyedAsyncLock<Guid> SessionLocks = new();
     private static readonly KeyedAsyncLock<string> IdempotencyLocks = new();
+    private static readonly KeyedAsyncLock<string> TargetLocks = new();
 
     private readonly AppDbContext _db;
     private readonly PermissionService _permissions;
@@ -107,8 +108,10 @@ public sealed class UploadSessionService
 
         var lockKey = $"{userId}:{idempotencyHash}";
         var gate = await IdempotencyLocks.AcquireAsync(lockKey, ct);
+        IDisposable? shareGate = null;
         try
         {
+            shareGate = await DurableShareLock.AcquireAsync(request.ShareId, ct);
             var existing = await _db.UploadSessions.FirstOrDefaultAsync(
                 s => s.UserId == userId && s.IdempotencyKeyHash == idempotencyHash, ct);
             if (existing is not null)
@@ -154,15 +157,9 @@ public sealed class UploadSessionService
             };
             entity.TempPath = TransferV2Validation.BuildTempPath(targetPath, entity.Id);
 
-            var temp = await _router.EnsureTempFileAsync(
-                execution.Node, execution.Info, entity.TempPath, ct);
-            if (!temp.Exists || temp.Type != TransferFileTypes.File || temp.IsReparsePoint || temp.Size != 0)
-            {
-                await TryDeleteTempAsync(execution, entity.TempPath, CancellationToken.None);
-                throw Error(StatusCodes.Status409Conflict, "temp_path_collision",
-                    "session用の一時パスを安全に確保できませんでした。");
-            }
-
+            // 先に台帳を永続化する。SMB上にtempだけを作ってからprocessが停止すると
+            // 対応するsessionがなくjanitorから発見できない孤立ファイルになるため、
+            // crash時は「台帳あり・tempなし」に寄せ、通常のreconcileで再作成可能にする。
             _db.UploadSessions.Add(entity);
             try
             {
@@ -171,7 +168,6 @@ public sealed class UploadSessionService
             catch (DbUpdateException)
             {
                 _db.Entry(entity).State = EntityState.Detached;
-                await TryDeleteTempAsync(execution, entity.TempPath, CancellationToken.None);
                 var raced = await _db.UploadSessions.FirstOrDefaultAsync(
                     s => s.UserId == userId && s.IdempotencyKeyHash == idempotencyHash,
                     CancellationToken.None);
@@ -182,7 +178,32 @@ public sealed class UploadSessionService
             catch
             {
                 _db.Entry(entity).State = EntityState.Detached;
-                await TryDeleteTempAsync(execution, entity.TempPath, CancellationToken.None);
+                throw;
+            }
+
+            try
+            {
+                var temp = await _router.EnsureTempFileAsync(
+                    execution.Node, execution.Info, entity.TempPath, ct);
+                if (!temp.Exists || temp.Type != TransferFileTypes.File || temp.IsReparsePoint || temp.Size != 0)
+                {
+                    await TryDeleteTempAsync(execution, entity.TempPath, CancellationToken.None);
+                    entity.Status = UploadSessionStatuses.Failed;
+                    entity.ErrorCode = "temp_path_collision";
+                    entity.UpdatedAt = UtcNow();
+                    await _db.SaveChangesAsync(CancellationToken.None);
+                    throw Error(StatusCodes.Status409Conflict, "temp_path_collision",
+                        "session用の一時パスを安全に確保できませんでした。");
+                }
+            }
+            catch (TransferSessionException)
+            {
+                throw;
+            }
+            catch
+            {
+                // temp作成が到達不能等で失敗してもactive台帳を残す。次回status/chunk
+                // 操作またはjanitorが同じ決定的temp pathを再調整できる。
                 throw;
             }
 
@@ -190,6 +211,7 @@ public sealed class UploadSessionService
         }
         finally
         {
+            shareGate?.Dispose();
             gate.Dispose();
         }
     }
@@ -211,6 +233,66 @@ public sealed class UploadSessionService
         {
             gate.Dispose();
         }
+    }
+
+    /// <summary>
+    /// 従来の単一request uploadをTransfer v2の永続台帳へ載せる。
+    /// session idはclientへ公開しないが、process停止時にもjanitorがtempを特定・回収できる。
+    /// </summary>
+    public async Task<UploadSessionActionResult> UploadLegacyAsync(
+        int userId,
+        int hostId,
+        int shareId,
+        string path,
+        long totalSize,
+        Stream input,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        var prepared = await CreateAsync(userId, new CreateUploadSessionRequest
+        {
+            HostId = hostId,
+            ShareId = shareId,
+            Path = path,
+            TotalSize = totalSize,
+            // request bodyを書き終えた後にSMB実体から計算したhashへ置き換える。
+            Sha256 = new string('0', 64),
+            IdempotencyKey = $"legacy-{Guid.NewGuid():N}",
+            Overwrite = true,
+        }, ct);
+
+        var gate = await SessionLocks.AcquireAsync(prepared.Session.SessionId, ct);
+        try
+        {
+            var session = await FindOwnedAsync(userId, prepared.Session.SessionId, ct);
+            var execution = await ResolveExecutionAsync(session.HostId, session.ShareId, ct);
+            await _router.WriteTempStreamAsync(
+                execution.Node, execution.Info, session.TempPath, input, ct);
+            var hash = await _router.ComputeSha256Async(
+                execution.Node, execution.Info, session.TempPath, ct);
+            if (hash.Size != totalSize)
+            {
+                session.Status = UploadSessionStatuses.Failed;
+                session.ErrorCode = "legacy_length_mismatch";
+                session.UploadedOffset = Math.Clamp(hash.Size, 0, totalSize);
+                session.UpdatedAt = UtcNow();
+                await _db.SaveChangesAsync(CancellationToken.None);
+                throw Error(StatusCodes.Status400BadRequest, "legacy_length_mismatch",
+                    "Content-Length と実際のアップロード長が一致しません。", totalSize, hash.Size);
+            }
+
+            session.ExpectedSha256 = TransferV2Validation.NormalizeSha256(hash.Hash);
+            session.UploadedOffset = hash.Size;
+            session.ErrorCode = null;
+            Touch(session);
+            await _db.SaveChangesAsync(ct);
+        }
+        finally
+        {
+            gate.Dispose();
+        }
+
+        return await CompleteAsync(userId, prepared.Session.SessionId, ct);
     }
 
     public async Task<UploadSessionActionResult> WriteChunkAsync(
@@ -306,6 +388,10 @@ public sealed class UploadSessionService
             if (recovered || session.Status == UploadSessionStatuses.Completed)
                 return new UploadSessionActionResult(ToDto(session), execution.Node.Id, null, recovered);
             EnsureCompletable(session);
+
+            // session単位のlockだけでは、別sessionが同じtargetを同時にbaseline確認して
+            // 両方commitできる。物理target単位で確認からrename・完了保存まで直列化する。
+            using var targetGate = await TargetLocks.AcquireAsync(BuildTargetLockKey(session), ct);
 
             // create 時の許可が途中で失効・削除されてもcommitできないよう、rename直前に再評価する。
             var (allowed, permissionId) = await _permissions.CanPerformAsync(
@@ -459,6 +545,7 @@ public sealed class UploadSessionService
             {
                 _logger.LogWarning(ex, "Transfer v2 session {SessionId} の期限切れcleanupに失敗しました", id);
                 _db.ChangeTracker.Clear();
+                await DeferFailedCleanupAsync(id, ct);
             }
             finally
             {
@@ -718,6 +805,38 @@ public sealed class UploadSessionService
     }
 
     private DateTime UtcNow() => _clock.GetUtcNow().UtcDateTime;
+
+    private static string BuildTargetLockKey(UploadSession session)
+        => $"{session.HostId}:{session.ShareId}:{session.TargetPath.ToUpperInvariant()}";
+
+    private async Task DeferFailedCleanupAsync(Guid sessionId, CancellationToken ct)
+    {
+        try
+        {
+            var session = await _db.UploadSessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct);
+            if (session is null) return;
+
+            // 失敗した先頭100件が毎回選ばれて後続を永久に飢餓させないよう、
+            // retry対象を一時的に将来へ送る。active/failedは既に期限切れなのでterminalへ、
+            // committingだけは次回に完了復旧できる状態を維持する。
+            if (session.Status != UploadSessionStatuses.Committing)
+                session.Status = UploadSessionStatuses.Failed;
+            session.ErrorCode = "cleanup_retry";
+            session.UpdatedAt = UtcNow();
+            session.ExpiresAt = UtcNow().AddMinutes(5);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception retryEx)
+        {
+            _logger.LogWarning(retryEx,
+                "Transfer v2 session {SessionId} のcleanup再試行延期を保存できませんでした", sessionId);
+            _db.ChangeTracker.Clear();
+        }
+    }
 
     public static UploadSessionDto ToDto(UploadSession session) => new()
     {

@@ -40,6 +40,23 @@ public sealed class UploadSessionServiceTests
     }
 
     [Fact]
+    public async Task Create_persists_reconcilable_session_before_temp_creation()
+    {
+        using var f = await Fixture.CreateAsync();
+        f.Router.EnsureTempFailure = new IOException("SMB unavailable");
+
+        var act = async () => await f.Service.CreateAsync(
+            f.UserId, f.Request("/recover-later.bin", new byte[] { 1 }),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<IOException>();
+        var persisted = await f.Db.UploadSessions.SingleAsync();
+        persisted.Status.Should().Be(UploadSessionStatuses.Active);
+        persisted.TempPath.Should().Contain(TransferV2Limits.TempFilePrefix);
+        f.Router.Files.Should().NotContainKey(persisted.TempPath);
+    }
+
+    [Fact]
     public async Task Chunk_checksum_replay_and_db_offset_reconciliation_are_safe()
     {
         using var f = await Fixture.CreateAsync();
@@ -219,6 +236,135 @@ public sealed class UploadSessionServiceTests
         f.Router.Files.Keys.Should().NotContain(path => path.Contains(".watashi-upload-"));
     }
 
+    [Fact]
+    public async Task Concurrent_sessions_for_same_target_are_serialized_before_baseline_and_commit()
+    {
+        using var f = await Fixture.CreateAsync();
+        var firstBytes = new byte[] { 1, 2 };
+        var secondBytes = new byte[] { 3, 4 };
+        var first = await f.Service.CreateAsync(
+            f.UserId, f.Request("/same.bin", firstBytes, "same-target-1"), CancellationToken.None);
+        var second = await f.Service.CreateAsync(
+            f.UserId, f.Request("/same.bin", secondBytes, "same-target-2"), CancellationToken.None);
+        await f.Service.WriteChunkAsync(
+            f.UserId, first.Session.SessionId, 0, firstBytes, Hash(firstBytes), CancellationToken.None);
+        await f.Service.WriteChunkAsync(
+            f.UserId, second.Session.SessionId, 0, secondBytes, Hash(secondBytes), CancellationToken.None);
+
+        f.Router.PauseCommits();
+        var firstComplete = f.Service.CompleteAsync(
+            f.UserId, first.Session.SessionId, CancellationToken.None);
+        await f.Router.WaitForCommitEntryAsync();
+        f.Router.ObserveNextTempMetadata();
+        var secondComplete = f.Service.CompleteAsync(
+            f.UserId, second.Session.SessionId, CancellationToken.None);
+        await f.Router.WaitForObservedTempMetadataAsync();
+        await Task.Yield();
+
+        f.Router.CommitEnteredCount.Should().Be(1,
+            "the second session must wait on the target lock before baseline/commit");
+        f.Router.ReleaseCommits();
+        (await firstComplete).Session.Status.Should().Be(UploadSessionStatuses.Completed);
+        var conflict = async () => await secondComplete;
+        await conflict.Should().ThrowAsync<TransferSessionException>()
+            .Where(x => x.Code == "target_conflict");
+        f.Router.CommitCount.Should().Be(1);
+        f.Router.Files["/same.bin"].Bytes.Should().Equal(firstBytes);
+    }
+
+    [Fact]
+    public async Task Share_durable_lock_covers_session_row_and_temp_creation()
+    {
+        using var f = await Fixture.CreateAsync();
+        f.Router.PauseEnsureTemp();
+        var create = f.Service.CreateAsync(
+            f.UserId, f.Request("/locked.bin", new byte[] { 1 }), CancellationToken.None);
+        await f.Router.WaitForEnsureTempEntryAsync();
+
+        var adminLease = DurableShareLock.AcquireAsync(f.ShareId, CancellationToken.None).AsTask();
+        await Task.Yield();
+        adminLease.IsCompleted.Should().BeFalse(
+            "share mutation must wait until both the durable row and physical temp are established");
+
+        f.Router.ReleaseEnsureTemp();
+        await create;
+        using (await adminLease)
+        {
+            (await Watashi.Server.Endpoints.AdminShareEndpoints.HasDurableTransferStateAsync(
+                f.Db, f.ShareId, CancellationToken.None)).Should().BeTrue();
+        }
+    }
+
+    [Fact]
+    public async Task Share_delete_lock_prevents_session_creation_after_durable_check()
+    {
+        using var f = await Fixture.CreateAsync();
+        var adminLease = await DurableShareLock.AcquireAsync(f.ShareId, CancellationToken.None);
+        var create = f.Service.CreateAsync(
+            f.UserId, f.Request("/racing.bin", new byte[] { 1 }), CancellationToken.None);
+        await Task.Yield();
+        (await f.Db.UploadSessions.CountAsync()).Should().Be(0);
+
+        var share = await f.Db.CifsShares.SingleAsync(s => s.Id == f.ShareId);
+        f.Db.CifsShares.Remove(share);
+        await f.Db.SaveChangesAsync();
+        adminLease.Dispose();
+
+        var failed = async () => await create;
+        await failed.Should().ThrowAsync<TransferSessionException>();
+        (await f.Db.UploadSessions.CountAsync()).Should().Be(0);
+        f.Router.Files.Keys.Should().NotContain(path => path.Contains(".watashi-upload-"));
+    }
+
+    [Fact]
+    public async Task Legacy_streaming_upload_uses_durable_session_and_publishes_atomically()
+    {
+        using var f = await Fixture.CreateAsync();
+        var bytes = new byte[] { 7, 8, 9 };
+
+        var result = await f.Service.UploadLegacyAsync(
+            f.UserId, f.HostId, f.ShareId, "/legacy.bin", bytes.Length,
+            new MemoryStream(bytes), CancellationToken.None);
+
+        result.Session.Status.Should().Be(UploadSessionStatuses.Completed);
+        f.Router.Files["/legacy.bin"].Bytes.Should().Equal(bytes);
+        f.Router.Files.Keys.Should().NotContain(path => path.Contains(".watashi-upload-"));
+        (await f.Db.UploadSessions.SingleAsync()).Status.Should().Be(UploadSessionStatuses.Completed);
+    }
+
+    [Fact]
+    public async Task Legacy_stream_failure_leaves_durable_row_for_janitor_cleanup()
+    {
+        using var f = await Fixture.CreateAsync();
+        f.Router.WriteTempStreamFailure = new IOException("stream interrupted");
+
+        var act = async () => await f.Service.UploadLegacyAsync(
+            f.UserId, f.HostId, f.ShareId, "/legacy-failed.bin", 3,
+            new MemoryStream(new byte[] { 1, 2, 3 }), CancellationToken.None);
+
+        await act.Should().ThrowAsync<IOException>();
+        var row = await f.Db.UploadSessions.SingleAsync();
+        row.Status.Should().Be(UploadSessionStatuses.Active);
+        row.TempPath.Should().Contain(TransferV2Limits.TempFilePrefix);
+    }
+
+    [Fact]
+    public async Task Cleanup_failure_is_deferred_so_later_expired_sessions_are_not_starved()
+    {
+        using var f = await Fixture.CreateAsync();
+        await f.Service.CreateAsync(
+            f.UserId, f.Request("/retry.bin", new byte[] { 8 }), CancellationToken.None);
+        f.Clock.Advance(TimeSpan.FromHours(25));
+        f.Router.DeleteTempFailure = new IOException("SMB unavailable");
+
+        (await f.Service.ExpireSessionsAsync(CancellationToken.None)).Should().Be(0);
+
+        var row = await f.Db.UploadSessions.SingleAsync();
+        row.Status.Should().Be(UploadSessionStatuses.Failed);
+        row.ErrorCode.Should().Be("cleanup_retry");
+        row.ExpiresAt.Should().Be(f.Clock.GetUtcNow().UtcDateTime.AddMinutes(5));
+    }
+
     private static string Hash(ReadOnlySpan<byte> bytes)
         => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
@@ -344,6 +490,18 @@ public sealed class UploadSessionServiceTests
         public Dictionary<string, FileState> Files { get; } =
             new(StringComparer.OrdinalIgnoreCase);
         public int CommitCount { get; private set; }
+        public Exception? EnsureTempFailure { get; set; }
+        public Exception? DeleteTempFailure { get; set; }
+        public Exception? WriteTempStreamFailure { get; set; }
+        public int CommitEnteredCount { get; private set; }
+        private TaskCompletionSource _ensureTempEntered = NewSignal();
+        private TaskCompletionSource _ensureTempRelease = NewSignal();
+        private TaskCompletionSource _commitEntered = NewSignal();
+        private TaskCompletionSource _commitRelease = NewSignal();
+        private TaskCompletionSource _observedTempMetadata = NewSignal();
+        private bool _pauseEnsureTemp;
+        private bool _pauseCommits;
+        private bool _observeNextTempMetadata;
 
         public FakeNodeRouter()
             : base(new CifsService(new CifsSessionPool()), new FakeForwarder()) { }
@@ -359,26 +517,59 @@ public sealed class UploadSessionServiceTests
             Files.Remove(temp);
         }
 
+        public void PauseEnsureTemp() => _pauseEnsureTemp = true;
+        public Task WaitForEnsureTempEntryAsync() => _ensureTempEntered.Task;
+        public void ReleaseEnsureTemp() => _ensureTempRelease.TrySetResult();
+        public void PauseCommits() => _pauseCommits = true;
+        public Task WaitForCommitEntryAsync() => _commitEntered.Task;
+        public void ReleaseCommits() => _commitRelease.TrySetResult();
+        public void ObserveNextTempMetadata() => _observeNextTempMetadata = true;
+        public Task WaitForObservedTempMetadataAsync() => _observedTempMetadata.Task;
+
         public override Task<TransferFileMetadata> GetTransferMetadataAsync(
             ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            if (_observeNextTempMetadata && TransferV2Validation.IsReservedTempPath(path))
+            {
+                _observeNextTempMetadata = false;
+                _observedTempMetadata.TrySetResult();
+            }
             return Task.FromResult(Files.TryGetValue(PathHelper.NormalizePath(path), out var file)
                 ? new TransferFileMetadata(true, TransferFileTypes.File, file.Bytes.LongLength,
                     file.ModifiedAtUtc, false)
                 : TransferFileMetadata.Missing);
         }
 
-        public override Task<TransferFileMetadata> EnsureTempFileAsync(
+        public override async Task<TransferFileMetadata> EnsureTempFileAsync(
             ExecutionNode node, CifsConnectionInfo info, string tempPath, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            if (EnsureTempFailure is not null)
+                throw EnsureTempFailure;
+            if (_pauseEnsureTemp)
+            {
+                _ensureTempEntered.TrySetResult();
+                await _ensureTempRelease.Task.WaitAsync(ct);
+            }
             var path = TransferV2Validation.NormalizeAndValidateTempPath(tempPath);
             if (!Files.ContainsKey(path))
                 Files[path] = new FileState(Array.Empty<byte>(), DateTime.UtcNow);
             var file = Files[path];
-            return Task.FromResult(new TransferFileMetadata(true, TransferFileTypes.File,
-                file.Bytes.LongLength, file.ModifiedAtUtc, false));
+            return new TransferFileMetadata(true, TransferFileTypes.File,
+                file.Bytes.LongLength, file.ModifiedAtUtc, false);
+        }
+
+        public override async Task WriteTempStreamAsync(
+            ExecutionNode node, CifsConnectionInfo info, string tempPath, Stream input,
+            CancellationToken ct)
+        {
+            if (WriteTempStreamFailure is not null)
+                throw WriteTempStreamFailure;
+            var path = TransferV2Validation.NormalizeAndValidateTempPath(tempPath);
+            using var buffer = new MemoryStream();
+            await input.CopyToAsync(buffer, ct);
+            Files[path] = new FileState(buffer.ToArray(), DateTime.UtcNow);
         }
 
         public override Task<TransferChunkWriteResult> WriteTempChunkAsync(
@@ -418,27 +609,35 @@ public sealed class UploadSessionServiceTests
                 "SHA-256", Hash(file.Bytes), file.Bytes.LongLength));
         }
 
-        public override Task CommitTempAsync(
+        public override async Task CommitTempAsync(
             ExecutionNode node, CifsConnectionInfo info, string tempPath, string targetPath,
             bool replaceIfExists, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            CommitEnteredCount++;
+            _commitEntered.TrySetResult();
+            if (_pauseCommits)
+                await _commitRelease.Task.WaitAsync(ct);
             var paths = TransferV2Validation.ValidateCommitPaths(tempPath, targetPath);
             if (!replaceIfExists && Files.ContainsKey(paths.TargetPath))
                 throw new IOException("target exists");
             Files[paths.TargetPath] = Files[paths.TempPath];
             Files.Remove(paths.TempPath);
             CommitCount++;
-            return Task.CompletedTask;
         }
 
         public override Task DeleteTempAsync(
             ExecutionNode node, CifsConnectionInfo info, string tempPath, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            if (DeleteTempFailure is not null)
+                return Task.FromException(DeleteTempFailure);
             Files.Remove(TransferV2Validation.NormalizeAndValidateTempPath(tempPath));
             return Task.CompletedTask;
         }
+
+        private static TaskCompletionSource NewSignal()
+            => new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private sealed class FakeForwarder : AgentForwarder

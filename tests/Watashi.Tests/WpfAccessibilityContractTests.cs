@@ -20,6 +20,9 @@ public class WpfAccessibilityContractTests
     [InlineData("src/Watashi.Client/Views/InitialPasswordWindow.xaml")]
     [InlineData("src/Watashi.Client/Views/ConnectionSettingsWindow.xaml")]
     [InlineData("src/Watashi.Client/Views/PersonalSettingsWindow.xaml")]
+    [InlineData("src/Watashi.Client/Views/TransferCenterWindow.xaml")]
+    [InlineData("src/Watashi.Client/Views/TrustedDevicesWindow.xaml")]
+    [InlineData("src/Watashi.Client/Views/Admin/OperationsView.xaml")]
     [InlineData("src/Watashi.Client/Views/PromptDialog.xaml")]
     public void Accessibility_xaml_is_well_formed(string relativePath)
     {
@@ -131,6 +134,40 @@ public class WpfAccessibilityContractTests
             .AttributeByLocalName("AutomationProperties.LiveSetting").Should().Be("Polite");
         File.ReadAllText(RepoFile("src/Watashi.Client/Views/PersonalSettingsWindow.xaml.cs"))
             .Should().Contain("AutomationLiveRegion.Announce(PersonalSettingsStatusLiveRegion)");
+    }
+
+    [Theory]
+    [InlineData(
+        "src/Watashi.Client/Views/TransferCenterWindow.xaml",
+        "TransferSummaryLiveRegion",
+        "Polite",
+        "src/Watashi.Client/Views/TransferCenterWindow.xaml.cs",
+        "AutomationLiveRegion.Announce(TransferSummaryLiveRegion)")]
+    [InlineData(
+        "src/Watashi.Client/Views/TransferCenterWindow.xaml",
+        "TransferErrorLiveRegion",
+        "Assertive",
+        "src/Watashi.Client/Views/TransferCenterWindow.xaml.cs",
+        "AutomationLiveRegion.Announce(TransferErrorLiveRegion)")]
+    [InlineData(
+        "src/Watashi.Client/Views/TrustedDevicesWindow.xaml",
+        "TrustedDevicesStatusLiveRegion",
+        "Polite",
+        "src/Watashi.Client/Views/TrustedDevicesWindow.xaml.cs",
+        "AutomationLiveRegion.Announce(TrustedDevicesStatusLiveRegion)")]
+    [InlineData(
+        "src/Watashi.Client/Views/Admin/OperationsView.xaml",
+        "OperationsStatusLiveRegion",
+        "Polite",
+        "src/Watashi.Client/Views/Admin/OperationsView.xaml.cs",
+        "AutomationLiveRegion.Announce(OperationsStatusLiveRegion)")]
+    public void Dynamic_status_is_named_and_explicitly_announced(
+        string xamlPath, string elementName, string liveSetting,
+        string codeBehindPath, string announceCall)
+    {
+        Named(Load(xamlPath), elementName)
+            .AttributeByLocalName("AutomationProperties.LiveSetting").Should().Be(liveSetting);
+        File.ReadAllText(RepoFile(codeBehindPath)).Should().Contain(announceCall);
     }
 
     [Theory]

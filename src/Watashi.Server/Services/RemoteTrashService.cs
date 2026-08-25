@@ -36,7 +36,6 @@ public sealed class RemoteTrashService
 {
     internal const int DefaultRetentionDays = 30;
     internal const long DefaultCapacityBytes = 100L * 1024 * 1024 * 1024;
-    private static readonly KeyedAsyncLock<int> ShareLocks = new();
     private static readonly KeyedAsyncLock<Guid> EntryLocks = new();
 
     private readonly AppDbContext _db;
@@ -78,7 +77,7 @@ public sealed class RemoteTrashService
     {
         if (userId <= 0) throw Error(StatusCodes.Status401Unauthorized, "unauthorized", "認証が必要です。");
         var source = NormalizeUserPath(sourcePath);
-        var shareGate = await ShareLocks.AcquireAsync(shareId, ct);
+        var shareGate = await DurableShareLock.AcquireAsync(shareId, ct);
         try
         {
             // DELETE応答だけが失われた再送は、sourceが消えていて同じ利用者のactive entryが
@@ -224,7 +223,7 @@ public sealed class RemoteTrashService
             if (entry.Status is not (RemoteTrashStatuses.Active or RemoteTrashStatuses.Restoring))
                 throw Error(StatusCodes.Status409Conflict, "entry_not_restorable", "この項目は現在復元できません。");
 
-            var shareGate = await ShareLocks.AcquireAsync(entry.ShareId, ct);
+            var shareGate = await DurableShareLock.AcquireAsync(entry.ShareId, ct);
             try
             {
                 var execution = await ResolveExecutionAsync(entry.HostId, entry.ShareId, ct);
@@ -344,7 +343,9 @@ public sealed class RemoteTrashService
     {
         var now = UtcNow();
         var ids = await _db.RemoteTrashEntries.AsNoTracking()
-            .Where(e => (e.Status == RemoteTrashStatuses.Active || e.Status == RemoteTrashStatuses.Purging) &&
+            .Where(e => (e.Status == RemoteTrashStatuses.Active ||
+                         e.Status == RemoteTrashStatuses.Purging ||
+                         e.Status == RemoteTrashStatuses.Failed) &&
                         e.ExpiresAt <= now)
             .OrderBy(e => e.ExpiresAt)
             .Select(e => e.Id)
@@ -359,10 +360,20 @@ public sealed class RemoteTrashService
             {
                 var entry = await _db.RemoteTrashEntries.FirstOrDefaultAsync(e => e.Id == id, ct);
                 if (entry is null || entry.ExpiresAt > UtcNow() ||
-                    entry.Status is not (RemoteTrashStatuses.Active or RemoteTrashStatuses.Purging))
+                    entry.Status is not (RemoteTrashStatuses.Active or
+                        RemoteTrashStatuses.Purging or RemoteTrashStatuses.Failed))
                     continue;
                 try
                 {
+                    if (entry.Status == RemoteTrashStatuses.Failed)
+                    {
+                        // 廃止前の失敗行も、物理trashが無ければidempotent purgeでPurgedへ
+                        // 収束できる。APIは再公開せずjanitorだけでlegacy状態を回収する。
+                        entry.Status = RemoteTrashStatuses.Active;
+                        entry.ErrorCode = "legacy_cleanup";
+                        entry.UpdatedAt = UtcNow();
+                        await _db.SaveChangesAsync(ct);
+                    }
                     var result = await PurgeCoreAsync(entry, actorUserId: null, ct);
                     if (result.Changed) count++;
                     try
@@ -389,6 +400,7 @@ public sealed class RemoteTrashService
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _logger.LogWarning(ex, "期限切れごみ箱項目 {EntryId} のpurgeに失敗しました", id);
+                    await DeferFailedPurgeAsync(id, ct);
                 }
             }
             finally
@@ -397,6 +409,34 @@ public sealed class RemoteTrashService
             }
         }
         return count;
+    }
+
+    private async Task DeferFailedPurgeAsync(Guid entryId, CancellationToken ct)
+    {
+        try
+        {
+            // PurgeCore内のmetadata再確認まで失敗するとPurgingのまま残り得る。
+            // 再実行は物理項目が既に無くてもidempotentなのでActiveへ戻し、先頭100件が
+            // 毎回同じ失敗項目で固定されないよう次回試行を将来へ送る。
+            var entry = await _db.RemoteTrashEntries.FirstOrDefaultAsync(e => e.Id == entryId, ct);
+            if (entry is null || entry.Status == RemoteTrashStatuses.Purged)
+                return;
+            entry.Status = RemoteTrashStatuses.Active;
+            entry.ErrorCode = "purge_retry";
+            entry.UpdatedAt = UtcNow();
+            entry.ExpiresAt = UtcNow().AddMinutes(5);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception retryError)
+        {
+            _logger.LogWarning(retryError,
+                "期限切れごみ箱項目 {EntryId} のpurge再試行延期を保存できませんでした", entryId);
+            _db.ChangeTracker.Clear();
+        }
     }
 
     private async Task<RemoteTrashActionResult> PurgeCoreAsync(
@@ -411,7 +451,7 @@ public sealed class RemoteTrashService
         if (entry.Status is not (RemoteTrashStatuses.Active or RemoteTrashStatuses.Purging))
             throw Error(StatusCodes.Status409Conflict, "entry_not_purgeable", "この項目は現在完全削除できません。");
 
-        var shareGate = await ShareLocks.AcquireAsync(entry.ShareId, ct);
+        var shareGate = await DurableShareLock.AcquireAsync(entry.ShareId, ct);
         try
         {
             var execution = await ResolveExecutionAsync(entry.HostId, entry.ShareId, ct);

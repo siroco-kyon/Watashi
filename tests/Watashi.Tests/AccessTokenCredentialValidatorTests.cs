@@ -157,4 +157,65 @@ public class AccessTokenCredentialValidatorTests
         (await AccessTokenCredentialValidator.IsCurrentAsync(
             db.Db, Principal(login.Response!.AccessToken, credentialVersion: "invalid"))).Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Trusted_device_access_token_is_rejected_immediately_after_device_revocation()
+    {
+        using var db = new TestDb();
+        var user = await SeedAsync(db);
+        var device = new TrustedDevice
+        {
+            UserId = user.Id,
+            MachineName = "CLIENT-01",
+            WindowsUsername = "alice",
+            DeviceTokenHash = BCrypt.Net.BCrypt.HashPassword("device-token"),
+            RegisteredAt = DateTime.UtcNow,
+            LastUsedAt = DateTime.UtcNow,
+        };
+        db.Db.TrustedDevices.Add(device);
+        await db.Db.SaveChangesAsync();
+        var login = await Build(db).IssueTokensAsync(user, device.Id, clientIp: null);
+        var principal = Principal(login.AccessToken);
+
+        (await AccessTokenCredentialValidator.IsCurrentAsync(db.Db, principal)).Should().BeTrue();
+
+        device.IsRevoked = true;
+        device.RevokedAt = DateTime.UtcNow;
+        await db.Db.SaveChangesAsync();
+
+        (await AccessTokenCredentialValidator.IsCurrentAsync(db.Db, principal)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Trusted_device_claim_must_belong_to_the_token_user()
+    {
+        using var db = new TestDb();
+        var user = await SeedAsync(db);
+        var other = new User
+        {
+            Username = "bob",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(Password),
+            PasswordChangedAt = DateTime.UtcNow.AddMinutes(-1),
+            PasswordExpiresAt = DateTime.UtcNow.AddDays(30),
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.Db.Users.Add(other);
+        await db.Db.SaveChangesAsync();
+        var otherDevice = new TrustedDevice
+        {
+            UserId = other.Id,
+            MachineName = "CLIENT-02",
+            WindowsUsername = "bob",
+            DeviceTokenHash = BCrypt.Net.BCrypt.HashPassword("device-token"),
+            RegisteredAt = DateTime.UtcNow,
+            LastUsedAt = DateTime.UtcNow,
+        };
+        db.Db.TrustedDevices.Add(otherDevice);
+        await db.Db.SaveChangesAsync();
+
+        var login = await Build(db).IssueTokensAsync(user, otherDevice.Id, clientIp: null);
+
+        (await AccessTokenCredentialValidator.IsCurrentAsync(
+            db.Db, Principal(login.AccessToken))).Should().BeFalse();
+    }
 }

@@ -50,6 +50,25 @@ public sealed class RemoteSearchServiceTests
     }
 
     [Fact]
+    public async Task Reserved_upload_temp_entries_are_neither_returned_nor_traversed()
+    {
+        var scope = Scope(1, "/root");
+        var lister = new FakeLister();
+        lister.Add(1, "/root",
+            File(".watashi-upload-needle.tmp"),
+            Directory(".watashi-upload-container"),
+            File("needle-visible.txt"));
+        lister.Add(1, "/root/.watashi-upload-container", File("needle-hidden.txt"));
+        var service = new RemoteSearchService(lister);
+
+        var result = await service.SearchAsync(
+            new[] { scope }, "needle", 100, 100, 30, CancellationToken.None);
+
+        result.Results.Should().ContainSingle(x => x.FullPath == "/root/needle-visible.txt");
+        lister.Calls.Should().NotContain((1, "/root/.watashi-upload-container"));
+    }
+
+    [Fact]
     public async Task Partial_failure_continues_without_leaking_exception_or_path()
     {
         var failed = Scope(1, "/classified");

@@ -8,11 +8,13 @@
     <DockPanel Margin="16">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Text="転送ジョブセンター" Style="{StaticResource H2}"/>
-            <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" Margin="0,4,0,0"
+            <TextBlock x:Name="TransferSummaryLiveRegion" Text="{Binding Summary}" Style="{StaticResource Muted}" Margin="0,4,0,0"
                        AutomationProperties.LiveSetting="Polite"/>
             <Border Style="{StaticResource AccessibleErrorBanner}" Padding="10" Margin="0,8,0,0"
                     Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource AccessibleErrorText}" TextWrapping="Wrap"/>
+                <TextBlock x:Name="TransferErrorLiveRegion" Text="{Binding ErrorMessage}"
+                           Style="{StaticResource AccessibleErrorText}" TextWrapping="Wrap"
+                           AutomationProperties.LiveSetting="Assertive"/>
             </Border>
         </StackPanel>
 

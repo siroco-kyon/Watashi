@@ -36,15 +36,7 @@ public static class AuthEndpoints
             var result = await auth.LoginAsync(req.Username, req.Password, clientIp,
                 req.WindowsUsername, clientHostname, ct);
 
-            if (result.Failure == LoginFailureReason.AccountDisabled)
-                return Results.Json(new { error = "account_disabled" },
-                    statusCode: StatusCodes.Status403Forbidden);
-            if (result.Failure == LoginFailureReason.AccountLocked)
-                return Results.StatusCode(StatusCodes.Status403Forbidden);
-            if (result.Failure == LoginFailureReason.InvalidCredentials || result.Response is null)
-                return Results.Unauthorized();
-
-            return Results.Ok(result.Response);
+            return MapPasswordLoginResult(result);
         }).AllowAnonymous().RequireRateLimiting("login-ip");
 
         group.MapPost("/auto-login", async (
@@ -254,6 +246,16 @@ public static class AuthEndpoints
 
         return app;
     }
+
+    /// <summary>
+    /// 匿名のパスワードログインでは、未知・無効・ロック・未設定・パスワード不一致を
+    /// すべて同じ401へまとめる。詳細理由は監査ログだけに残し、ユーザー列挙へ使わせない。
+    /// 端末tokenやWindows認証で本人性を証明済みの経路はこの統一対象ではない。
+    /// </summary>
+    internal static IResult MapPasswordLoginResult(LoginResult result)
+        => result.Failure is not null || result.Response is null
+            ? Results.Unauthorized()
+            : Results.Ok(result.Response);
 
     private static string? ClientHostname(HttpContext ctx, string? requestValue = null)
         => string.IsNullOrWhiteSpace(requestValue)

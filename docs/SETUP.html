@@ -816,8 +816,8 @@ Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue</code></pre>
     "WindowsAuth": {
       "Mode": "IIS",
       "AllowHttp": false,
-      "DomainMatch": "IgnoreDomain",
-      "AllowedDomains": [],
+      "DomainMatch": "AllowList",
+      "AllowedDomains": ["CORP", "corp.example.com"],
       "EnableDiagnostics": true,
       "SetupPerMinutePerIp": 30
     }
@@ -931,7 +931,7 @@ Start-Service Watashi.Server</code></pre>
               <tr><td><code>Encryption:MasterKey</code></td><td class="req">必須</td><td>32 バイト Base64</td><td>CIFS パスワード暗号化用。紛失すると既存ホスト資格情報を復号できない</td></tr>
               <tr><td><code>Auth:AllowHttpForAutoLogin</code></td><td class="opt">任意</td><td><code>false</code> 推奨</td><td>HTTP 接続で「このPCを記憶する」を許可するか。Production は false</td></tr>
               <tr><td><code>Auth:LoginPerMinutePerIp</code></td><td class="opt">任意</td><td>1 分あたり試行数</td><td>同一 NAT で誤検知する場合だけ増やす。既定 10</td></tr>
-              <tr><td><code>Auth:WindowsAuth:*</code></td><td class="req">IIS 構成で必須</td><td>初回設定の Windows 本人確認</td><td>同梱設定は <code>Mode=IIS</code>。設定手順は <a href="../deploy/IIS-WINDOWS-AUTH-SETUP.html">HTML ガイド</a> と <a href="../deploy/IIS-HOSTING.md">IIS-HOSTING.md</a></td></tr>
+              <tr><td><code>Auth:WindowsAuth:*</code></td><td class="req">Windows 認証利用時必須</td><td>初回設定の Windows 本人確認</td><td>同梱設定は安全のため <code>Mode=None</code>。有効化時は <code>DomainMatch=AllowList</code> と1件以上の <code>AllowedDomains</code> が必須。設定手順は <a href="../deploy/IIS-WINDOWS-AUTH-SETUP.html">HTML ガイド</a> と <a href="../deploy/IIS-HOSTING.md">IIS-HOSTING.md</a></td></tr>
               <tr><td><code>Routing:UseMtls</code></td><td class="opt">構成依存</td><td><code>true</code> / <code>false</code></td><td>区間 B を mTLS で相互認証するなら true</td></tr>
               <tr><td><code>Routing:ClientCertificatePath</code></td><td class="req">mTLS 時必須</td><td>中央が Agent へ提示する PFX</td><td>Server → Agent の呼び出しに使うクライアント証明書</td></tr>
               <tr><td><code>Routing:ClientCertificatePassword</code></td><td class="req">mTLS 時必須</td><td>上記 PFX のパスワード</td><td>環境変数での上書きも可</td></tr>
@@ -1046,6 +1046,7 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
         </div>
 
         <div class="callout warning"><strong>HTTP + 共有秘密モードでは <code>Certificate:Path</code> / <code>Certificate:Password</code> は空で構いません。</strong>Agent の待受も <code>Kestrel:Endpoints:Http</code> を使うため、Agent 側に HTTPS サーバー証明書は不要です。証明書が必要になるのは、区間 A を HTTPS にする中央サーバー側と、<code>Routing:UseMtls=true</code> で mTLS を使う場合だけです。<strong><code>UseMtls=false</code> かつ <code>Auth:SharedSecret</code> が空だと、Agent は起動時に設定エラーで停止します。</strong></div>
+        <div class="callout warning"><strong>共有秘密で Agent → Server の heartbeat / 監査ログを送れるのは、有効な Agent node が1台の構成だけです。</strong>共有秘密は送信 Agent を区別できないため、複数 Agent 構成では Agent ごとの証明書を登録して mTLS を使用してください。曖昧なリクエストは 403 で拒否されます。</div>
 
         <h3>6-4. 設定例 1: Agent 1 台 (HTTP + 共有秘密)</h3>
         <p>区間 A は HTTPS、区間 B は閉域網内 HTTP とし、Agent 認証は共有秘密で行う構成です。<code>SharedSecret</code> は Server と Agent で同じ値にします。</p>
@@ -1305,6 +1306,7 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 
         <h3>6-7. 複数 Agent / 複数踏み台</h3>
         <p>複数の踏み台サーバーに Agent を配置できます。各 Agent で <code>Agent:AgentId</code> を一意にし、中央の管理画面で同じ名前の ExecutionNode を登録してください。CIFS ホスト登録時にどの ExecutionNode から接続するかを選ぶため、<strong>ネットワークセグメントごとに Agent を分けられます</strong>。</p>
+        <p><strong>複数 Agent から中央 Server への heartbeat / 監査ログには mTLS が必須です。</strong>単一の共有秘密では送信元を一意に認証できません。</p>
       </section>
 
       <section id="initial">

@@ -496,6 +496,7 @@ CIFS への接続経路。`Direct` = 中央サーバー自身、`Agent` = 踏み
 - **Agent → Server (`/api/internal/*`)**: Server 側で `Agent` 認可ポリシーが要求
   - mTLS モードでは、Agent が提示するクライアント証明書サムプリントを `ExecutionNode.ClientCertificateThumbprint` と照合
   - 共有秘密モードでは、Agent の `Auth:SharedSecret` と Server の `Routing:SharedSecret` を同じ値にし、`X-Watashi-Secret` で照合
+  - Agent → Server の heartbeat / 監査ログは、共有秘密では有効 Agent が1台の場合だけ受理する。複数 Agent 構成は Agent ごとの mTLS 証明書が必須
   - mTLS 時は、ハートビートのリクエストボディに含まれる AgentId と、証明書から取得した AgentId が一致しないと 403
 
 ---

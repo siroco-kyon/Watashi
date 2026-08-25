@@ -14,7 +14,7 @@ public static class WindowsAuthModes
 /// <summary>OS アカウント名のドメイン部をどう扱うか。</summary>
 public static class WindowsAuthDomainMatchModes
 {
-    /// <summary>ドメイン部を無視し、アカウント名だけで照合する。既定値。</summary>
+    /// <summary>ドメイン部を無視し、アカウント名だけで照合する。単一ドメインが保証された互換モード。</summary>
     public const string IgnoreDomain = "IgnoreDomain";
     /// <summary>AllowedDomains に列挙したドメインからのみ受け付ける。</summary>
     public const string AllowList = "AllowList";
@@ -36,8 +36,8 @@ public class WindowsAuthOptions
     /// </summary>
     public bool AllowHttp { get; set; }
 
-    /// <summary><see cref="WindowsAuthDomainMatchModes"/> のいずれか。既定 IgnoreDomain。</summary>
-    public string DomainMatch { get; set; } = WindowsAuthDomainMatchModes.IgnoreDomain;
+    /// <summary><see cref="WindowsAuthDomainMatchModes"/> のいずれか。既定 AllowList。</summary>
+    public string DomainMatch { get; set; } = WindowsAuthDomainMatchModes.AllowList;
 
     /// <summary>DomainMatch = AllowList のときに許可するドメイン (NetBIOS 名・DNS 名どちらでも)。</summary>
     public IList<string> AllowedDomains { get; set; } = new List<string>();
@@ -70,5 +70,10 @@ public class WindowsAuthOptions
             !string.Equals(DomainMatch, WindowsAuthDomainMatchModes.AllowList, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(
                 $"Auth:WindowsAuth:DomainMatch の値 '{DomainMatch}' は不正です。IgnoreDomain / AllowList のいずれかを指定してください。");
+
+        if (string.Equals(DomainMatch, WindowsAuthDomainMatchModes.AllowList, StringComparison.OrdinalIgnoreCase) &&
+            !AllowedDomains.Any(domain => !string.IsNullOrWhiteSpace(domain)))
+            throw new InvalidOperationException(
+                "Windows 認証を AllowList で有効にする場合は Auth:WindowsAuth:AllowedDomains を1件以上指定してください。");
     }
 }

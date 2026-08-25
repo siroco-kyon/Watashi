@@ -20,6 +20,11 @@ public static class AuthClaims
     /// </summary>
     public const string CredentialVersion = "cv";
     /// <summary>
+    /// 信頼済み端末ログインから発行された access token の端末 ID。
+    /// 認証時に端末の現在の失効状態と照合し、失効済み端末の既発行 token を即座に拒否する。
+    /// </summary>
+    public const string DeviceId = "did";
+    /// <summary>
     /// access token に付与される「パスワード変更必須」フラグ。値は "1" 固定。
     /// 付与されたトークンは <c>/api/auth/change-password</c> / <c>/api/auth/logout</c> /
     /// <c>/api/auth/refresh</c> 以外のエンドポイントで 403 にブロックされる。

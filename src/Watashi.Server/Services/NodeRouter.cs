@@ -43,6 +43,7 @@ public class NodeRouter
     public virtual async Task<IReadOnlyList<FileEntry>> ListAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
         EnsureRouteReachable(node);
+        path = TransferV2Validation.NormalizeAndValidateUserPath(path);
         if (node.NodeType == NodeTypes.Direct)
             return await Task.Run(() => _direct.List(info, path, ct), ct);
         return await _forwarder.ListAsync(node, info, path, ct);
@@ -51,6 +52,7 @@ public class NodeRouter
     public virtual async Task<Stream> OpenReadAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
         EnsureRouteReachable(node);
+        path = TransferV2Validation.NormalizeAndValidateUserPath(path);
         if (node.NodeType == NodeTypes.Direct)
             return _direct.OpenRead(info, path, ct);
         return await _forwarder.OpenDownloadAsync(node, info, path, ct);
@@ -262,6 +264,7 @@ public class NodeRouter
     public virtual async Task UploadAsync(ExecutionNode node, CifsConnectionInfo info, string path, Stream input, CancellationToken ct)
     {
         EnsureRouteReachable(node);
+        path = TransferV2Validation.NormalizeAndValidateUserPath(path);
         var parent = PathHelper.GetParent(path);
         var tempPath = PathHelper.NormalizePath($"{parent}/.watashi-upload-{Guid.NewGuid():N}.tmp");
         try
@@ -275,6 +278,22 @@ public class NodeRouter
             catch { /* 元の転送エラーを優先する。孤立一時ファイルは後から安全に削除できる。 */ }
             throw;
         }
+    }
+
+    /// <summary>
+    /// 永続upload台帳が先に作成済みの一時パスへlegacy request bodyを書き込む。
+    /// 呼び出し側がcommitと状態遷移を管理し、process停止時もjanitorがtempを回収できる。
+    /// </summary>
+    public virtual async Task WriteTempStreamAsync(
+        ExecutionNode node,
+        CifsConnectionInfo info,
+        string tempPath,
+        Stream input,
+        CancellationToken ct)
+    {
+        EnsureRouteReachable(node);
+        tempPath = TransferV2Validation.NormalizeAndValidateTempPath(tempPath);
+        await UploadCoreAsync(node, info, tempPath, input, ct);
     }
 
     private async Task UploadCoreAsync(ExecutionNode node, CifsConnectionInfo info, string path, Stream input, CancellationToken ct)
@@ -293,6 +312,7 @@ public class NodeRouter
     public virtual async Task DeleteAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
         EnsureRouteReachable(node);
+        path = TransferV2Validation.NormalizeAndValidateUserPath(path);
         await DeleteCoreAsync(node, info, path, ct);
     }
 
@@ -307,6 +327,8 @@ public class NodeRouter
     public virtual async Task RenameAsync(ExecutionNode node, CifsConnectionInfo info, string oldPath, string newPath, CancellationToken ct)
     {
         EnsureRouteReachable(node);
+        oldPath = TransferV2Validation.NormalizeAndValidateUserPath(oldPath);
+        newPath = TransferV2Validation.NormalizeAndValidateUserPath(newPath);
         await RenameCoreAsync(node, info, oldPath, newPath, replaceIfExists: false, ct);
     }
 
@@ -321,6 +343,7 @@ public class NodeRouter
     public virtual async Task MkdirAsync(ExecutionNode node, CifsConnectionInfo info, string path, CancellationToken ct)
     {
         EnsureRouteReachable(node);
+        path = TransferV2Validation.NormalizeAndValidateUserPath(path);
         if (node.NodeType == NodeTypes.Direct)
             await Task.Run(() => _direct.Mkdir(info, path, ct), ct);
         else

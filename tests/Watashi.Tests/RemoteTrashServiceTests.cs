@@ -177,6 +177,40 @@ public sealed class RemoteTrashServiceTests
         (await f.Db.RemoteTrashEntries.CountAsync()).Should().Be(0);
     }
 
+    [Fact]
+    public async Task Expired_purge_failure_is_deferred_so_following_entries_can_progress()
+    {
+        using var f = await Fixture.CreateAsync();
+        f.Router.PutFile("/old.bin", 10);
+        await f.TrashAsync("/old.bin");
+        f.Clock.Advance(TimeSpan.FromDays(RemoteTrashService.DefaultRetentionDays + 1));
+        f.Router.PurgeFailure = new IOException("SMB unavailable");
+
+        (await f.Service.PurgeExpiredAsync(CancellationToken.None)).Should().Be(0);
+
+        var entry = await f.Db.RemoteTrashEntries.SingleAsync();
+        entry.Status.Should().Be(RemoteTrashStatuses.Active);
+        entry.ErrorCode.Should().Be("purge_retry");
+        entry.ExpiresAt.Should().Be(f.Clock.GetUtcNow().UtcDateTime.AddMinutes(5));
+    }
+
+    [Fact]
+    public async Task Legacy_failed_entry_is_reconciled_by_backend_janitor_without_reenabling_api()
+    {
+        using var f = await Fixture.CreateAsync();
+        f.Router.PutFile("/legacy.bin", 10);
+        var trashed = await f.TrashAsync("/legacy.bin");
+        var entry = await f.Db.RemoteTrashEntries.SingleAsync();
+        entry.Status = RemoteTrashStatuses.Failed;
+        entry.ExpiresAt = f.Clock.GetUtcNow().UtcDateTime.AddMinutes(-1);
+        await f.Db.SaveChangesAsync();
+
+        (await f.Service.PurgeExpiredAsync(CancellationToken.None)).Should().Be(1);
+
+        entry.Status.Should().Be(RemoteTrashStatuses.Purged);
+        f.Router.Files.Should().NotContainKey(trashed.TargetPath!);
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly TestDb _testDb;
@@ -308,6 +342,7 @@ public sealed class RemoteTrashServiceTests
         public sealed record ItemState(string Type, long Size, DateTime ModifiedAtUtc, bool Reparse);
         public Dictionary<string, ItemState> Files { get; } = new(StringComparer.OrdinalIgnoreCase);
         public int MoveCount { get; private set; }
+        public Exception? PurgeFailure { get; set; }
 
         public FakeNodeRouter()
             : base(new CifsService(new CifsSessionPool()), new FakeForwarder()) { }
@@ -369,6 +404,8 @@ public sealed class RemoteTrashServiceTests
             ExecutionNode node, CifsConnectionInfo info, string trashPath, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            if (PurgeFailure is not null)
+                return Task.FromException(PurgeFailure);
             Files.Remove(RemoteTrashPathPolicy.ValidateItemPath(trashPath));
             return Task.CompletedTask;
         }

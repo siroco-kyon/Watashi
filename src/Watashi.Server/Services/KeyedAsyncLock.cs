@@ -85,3 +85,15 @@ internal sealed class KeyedAsyncLock<TKey> where TKey : notnull
         }
     }
 }
+
+/// <summary>
+/// 共有の物理接続先変更・削除と、SMB上の回収対象を伴う永続台帳作成を直列化する。
+/// check後にupload/trash rowが作られてcascade削除されるTOCTOUを防ぐ。
+/// </summary>
+internal static class DurableShareLock
+{
+    private static readonly KeyedAsyncLock<int> Locks = new();
+
+    public static ValueTask<IDisposable> AcquireAsync(int shareId, CancellationToken ct)
+        => Locks.AcquireAsync(shareId, ct);
+}

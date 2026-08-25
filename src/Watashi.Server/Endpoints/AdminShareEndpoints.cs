@@ -47,8 +47,24 @@ public static class AdminShareEndpoints
 
         group.MapPatch("/{id:int}", async (int id, UpdateShareRequest req, AppDbContext db, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
+            using var shareGate = await DurableShareLock.AcquireAsync(id, ct);
             var s = await db.CifsShares.FindAsync(new object?[] { id }, ct);
             if (s is null) return Results.NotFound();
+            var requestedShareName = req.ShareName?.Trim();
+            var changesPhysicalLocation =
+                (req.HostId.HasValue && req.HostId.Value != s.HostId) ||
+                (requestedShareName is not null &&
+                 !string.Equals(requestedShareName, s.ShareName, StringComparison.OrdinalIgnoreCase));
+            if (changesPhysicalLocation && await HasDurableTransferStateAsync(db, id, ct))
+            {
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareUpdate,
+                    $"share:{id}", AuditResults.Failure, "share_has_durable_state", ct);
+                return Results.Conflict(new
+                {
+                    error = "進行中または回収待ちの転送・ごみ箱データがあるため、共有の接続先を変更できません。",
+                    code = "share_has_durable_state",
+                });
+            }
             if (req.HostId.HasValue)
             {
                 if (!await db.CifsHosts.AsNoTracking().AnyAsync(h => h.Id == req.HostId.Value, ct))
@@ -59,7 +75,7 @@ public static class AdminShareEndpoints
             {
                 if (string.IsNullOrWhiteSpace(req.ShareName))
                     return Results.BadRequest(new { error = "ShareName 必須" });
-                s.ShareName = req.ShareName.Trim();
+                s.ShareName = requestedShareName!;
             }
             if (req.DisplayName is not null)
                 s.DisplayName = string.IsNullOrWhiteSpace(req.DisplayName) ? s.ShareName : req.DisplayName.Trim();
@@ -79,8 +95,19 @@ public static class AdminShareEndpoints
 
         group.MapDelete("/{id:int}", async (int id, AppDbContext db, AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal, CancellationToken ct) =>
         {
+            using var shareGate = await DurableShareLock.AcquireAsync(id, ct);
             var s = await db.CifsShares.FindAsync(new object?[] { id }, ct);
             if (s is null) return Results.NotFound();
+            if (await HasDurableTransferStateAsync(db, id, ct))
+            {
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareDelete,
+                    $"share:{id}", AuditResults.Failure, "share_has_durable_state", ct);
+                return Results.Conflict(new
+                {
+                    error = "進行中または回収待ちの転送・ごみ箱データがあるため、共有を削除できません。",
+                    code = "share_has_durable_state",
+                });
+            }
             db.CifsShares.Remove(s);
             await db.SaveChangesAsync(ct);
             await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareDelete, $"share:{id}", ct: ct);
@@ -88,5 +115,26 @@ public static class AdminShareEndpoints
         });
 
         return app;
+    }
+
+    internal static async Task<bool> HasDurableTransferStateAsync(
+        AppDbContext db,
+        int shareId,
+        CancellationToken ct)
+    {
+        var hasUploadState = await db.UploadSessions.AsNoTracking().AnyAsync(s =>
+            s.ShareId == shareId &&
+            (s.Status == UploadSessionStatuses.Active ||
+             s.Status == UploadSessionStatuses.Committing ||
+             s.Status == UploadSessionStatuses.Failed), ct);
+        if (hasUploadState) return true;
+
+        return await db.RemoteTrashEntries.AsNoTracking().AnyAsync(e =>
+            e.ShareId == shareId &&
+            (e.Status == RemoteTrashStatuses.Trashing ||
+             e.Status == RemoteTrashStatuses.Active ||
+             e.Status == RemoteTrashStatuses.Restoring ||
+             e.Status == RemoteTrashStatuses.Purging ||
+             e.Status == RemoteTrashStatuses.Failed), ct);
     }
 }

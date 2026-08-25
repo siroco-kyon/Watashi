@@ -85,6 +85,9 @@ builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<OperationalDiagnosticsService>();
 builder.Services.AddScoped<UploadSessionService>();
+// APIは廃止済みだが、既存DB/SMBに残るごみ箱台帳を期限後に安全に回収するため
+// backend janitorだけは維持する。
+builder.Services.AddScoped<RemoteTrashService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<EncryptionService>();
 builder.Services.AddSingleton<CifsSessionPool>(_ => new CifsSessionPool(
@@ -102,6 +105,7 @@ builder.Services.AddHostedService<AuditLogPurgeService>();
 builder.Services.AddHostedService<AuditOutboxDispatcher>();
 builder.Services.AddHostedService<DatabaseMaintenanceService>();
 builder.Services.AddHostedService<UploadSessionJanitor>();
+builder.Services.AddHostedService<RemoteTrashJanitor>();
 builder.Services.AddHttpClient("agent").AddMtls(builder.Configuration);
 
 // === mTLS (任意): Routing:UseMtls=true で Agent からの inbound にクライアント証明書を要求 ===
@@ -119,7 +123,8 @@ if (useMtls)
 }
 
 // === Windows 統合認証 (初回パスワード設定の本人確認) ===
-// 型の既定は Mode=None (無効) だが、同梱 appsettings.json は IIS 本番向けに Mode=IIS を指定する。
+// 型と同梱 appsettings.json の既定は Mode=None (無効)。Windows 認証を使う環境だけ、
+// AllowedDomains を設定したうえで IIS / Negotiate を明示的に選ぶ。
 // 認証スキームはホスティング方式で異なるため設定で選ぶ:
 //   IIS       … IIS/ASP.NET Core Module がハンドシェイクを処理する (本番構成)
 //   Negotiate … Kestrel 直受け。アプリ内で Negotiate/NTLM を処理する

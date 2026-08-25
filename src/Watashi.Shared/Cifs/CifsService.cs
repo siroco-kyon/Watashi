@@ -22,20 +22,27 @@ public class CifsService
 
     public IReadOnlyList<FileEntry> List(CifsConnectionInfo info, string path, CancellationToken ct = default)
     {
+        var normalizedPath = TransferV2Validation.NormalizeAndValidateUserPath(path);
+        EnsureNoReparseAncestors(info, normalizedPath, includeLeaf: true, ct);
         using var session = Acquire(info, ct);
-        var smbPath = ToSmbDirectory(path);
+        var smbPath = ToSmbDirectory(normalizedPath);
         var status = session.Store.CreateFile(
             out object dirHandle, out FileStatus _, smbPath,
             AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE,
             FileAttributes.Directory,
             ShareAccess.Read | ShareAccess.Write,
             CreateDisposition.FILE_OPEN,
-            CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
+            CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_OPEN_REPARSE_POINT |
+                CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
             null);
         if (status != NTStatus.STATUS_SUCCESS)
             throw new IOException($"ディレクトリを開けません: {status}");
         try
         {
+            var directoryMetadata = ReadTransferMetadata(
+                session, dirHandle, normalizedPath, ct);
+            if (directoryMetadata.IsReparsePoint)
+                throw new TransferReparsePointException(normalizedPath);
             var queryStatus = session.Store.QueryDirectory(out var entries, dirHandle, "*", FileInformationClass.FileDirectoryInformation);
             if (queryStatus != NTStatus.STATUS_SUCCESS && queryStatus != NTStatus.STATUS_NO_MORE_FILES)
                 throw new IOException($"ディレクトリ列挙エラー: {queryStatus}");
@@ -44,6 +51,10 @@ public class CifsService
             foreach (var item in entries.OfType<FileDirectoryInformation>())
             {
                 if (item.FileName is "." or "..") continue;
+                if (item.FileName.StartsWith(
+                        TransferV2Limits.TempFilePrefix,
+                        StringComparison.OrdinalIgnoreCase))
+                    continue;
                 bool isDir = (item.FileAttributes & FileAttributes.Directory) != 0;
                 bool isReparsePoint = (item.FileAttributes & FileAttributes.ReparsePoint) != 0;
                 list.Add(new FileEntry
@@ -65,37 +76,9 @@ public class CifsService
 
     public Stream OpenRead(CifsConnectionInfo info, string path, CancellationToken ct = default)
     {
-        var session = Acquire(info, ct);
-        try
-        {
-            var smbPath = ToSmbFile(path);
-            var status = session.Store.CreateFile(
-                out object handle, out FileStatus _, smbPath,
-                AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE,
-                FileAttributes.Normal,
-                ShareAccess.Read,
-                CreateDisposition.FILE_OPEN,
-                CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
-                null);
-            if (status != NTStatus.STATUS_SUCCESS)
-                throw new IOException($"ファイルを開けません: {status}");
-
-            // サイズ取得に失敗したまま size=0 で続行すると、SmbReadStream が即 EOF を返し
-            // 「0 バイトのダウンロード成功」として既存ファイルを空で上書きしてしまう。必ず失敗させる。
-            var infoStatus = session.Store.GetFileInformation(out FileInformation infoObj, handle, FileInformationClass.FileStandardInformation);
-            if (infoStatus != NTStatus.STATUS_SUCCESS || infoObj is not FileStandardInformation std)
-            {
-                try { session.Store.CloseFile(handle); } catch { }
-                throw new IOException($"ファイルサイズ取得エラー: {infoStatus}");
-            }
-
-            return new SmbReadStream(session, handle, std.EndOfFile);
-        }
-        catch
-        {
-            session.Dispose();
-            throw;
-        }
+        var normalizedPath = TransferV2Validation.NormalizeAndValidateUserPath(path);
+        EnsureNoReparseAncestors(info, normalizedPath, includeLeaf: true, ct);
+        return OpenVerifiedRead(info, normalizedPath, offset: 0, length: null, ct);
     }
 
     /// <summary>
@@ -108,6 +91,16 @@ public class CifsService
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        var normalizedPath = PathHelper.NormalizePath(path);
+        EnsureNoReparseAncestors(info, normalizedPath, includeLeaf: false, ct);
+        return GetTransferMetadataCore(info, normalizedPath, ct);
+    }
+
+    private TransferFileMetadata GetTransferMetadataCore(
+        CifsConnectionInfo info,
+        string path,
+        CancellationToken ct)
+    {
         using var session = Acquire(info, ct);
         var status = OpenTransferHandle(
             session,
@@ -138,7 +131,8 @@ public class CifsService
         string path,
         CancellationToken ct = default)
     {
-        var normalized = RemoteTrashPathPolicy.NormalizeUserPath(path);
+        var normalized = TransferV2Validation.NormalizeAndValidateUserPath(
+            RemoteTrashPathPolicy.NormalizeUserPath(path));
         EnsureNoReparseAncestors(info, normalized, includeLeaf: true, ct);
         var metadata = GetTransferMetadata(info, normalized, ct);
         if (!metadata.Exists)
@@ -159,7 +153,8 @@ public class CifsService
         string trashPath,
         CancellationToken ct = default)
     {
-        var source = RemoteTrashPathPolicy.NormalizeUserPath(sourcePath);
+        var source = TransferV2Validation.NormalizeAndValidateUserPath(
+            RemoteTrashPathPolicy.NormalizeUserPath(sourcePath));
         var target = RemoteTrashPathPolicy.ValidateItemPath(trashPath);
         EnsureNoReparseAncestors(info, source, includeLeaf: true, ct);
         EnsureManagedTrashRoot(info, ct);
@@ -175,7 +170,8 @@ public class CifsService
         CancellationToken ct = default)
     {
         var source = RemoteTrashPathPolicy.ValidateItemPath(trashPath);
-        var target = RemoteTrashPathPolicy.NormalizeUserPath(targetPath);
+        var target = TransferV2Validation.NormalizeAndValidateUserPath(
+            RemoteTrashPathPolicy.NormalizeUserPath(targetPath));
         EnsureManagedTrashRoot(info, ct);
         EnsureNoReparseAncestors(info, source, includeLeaf: true, ct);
         EnsureNoReparseAncestors(info, PathHelper.GetParent(target), includeLeaf: true, ct);
@@ -214,6 +210,8 @@ public class CifsService
         CancellationToken ct = default)
     {
         var normalizedPath = TransferV2Validation.NormalizeAndValidateTempPath(tempPath);
+        EnsureNoReparseAncestors(
+            info, normalizedPath, includeLeaf: true, ct, allowMissingLeaf: true);
         ct.ThrowIfCancellationRequested();
         using var session = Acquire(info, ct);
         var status = OpenTransferHandle(
@@ -247,6 +245,7 @@ public class CifsService
         CancellationToken ct = default)
     {
         TransferV2Validation.ValidateReadRange(offset, length);
+        EnsureNoReparseAncestors(info, path, includeLeaf: true, ct);
         return OpenVerifiedRead(info, path, offset, length, ct);
     }
 
@@ -263,6 +262,8 @@ public class CifsService
     {
         var normalizedPath = TransferV2Validation.NormalizeAndValidateTempPath(tempPath);
         TransferV2Validation.ValidateChunk(offset, chunk.Length);
+        EnsureNoReparseAncestors(
+            info, normalizedPath, includeLeaf: true, ct, allowMissingLeaf: offset == 0);
         ct.ThrowIfCancellationRequested();
 
         using var session = Acquire(info, ct);
@@ -347,6 +348,7 @@ public class CifsService
         string path,
         CancellationToken ct = default)
     {
+        EnsureNoReparseAncestors(info, path, includeLeaf: true, ct);
         using var stream = OpenVerifiedRead(info, path, offset: 0, length: null, ct);
         return TransferHashing.ComputeSha256(stream, ct);
     }
@@ -363,6 +365,9 @@ public class CifsService
         CancellationToken ct = default)
     {
         var paths = TransferV2Validation.ValidateCommitPaths(tempPath, targetPath);
+        EnsureNoReparseAncestors(info, paths.TempPath, includeLeaf: true, ct);
+        EnsureNoReparseAncestors(
+            info, paths.TargetPath, includeLeaf: true, ct, allowMissingLeaf: true);
         ct.ThrowIfCancellationRequested();
         using var session = Acquire(info, ct);
         var status = OpenTransferHandle(
@@ -397,10 +402,13 @@ public class CifsService
 
     public Stream OpenWrite(CifsConnectionInfo info, string path, CancellationToken ct = default)
     {
+        var normalizedPath = PathHelper.NormalizePath(path);
+        EnsureNoReparseAncestors(
+            info, normalizedPath, includeLeaf: true, ct, allowMissingLeaf: true);
         var session = Acquire(info, ct);
         try
         {
-            var smbPath = ToSmbFile(path);
+            var smbPath = ToSmbFile(normalizedPath);
             var status = session.Store.CreateFile(
                 out object handle, out FileStatus _, smbPath,
                 AccessMask.GENERIC_WRITE | AccessMask.SYNCHRONIZE,
@@ -422,8 +430,10 @@ public class CifsService
 
     public void Delete(CifsConnectionInfo info, string path, CancellationToken ct = default)
     {
+        var normalizedPath = PathHelper.NormalizePath(path);
+        EnsureNoReparseAncestors(info, normalizedPath, includeLeaf: true, ct);
         using var session = Acquire(info, ct);
-        CifsDeleteWalker.Delete(path, new SmbDeleteOperations(session));
+        CifsDeleteWalker.Delete(normalizedPath, new SmbDeleteOperations(session));
     }
 
     private sealed class SmbDeleteOperations : ICifsDeleteOperations
@@ -547,21 +557,29 @@ public class CifsService
 
     public void Rename(CifsConnectionInfo info, string oldPath, string newPath, bool replaceIfExists = false, CancellationToken ct = default)
     {
+        var normalizedOldPath = PathHelper.NormalizePath(oldPath);
+        var normalizedNewPath = PathHelper.NormalizePath(newPath);
+        EnsureNoReparseAncestors(info, normalizedOldPath, includeLeaf: true, ct);
+        EnsureNoReparseAncestors(
+            info, normalizedNewPath, includeLeaf: true, ct, allowMissingLeaf: true);
         using var session = Acquire(info, ct);
-        var smbOld = ToSmbFile(oldPath);
-        var smbNew = ToSmbFile(newPath);
+        var smbOld = ToSmbFile(normalizedOldPath);
+        var smbNew = ToSmbFile(normalizedNewPath);
         var status = session.Store.CreateFile(
             out object handle, out FileStatus _, smbOld,
             AccessMask.DELETE | AccessMask.SYNCHRONIZE,
             FileAttributes.Normal,
             ShareAccess.Read | ShareAccess.Write,
             CreateDisposition.FILE_OPEN,
-            CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
+            CreateOptions.FILE_OPEN_REPARSE_POINT | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
             null);
         if (status != NTStatus.STATUS_SUCCESS)
             throw new IOException($"リネーム対象を開けません: {status}");
         try
         {
+            var metadata = ReadTransferMetadata(session, handle, normalizedOldPath, ct);
+            if (metadata.IsReparsePoint)
+                throw new TransferReparsePointException(normalizedOldPath);
             var rename = new FileRenameInformationType2 { ReplaceIfExists = replaceIfExists, FileName = smbNew };
             var setStatus = session.Store.SetFileInformation(handle, rename);
             if (setStatus != NTStatus.STATUS_SUCCESS)
@@ -575,15 +593,19 @@ public class CifsService
 
     public void Mkdir(CifsConnectionInfo info, string path, CancellationToken ct = default)
     {
+        var normalizedPath = PathHelper.NormalizePath(path);
+        EnsureNoReparseAncestors(
+            info, normalizedPath, includeLeaf: true, ct, allowMissingLeaf: true);
         using var session = Acquire(info, ct);
-        var smbPath = ToSmbDirectory(path);
+        var smbPath = ToSmbDirectory(normalizedPath);
         var status = session.Store.CreateFile(
             out object handle, out FileStatus _, smbPath,
             AccessMask.GENERIC_WRITE | AccessMask.SYNCHRONIZE,
             FileAttributes.Directory,
             ShareAccess.None,
             CreateDisposition.FILE_CREATE,
-            CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
+            CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_OPEN_REPARSE_POINT |
+                CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
             null);
         if (status != NTStatus.STATUS_SUCCESS)
             throw new IOException($"フォルダ作成エラー: {status}");
@@ -627,7 +649,8 @@ public class CifsService
         CifsConnectionInfo info,
         string path,
         bool includeLeaf,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool allowMissingLeaf = false)
     {
         var normalized = PathHelper.NormalizePath(path);
         var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -637,9 +660,13 @@ public class CifsService
         {
             ct.ThrowIfCancellationRequested();
             current += "/" + segments[i];
-            var metadata = GetTransferMetadata(info, current, ct);
+            var metadata = GetTransferMetadataCore(info, current, ct);
             if (!metadata.Exists)
+            {
+                if (allowMissingLeaf && i == count - 1)
+                    return;
                 throw new DirectoryNotFoundException($"パス要素が見つかりません: {current}");
+            }
             if (metadata.IsReparsePoint)
                 throw new TransferReparsePointException(current);
             if (i < count - 1 && metadata.Type != TransferFileTypes.Directory)

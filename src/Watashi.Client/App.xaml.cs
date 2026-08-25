@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Watashi.Client.Services;
 using Watashi.Client.ViewModels;
@@ -17,6 +18,7 @@ public partial class App : Application
     private AppSettings _settings = null!;
     private ThemeService? _themeService;
     private SplashWindow? _splash;
+    private SessionManager? _session;
 
     /// <summary>
     /// スプラッシュを閉じる。ログイン画面などの対話 UI を出す直前と、起動を中断する各経路で呼ぶ。
@@ -85,6 +87,8 @@ public partial class App : Application
 
             _splash.SetProgress(60, "アプリケーションを初期化しています...");
             Services = BuildServices(_settings, _themeService);
+            _session = Services.GetRequiredService<SessionManager>();
+            InputManager.Current.PreProcessInput += OnPreProcessInput;
             Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
 
             await StartLoginFlowAsync();
@@ -99,7 +103,17 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        InputManager.Current.PreProcessInput -= OnPreProcessInput;
+        _session = null;
         base.OnExit(e);
+    }
+
+    private void OnPreProcessInput(object sender, PreProcessInputEventArgs e)
+    {
+        // API通信や転送キューの進行では延長せず、全トップレベル/モーダル画面での
+        // 実際の利用者入力だけをセッション活動として扱う。
+        if (e.StagingItem.Input is KeyEventArgs or MouseEventArgs or TouchEventArgs or StylusEventArgs)
+            _session?.ResetIdleTimer();
     }
 
     // 旧 API 互換（直接呼ぶ箇所がもう無くなったらこのメソッドごと削除可）。
@@ -109,6 +123,18 @@ public partial class App : Application
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var result = await StartupUpdateChecker.CheckAsync(_settings.UpdateManifestUrl, cts.Token);
+
+        if (result.Outcome == StartupUpdateCheckOutcome.CheckFailed)
+        {
+            MessageBox.Show(
+                "必須の更新確認を完了できませんでした。ネットワーク接続を確認して起動し直してください。\n\n" +
+                (string.IsNullOrWhiteSpace(result.Message) ? string.Empty : $"詳細: {result.Message}"),
+                "Watashi - 更新確認エラー",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown();
+            return true;
+        }
 
         if (result.Outcome != StartupUpdateCheckOutcome.UpdateAvailable || result.ManifestUri is null)
             return false;

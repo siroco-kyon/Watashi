@@ -39,6 +39,10 @@ public sealed class TrustedDeviceLimitException(int limit)
 public class AuthService
 {
     private const int DefaultMaxFailedAttempts = 15;
+    // 不明ユーザーでも実ユーザーと同じ BCrypt コストを必ず支払い、応答時間から
+    // ユーザーの存在を推測しにくくする。プロセス起動時に一度だけ生成する。
+    private static readonly string DummyPasswordHash =
+        BCrypt.Net.BCrypt.HashPassword("watashi-login-timing-dummy", workFactor: 11);
     private readonly AppDbContext _db;
     private readonly AuthServiceOptions _opts;
     private readonly AuditLogService _audit;
@@ -57,10 +61,16 @@ public class AuthService
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username, ct);
         if (user is null)
         {
+            _ = BCrypt.Net.BCrypt.Verify(password, DummyPasswordHash);
             await TryAuditAsync(null, username, Shared.Constants.AuthOperations.LoginFailed,
                 Shared.Constants.AuditResults.Failure, "unknown_user", clientIp, machineName, ct: ct);
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
         }
+
+        // account state にかかわらず、存在するユーザーも必ず同じ BCrypt 検証を行う。
+        // disabled / locked を先に返すと unknown user より大幅に速く、応答時間から存在を
+        // 列挙できるため。外部HTTP応答は AuthEndpoints で401へ統一する。
+        var passwordOk = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
 
         if (user.IsDisabled)
         {
@@ -88,7 +98,6 @@ public class AuthService
             return new LoginResult(null, LoginFailureReason.InvalidCredentials);
         }
 
-        var passwordOk = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
         if (!passwordOk)
         {
             var maxAttempts = await GetSettingIntAsync(Shared.Constants.SettingKeys.MaxFailedLoginAttempts, DefaultMaxFailedAttempts, 1, 100_000, ct);
@@ -126,7 +135,7 @@ public class AuthService
     public async Task<LoginResponse> IssueTokensAsync(User user, int? deviceId, string? clientIp, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
-        var accessToken = CreateAccessToken(user, now);
+        var accessToken = CreateAccessToken(user, now, deviceId);
         var (refreshTokenId, refreshTokenPlain, refreshTokenHash) = GenerateRefreshToken();
 
         var refreshExpiresAt = now.AddDays(_opts.RefreshTokenDays);
@@ -317,7 +326,7 @@ public class AuthService
         };
         _db.RefreshTokens.Add(newEntity);
 
-        var access = CreateAccessToken(user, now);
+        var access = CreateAccessToken(user, now, token.DeviceId);
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         await tx.DisposeAsync();
@@ -729,8 +738,10 @@ public class AuthService
             user.PasswordChangedAt = now;
             user.PasswordExpiresAt = now.AddDays(expiryDays);
             user.MustChangePassword = false;
-            // 既存セッションは全て切る。盗まれた refresh が変更後も使われるのを防ぐ。
+            // 既存セッションと信頼済み端末を全て切る。パスワードを知っていた攻撃者が
+            // 登録した端末 credential を変更後も使い続けるのを防ぐ。
             await RevokeAllRefreshTokensAsync(user.Id, ct);
+            await RevokeAllTrustedDevicesAsync(user.Id, "password_changed", now, ct);
             await _db.SaveChangesAsync(ct);
 
             // 古い access token は mcp claim を含み middleware に弾かれ、refresh token も失効済みなので、
@@ -902,7 +913,17 @@ public class AuthService
             .Where(t => t.UserId == userId && !t.IsRevoked)
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.IsRevoked, true), ct);
 
-    private string CreateAccessToken(User user, DateTime now)
+    /// <summary>指定ユーザーの信頼済み端末を全て失効させる。</summary>
+    public Task RevokeAllTrustedDevicesAsync(
+        int userId, string reason, DateTime now, CancellationToken ct = default)
+        => _db.TrustedDevices
+            .Where(d => d.UserId == userId && !d.IsRevoked)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(d => d.IsRevoked, true)
+                .SetProperty(d => d.RevokedAt, now)
+                .SetProperty(d => d.RevokedReason, reason), ct);
+
+    private string CreateAccessToken(User user, DateTime now, int? deviceId)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_opts.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -916,6 +937,9 @@ public class AuthService
         };
         if (user.IsAdmin)
             claims.Add(new Claim(Shared.Constants.AuthClaims.Role, Shared.Constants.AuthClaims.Admin));
+        if (deviceId.HasValue)
+            claims.Add(new Claim(Shared.Constants.AuthClaims.DeviceId,
+                deviceId.Value.ToString(CultureInfo.InvariantCulture)));
         // mcp claim はサーバ側ミドルウェアで強制される: 変更必須/期限切れの場合は
         // change-password / logout / refresh 以外を 403 にする。
         if (user.MustChangePassword || user.PasswordExpiresAt <= now)

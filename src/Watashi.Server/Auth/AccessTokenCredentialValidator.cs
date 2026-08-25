@@ -36,7 +36,9 @@ public static class AccessTokenCredentialValidator
         {
             if (!long.TryParse(versionClaim, NumberStyles.None, CultureInfo.InvariantCulture, out var tokenTicks))
                 return false;
-            return tokenTicks == currentTicks;
+            if (tokenTicks != currentTicks) return false;
+
+            return await IsDeviceCurrentAsync(db, principal, userId, ct);
         }
 
         // この claim を追加する前に発行された短寿命 token とのデプロイ互換。
@@ -46,6 +48,20 @@ public static class AccessTokenCredentialValidator
             return false;
 
         var changedSeconds = new DateTimeOffset(state.PasswordChangedAt.ToUniversalTime()).ToUnixTimeSeconds();
-        return notBeforeSeconds >= changedSeconds;
+        return notBeforeSeconds >= changedSeconds &&
+               await IsDeviceCurrentAsync(db, principal, userId, ct);
+    }
+
+    private static async Task<bool> IsDeviceCurrentAsync(
+        AppDbContext db, ClaimsPrincipal principal, int userId, CancellationToken ct)
+    {
+        var deviceClaim = principal.FindFirst(AuthClaims.DeviceId)?.Value;
+        // パスワード/Windows SSO から発行された token は端末に紐付かない。
+        if (deviceClaim is null) return true;
+        if (!int.TryParse(deviceClaim, NumberStyles.None, CultureInfo.InvariantCulture, out var deviceId))
+            return false;
+
+        return await db.TrustedDevices.AsNoTracking().AnyAsync(
+            device => device.Id == deviceId && device.UserId == userId && !device.IsRevoked, ct);
     }
 }

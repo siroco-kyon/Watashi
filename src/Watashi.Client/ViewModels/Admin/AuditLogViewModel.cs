@@ -141,8 +141,9 @@ public partial class AuditLogViewModel : AdminViewModelBase
     {
         var dlg = new SaveFileDialog { FileName = "audit_logs.csv", DefaultExt = "csv" };
         if (dlg.ShowDialog() != true) return;
-        await using var fs = File.Create(dlg.FileName);
-        await _api.DownloadLogsCsvAsync(fs, BuildQuery());
+        await AtomicFileWriter.WriteAsync(
+            dlg.FileName,
+            stream => _api.DownloadLogsCsvAsync(stream, BuildQuery()));
         StatusMessage = "エクスポート完了";
     });
 
