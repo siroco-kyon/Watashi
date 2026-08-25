@@ -247,10 +247,11 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 |---|---|
 | `POST /api/auth/win/prepare-login` | ID から次の画面 (パスワード入力 / 初回設定) を判定 |
 | `POST /api/auth/win/initialize-password` | 初回パスワードを確定し、そのままトークンを発行 |
-| `GET /api/auth/win/whoami` | 導入時の疎通確認 (同梱 IIS 設定ではオン) |
+| `GET /api/auth/win/whoami` | 導入時の疎通確認 (`EnableDiagnostics=true` の場合のみ) |
 
 - 設定値は `Auth:WindowsAuth` 配下。`Mode` は `None` / `IIS` / `Negotiate`。
-  同梱 `appsettings.json` は IIS 本番向けに `IIS` を指定し、設定自体が無い場合のコード既定値は `None`
+  同梱 `appsettings.json` とコード既定値は `Mode=None`。有効化時は既定の `DomainMatch=AllowList` と
+  1件以上の `AllowedDomains` を必須とし、ドメイン設定漏れでは起動を拒否する
 - OS アカウント名は `DOMAIN\GID` / `GID@domain` / `GID` の 3 形態を正規化して照合。
   ドメイン部の扱いは `DomainMatch` (`IgnoreDomain` / `AllowList`) で切り替える
   - `AllowList` はユーザー単位のドメイン紐付けではない。複数の独立ドメインを許可する場合、
@@ -507,6 +508,8 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 
 - **mTLS モード**: 中央のクライアント証明書サムプリントを `Auth:CentralCertificateThumbprint` と照合
 - **共有秘密モード**: `X-Watashi-Secret` を `Auth:SharedSecret` と一致確認
+- Agent → 中央の heartbeat / 監査ログは認証済み ExecutionNode に固定する。共有秘密では個別 Agent を
+  識別できないため、有効 Agent が1台の場合だけ受け付け、複数 Agent 構成では mTLS を必須とする
 - 両方未設定なら全アクセス拒否 (401)
 
 ### 9.4 ハートビート

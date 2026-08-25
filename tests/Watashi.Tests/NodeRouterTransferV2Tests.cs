@@ -86,6 +86,37 @@ public class NodeRouterTransferV2Tests
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
+    [Fact]
+    public async Task User_file_routes_reject_reserved_upload_temp_paths_before_dispatch()
+    {
+        var direct = new FakeCifsService();
+        var forwarder = new FakeAgentForwarder();
+        var router = new NodeRouter(direct, forwarder);
+        var node = Node(NodeTypes.Direct);
+        const string reserved = "/dept/.watashi-upload-session.tmp";
+
+        var list = async () => await router.ListAsync(node, Info, reserved, CancellationToken.None);
+        var read = async () => await router.OpenReadAsync(node, Info, reserved, CancellationToken.None);
+        var upload = async () => await router.UploadAsync(
+            node, Info, reserved, new MemoryStream(new byte[] { 1 }), CancellationToken.None);
+        var delete = async () => await router.DeleteAsync(node, Info, reserved, CancellationToken.None);
+        var renameSource = async () => await router.RenameAsync(
+            node, Info, reserved, "/dept/visible.bin", CancellationToken.None);
+        var renameTarget = async () => await router.RenameAsync(
+            node, Info, "/dept/visible.bin", reserved, CancellationToken.None);
+        var mkdir = async () => await router.MkdirAsync(node, Info, reserved, CancellationToken.None);
+
+        await list.Should().ThrowAsync<UnauthorizedAccessException>();
+        await read.Should().ThrowAsync<UnauthorizedAccessException>();
+        await upload.Should().ThrowAsync<UnauthorizedAccessException>();
+        await delete.Should().ThrowAsync<UnauthorizedAccessException>();
+        await renameSource.Should().ThrowAsync<UnauthorizedAccessException>();
+        await renameTarget.Should().ThrowAsync<UnauthorizedAccessException>();
+        await mkdir.Should().ThrowAsync<UnauthorizedAccessException>();
+        direct.Calls.Should().BeEmpty();
+        forwarder.Calls.Should().BeEmpty();
+    }
+
     private static async Task ExerciseAllAsync(NodeRouter router, ExecutionNode node)
     {
         await router.GetTransferMetadataAsync(node, Info, "/a.bin", CancellationToken.None);

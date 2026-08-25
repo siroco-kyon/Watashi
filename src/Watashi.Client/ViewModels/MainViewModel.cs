@@ -508,6 +508,8 @@ public partial class MainViewModel : ObservableObject
         if (!TryBeginTransfer()) return;
 
         var location = Remote.SelectedLocation;
+        var remoteBasePath = Remote.CurrentPath;
+        var localBasePath = Local.CurrentPath;
         try
         {
             var directories = new List<string>();
@@ -515,8 +517,8 @@ public partial class MainViewModel : ObservableObject
             var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var entry in targets)
             {
-                var remotePath = RemotePaneViewModel.JoinPath(Remote.CurrentPath, entry.Name);
-                var destination = Path.Combine(Local.CurrentPath, entry.Name);
+                var remotePath = RemotePaneViewModel.JoinPath(remoteBasePath, entry.Name);
+                var destination = Path.Combine(localBasePath, entry.Name);
                 if (entry.Type == FileEntryTypes.Directory)
                     await BuildDownloadPlanAsync(remotePath, destination, directories, files, visited, location.HostId, location.ShareId);
                 else if (entry.Type == FileEntryTypes.File)

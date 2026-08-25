@@ -392,8 +392,8 @@
           <button class="copy" type="button">コピー</button>
           <pre><code>"WindowsAuth": {
   "Mode": "IIS",
-  "DomainMatch": "IgnoreDomain",
-  "AllowedDomains": [],
+  "DomainMatch": "AllowList",
+  "AllowedDomains": ["CORP", "corp.example.com"],
   "EnableDiagnostics": true,
   "SetupPerMinutePerIp": 30
 }</code></pre>

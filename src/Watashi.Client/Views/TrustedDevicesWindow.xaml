@@ -9,7 +9,7 @@
             <TextBlock Text="信頼端末の管理" Style="{StaticResource H2}"/>
             <TextBlock Text="自動ログインを許可した端末を確認し、不要な端末を個別に失効できます。"
                        Style="{StaticResource Muted}" TextWrapping="Wrap"/>
-            <TextBlock Text="{Binding StatusMessage}" Margin="0,8,0,0" TextWrapping="Wrap"
+            <TextBlock x:Name="TrustedDevicesStatusLiveRegion" Text="{Binding StatusMessage}" Margin="0,8,0,0" TextWrapping="Wrap"
                        Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                        AutomationProperties.LiveSetting="Polite"/>
         </StackPanel>

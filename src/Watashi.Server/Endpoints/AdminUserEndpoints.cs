@@ -73,6 +73,7 @@ public static class AdminUserEndpoints
             if (!TryNormalizeDisplayNamePatch(req.DisplayName, out var hasDisplayNameUpdate, out var displayName))
                 return Results.BadRequest(new { error = $"名前は {UserDisplayNames.MaxLength} 文字以内で入力してください。" });
 
+            await using var mutationLease = await AdminUserGuard.AcquireMutationLeaseAsync(ct);
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
             // 管理権限を剥がす変更については、自己降格と最後の管理者降格を禁ずる。
@@ -100,6 +101,7 @@ public static class AdminUserEndpoints
 
         group.MapDelete("/{id:int}", async (int id, AppDbContext db, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
+            await using var mutationLease = await AdminUserGuard.AcquireMutationLeaseAsync(ct);
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
             // 自己削除と最後の有効管理者削除を禁ずる。両方とも管理画面へのアクセス手段を完全消失させる。
@@ -137,6 +139,7 @@ public static class AdminUserEndpoints
             if (!principal.TryGetUserId(out var actorUserId))
                 return Results.Unauthorized();
 
+            await using var mutationLease = await AdminUserGuard.AcquireMutationLeaseAsync(ct);
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
@@ -217,6 +220,7 @@ public static class AdminUserEndpoints
             u.PasswordSetupExpiresAt = null;
             // 管理者リセットも既存 refresh token を全て失効。盗まれた refresh が変更後に使われるのを防ぐ。
             await auth.RevokeAllRefreshTokensAsync(u.Id, ct);
+            await auth.RevokeAllTrustedDevicesAsync(u.Id, "password_reset", now, ct);
             await db.SaveChangesAsync(ct);
             await audit.LogAdminAsync(principal, ctx, AdminOperations.UserResetPassword, $"user:{id}", ct: ct);
             return Results.NoContent();
@@ -226,6 +230,7 @@ public static class AdminUserEndpoints
         // 戻した瞬間からログイン不能になるため、削除・降格と同じロックアウト防止ガードを掛ける。
         group.MapPost("/{id:int}/require-setup", async (int id, AppDbContext db, AuthService auth, AuditLogService audit, HttpContext ctx, System.Security.Claims.ClaimsPrincipal principal, CancellationToken ct) =>
         {
+            await using var mutationLease = await AdminUserGuard.AcquireMutationLeaseAsync(ct);
             var u = await db.Users.FindAsync(new object?[] { id }, ct);
             if (u is null) return Results.NotFound();
 
@@ -420,6 +425,7 @@ public static class AdminUserEndpoints
                     result.Failed++; result.Errors.Add(new() { LineNumber = lineNo, Error = "Username が空" });
                     continue;
                 }
+                await using var mutationLease = await AdminUserGuard.AcquireMutationLeaseAsync(ct);
                 var existing = await db.Users.FirstOrDefaultAsync(x => x.Username == username, ct);
                 if (existing is not null)
                 {

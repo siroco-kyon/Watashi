@@ -15,7 +15,7 @@
                             <TextBlock Text="{Binding CheckedAt, Converter={StaticResource Utc}, StringFormat=　確認: {0}}"
                                        Foreground="{StaticResource TextMutedBrush}"/>
                         </StackPanel>
-                        <TextBlock Text="{Binding StatusMessage}" Margin="0,6,0,0" TextWrapping="Wrap"
+                        <TextBlock x:Name="OperationsStatusLiveRegion" Text="{Binding StatusMessage}" Margin="0,6,0,0" TextWrapping="Wrap"
                                    AutomationProperties.LiveSetting="Polite"/>
                     </StackPanel>
                 </DockPanel>
@@ -25,35 +25,35 @@
                 <Border Style="{StaticResource Card}" Padding="14" Margin="0,0,6,6">
                     <StackPanel>
                         <TextBlock Text="データベース" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding Database.Status}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding Database.Status, Converter={StaticResource DiagnosticStatusLabel}}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding Database.Message}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Card}" Padding="14" Margin="6,0,0,6">
                     <StackPanel>
                         <TextBlock Text="監査ログ再送" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding AuditOutbox.Status}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding AuditOutbox.Status, Converter={StaticResource DiagnosticStatusLabel}}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding AuditOutbox.Message}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Card}" Padding="14" Margin="0,6,6,0">
                     <StackPanel>
                         <TextBlock Text="ディスク" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding Disk.Status}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding Disk.Status, Converter={StaticResource DiagnosticStatusLabel}}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding Disk.Message}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Card}" Padding="14" Margin="6,6,0,0">
                     <StackPanel>
                         <TextBlock Text="バックアップ" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding Backup.Status}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding Backup.Status, Converter={StaticResource DiagnosticStatusLabel}}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding Backup.Message}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Card}" Padding="14" Margin="0,6,6,0">
                     <StackPanel>
                         <TextBlock Text="HTTPS証明書" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding Certificate.Status}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding Certificate.Status, Converter={StaticResource DiagnosticStatusLabel}}" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding Certificate.Message}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
@@ -72,7 +72,7 @@
                                 <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="50"/>
                                 <GridViewColumn Header="名前" DisplayMemberBinding="{Binding Name}" Width="190"/>
                                 <GridViewColumn Header="種類" DisplayMemberBinding="{Binding NodeType}" Width="80"/>
-                                <GridViewColumn Header="状態" DisplayMemberBinding="{Binding Status}" Width="90"/>
+                                <GridViewColumn Header="状態" DisplayMemberBinding="{Binding Status, Converter={StaticResource DiagnosticStatusLabel}}" Width="90"/>
                                 <GridViewColumn Header="経路" DisplayMemberBinding="{Binding EndpointScheme}" Width="70"/>
                                 <GridViewColumn Header="最終Heartbeat" DisplayMemberBinding="{Binding LastHeartbeatAt, Converter={StaticResource Utc}}" Width="165"/>
                                 <GridViewColumn Header="上限" DisplayMemberBinding="{Binding MaxConcurrency}" Width="60"/>

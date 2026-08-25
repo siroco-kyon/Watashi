@@ -34,6 +34,7 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     private readonly List<UserDto> _allUsers = new();
     private readonly List<ShareDto> _allShares = new();
     private readonly Dictionary<int, int> _countsByUser = new();
+    private int _loadItemsGeneration;
 
     public ObservableCollection<UserPermissionDto> Items { get; } = new();
     public ICollectionView ItemsView { get; }
@@ -185,6 +186,11 @@ public partial class UserPermissionViewModel : AdminViewModelBase
 
     partial void OnSelectedUserChanged(UserDto? value)
     {
+        // 新しいユーザーの応答を待つ間も、直前ユーザーの権限を編集・削除できないよう
+        // 古い要求を即時失効し、表示項目と選択を同期的に破棄する。
+        Interlocked.Increment(ref _loadItemsGeneration);
+        Selected = null;
+        Items.Clear();
         OnPropertyChanged(nameof(HasSelectedUser));
         OnPropertyChanged(nameof(SelectedUserHeader));
         OnPropertyChanged(nameof(HasNoItems));
@@ -246,9 +252,24 @@ public partial class UserPermissionViewModel : AdminViewModelBase
     [RelayCommand]
     public Task LoadItemsAsync() => SafeAsync(async () =>
     {
-        if (SelectedUser is null) { Items.Clear(); return; }
+        var generation = Interlocked.Increment(ref _loadItemsGeneration);
+        var user = SelectedUser;
+        if (user is null) { Items.Clear(); return; }
         var selectedId = Selected?.Id;
-        ReplaceAll(Items, await _api.GetUserPermissionsAsync(SelectedUser.Id));
+        List<UserPermissionDto> items;
+        try
+        {
+            items = await _api.GetUserPermissionsAsync(user.Id);
+        }
+        catch (Exception) when (
+            generation != Volatile.Read(ref _loadItemsGeneration) || SelectedUser?.Id != user.Id)
+        {
+            // 選択変更後に完了した古い要求のエラーも、現在のユーザーの状態として表示しない。
+            return;
+        }
+        if (generation != Volatile.Read(ref _loadItemsGeneration) || SelectedUser?.Id != user.Id)
+            return;
+        ReplaceAll(Items, items);
         Selected = selectedId.HasValue ? Items.FirstOrDefault(p => p.Id == selectedId.Value) : null;
     });
 

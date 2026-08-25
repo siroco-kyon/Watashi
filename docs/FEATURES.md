@@ -257,6 +257,7 @@
 ### 認証 (inbound)
 - mTLS モード: 中央サーバの **クライアント証明書サムプリント** を `Auth:CentralCertificateThumbprint` と照合
 - 共有秘密モード: `X-Watashi-Secret` ヘッダの値を `Auth:SharedSecret` と一致確認
+- Agent → 中央の heartbeat / 監査ログは認証済み node へ固定。共有秘密は単一 Agent 構成のみ、複数 Agent は mTLS 必須
 - 両方とも未設定だと全アクセス拒否（401）
 
 ### ハートビート

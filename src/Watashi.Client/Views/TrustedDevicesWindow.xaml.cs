@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Windows;
+using Watashi.Client.Accessibility;
 using Watashi.Client.ViewModels;
 
 namespace Watashi.Client.Views;
@@ -13,6 +15,21 @@ public partial class TrustedDevicesWindow : Window
         ViewModel = viewModel;
         DataContext = viewModel;
         Loaded += async (_, _) => await ViewModel.RefreshAsync();
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        Closed += OnClosed;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TrustedDevicesViewModel.StatusMessage) &&
+            !string.IsNullOrWhiteSpace(ViewModel.StatusMessage))
+            AutomationLiveRegion.Announce(TrustedDevicesStatusLiveRegion);
+    }
+
+    private void OnClosed(object? sender, EventArgs e)
+    {
+        Closed -= OnClosed;
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
     }
 
     private async void OnRefresh(object sender, RoutedEventArgs e)

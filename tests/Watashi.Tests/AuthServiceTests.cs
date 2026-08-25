@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Watashi.Server.Auth;
@@ -14,6 +15,20 @@ namespace Watashi.Tests;
 
 public class AuthServiceTests
 {
+    [Theory]
+    [InlineData(LoginFailureReason.InvalidCredentials)]
+    [InlineData(LoginFailureReason.AccountLocked)]
+    [InlineData(LoginFailureReason.AccountDisabled)]
+    public void Anonymous_password_login_maps_every_failure_to_the_same_401(
+        LoginFailureReason failure)
+    {
+        var result = Watashi.Server.Endpoints.AuthEndpoints.MapPasswordLoginResult(
+            new LoginResult(null, failure));
+
+        result.Should().BeAssignableTo<IStatusCodeHttpResult>()
+            .Which.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
+    }
+
     private static AuthService Build(TestDb db)
         => Build(db.Db);
 
@@ -362,6 +377,35 @@ public class AuthServiceTests
         db.Db.ChangeTracker.Clear();
         var t = await db.Db.RefreshTokens.AsNoTracking().FirstAsync(x => x.Id == login.Response!.RefreshTokenId);
         t.IsRevoked.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ChangePassword_revokes_all_trusted_devices()
+    {
+        using var db = new TestDb();
+        var user = await SeedUserAsync(db);
+        var device = new TrustedDevice
+        {
+            UserId = user.Id,
+            MachineName = "CLIENT-01",
+            WindowsUsername = "alice",
+            DeviceTokenHash = BCrypt.Net.BCrypt.HashPassword("device-token"),
+            RegisteredAt = DateTime.UtcNow.AddDays(-1),
+            LastUsedAt = DateTime.UtcNow.AddMinutes(-1),
+        };
+        db.Db.TrustedDevices.Add(device);
+        await db.Db.SaveChangesAsync();
+
+        var (response, error) = await Build(db).ChangePasswordAsync(
+            user.Id, "Admin123!@#", "NewStrongPassword2026!");
+
+        response.Should().NotBeNull();
+        error.Should().BeNull();
+        db.Db.ChangeTracker.Clear();
+        var current = await db.Db.TrustedDevices.AsNoTracking().SingleAsync(d => d.Id == device.Id);
+        current.IsRevoked.Should().BeTrue();
+        current.RevokedAt.Should().NotBeNull();
+        current.RevokedReason.Should().Be("password_changed");
     }
 
     [Fact]

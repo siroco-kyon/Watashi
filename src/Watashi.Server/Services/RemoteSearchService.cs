@@ -174,7 +174,9 @@ internal sealed class RemoteSearchService
                         continue;
 
                     var fullPath = JoinPath(directory.Path, entry.Name);
-                    if (RemoteTrashPathPolicy.IsReservedPath(fullPath)) continue;
+                    if (RemoteTrashPathPolicy.IsReservedPath(fullPath) ||
+                        TransferV2Validation.IsReservedTempPath(fullPath))
+                        continue;
                     if (!PathHelper.IsPathWithin(scope.RootPath, fullPath)) continue;
 
                     if ((scanned & 0xff) == 0)

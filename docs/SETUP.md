@@ -336,8 +336,8 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
     "WindowsAuth": {
       "Mode": "IIS",
       "AllowHttp": false,
-      "DomainMatch": "IgnoreDomain",
-      "AllowedDomains": [],
+      "DomainMatch": "AllowList",
+      "AllowedDomains": ["CORP", "corp.example.com"],
       "EnableDiagnostics": true,
       "SetupPerMinutePerIp": 30
     }
@@ -383,7 +383,7 @@ dotnet publish src\Watashi.Server\Watashi.Server.csproj `
 | `Encryption:MasterKey` | 必須 | 32 バイト Base64 | CIFS パスワード暗号化用。紛失すると既存ホスト資格情報を復号できない |
 | `Auth:AllowHttpForAutoLogin` | 任意 | `false` 推奨 | HTTP 接続で「このPCを記憶する」を許可するか。Production は false |
 | `Auth:LoginPerMinutePerIp` | 任意 | 1 分あたり試行数 | 同一 NAT で誤検知する場合だけ増やす |
-| `Auth:WindowsAuth:*` | IIS 構成で必須 | 初回設定の Windows 本人確認 | 同梱設定は `Mode=IIS`。IIS の匿名認証／Windows認証併用設定、ドメイン照合、受け入れ確認は [HTML ガイド](../deploy/IIS-WINDOWS-AUTH-SETUP.html) と [IIS-HOSTING.md](../deploy/IIS-HOSTING.md#115-windows-統合認証を有効にする-初回パスワード設定) を参照 |
+| `Auth:WindowsAuth:*` | Windows 認証利用時必須 | 初回設定の Windows 本人確認 | 同梱設定は安全のため `Mode=None` / `DomainMatch=AllowList`。有効化時は `AllowedDomains` が1件以上必須。IIS の匿名認証／Windows認証併用設定は [HTML ガイド](../deploy/IIS-WINDOWS-AUTH-SETUP.html) と [IIS-HOSTING.md](../deploy/IIS-HOSTING.md#115-windows-統合認証を有効にする-初回パスワード設定) を参照 |
 | `Routing:UseMtls` | 構成依存 | `true` / `false` | Server↔Agent を mTLS で相互認証するなら true |
 | `Routing:ClientCertificatePath` | mTLS 時必須 | 中央サーバが Agent へ提示する PFX | Server → Agent の呼び出しに使うクライアント証明書 |
 | `Routing:ClientCertificatePassword` | mTLS 時必須 | 上記 PFX のパスワード | 環境変数上書きも可 |
@@ -549,6 +549,8 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 | `Serilog:WriteTo` | 推奨 | Console / File | 既定で `C:\ProgramData\WatashiAgent\logs\agent-.log` に日次ローテーション |
 
 HTTP + 共有秘密モードでは `Certificate:Path` / `Certificate:Password` は空でよいです。Agent の待受も `Kestrel:Endpoints:Http` を使うため、Agent 側に HTTPS サーバ証明書は不要です。証明書が必要になるのは Client↔Server を HTTPS にする中央 Server 側、または `Routing:UseMtls=true` で mTLS を使う場合だけです。`Routing:UseMtls=false` で `Auth:SharedSecret` が空の場合、Agent は起動時に設定エラーとして停止します。
+
+> Agent → Server の heartbeat と監査ログは送信 Agent を一意に特定する必要があります。共有秘密は Agent 個別の資格情報ではないため、共有秘密モードで利用できる有効な Agent node は1台だけです。複数 Agent 構成では Agent ごとの証明書を登録し、mTLS を使用してください。曖昧な共有秘密リクエストは 403 で拒否されます。
 
 旧 `deploy/install-agent.ps1` を使って HTTP 共有秘密モードでインストールする場合は、必ず `-SharedSecret` を指定してください。未指定だと Agent は証明書も `X-Watashi-Secret` も送れず、heartbeat と Server→Agent の転送リクエストが認証に失敗します。
 
@@ -771,6 +773,8 @@ HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いま
 #### 複数 Agent / 複数踏み台
 
 複数の踏み台サーバーに Agent を配置できます。各 Agent で `Agent:AgentId` を一意にし、中央の管理画面で同じ名前の ExecutionNode を登録してください。CIFS ホスト登録時にどの ExecutionNode から接続するかを選ぶため、ネットワークセグメントごとに Agent を分けられます。
+
+複数 Agent から中央 Server へ heartbeat / 監査ログを送る構成では mTLS が必須です。単一の `Routing:SharedSecret` では送信 Agent を区別できないため、複数の有効な Agent node がある状態の共有秘密リクエストは拒否されます。
 
 `Server → Agent A → Agent B → CIFS` の 1段チェーンも使えます。Agent B の ExecutionNode に `経由 Agent=Agent A` を設定してください。2段以上のチェーンと mTLS チェーンは非対応です。
 

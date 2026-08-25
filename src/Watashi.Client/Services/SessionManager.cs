@@ -150,9 +150,6 @@ public class SessionManager
             sessionGeneration = _sessionGeneration;
         }
         if (accessToken is null) throw new InvalidOperationException("未ログインです。");
-        // 任意の API 呼び出しはユーザー操作とみなしアイドルタイマーをリセット。
-        // (旧実装は SetFromLogin 時しか張らず、購読側もなかったため実質未接続だった)
-        ResetIdleTimer();
         if (DateTime.UtcNow < accessExpiresUtc - TimeSpan.FromSeconds(30))
             return new AccessTokenSnapshot(accessToken, sessionGeneration);
 

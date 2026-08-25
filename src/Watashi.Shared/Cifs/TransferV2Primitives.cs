@@ -80,6 +80,23 @@ public sealed class TransferReparsePointException : IOException
 
 public static class TransferV2Validation
 {
+    public static bool IsReservedTempPath(string path)
+    {
+        var normalized = PathHelper.NormalizePath(path);
+        return normalized.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Any(segment => segment.StartsWith(
+                TransferV2Limits.TempFilePrefix,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static string NormalizeAndValidateUserPath(string path)
+    {
+        var normalized = PathHelper.NormalizePath(path);
+        if (IsReservedTempPath(normalized))
+            throw new UnauthorizedAccessException("Watashi の予約済み一時ファイルは操作できません。");
+        return normalized;
+    }
+
     public static string NormalizeSha256(string value, string parameterName = "sha256")
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length != 64)
@@ -119,8 +136,7 @@ public static class TransferV2Validation
                 nameof(path));
         if (RemoteTrashPathPolicy.IsReservedPath(normalized))
             throw new ArgumentException("Watashi の管理用ごみ箱領域はアップロード先に指定できません。", nameof(path));
-        var name = normalized[(normalized.LastIndexOf('/') + 1)..];
-        if (name.StartsWith(TransferV2Limits.TempFilePrefix, StringComparison.OrdinalIgnoreCase))
+        if (IsReservedTempPath(normalized))
             throw new ArgumentException("Watashi の予約済み一時ファイル名は指定できません。", nameof(path));
         return normalized;
     }

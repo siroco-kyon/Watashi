@@ -120,7 +120,6 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        _session.ResetIdleTimer();
         if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) return;
 
         // Alt combinations are reported as Key.System by WPF, with the actual
@@ -145,9 +144,6 @@ public partial class MainWindow : Window
             else _vm.Local.GoUpCommand.Execute(null);
         }
     }
-
-    private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
-        => _session.ResetIdleTimer();
 
     private async void OnLogout(object sender, RoutedEventArgs e)
     {

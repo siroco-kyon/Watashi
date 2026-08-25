@@ -9,6 +9,33 @@ namespace Watashi.Server.Services;
 /// </summary>
 public static class AdminUserGuard
 {
+    // 最終管理者判定と、それに続く降格/削除/無効化/初回設定待ちへの更新を同じ
+    // critical section に入れる。SQLite の deferred transaction だけでは、2要求が
+    // 同時に「他の管理者あり」を観測して双方が成功する余地がある。
+    private static readonly SemaphoreSlim MutationLock = new(1, 1);
+
+    public static async ValueTask<IAsyncDisposable> AcquireMutationLeaseAsync(
+        CancellationToken ct = default)
+    {
+        await MutationLock.WaitAsync(ct);
+        return new MutationLease();
+    }
+
+    private sealed class MutationLease : IAsyncDisposable
+    {
+        private bool _disposed;
+
+        public ValueTask DisposeAsync()
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+                MutationLock.Release();
+            }
+            return ValueTask.CompletedTask;
+        }
+    }
+
     public enum Decision
     {
         Allow,

@@ -31,6 +31,9 @@ public static class FileEndpoints
                 var entries = (await router.ListAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, ct))
                     .Where(e => !string.Equals(e.Name, RemoteTrashPathPolicy.RootName,
                         StringComparison.OrdinalIgnoreCase))
+                    .Where(e => !e.Name.StartsWith(
+                        TransferV2Limits.TempFilePrefix,
+                        StringComparison.OrdinalIgnoreCase))
                     .ToList();
                 entries = FileEntrySort.Sort(entries, sort);
                 // page <= 0 は「全件」。クライアントは結局全ページを取得するため、
@@ -78,15 +81,21 @@ public static class FileEndpoints
 
         group.MapPost("/upload", async (
             int hostId, int shareId, string path,
-            HttpContext ctx, AppDbContext db, NodeRouter router, EncryptionService enc,
+            HttpContext ctx, AppDbContext db, UploadSessionService sessions, EncryptionService enc,
             PermissionService perms, AuditLogService audit, ClaimsPrincipal principal,
             CancellationToken ct) =>
         {
             return await ExecuteAsync(audit, principal, ctx, Operations.Write, hostId, shareId, path,
                 db, enc, perms, ct, async (auth, execCtx) =>
             {
+                if (!ctx.Request.ContentLength.HasValue)
+                    return new FailureResult(
+                        Results.StatusCode(StatusCodes.Status411LengthRequired),
+                        "content_length_required");
                 var counting = new CountingStream(ctx.Request.Body, readSide: true);
-                await router.UploadAsync(execCtx.Node, execCtx.Info, auth.NormalizedPath, counting, ct);
+                await sessions.UploadLegacyAsync(
+                    auth.UserId, hostId, shareId, auth.NormalizedPath,
+                    ctx.Request.ContentLength.Value, counting, ct);
                 ctx.Items["bytes"] = counting.BytesWritten;
                 return Results.NoContent();
             }, auditOperation: Operations.Upload);
@@ -303,6 +312,13 @@ public static class FileEndpoints
             error = ex.Message,
             code = "reparse_point_rejected",
         }, statusCode: StatusCodes.Status409Conflict),
+        TransferSessionException session => Results.Json(new
+        {
+            error = session.Message,
+            code = session.Code,
+            expectedOffset = session.ExpectedOffset,
+            actualOffset = session.ActualOffset,
+        }, statusCode: session.StatusCode),
         ArgumentException => Results.BadRequest(new { error = ex.Message }),
         UnauthorizedAccessException => Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
         IOException => Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway),
@@ -333,7 +349,8 @@ public static class FileEndpoints
         if (!principal.TryGetUserId(out var userId))
             return new AuthCheck(0, "/", Results.Unauthorized(), null);
         var normalized = PathHelper.NormalizePath(path);
-        if (RemoteTrashPathPolicy.IsReservedPath(normalized))
+        if (RemoteTrashPathPolicy.IsReservedPath(normalized) ||
+            TransferV2Validation.IsReservedTempPath(normalized))
             return new AuthCheck(userId, normalized, Results.NotFound(), null);
         var (allowed, pid) = await perms.CanPerformAsync(userId, shareId, normalized, operation, ct);
         if (!allowed)

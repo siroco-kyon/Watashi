@@ -22,14 +22,17 @@ public static class InternalEndpoints
             var logger = lf.CreateLogger("Internal");
             if (string.IsNullOrWhiteSpace(req.AgentId))
                 return Results.BadRequest(new { error = "AgentId が必要です。" });
-            var certAgent = principal.FindFirst(AgentCertificateValidator.AgentIdClaim)?.Value;
-            if (!string.IsNullOrEmpty(certAgent) && !string.Equals(certAgent, req.AgentId, StringComparison.Ordinal))
+            var node = await ResolveAuthenticatedNodeAsync(principal, db, ct);
+            if (node is null)
             {
-                logger.LogWarning("Heartbeat AgentId 不一致 cert={Cert} body={Body}", certAgent, req.AgentId);
+                logger.LogWarning("Heartbeat の認証主体を一意な Agent に結び付けられません。mTLS または単一 Agent 構成が必要です。");
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             }
-            var node = await db.ExecutionNodes.FirstOrDefaultAsync(n => n.Name == req.AgentId, ct);
-            if (node is null) return Results.NotFound(new { error = "Unknown agent" });
+            if (!string.Equals(node.Name, req.AgentId, StringComparison.Ordinal))
+            {
+                logger.LogWarning("Heartbeat AgentId 不一致 authenticated={Authenticated} body={Body}", node.Name, req.AgentId);
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
             // Agent 申告の Timestamp は使わない。Agent 側の時計が 90 秒以上ずれていると、
             // NodeHealthMonitor (サーバ時計基準) が生存中のノードを Unhealthy 判定し続ける
             // (逆方向のずれなら停止したノードが Healthy のまま残る) ため、受信時刻で記録する。
@@ -45,8 +48,13 @@ public static class InternalEndpoints
         {
             var logger = lf.CreateLogger("Internal");
             if (body.Items is null || body.Items.Length == 0) return Results.NoContent();
-            var certAgent = principal.FindFirst(AgentCertificateValidator.AgentIdClaim)?.Value;
-            var agentLabel = certAgent ?? "shared-secret";
+            var node = await ResolveAuthenticatedNodeAsync(principal, db, ct);
+            if (node is null)
+            {
+                logger.LogWarning("監査ログ送信主体を一意な Agent に結び付けられません。mTLS または単一 Agent 構成が必要です。");
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+            var agentLabel = node.Name;
             var accepted = new List<int>();
             var rejected = new List<AuditRejectedItem>();
             var candidates = new List<(int Index, AuditLog Log)>();
@@ -67,6 +75,7 @@ public static class InternalEndpoints
                         logger.LogWarning("audit-log バッチ内の不正レコードをスキップ agent={Agent} len={Len}", agentLabel, json.Length);
                         continue;
                     }
+                    BindAuthenticatedAgent(log, node.Id, node.Name, DateTime.UtcNow);
                     candidates.Add((index, log));
                 }
                 catch (Exception ex)
@@ -101,6 +110,42 @@ public static class InternalEndpoints
     }
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    /// <summary>
+    /// mTLS は証明書に対応する node を使用する。共有秘密は Agent 個別の資格情報ではないため、
+    /// 有効な Agent node が1台だけの場合に限り一意に bind し、複数台なら fail-closed にする。
+    /// </summary>
+    internal static async Task<ExecutionNode?> ResolveAuthenticatedNodeAsync(
+        ClaimsPrincipal principal, AppDbContext db, CancellationToken ct = default)
+    {
+        var nodeIdValue = principal.FindFirst(AgentCertificateValidator.NodeIdClaim)?.Value;
+        if (int.TryParse(nodeIdValue, out var nodeId))
+            return await db.ExecutionNodes.FirstOrDefaultAsync(
+                node => node.Id == nodeId && node.IsActive && node.NodeType == NodeTypes.Agent, ct);
+
+        if (!principal.HasClaim(AgentOrSharedSecretHandler.SharedSecretClaim, "1")) return null;
+        var candidates = await db.ExecutionNodes
+            .Where(node => node.IsActive && node.NodeType == NodeTypes.Agent)
+            .Take(2)
+            .ToListAsync(ct);
+        return candidates.Count == 1 ? candidates[0] : null;
+    }
+
+    internal static void BindAuthenticatedAgent(
+        AuditLog log, int nodeId, string nodeName, DateTime receivedAt)
+    {
+        // Agent 申告値を中央サーバ自身のユーザー監査と同じ主体・操作として保存すると、
+        // Agent credentialの保持者が任意ユーザーの管理/ファイル操作を偽装できる。
+        // 認証済みAgentを主体に固定し、申告操作は明示的な名前空間へ分離する。
+        var reportedOperation = log.Operation.Trim();
+        if (reportedOperation.Length > 128) reportedOperation = reportedOperation[..128];
+        log.UserId = null;
+        log.Username = $"(agent:{nodeName})";
+        log.Operation = $"AGENT_REPORTED/{reportedOperation}";
+        log.ExecutionNodeId = nodeId;
+        log.Timestamp = receivedAt;
+        log.Protocol = "AGENT";
+    }
 
     /// <summary>
     /// Agent から届いた監査ログ JSON を検証・正規化する。DB 制約 (Result の CHECK、

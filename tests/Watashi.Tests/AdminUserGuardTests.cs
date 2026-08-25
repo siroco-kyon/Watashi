@@ -7,6 +7,24 @@ namespace Watashi.Tests;
 
 public class AdminUserGuardTests
 {
+    [Fact]
+    public async Task Mutation_lease_serializes_last_admin_check_and_update_sequences()
+    {
+        await using var first = await AdminUserGuard.AcquireMutationLeaseAsync();
+        var secondEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var second = Task.Run(async () =>
+        {
+            await using var lease = await AdminUserGuard.AcquireMutationLeaseAsync();
+            secondEntered.SetResult();
+        });
+
+        await Task.Delay(50);
+        secondEntered.Task.IsCompleted.Should().BeFalse();
+        await first.DisposeAsync();
+        await second.WaitAsync(TimeSpan.FromSeconds(2));
+        secondEntered.Task.IsCompletedSuccessfully.Should().BeTrue();
+    }
+
     private static User MkUser(
         string name, bool admin, bool locked = false, bool pending = false, bool disabled = false) => new()
         {

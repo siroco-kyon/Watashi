@@ -18,6 +18,7 @@
             <conv:NotBoolConverter x:Key="NotBool"/>
             <conv:TypeToIconConverter x:Key="TypeIcon"/>
             <conv:StatusMessageToBrushConverter x:Key="StatusBrush"/>
+            <conv:DiagnosticStatusToLabelConverter x:Key="DiagnosticStatusLabel"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

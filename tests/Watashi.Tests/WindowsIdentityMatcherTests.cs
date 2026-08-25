@@ -10,6 +10,17 @@ namespace Watashi.Tests;
 /// </summary>
 public class WindowsIdentityMatcherTests
 {
+    [Fact]
+    public void Defaults_are_fail_closed_until_an_allowed_domain_is_configured()
+    {
+        var options = new WindowsAuthOptions { Mode = WindowsAuthModes.Negotiate };
+
+        options.DomainMatch.Should().Be(WindowsAuthDomainMatchModes.AllowList);
+        WindowsIdentityMatcher.Matches(@"CORP\G012345", "G012345", options).Should().BeFalse();
+        Action validate = options.Validate;
+        validate.Should().Throw<InvalidOperationException>().WithMessage("*AllowedDomains*");
+    }
+
     private static WindowsAuthOptions IgnoreDomain() => new()
     {
         Mode = WindowsAuthModes.Negotiate,

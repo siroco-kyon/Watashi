@@ -59,6 +59,29 @@ public class TransferV2PrimitivesTests
         reservedTarget.Should().Throw<ArgumentException>().WithMessage("*予約済み*");
     }
 
+    [Theory]
+    [InlineData("/.watashi-upload-session.tmp")]
+    [InlineData("/dept/.WATASHI-UPLOAD-session.tmp")]
+    [InlineData("/dept/.watashi-upload-container/visible.txt")]
+    public void User_operations_reject_reserved_temp_path_at_any_depth(string path)
+    {
+        TransferV2Validation.IsReservedTempPath(path).Should().BeTrue();
+
+        var act = () => TransferV2Validation.NormalizeAndValidateUserPath(path);
+
+        act.Should().Throw<UnauthorizedAccessException>().WithMessage("*予約済み一時ファイル*");
+    }
+
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/dept/report.csv")]
+    [InlineData("/dept/prefix-.watashi-upload-report.csv")]
+    public void User_operations_allow_non_reserved_paths(string path)
+    {
+        TransferV2Validation.NormalizeAndValidateUserPath(path)
+            .Should().Be(path);
+    }
+
     [Fact]
     public void Sha256_and_idempotency_key_normalization_are_canonical()
     {

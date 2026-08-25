@@ -76,8 +76,7 @@ public partial class UserManagementViewModel : AdminViewModelBase
             DefaultExt = "csv",
         };
         if (dlg.ShowDialog() != true) return;
-        await using var fs = File.Create(dlg.FileName);
-        await _api.ExportUsersCsvAsync(fs);
+        await AtomicFileWriter.WriteAsync(dlg.FileName, stream => _api.ExportUsersCsvAsync(stream));
         StatusMessage = $"エクスポート完了: {dlg.FileName}";
     });
 
