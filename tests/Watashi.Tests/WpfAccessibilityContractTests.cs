@@ -123,6 +123,16 @@ public class WpfAccessibilityContractTests
             .And.Contain("RaiseAutomationEvent");
     }
 
+    [Fact]
+    public void Personal_settings_status_is_named_and_explicitly_announced()
+    {
+        var doc = Load("src/Watashi.Client/Views/PersonalSettingsWindow.xaml");
+        Named(doc, "PersonalSettingsStatusLiveRegion")
+            .AttributeByLocalName("AutomationProperties.LiveSetting").Should().Be("Polite");
+        File.ReadAllText(RepoFile("src/Watashi.Client/Views/PersonalSettingsWindow.xaml.cs"))
+            .Should().Contain("AutomationLiveRegion.Announce(PersonalSettingsStatusLiveRegion)");
+    }
+
     [Theory]
     [InlineData("src/Watashi.Client/Views/ChangePasswordWindow.xaml", "Current", "NewP", "Confirm")]
     [InlineData("src/Watashi.Client/Views/InitialPasswordWindow.xaml", "NewP", "Confirm", null)]

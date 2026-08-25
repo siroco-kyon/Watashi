@@ -16,6 +16,9 @@ public partial class LocalPaneViewModel : ObservableObject
     private readonly AppSettings _settings;
     private readonly Stack<string> _back = new();
     private readonly Stack<string> _forward = new();
+    private CancellationTokenSource? _refreshCts;
+    private CancellationTokenSource? _initializationCts;
+    private long _refreshGeneration;
     private DateTime _lastSettingsSave = DateTime.MinValue;
     private string _lastSuccessfulPath = string.Empty;
     private bool _initialized;
@@ -40,6 +43,10 @@ public partial class LocalPaneViewModel : ObservableObject
         !_all.Any(e => FileEntryFilter.Matches(e, FilterText));
 
     public bool IsFolderEmpty => string.IsNullOrWhiteSpace(FilterText) && _all.Count == 0;
+    public bool IsCurrentListingAvailable =>
+        !IsBusy &&
+        !string.IsNullOrWhiteSpace(_lastSuccessfulPath) &&
+        string.Equals(CurrentPath, _lastSuccessfulPath, StringComparison.OrdinalIgnoreCase);
     public bool UseRecycleBinForDeletes
     {
         get => _settings.UseRecycleBinForLocalDeletes;
@@ -60,6 +67,15 @@ public partial class LocalPaneViewModel : ObservableObject
         sortKey = settings.RememberSortOrder ? settings.LocalSortKey : null;
     }
 
+    partial void OnCurrentPathChanged(string value)
+    {
+        if (!string.Equals(value, _lastSuccessfulPath, StringComparison.OrdinalIgnoreCase))
+            Selected = null;
+        OnPropertyChanged(nameof(IsCurrentListingAvailable));
+    }
+
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(IsCurrentListingAvailable));
+
     /// <summary>
     /// 起動候補を順に一覧取得し、固定先が一時的に使えない場合も前回場所／ユーザープロファイルへ退避する。
     /// コンストラクタから非同期処理を開始せず、MainWindow.Loaded から一度だけ待機して呼ぶ。
@@ -68,25 +84,37 @@ public partial class LocalPaneViewModel : ObservableObject
     {
         if (_initialized) return;
         _initialized = true;
-        var candidates = LocalStartupPathCandidates.Build(_settings);
-        var preferred = candidates.FirstOrDefault();
-        foreach (var candidate in candidates)
+        var initializationCts = new CancellationTokenSource();
+        _initializationCts = initializationCts;
+        try
         {
-            var exists = await Task.Run(() =>
+            var candidates = LocalStartupPathCandidates.Build(_settings);
+            var preferred = candidates.FirstOrDefault();
+            foreach (var candidate in candidates)
             {
-                try { return Directory.Exists(candidate); }
-                catch { return false; }
-            });
-            if (!exists) continue;
-            CurrentPath = candidate;
-            if (!await RefreshCoreAsync(clearFilterOnSuccess: false)) continue;
-            if (!string.Equals(candidate, preferred, StringComparison.OrdinalIgnoreCase))
-                StatusMessage = "前回または設定された開始フォルダを開けなかったため、利用可能なフォルダを表示しました。";
-            return;
-        }
+                var exists = await Task.Run(() =>
+                {
+                    try { return Directory.Exists(candidate); }
+                    catch { return false; }
+                }, initializationCts.Token);
+                initializationCts.Token.ThrowIfCancellationRequested();
+                if (!exists) continue;
+                CurrentPath = candidate;
+                if (!await RefreshCoreAsync(clearFilterOnSuccess: false, initializationCts.Token)) continue;
+                if (!string.Equals(candidate, preferred, StringComparison.OrdinalIgnoreCase))
+                    StatusMessage = "前回または設定された開始フォルダを開けなかったため、利用可能なフォルダを表示しました。";
+                return;
+            }
 
-        if (string.IsNullOrWhiteSpace(StatusMessage))
-            StatusMessage = "開始フォルダを開けませんでした。パスを確認してください。";
+            if (string.IsNullOrWhiteSpace(StatusMessage))
+                StatusMessage = "開始フォルダを開けませんでした。パスを確認してください。";
+        }
+        catch (OperationCanceledException) when (initializationCts.IsCancellationRequested) { }
+        finally
+        {
+            Interlocked.CompareExchange(ref _initializationCts, null, initializationCts);
+            initializationCts.Dispose();
+        }
     }
 
     /// <summary>
@@ -95,6 +123,7 @@ public partial class LocalPaneViewModel : ObservableObject
     [RelayCommand]
     public async Task NavigateAsync(string? newPath)
     {
+        CancelStartupInitialization();
         var target = (newPath ?? CurrentPath)?.Trim() ?? string.Empty;
         if (string.IsNullOrEmpty(target)) return;
         if (string.Equals(target, _lastSuccessfulPath, StringComparison.OrdinalIgnoreCase))
@@ -113,6 +142,7 @@ public partial class LocalPaneViewModel : ObservableObject
     [RelayCommand]
     public async Task GoBackAsync()
     {
+        CancelStartupInitialization();
         if (_back.Count == 0) return;
         var prev = _back.Pop();
         if (!string.IsNullOrEmpty(_lastSuccessfulPath)) _forward.Push(_lastSuccessfulPath);
@@ -124,6 +154,7 @@ public partial class LocalPaneViewModel : ObservableObject
     [RelayCommand]
     public async Task GoForwardAsync()
     {
+        CancelStartupInitialization();
         if (_forward.Count == 0) return;
         var next = _forward.Pop();
         if (!string.IsNullOrEmpty(_lastSuccessfulPath)) _back.Push(_lastSuccessfulPath);
@@ -135,6 +166,7 @@ public partial class LocalPaneViewModel : ObservableObject
     [RelayCommand]
     public async Task GoUpAsync()
     {
+        CancelStartupInitialization();
         var parent = await Task.Run(() =>
         {
             try { return Directory.GetParent(_lastSuccessfulPath); }
@@ -144,10 +176,19 @@ public partial class LocalPaneViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task RefreshAsync() => await RefreshCoreAsync(clearFilterOnSuccess: false);
-
-    private async Task<bool> RefreshCoreAsync(bool clearFilterOnSuccess)
+    public async Task RefreshAsync()
     {
+        CancelStartupInitialization();
+        await RefreshCoreAsync(clearFilterOnSuccess: false);
+    }
+
+    private async Task<bool> RefreshCoreAsync(
+        bool clearFilterOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        var generation = Interlocked.Increment(ref _refreshGeneration);
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Interlocked.Exchange(ref _refreshCts, cts)?.Cancel();
         try
         {
             IsBusy = true;
@@ -156,25 +197,41 @@ public partial class LocalPaneViewModel : ObservableObject
             {
                 try { return Directory.GetParent(path) is not null; }
                 catch { return false; }
-            });
-            var items = await _files.ListAsync(path);
+            }, cts.Token);
+            var items = await _files.ListAsync(path, cts.Token);
+            if (generation != Volatile.Read(ref _refreshGeneration) ||
+                !string.Equals(path, CurrentPath, StringComparison.OrdinalIgnoreCase))
+                return false;
             _all.Clear();
             _all.AddRange(items);
             _hasParent = hasParent;
             if (clearFilterOnSuccess) FilterText = string.Empty;
             ApplyView();
             _lastSuccessfulPath = path;
+            OnPropertyChanged(nameof(IsCurrentListingAvailable));
             StatusMessage = string.Empty;
             SaveLastPathThrottled(path);
             return true;
         }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested) { return false; }
         catch (Exception ex)
         {
-            CurrentPath = _lastSuccessfulPath;
-            StatusMessage = ex.Message;
+            if (generation == Volatile.Read(ref _refreshGeneration))
+            {
+                CurrentPath = _lastSuccessfulPath;
+                StatusMessage = ex.Message;
+            }
             return false;
         }
-        finally { IsBusy = false; }
+        finally
+        {
+            if (generation == Volatile.Read(ref _refreshGeneration))
+            {
+                Interlocked.CompareExchange(ref _refreshCts, null, cts);
+                IsBusy = false;
+            }
+            cts.Dispose();
+        }
     }
 
     /// <summary>_all をクライアント側でソート (SortKey) + 絞り込み (FilterText) して Entries を作り直す。</summary>
@@ -204,7 +261,7 @@ public partial class LocalPaneViewModel : ObservableObject
     [RelayCommand]
     public async Task OpenSelectedAsync()
     {
-        if (Selected is null) return;
+        if (!IsCurrentListingAvailable || Selected is null) return;
         if (Selected.Type == FileEntryTypes.Parent)
         {
             await GoUpAsync();
@@ -238,7 +295,7 @@ public partial class LocalPaneViewModel : ObservableObject
     [RelayCommand]
     public async Task DeleteSelectedAsync()
     {
-        if (Selected is null || Selected.Type == FileEntryTypes.Parent) return;
+        if (!IsCurrentListingAvailable || Selected is null || Selected.Type == FileEntryTypes.Parent) return;
         var full = Path.Combine(CurrentPath, Selected.Name);
         var isDir = Selected.Type == FileEntryTypes.Directory;
         try
@@ -272,7 +329,7 @@ public partial class LocalPaneViewModel : ObservableObject
     /// </summary>
     public async Task RenameSelectedAsync(string? newName)
     {
-        if (Selected is null || Selected.Type == FileEntryTypes.Parent) return;
+        if (!IsCurrentListingAvailable || Selected is null || Selected.Type == FileEntryTypes.Parent) return;
         if (string.IsNullOrWhiteSpace(newName) || newName == Selected.Name) return;
         if (!IsSimpleFileName(newName))
         {
@@ -354,4 +411,6 @@ public partial class LocalPaneViewModel : ObservableObject
         try { _settings.Save(); }
         catch (Exception ex) { StatusMessage = "設定の保存に失敗しました: " + ex.Message; }
     }
+
+    private void CancelStartupInitialization() => _initializationCts?.Cancel();
 }

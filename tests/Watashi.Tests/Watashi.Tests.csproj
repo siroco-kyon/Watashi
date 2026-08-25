@@ -37,6 +37,7 @@
     <Compile Include="..\..\src\Watashi.Client\Services\ApiClient.cs" Link="Client\ApiClient.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\AppSettings.cs" Link="Client\AppSettings.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\Brand.cs" Link="Client\Brand.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\DirectoryAvailability.cs" Link="Client\DirectoryAvailability.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\ProgressStreamContent.cs" Link="Client\ProgressStreamContent.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\SessionManager.cs" Link="Client\SessionManager.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\TransferQueueStore.cs" Link="Client\TransferQueueStore.cs" />

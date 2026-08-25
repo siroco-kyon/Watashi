@@ -214,12 +214,23 @@ public partial class RemotePaneViewModel : ObservableObject
                     SelectedLocation = startupLocation;
                     var startupPath = PathHelper.NormalizePath(startup.Path);
                     CurrentPath = startupPath;
-                    await RefreshCoreAsync(recordRecent: false);
+                    var startupRefresh = RefreshCoreAsync(recordRecent: false, recordLast: true);
+                    var startupGeneration = Volatile.Read(ref _refreshGeneration);
+                    await startupRefresh;
+                    // Loaded 後はユーザー操作が可能。復元中に別の場所・パスへ移動された場合は、
+                    // 古い復元処理から CurrentPath や StatusMessage を上書きしない。
+                    if (startupGeneration != Volatile.Read(ref _refreshGeneration) ||
+                        !ReferenceEquals(SelectedLocation, startupLocation))
+                        return;
                     if (!string.Equals(_lastSuccessfulPath, startupPath, StringComparison.OrdinalIgnoreCase))
                     {
                         CurrentPath = PathHelper.NormalizePath(startupLocation.Path);
-                        await RefreshCoreAsync(recordRecent: false);
-                        if (string.IsNullOrWhiteSpace(StatusMessage))
+                        var fallbackRefresh = RefreshCoreAsync(recordRecent: false, recordLast: true);
+                        var fallbackGeneration = Volatile.Read(ref _refreshGeneration);
+                        await fallbackRefresh;
+                        if (fallbackGeneration == Volatile.Read(ref _refreshGeneration) &&
+                            ReferenceEquals(SelectedLocation, startupLocation) &&
+                            string.IsNullOrWhiteSpace(StatusMessage))
                             StatusMessage = "保存された開始場所を開けなかったため、権限の最上位を表示しました。";
                     }
                 }
@@ -227,7 +238,11 @@ public partial class RemotePaneViewModel : ObservableObject
             }
         }
         catch (Exception ex) { StatusMessage = "ロケーション取得失敗: " + ex.Message; }
-        finally { IsBusy = false; }
+        finally
+        {
+            // 復元中にユーザーが開始した新しい一覧読込の Busy 状態を解除しない。
+            if (_refreshCts is null) IsBusy = false;
+        }
     }
 
     /// <summary>任意パスへ移動（履歴に積む）。</summary>
@@ -302,7 +317,10 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public Task RefreshAsync() => RefreshCoreAsync(recordRecent: false);
 
-    private async Task RefreshCoreAsync(bool recordRecent, bool clearFilterOnSuccess = false)
+    private async Task RefreshCoreAsync(
+        bool recordRecent,
+        bool clearFilterOnSuccess = false,
+        bool recordLast = false)
     {
         var location = SelectedLocation;
         if (location is null) return;
@@ -359,7 +377,7 @@ public partial class RemotePaneViewModel : ObservableObject
             StatusMessage = res.Truncated
                 ? "このフォルダーは上限を超えたため、先頭10万件まで表示できます。"
                 : string.Empty;
-            if (recordRecent) RecordSuccessfulPlace(location, path);
+            if (recordRecent || recordLast) RecordSuccessfulPlace(location, path, recordRecent);
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested) { }
         catch (Exception ex)
@@ -700,11 +718,11 @@ public partial class RemotePaneViewModel : ObservableObject
         await NavigateAsync(place.Path);
     }
 
-    private void RecordSuccessfulPlace(LocationDto location, string path)
+    private void RecordSuccessfulPlace(LocationDto location, string path, bool recordRecent = true)
     {
         var place = CreatePlace(location, path);
         var changed = _settings.RecordLastRemotePlace(place);
-        changed |= _settings.RecordRecentRemotePlace(place);
+        if (recordRecent) changed |= _settings.RecordRecentRemotePlace(place);
         if (!changed) return;
         SyncSavedPlaces();
         TrySaveSettings();

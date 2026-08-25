@@ -1,6 +1,7 @@
-using System.IO;
+using System.ComponentModel;
 using System.Windows;
 using Microsoft.Win32;
+using Watashi.Client.Accessibility;
 using Watashi.Client.ViewModels;
 
 namespace Watashi.Client.Views;
@@ -9,6 +10,7 @@ public partial class PersonalSettingsWindow : Window
 {
     private readonly PersonalSettingsViewModel _vm;
     private readonly string _currentLocalPath;
+    private readonly CancellationTokenSource _lifetimeCts = new();
 
     public PersonalSettingsWindow(PersonalSettingsViewModel vm, string currentLocalPath)
     {
@@ -16,33 +18,30 @@ public partial class PersonalSettingsWindow : Window
         _vm = vm;
         _currentLocalPath = currentLocalPath;
         DataContext = vm;
+        _vm.PropertyChanged += OnViewModelPropertyChanged;
+        Closed += OnClosed;
     }
 
     public bool RemoteHistoryChanged { get; private set; }
 
-    private void OnBrowseLocalPath(object sender, RoutedEventArgs e)
+    private async void OnBrowseLocalPath(object sender, RoutedEventArgs e)
     {
-        var initial = _vm.FixedLocalPath.Trim();
+        var initial = await _vm.ResolveBrowseInitialDirectoryAsync(_currentLocalPath, _lifetimeCts.Token);
+        if (_lifetimeCts.IsCancellationRequested) return;
         var dialog = new OpenFolderDialog
         {
             Title = "起動時に開くローカルフォルダを選択",
             Multiselect = false,
-            InitialDirectory = Directory.Exists(initial)
-                ? initial
-                : Directory.Exists(_currentLocalPath) ? _currentLocalPath : string.Empty,
+            InitialDirectory = initial,
         };
         if (dialog.ShowDialog(this) != true) return;
         _vm.FixedLocalPath = dialog.FolderName;
     }
 
-    private void OnUseCurrentLocalPath(object sender, RoutedEventArgs e)
+    private async void OnUseCurrentLocalPath(object sender, RoutedEventArgs e)
     {
-        if (!Directory.Exists(_currentLocalPath))
-        {
-            _vm.StatusMessage = "現在のローカルフォルダを利用できません。";
-            return;
-        }
-        _vm.FixedLocalPath = _currentLocalPath;
+        if (!await _vm.TryUseCurrentLocalPathAsync(_currentLocalPath, _lifetimeCts.Token)) return;
+        if (_lifetimeCts.IsCancellationRequested) return;
         FixedLocalPathBox.Focus();
         FixedLocalPathBox.CaretIndex = FixedLocalPathBox.Text.Length;
     }
@@ -62,11 +61,27 @@ public partial class PersonalSettingsWindow : Window
 
     private void OnResetSettings(object sender, RoutedEventArgs e) => _vm.ResetDraft();
 
-    private void OnSave(object sender, RoutedEventArgs e)
+    private async void OnSave(object sender, RoutedEventArgs e)
     {
-        if (!_vm.Save()) return;
+        if (!await _vm.SaveAsync(_lifetimeCts.Token)) return;
+        if (_lifetimeCts.IsCancellationRequested) return;
         DialogResult = true;
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PersonalSettingsViewModel.StatusMessage) &&
+            !string.IsNullOrWhiteSpace(_vm.StatusMessage))
+            AutomationLiveRegion.Announce(PersonalSettingsStatusLiveRegion);
+    }
+
+    private void OnClosed(object? sender, EventArgs e)
+    {
+        Closed -= OnClosed;
+        _vm.PropertyChanged -= OnViewModelPropertyChanged;
+        _lifetimeCts.Cancel();
+        _lifetimeCts.Dispose();
+    }
 }
