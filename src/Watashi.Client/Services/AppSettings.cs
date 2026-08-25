@@ -283,6 +283,14 @@ public class AppSettings
             updated.RemoveRange(MaxRemoteFavorites, updated.Count - MaxRemoteFavorites);
         var changed = !PlacesEqual(RemoteFavorites, updated);
         RemoteFavorites = updated;
+        // 同じ物理場所へ別の権限から到達し直した場合は、起動先も新しい PermissionId へ
+        // 追従させる。古い権限だけが失効したときに有効な起動先まで失わないため。
+        if (RemoteStartupPlace is not null && SamePlace(RemoteStartupPlace, normalized) &&
+            !OptionalPlacesEqual(RemoteStartupPlace, normalized))
+        {
+            RemoteStartupPlace = ClonePlace(normalized);
+            changed = true;
+        }
         return changed;
     }
 
@@ -327,6 +335,34 @@ public class AppSettings
         File.WriteAllText(SettingsPath, json);
     }
 
+    /// <summary>
+    /// 保存対象の状態をディープコピーする。設定画面はこのコピーを先に保存し、成功後だけ
+    /// 共有中の AppSettings へ反映することで、保存失敗時に下書きが実動作へ漏れるのを防ぐ。
+    /// </summary>
+    public AppSettings CreatePersistentCopy()
+    {
+        var json = JsonSerializer.Serialize(this);
+        return DeserializeOrDefault(json);
+    }
+
+    /// <summary>保存済みコピーの利用者設定だけを、現在の配布時固定設定を維持したまま反映する。</summary>
+    public void ApplyPersistentState(AppSettings source)
+    {
+        LastLocalPath = source.LastLocalPath;
+        LocalStartupMode = source.LocalStartupMode;
+        FixedLocalStartupPath = source.FixedLocalStartupPath;
+        UseRecycleBinForLocalDeletes = source.UseRecycleBinForLocalDeletes;
+        ThemeMode = source.ThemeMode;
+        RemoteStartupMode = source.RemoteStartupMode;
+        RemoteStartupPlace = ClonePlace(source.RemoteStartupPlace);
+        LastRemotePlace = ClonePlace(source.LastRemotePlace);
+        RememberSortOrder = source.RememberSortOrder;
+        LocalSortKey = source.LocalSortKey;
+        RemoteSortKey = source.RemoteSortKey;
+        RemoteFavorites = source.RemoteFavorites.Select(ClonePlace).Where(x => x is not null).Cast<RemotePlaceSetting>().ToList();
+        RecentRemotePlaces = source.RecentRemotePlaces.Select(ClonePlace).Where(x => x is not null).Cast<RemotePlaceSetting>().ToList();
+    }
+
     public static bool SameRemotePlace(RemotePlaceSetting left, RemotePlaceSetting right) => SamePlace(left, right);
 
     private static List<RemotePlaceSetting> NormalizePlaces(
@@ -367,6 +403,17 @@ public class AppSettings
             DisplayName = displayName,
         };
     }
+
+    private static RemotePlaceSetting? ClonePlace(RemotePlaceSetting? place) => place is null
+        ? null
+        : new RemotePlaceSetting
+        {
+            PermissionId = place.PermissionId,
+            HostId = place.HostId,
+            ShareId = place.ShareId,
+            Path = place.Path,
+            DisplayName = place.DisplayName,
+        };
 
     private static bool IsAllowed(RemotePlaceSetting place, IReadOnlyCollection<LocationDto> locations)
         => locations.Any(location =>

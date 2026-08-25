@@ -20,7 +20,8 @@
                        Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"/>
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      IsEnabled="{Binding IsBusy, Converter={StaticResource NotBool}}">
             <StackPanel Margin="0,0,6,0">
                 <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
                     <StackPanel>
@@ -134,7 +135,8 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="{Binding StatusMessage}"
+            <TextBlock x:Name="PersonalSettingsStatusLiveRegion"
+                       Text="{Binding StatusMessage}"
                        Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
                        TextWrapping="Wrap" VerticalAlignment="Center"
                        AutomationProperties.LiveSetting="Polite"
@@ -142,6 +144,7 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
                 <Button Content="キャンセル" Click="OnCancel" MinWidth="100" Margin="0,0,8,0"/>
                 <Button Content="保存" Click="OnSave" Style="{StaticResource PrimaryButton}" MinWidth="100"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource NotBool}}"
                         AutomationProperties.Name="個人設定を保存"/>
             </StackPanel>
         </Grid>

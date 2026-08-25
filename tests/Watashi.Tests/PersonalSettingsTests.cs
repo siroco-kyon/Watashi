@@ -148,6 +148,70 @@ public class PersonalSettingsTests
     }
 
     [Fact]
+    public void Readding_the_startup_favorite_through_a_new_permission_updates_the_startup_record()
+    {
+        var oldFavorite = Place(10, "/favorite", "旧権限");
+        var replacement = Place(20, "/favorite", "新権限");
+        var settings = new AppSettings
+        {
+            RemoteFavorites = new List<RemotePlaceSetting> { oldFavorite },
+            RemoteStartupMode = RemoteStartupModes.Favorite,
+            RemoteStartupPlace = oldFavorite,
+        };
+
+        settings.AddRemoteFavorite(replacement).Should().BeTrue();
+
+        settings.RemoteFavorites.Should().ContainSingle().Which.PermissionId.Should().Be(20);
+        settings.RemoteStartupPlace.Should().NotBeNull();
+        settings.RemoteStartupPlace!.PermissionId.Should().Be(20);
+        settings.RemoteStartupMode.Should().Be(RemoteStartupModes.Favorite);
+    }
+
+    [Fact]
+    public void Persistent_copy_does_not_mutate_live_settings_until_applied()
+    {
+        var source = new AppSettings
+        {
+            ServerUrl = "https://fixed.example",
+            UseRecycleBinForLocalDeletes = true,
+            RecentRemotePlaces = new List<RemotePlaceSetting> { Place(10, "/recent", "最近") },
+            LastRemotePlace = Place(10, "/last", "前回"),
+        };
+        var candidate = source.CreatePersistentCopy();
+
+        candidate.UseRecycleBinForLocalDeletes = false;
+        candidate.ClearRemoteHistory();
+
+        source.UseRecycleBinForLocalDeletes.Should().BeTrue();
+        source.RecentRemotePlaces.Should().ContainSingle();
+        source.LastRemotePlace.Should().NotBeNull();
+
+        source.ApplyPersistentState(candidate);
+
+        source.UseRecycleBinForLocalDeletes.Should().BeFalse();
+        source.RecentRemotePlaces.Should().BeEmpty();
+        source.LastRemotePlace.Should().BeNull();
+        source.ServerUrl.Should().Be("https://fixed.example");
+    }
+
+    [Fact]
+    public async Task Directory_availability_checks_existing_and_missing_paths_off_the_caller()
+    {
+        var existing = Path.Combine(Path.GetTempPath(), "watashi-directory-probe-" + Guid.NewGuid());
+        Directory.CreateDirectory(existing);
+        try
+        {
+            (await DirectoryAvailability.ProbeAsync(existing)).Should().Be(DirectoryAvailabilityResult.Exists);
+            (await DirectoryAvailability.ProbeAsync(Path.Combine(existing, "missing")))
+                .Should().Be(DirectoryAvailabilityResult.Missing);
+        }
+        finally
+        {
+            Directory.Delete(existing);
+        }
+    }
+
+    [Fact]
     public void Reset_keeps_favorites_and_history_but_restores_preferences()
     {
         var settings = new AppSettings
@@ -189,6 +253,24 @@ public class PersonalSettingsTests
             .And.Contain("Windowsのごみ箱を使う")
             .And.Contain("最近使ったリモート場所を消去")
             .And.Contain("個人設定を初期値に戻す");
+    }
+
+    [Fact]
+    public void Startup_and_settings_safety_guards_remain_wired()
+    {
+        var local = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/LocalPaneViewModel.cs"));
+        var remote = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/RemotePaneViewModel.cs"));
+        var settings = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/PersonalSettingsViewModel.cs"));
+        var main = File.ReadAllText(RepoFile("src/Watashi.Client/Views/MainWindow.xaml.cs"));
+
+        local.Should().Contain("generation != Volatile.Read(ref _refreshGeneration)")
+            .And.Contain("!string.Equals(path, CurrentPath");
+        remote.Should().Contain("recordLast: true")
+            .And.Contain("startupGeneration != Volatile.Read(ref _refreshGeneration)");
+        settings.Should().Contain("CreatePersistentCopy()")
+            .And.Contain("ApplyPersistentState(candidate)")
+            .And.Contain("DirectoryAvailability.ProbeAsync");
+        main.Should().Contain("Task.WhenAll(localInitialization, transferInitialization, remoteInitialization)");
     }
 
     private static RemotePlaceSetting Place(

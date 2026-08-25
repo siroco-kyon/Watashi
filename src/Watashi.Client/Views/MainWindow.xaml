@@ -368,6 +368,7 @@
                         <ListView x:Name="LocalList"
                                   ItemsSource="{Binding Local.Entries}"
                                   SelectedItem="{Binding Local.Selected}"
+                                  IsEnabled="{Binding Local.IsCurrentListingAvailable}"
                                   SelectionMode="Extended"
                                   MouseDoubleClick="OnLocalDoubleClick"
                                   KeyDown="OnLocalListKeyDown"

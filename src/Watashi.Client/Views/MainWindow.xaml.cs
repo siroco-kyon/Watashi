@@ -50,9 +50,12 @@ public partial class MainWindow : Window
     private async void OnLoaded(object? sender, RoutedEventArgs e)
     {
         Loaded -= OnLoaded;
-        await _vm.Local.InitializeAsync();
-        await _vm.InitializeTransferQueueAsync();
-        await _vm.Remote.LoadHostsAndLocationsAsync();
+        // ローカルの UNC／切断済みドライブ探索が遅くても、独立して利用できる
+        // 転送キューとリモートカタログを待たせない。
+        var localInitialization = _vm.Local.InitializeAsync();
+        var transferInitialization = _vm.InitializeTransferQueueAsync();
+        var remoteInitialization = _vm.Remote.LoadHostsAndLocationsAsync();
+        await Task.WhenAll(localInitialization, transferInitialization, remoteInitialization);
         if (Keyboard.FocusedElement is null || ReferenceEquals(Keyboard.FocusedElement, this))
             LocalList.Focus();
     }
