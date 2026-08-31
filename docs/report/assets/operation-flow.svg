@@ -12,5 +12,5 @@
     <g><rect x="1530" y="190" width="245" height="265" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1652.5" y="280" class="step">6. 監査・応答</text><text x="1652.5" y="340" class="sub">成功・拒否・失敗</text></g>
     <g fill="none" stroke="#64748B" stroke-width="6" marker-end="url(#arrow)"><path d="M300 322 L345 322"/><path d="M595 322 L640 322"/><path d="M890 322 L935 322"/><path d="M1185 322 L1230 322"/><path d="M1480 322 L1525 322"/></g>
   </g>
-  <text x="60" y="550" class="note">認可を経路選択より前に置き、DirectとAgentに共通の権限制御を適用する。監査記録の連続性は別途検証する。</text>
+  <text x="60" y="550" class="note">認可を経路選択より前に置き、DirectとAgentに共通の権限制御を適用する。監査記録は復旧経路を含めて一貫して扱う。</text>
 </svg>

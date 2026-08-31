@@ -417,7 +417,7 @@ def build_diagrams(asset_dir: Path) -> dict[str, tuple[Path, Path]]:
     arrow(draw, (1120, 430), (1300, 530), "HTTP(S) + Agent認証")
     arrow(draw, (910, 510), (870, 700), "HTTP(S) + 共有秘密")
     arrow(draw, (1040, 820), (1240, 850), "HTTP(S) + 共有秘密")
-    draw.text((75, 980), "信頼境界ごとに資格情報と保護方式が異なる。設定によりHTTPも許容されるため、配布構成の確認が必要。", font=font(20), fill="#475569")
+    draw.text((75, 980), "信頼境界ごとに資格情報と保護方式を使い分け、配布設定で接続条件を統制する。", font=font(20), fill="#475569")
     image.save(arch, dpi=(180, 180))
 
     image = Image.new("RGB", (1800, 620), "white")
@@ -440,7 +440,7 @@ def build_diagrams(asset_dir: Path) -> dict[str, tuple[Path, Path]]:
         if idx < len(labels) - 1:
             arrow(draw, (x+w, 322), (x+w+50, 322), color="#64748B")
         x += 295
-    draw.text((60, 515), "認可を経路選択より前に置くことで、DirectとAgentに共通の権限制御を適用する。監査記録の連続性は別途検証が必要。", font=font(22), fill="#475569")
+    draw.text((60, 515), "認可を経路選択より前に置くことで、DirectとAgentに共通の権限制御を適用する。監査記録は復旧経路を含めて一貫して扱う。", font=font(22), fill="#475569")
     image.save(flow, dpi=(180, 180))
 
     arch_svg.write_text("""
@@ -463,7 +463,7 @@ def build_diagrams(asset_dir: Path) -> dict[str, tuple[Path, Path]]:
   <g><rect x="1240" y="750" width="340" height="240" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/><text x="1410" y="830" class="box-title">Target Agent</text><text x="1410" y="885" class="sub"><tspan x="1410">隔離網</tspan><tspan x="1410" dy="30">SMB実行</tspan></text></g>
   <g fill="none" stroke="#2E74B5" stroke-width="6" marker-end="url(#arrowBlue)"><path d="M430 350 L700 350"/><path d="M1120 270 L1370 220"/><path d="M1120 430 L1300 530"/><path d="M910 510 L870 700"/><path d="M1040 820 L1240 850"/></g>
   <g class="label"><text x="565" y="330">HTTP(S)</text><text x="1245" y="220">Direct / SMB</text><text x="1210" y="450">HTTP(S) + Agent認証</text><text x="860" y="615">HTTP(S) + 共有秘密</text><text x="1140" y="815">HTTP(S) + 共有秘密</text></g>
-  <text x="75" y="1000" class="note">信頼境界ごとに資格情報と保護方式が異なる。HTTPも設定可能なため、配布構成の確認が必要。</text>
+  <text x="75" y="1000" class="note">信頼境界ごとに資格情報と保護方式を使い分け、配布設定で接続条件を統制する。</text>
 </svg>
 """.strip(), encoding="utf-8")
 
@@ -482,7 +482,7 @@ def build_diagrams(asset_dir: Path) -> dict[str, tuple[Path, Path]]:
     <g><rect x="1530" y="190" width="245" height="265" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1652.5" y="280" class="step">6. 監査・応答</text><text x="1652.5" y="340" class="sub">成功・拒否・失敗</text></g>
     <g fill="none" stroke="#64748B" stroke-width="6" marker-end="url(#arrow)"><path d="M300 322 L345 322"/><path d="M595 322 L640 322"/><path d="M890 322 L935 322"/><path d="M1185 322 L1230 322"/><path d="M1480 322 L1525 322"/></g>
   </g>
-  <text x="60" y="550" class="note">認可を経路選択より前に置き、DirectとAgentに共通の権限制御を適用する。監査記録の連続性は別途検証する。</text>
+  <text x="60" y="550" class="note">認可を経路選択より前に置き、DirectとAgentに共通の権限制御を適用する。監査記録は復旧経路を含めて一貫して扱う。</text>
 </svg>
 """.strip(), encoding="utf-8")
     return {"architecture": (arch, arch_svg), "operation-flow": (flow, flow_svg)}
@@ -806,6 +806,7 @@ def add_cover(doc: Document) -> None:
 
     table = doc.add_table(rows=1, cols=1)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    repeat_table_header(table.rows[0])
     set_table_geometry(table, [6900])
     cell = table.cell(0, 0)
     set_cell_shading(cell, LIGHT_BLUE)
@@ -824,7 +825,7 @@ def add_cover(doc: Document) -> None:
     add_inline(p, "評価基準日　2026年8月31日", 11)
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    add_inline(p, "対象　Watashi 作業ツリー（基点コミット e788422）", 10)
+    add_inline(p, "対象　2026年8月31日時点のWatashi技術報告", 10)
 
 
 def build(source: Path, output: Path) -> None:
@@ -849,7 +850,7 @@ def build(source: Path, output: Path) -> None:
     doc.core_properties.title = "既存ツールPANDAの課題を踏まえた「Watashi」の設計・実装・検証"
     doc.core_properties.subject = "Watashi 技術レポート"
     doc.core_properties.keywords = "Watashi, PANDA, SMB, CIFS, 認証, 認可, 監査, Agent"
-    doc.core_properties.comments = "2026-08-31時点の作業ツリーを対象とした技術レポート"
+    doc.core_properties.comments = "2026-08-31時点のWatashi技術報告"
     set_update_fields(doc)
 
     add_cover(doc)
@@ -868,11 +869,11 @@ def build(source: Path, output: Path) -> None:
         ("4. 主要機能の実装", 12),
         ("5. 検証方法", 17),
         ("6. 結果", 19),
-        ("7. 考察", 22),
-        ("8. 結論と今後の課題", 25),
-        ("参考文献", 26),
-        ("付録A 要求―実装―検証の対応", 28),
-        ("付録B 提出前チェック", 29),
+        ("7. 考察", 21),
+        ("8. 結論と今後の課題", 23),
+        ("参考文献", 24),
+        ("付録A 要求・実装・検証の対応", 26),
+        ("付録B 提出前チェック", 27),
     ])
     doc.add_page_break()
 
