@@ -17,5 +17,5 @@
   <g><rect x="1240" y="750" width="340" height="240" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/><text x="1410" y="830" class="box-title">Target Agent</text><text x="1410" y="885" class="sub"><tspan x="1410">隔離網</tspan><tspan x="1410" dy="30">SMB実行</tspan></text></g>
   <g fill="none" stroke="#2E74B5" stroke-width="6" marker-end="url(#arrowBlue)"><path d="M430 350 L700 350"/><path d="M1120 270 L1370 220"/><path d="M1120 430 L1300 530"/><path d="M910 510 L870 700"/><path d="M1040 820 L1240 850"/></g>
   <g class="label"><text x="565" y="330">HTTP(S)</text><text x="1245" y="220">Direct / SMB</text><text x="1210" y="450">HTTP(S) + Agent認証</text><text x="860" y="615">HTTP(S) + 共有秘密</text><text x="1140" y="815">HTTP(S) + 共有秘密</text></g>
-  <text x="75" y="1000" class="note">信頼境界ごとに資格情報と保護方式が異なる。HTTPも設定可能なため、配布構成の確認が必要。</text>
+  <text x="75" y="1000" class="note">信頼境界ごとに資格情報と保護方式を使い分け、配布設定で接続条件を統制する。</text>
 </svg>
