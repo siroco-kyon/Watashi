@@ -40,19 +40,19 @@ SCREENSHOT_SPECS = {
     "WATASHI-CLIENT": {
         "title": "Watashi クライアント画面",
         "guide": "二ペイン表示と転送キューが同時に見える画面を挿入\n実データのパス・利用者名は必要に応じてマスキングする",
-        "caption": "図5 Watashiの二ペイン表示と転送キュー（スクリーンショット差し替え欄）",
+        "caption": "図6 Watashiの二ペイン表示と転送キュー（スクリーンショット差し替え欄）",
         "alt": "Watashiクライアントの二ペイン表示と転送キューのスクリーンショットを後から挿入するためのプレースホルダー",
     },
     "WATASHI-ADMIN": {
         "title": "Watashi ユーザー権限管理画面",
         "guide": "共有・許可サブパス・操作種別が分かる画面を挿入\n本文で説明する設定項目が読める解像度にする",
-        "caption": "図6 Watashiのユーザー権限管理画面（スクリーンショット差し替え欄）",
+        "caption": "図7 Watashiのユーザー権限管理画面（スクリーンショット差し替え欄）",
         "alt": "Watashiのユーザー権限管理画面のスクリーンショットを後から挿入するためのプレースホルダー",
     },
     "WATASHI-AUDIT": {
         "title": "Watashi 操作ログ画面",
         "guide": "条件検索・結果一覧・CSV出力が分かる画面を挿入\n利用者名・パス・端末情報は合成データ化またはマスキングする",
-        "caption": "図4 Watashiの操作ログ検索・結果確認・CSV出力画面（スクリーンショット差し替え欄）",
+        "caption": "図5 Watashiの操作ログ検索・結果確認・CSV出力画面（スクリーンショット差し替え欄）",
         "alt": "Watashiの操作ログ検索・結果確認・CSV出力画面のスクリーンショットを後から挿入するためのプレースホルダー",
     },
 }
@@ -399,8 +399,10 @@ def build_diagrams(asset_dir: Path) -> dict[str, tuple[Path, Path]]:
     asset_dir.mkdir(parents=True, exist_ok=True)
     arch = asset_dir / "architecture.png"
     flow = asset_dir / "operation-flow.png"
+    windows_setup = asset_dir / "windows-first-setup.png"
     arch_svg = asset_dir / "architecture.svg"
     flow_svg = asset_dir / "operation-flow.svg"
+    windows_setup_svg = asset_dir / "windows-first-setup.svg"
 
     image = Image.new("RGB", (1800, 1050), "white")
     draw = ImageDraw.Draw(image)
@@ -442,6 +444,31 @@ def build_diagrams(asset_dir: Path) -> dict[str, tuple[Path, Path]]:
         x += 295
     draw.text((60, 515), "認可を経路選択より前に置くことで、DirectとAgentに共通の権限制御を適用する。監査記録は復旧経路を含めて一貫して扱う。", font=font(22), fill="#475569")
     image.save(flow, dpi=(180, 180))
+
+    image = Image.new("RGB", (1800, 950), "white")
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((35, 35, 1765, 915), radius=35, outline="#CBD5E1", width=4, fill="#FAFCFE")
+    draw.text((70, 60), "初回Windowsユーザー認証とパスワード設定", font=font(40), fill="#17324D")
+    steps = [
+        ("1. GID入力", "利用者が入力"),
+        ("2. Windows認証", "IIS / Negotiate"),
+        ("3. 本人照合", "ドメイン＋GID"),
+        ("4. 状態確認", "初回設定待ち\n期限・ロック"),
+        ("5. 本人が設定", "ポリシー確認\nトークン発行"),
+    ]
+    x_positions = [65, 405, 745, 1085, 1425]
+    for idx, ((title, subtitle), x) in enumerate(zip(steps, x_positions)):
+        fill = "#EAF2F8" if idx < 3 else "#E8F5F2"
+        outline = "#2E74B5" if idx < 3 else "#2A8C82"
+        rounded_box(draw, (x, 190, x + 285, 420), fill, outline, title, subtitle, title_size=25)
+        if idx < len(steps) - 1:
+            arrow(draw, (x + 285, 305), (x + 330, 305), color="#64748B")
+    draw.rounded_rectangle((220, 575, 1580, 785), radius=22, fill="#FFF5E8", outline="#C27A21", width=4)
+    draw.text((270, 615), "本人確認できない／Windows認証を利用できない", font=font(27), fill="#17324D")
+    draw.text((270, 680), "共通のパスワード入力へ戻す  →  必要時は管理者発行の一時パスワードで初回変更", font=font(22), fill="#475569")
+    arrow(draw, (888, 420), (888, 565), "条件不成立", color="#C27A21")
+    draw.text((70, 850), "Windows名はOS認証結果を使用し、未知のIDや設定済みユーザーも同じ応答へそろえてユーザー列挙を抑える。", font=font(21), fill="#475569")
+    image.save(windows_setup, dpi=(180, 180))
 
     arch_svg.write_text("""
 <svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1050" viewBox="0 0 1800 1050" role="img" aria-labelledby="title desc">
@@ -485,7 +512,39 @@ def build_diagrams(asset_dir: Path) -> dict[str, tuple[Path, Path]]:
   <text x="60" y="550" class="note">認可を経路選択より前に置き、DirectとAgentに共通の権限制御を適用する。監査記録は復旧経路を含めて一貫して扱う。</text>
 </svg>
 """.strip(), encoding="utf-8")
-    return {"architecture": (arch, arch_svg), "operation-flow": (flow, flow_svg)}
+
+    windows_setup_svg.write_text("""
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="950" viewBox="0 0 1800 950" role="img" aria-labelledby="title desc">
+  <title id="title">初回Windowsユーザー認証とパスワード設定</title>
+  <desc id="desc">利用者のGID入力からWindows統合認証、本人照合、初回設定待ち状態の確認、本人によるパスワード設定とトークン発行までを示す。条件を満たさない場合は共通のパスワード入力へ戻る。</desc>
+  <defs>
+    <marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#64748B"/></marker>
+    <marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#C27A21"/></marker>
+    <style>.title{font:700 40px 'Yu Gothic',sans-serif;fill:#17324D}.step{font:700 25px 'Yu Gothic',sans-serif;fill:#17324D;text-anchor:middle}.sub{font:400 20px 'Yu Gothic',sans-serif;fill:#475569;text-anchor:middle}.fallback-title{font:700 27px 'Yu Gothic',sans-serif;fill:#17324D}.fallback{font:400 22px 'Yu Gothic',sans-serif;fill:#475569}.note{font:400 21px 'Yu Gothic',sans-serif;fill:#475569}.label{font:600 18px 'Yu Gothic',sans-serif;fill:#9A5B12;text-anchor:middle}</style>
+  </defs>
+  <rect x="35" y="35" width="1730" height="880" rx="35" fill="#FAFCFE" stroke="#CBD5E1" stroke-width="4"/>
+  <text x="70" y="105" class="title">初回Windowsユーザー認証とパスワード設定</text>
+  <g>
+    <g><rect x="65" y="190" width="285" height="230" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="207.5" y="275" class="step">1. GID入力</text><text x="207.5" y="335" class="sub">利用者が入力</text></g>
+    <g><rect x="405" y="190" width="285" height="230" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="547.5" y="275" class="step">2. Windows認証</text><text x="547.5" y="335" class="sub">IIS / Negotiate</text></g>
+    <g><rect x="745" y="190" width="285" height="230" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="887.5" y="275" class="step">3. 本人照合</text><text x="887.5" y="335" class="sub">ドメイン＋GID</text></g>
+    <g><rect x="1085" y="190" width="285" height="230" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1227.5" y="275" class="step">4. 状態確認</text><text x="1227.5" y="330" class="sub"><tspan x="1227.5">初回設定待ち</tspan><tspan x="1227.5" dy="30">期限・ロック</tspan></text></g>
+    <g><rect x="1425" y="190" width="285" height="230" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1567.5" y="275" class="step">5. 本人が設定</text><text x="1567.5" y="330" class="sub"><tspan x="1567.5">ポリシー確認</tspan><tspan x="1567.5" dy="30">トークン発行</tspan></text></g>
+    <g fill="none" stroke="#64748B" stroke-width="6" marker-end="url(#arrowGray)"><path d="M350 305 L395 305"/><path d="M690 305 L735 305"/><path d="M1030 305 L1075 305"/><path d="M1370 305 L1415 305"/></g>
+  </g>
+  <path d="M888 420 L888 565" fill="none" stroke="#C27A21" stroke-width="6" marker-end="url(#arrowOrange)"/>
+  <rect x="805" y="475" width="166" height="36" rx="7" fill="#FFFFFF"/><text x="888" y="501" class="label">条件不成立</text>
+  <rect x="220" y="575" width="1360" height="210" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/>
+  <text x="270" y="650" class="fallback-title">本人確認できない／Windows認証を利用できない</text>
+  <text x="270" y="715" class="fallback">共通のパスワード入力へ戻す → 必要時は管理者発行の一時パスワードで初回変更</text>
+  <text x="70" y="870" class="note">Windows名はOS認証結果を使用し、未知のIDや設定済みユーザーも同じ応答へそろえてユーザー列挙を抑える。</text>
+</svg>
+""".strip(), encoding="utf-8")
+    return {
+        "architecture": (arch, arch_svg),
+        "operation-flow": (flow, flow_svg),
+        "windows-first-setup": (windows_setup, windows_setup_svg),
+    }
 
 
 def build_screenshot_placeholders(asset_dir: Path) -> dict[str, tuple[Path, Path]]:
@@ -697,16 +756,23 @@ def render_markdown(doc: Document, lines: list[str], assets: dict[str, tuple[Pat
         if not text or text == "---":
             i += 1
             continue
-        figure = re.fullmatch(r"\[\[FIGURE:(ARCHITECTURE|OPERATION-FLOW)\]\]", text)
+        figure = re.fullmatch(r"\[\[FIGURE:(ARCHITECTURE|OPERATION-FLOW|WINDOWS-FIRST-SETUP)\]\]", text)
         if figure:
-            key = "architecture" if figure.group(1) == "ARCHITECTURE" else "operation-flow"
+            key = {
+                "ARCHITECTURE": "architecture",
+                "OPERATION-FLOW": "operation-flow",
+                "WINDOWS-FIRST-SETUP": "windows-first-setup",
+            }[figure.group(1)]
             png, svg = assets[key]
             if key == "architecture":
                 add_picture_with_alt(doc, png, 6.15, "WPFクライアント、中央サーバー、SMBサーバー、Agent、Gatewayの接続と信頼境界を示す構成図", svg)
                 add_caption(doc, "図2 Watashiの構成と主な信頼境界")
-            else:
+            elif key == "operation-flow":
                 add_picture_with_alt(doc, png, 6.15, "認証、パス解決、認可、経路選択、SMB実行、監査と応答の順序を示す処理フロー", svg)
                 add_caption(doc, "図3 ファイル操作の共通処理フロー")
+            else:
+                add_picture_with_alt(doc, png, 6.15, "GID入力、Windows認証、本人照合、初回設定待ち状態の確認、本人によるパスワード設定と代替経路を示すフロー", svg)
+                add_caption(doc, "図4 初回Windowsユーザー認証とパスワード設定の流れ")
             i += 1
             continue
         screenshot = re.fullmatch(r"\[\[SCREENSHOT:([A-Z-]+)\]\]", text)
@@ -867,13 +933,13 @@ def build(source: Path, output: Path) -> None:
         ("2. 要求と開発経緯", 6),
         ("3. 設計方針と全体構成", 9),
         ("4. 主要機能の実装", 12),
-        ("5. 検証方法", 17),
-        ("6. 結果", 19),
-        ("7. 考察", 21),
-        ("8. 結論と今後の課題", 23),
-        ("参考文献", 24),
-        ("付録A 要求・実装・検証の対応", 26),
-        ("付録B 提出前チェック", 27),
+        ("5. 検証方法", 19),
+        ("6. 結果", 20),
+        ("7. 考察", 23),
+        ("8. 結論と今後の課題", 25),
+        ("参考文献", 26),
+        ("付録A 要求・実装・検証の対応", 28),
+        ("付録B 提出前チェック", 29),
     ])
     doc.add_page_break()
 
