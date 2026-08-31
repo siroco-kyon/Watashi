@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1050" viewBox="0 0 1800 1050" role="img" aria-labelledby="title desc">
+  <title id="title">Watashiの構成と信頼境界</title>
+  <desc id="desc">WPFクライアント、中央サーバー、SMBサーバー、Agent、Gateway、Target Agentの接続関係を示す。</desc>
+  <defs>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E74B5"/></marker>
+    <style>
+      .title{font:700 40px 'Yu Gothic',sans-serif;fill:#17324D}.box-title{font:700 32px 'Yu Gothic',sans-serif;fill:#17324D;text-anchor:middle}.sub{font:400 20px 'Yu Gothic',sans-serif;fill:#475569;text-anchor:middle}.label{font:600 19px 'Yu Gothic',sans-serif;fill:#334155;text-anchor:middle}.note{font:400 20px 'Yu Gothic',sans-serif;fill:#475569}
+    </style>
+  </defs>
+  <rect x="35" y="35" width="1730" height="980" rx="35" fill="#FAFCFE" stroke="#CBD5E1" stroke-width="4"/>
+  <text x="70" y="105" class="title">Watashiの構成と信頼境界</text>
+  <g><rect x="90" y="230" width="340" height="240" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="260" y="310" class="box-title">WPF Client</text><text x="260" y="365" class="sub"><tspan x="260">利用者端末</tspan><tspan x="260" dy="30">Bearer token</tspan></text></g>
+  <g><rect x="700" y="190" width="420" height="320" rx="22" fill="#DDEEF5" stroke="#1F4D78" stroke-width="4"/><text x="910" y="275" class="box-title">Central Server</text><text x="910" y="335" class="sub"><tspan x="910">認証・認可・監査</tspan><tspan x="910" dy="30">ルーティング・SQLite</tspan></text></g>
+  <g><rect x="1370" y="100" width="340" height="240" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1540" y="180" class="box-title">SMB Server</text><text x="1540" y="235" class="sub"><tspan x="1540">Direct経路</tspan><tspan x="1540" dy="30">SMB資格情報</tspan></text></g>
+  <g><rect x="1300" y="430" width="340" height="240" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/><text x="1470" y="510" class="box-title">Agent</text><text x="1470" y="565" class="sub"><tspan x="1470">mTLS / 共有秘密</tspan><tspan x="1470" dy="30">SMB実行</tspan></text></g>
+  <g><rect x="700" y="700" width="340" height="240" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/><text x="870" y="780" class="box-title">Gateway</text><text x="870" y="835" class="sub"><tspan x="870">一段中継</tspan><tspan x="870" dy="30">共有秘密</tspan></text></g>
+  <g><rect x="1240" y="750" width="340" height="240" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/><text x="1410" y="830" class="box-title">Target Agent</text><text x="1410" y="885" class="sub"><tspan x="1410">隔離網</tspan><tspan x="1410" dy="30">SMB実行</tspan></text></g>
+  <g fill="none" stroke="#2E74B5" stroke-width="6" marker-end="url(#arrowBlue)"><path d="M430 350 L700 350"/><path d="M1120 270 L1370 220"/><path d="M1120 430 L1300 530"/><path d="M910 510 L870 700"/><path d="M1040 820 L1240 850"/></g>
+  <g class="label"><text x="565" y="330">HTTP(S)</text><text x="1245" y="220">Direct / SMB</text><text x="1210" y="450">HTTP(S) + Agent認証</text><text x="860" y="615">HTTP(S) + 共有秘密</text><text x="1140" y="815">HTTP(S) + 共有秘密</text></g>
+  <text x="75" y="1000" class="note">信頼境界ごとに資格情報と保護方式が異なる。HTTPも設定可能なため、配布構成の確認が必要。</text>
+</svg>
