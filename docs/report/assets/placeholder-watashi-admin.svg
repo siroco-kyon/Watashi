@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1012" viewBox="0 0 1800 1012" role="img" aria-label="Watashiのユーザー権限管理画面のスクリーンショットを後から挿入するためのプレースホルダー">
+  <rect width="1800" height="1012" fill="#FFFFFF"/>
+  <rect x="35" y="35" width="1730" height="942" rx="24" fill="#FAFBFC" stroke="#94A3B8" stroke-width="4"/>
+  <rect x="75" y="75" width="1650" height="862" fill="none" stroke="#64748B" stroke-width="3" stroke-dasharray="18 18"/>
+  <text x="900" y="435" text-anchor="middle" font-family="Yu Gothic, sans-serif" font-size="42" font-weight="700" fill="#17324D">Watashi ユーザー権限管理画面</text>
+  <text x="900" y="500" text-anchor="middle" font-family="Yu Gothic, sans-serif" font-size="26" fill="#475569"><tspan x="900" dy="42">共有・許可サブパス・操作種別が分かる画面を挿入</tspan><tspan x="900" dy="42">本文で説明する設定項目が読める解像度にする</tspan></text>
+</svg>

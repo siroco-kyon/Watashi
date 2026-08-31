@@ -1,0 +1,6 @@
+.qa/
+tools/__pycache__/
+assets/*.png
+output/.assets/
+evidence/test-results/*.trx
+
