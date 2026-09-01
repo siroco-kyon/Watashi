@@ -1,6 +1,7 @@
 <Window x:Class="Watashi.Client.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wpf="clr-namespace:System.Windows;assembly=PresentationFramework"
         Title="Watashi"
         Width="1200" Height="780" MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen"
@@ -31,6 +32,62 @@
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 種類色は名前とアイコンだけに使い、選択中とハイコントラストでは標準色を優先する。 -->
+        <Style x:Key="FileEntryColoredText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DataContext.EnableFileTypeColors, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                        <Condition Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Directory"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{DynamicResource FileDirectoryBrush}"/>
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DataContext.EnableFileTypeColors, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                        <Condition Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Csv"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{DynamicResource FileCsvBrush}"/>
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DataContext.EnableFileTypeColors, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                        <Condition Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Text"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{DynamicResource FileTextBrush}"/>
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DataContext.EnableFileTypeColors, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                        <Condition Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Document"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{DynamicResource FileDocumentBrush}"/>
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DataContext.EnableFileTypeColors, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                        <Condition Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Image"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{DynamicResource FileImageBrush}"/>
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding DataContext.EnableFileTypeColors, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                        <Condition Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Archive"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{DynamicResource FileArchiveBrush}"/>
+                </MultiDataTrigger>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource SelectionTextBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
+                    <Setter Property="Foreground"
+                            Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListViewItem}}"/>
+                </DataTrigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
@@ -369,6 +426,7 @@
                                   SelectedItem="{Binding Local.Selected}"
                                   IsEnabled="{Binding Local.IsCurrentListingAvailable}"
                                   SelectionMode="Extended"
+                                  ScrollViewer.VerticalScrollBarVisibility="Visible"
                                   MouseDoubleClick="OnLocalDoubleClick"
                                   KeyDown="OnLocalListKeyDown"
                                   GridViewColumnHeader.Click="OnLocalHeaderClick"
@@ -376,6 +434,9 @@
                                   AutomationProperties.Name="ローカルファイル一覧"
                                   AutomationProperties.HelpText="複数選択できます。Enter で開き、F2 で名前変更、Delete で削除します。"
                                   BorderThickness="0,1,0,0">
+                        <ListView.Resources>
+                            <Style TargetType="ScrollBar" BasedOn="{StaticResource FileListScrollBarStyle}"/>
+                        </ListView.Resources>
                         <ListView.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="開く / 展開" Click="OnLocalContextOpen"/>
@@ -398,14 +459,17 @@
                                 <GridViewColumn Header="" Width="40">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Type, Converter={StaticResource TypeIcon}}" FontSize="15" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Type, Converter={StaticResource TypeIcon}}"
+                                                       Style="{StaticResource FileEntryColoredText}"
+                                                       FontSize="15" HorizontalAlignment="Center"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
                                 <GridViewColumn Header="名前" Width="260">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                            <TextBlock Text="{Binding Name}" Style="{StaticResource FileEntryColoredText}"
+                                                       TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding Name}"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
@@ -679,6 +743,7 @@
                                   ItemsSource="{Binding Remote.Entries}"
                                   SelectedItem="{Binding Remote.Selected}"
                                   SelectionMode="Extended"
+                                  ScrollViewer.VerticalScrollBarVisibility="Visible"
                                   MouseDoubleClick="OnRemoteDoubleClick"
                                   KeyDown="OnRemoteListKeyDown"
                                   GridViewColumnHeader.Click="OnRemoteHeaderClick"
@@ -688,6 +753,9 @@
                                   VirtualizingPanel.VirtualizationMode="Recycling"
                                   ScrollViewer.CanContentScroll="True"
                                   BorderThickness="0,1,0,0">
+                            <ListView.Resources>
+                                <Style TargetType="ScrollBar" BasedOn="{StaticResource FileListScrollBarStyle}"/>
+                            </ListView.Resources>
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem" BasedOn="{StaticResource FileListViewItemStyle}">
                                     <Style.Triggers>
@@ -720,14 +788,17 @@
                                     <GridViewColumn Header="" Width="40">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding Type, Converter={StaticResource TypeIcon}}" FontSize="15" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Type, Converter={StaticResource TypeIcon}}"
+                                                           Style="{StaticResource FileEntryColoredText}"
+                                                           FontSize="15" HorizontalAlignment="Center"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
                                     <GridViewColumn Header="名前" Width="260">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                                <TextBlock Text="{Binding Name}" Style="{StaticResource FileEntryColoredText}"
+                                                           TextTrimming="CharacterEllipsis"
                                                            ToolTip="{Binding Name}"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>

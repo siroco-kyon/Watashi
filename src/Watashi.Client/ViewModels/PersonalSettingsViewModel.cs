@@ -26,6 +26,7 @@ public partial class PersonalSettingsViewModel : ObservableObject
     [ObservableProperty] private bool isLightTheme;
     [ObservableProperty] private bool isDarkTheme;
     [ObservableProperty] private bool useRecycleBinForLocalDeletes;
+    [ObservableProperty] private bool enableFileTypeColors;
     [ObservableProperty] private bool rememberSortOrder;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string statusMessage = string.Empty;
@@ -106,6 +107,7 @@ public partial class PersonalSettingsViewModel : ObservableObject
             candidate.RemoteStartupPlace = SelectedRemoteFavorite;
             candidate.UseRecycleBinForLocalDeletes = UseRecycleBinForLocalDeletes;
             candidate.ThemeMode = IsDarkTheme ? AppThemeModes.Dark : AppThemeModes.Light;
+            candidate.EnableFileTypeColors = EnableFileTypeColors;
             candidate.RememberSortOrder = RememberSortOrder;
             candidate.LocalSortKey = RememberSortOrder ? _currentLocalSortKey : null;
             candidate.RemoteSortKey = RememberSortOrder ? _currentRemoteSortKey : null;
@@ -223,6 +225,7 @@ public partial class PersonalSettingsViewModel : ObservableObject
         IsLightTheme = true;
         IsDarkTheme = false;
         UseRecycleBinForLocalDeletes = true;
+        EnableFileTypeColors = false;
         RememberSortOrder = false;
         StatusMessage = "保存すると個人設定を初期値へ戻します。お気に入りと履歴は残ります。";
     }
@@ -243,6 +246,7 @@ public partial class PersonalSettingsViewModel : ObservableObject
         IsDarkTheme = _settings.ThemeMode == AppThemeModes.Dark;
         IsLightTheme = !IsDarkTheme;
         UseRecycleBinForLocalDeletes = _settings.UseRecycleBinForLocalDeletes;
+        EnableFileTypeColors = _settings.EnableFileTypeColors;
         RememberSortOrder = _settings.RememberSortOrder;
     }
 }

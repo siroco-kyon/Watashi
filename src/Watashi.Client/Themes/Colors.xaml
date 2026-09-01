@@ -41,6 +41,13 @@
     <SolidColorBrush x:Key="SuccessBrush"       Color="{DynamicResource SuccessColor}" />
     <SolidColorBrush x:Key="InfoBrush"          Color="{DynamicResource InfoColor}" />
 
+    <SolidColorBrush x:Key="FileDirectoryBrush" Color="{DynamicResource FileDirectoryColor}" />
+    <SolidColorBrush x:Key="FileCsvBrush"       Color="{DynamicResource FileCsvColor}" />
+    <SolidColorBrush x:Key="FileTextBrush"      Color="{DynamicResource FileTextColor}" />
+    <SolidColorBrush x:Key="FileDocumentBrush"  Color="{DynamicResource FileDocumentColor}" />
+    <SolidColorBrush x:Key="FileImageBrush"      Color="{DynamicResource FileImageColor}" />
+    <SolidColorBrush x:Key="FileArchiveBrush"   Color="{DynamicResource FileArchiveColor}" />
+
     <!-- ===== 角丸 ===== -->
     <CornerRadius x:Key="RadiusSm">4</CornerRadius>
     <CornerRadius x:Key="RadiusMd">6</CornerRadius>

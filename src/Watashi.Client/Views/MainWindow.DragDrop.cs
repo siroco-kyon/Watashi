@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Watashi.Client.Services;
 using Watashi.Shared.DTOs.Files;
 
@@ -21,6 +22,11 @@ public partial class MainWindow
     private const string LocalEntriesFormat = "Watashi/LocalEntries";
     private const string RemoteEntriesFormat = "Watashi/RemoteEntries";
     private Point _dragStart;
+    private ListView? _dragSourceList;
+    private ListViewItem? _dragSourceItem;
+    private IReadOnlyList<FileEntry> _dragEntries = Array.Empty<FileEntry>();
+    private bool _deferSelectionCollapse;
+    private bool _dragStarted;
 
     partial void InitializeDragDrop(AppSettings settings)
     {
@@ -28,8 +34,10 @@ public partial class MainWindow
 
         // --- ドラッグ元 ---
         LocalList.PreviewMouseLeftButtonDown += OnDragSourceMouseDown;
+        LocalList.PreviewMouseLeftButtonUp += OnDragSourceMouseUp;
         LocalList.MouseMove += OnLocalListMouseMove;
         RemoteList.PreviewMouseLeftButtonDown += OnDragSourceMouseDown;
+        RemoteList.PreviewMouseLeftButtonUp += OnDragSourceMouseUp;
         RemoteList.MouseMove += OnRemoteListMouseMove;
 
         // --- ドロップ先 ---
@@ -43,35 +51,99 @@ public partial class MainWindow
     }
 
     private void OnDragSourceMouseDown(object sender, MouseButtonEventArgs e)
-        => _dragStart = e.GetPosition(null);
+    {
+        ResetDragCandidate();
+        if (sender is not ListView list ||
+            FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is not { } item ||
+            !ReferenceEquals(ItemsControl.ItemsControlFromItemContainer(item), list) ||
+            item.DataContext is not FileEntry clickedEntry)
+            return;
+
+        var selectedEntries = SelectedEntries(list);
+        _dragEntries = FileDragSelection.Build(clickedEntry, item.IsSelected, selectedEntries);
+        if (_dragEntries.Count == 0) return;
+
+        _dragSourceList = list;
+        _dragSourceItem = item;
+        _dragStart = e.GetPosition(list);
+
+        // WPF の Extended 選択は、選択済みの行を修飾キーなしで押すと複数選択を
+        // 単一選択へ畳む。ドラッグか通常クリックか確定するまでその変更を保留する。
+        _deferSelectionCollapse = item.IsSelected && selectedEntries.Count > 1 &&
+                                  Keyboard.Modifiers == ModifierKeys.None;
+        if (_deferSelectionCollapse)
+            e.Handled = true;
+    }
+
+    private void OnDragSourceMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_dragStarted && _deferSelectionCollapse &&
+            sender is ListView list && ReferenceEquals(list, _dragSourceList) &&
+            _dragSourceItem is { } item)
+        {
+            list.UnselectAll();
+            item.IsSelected = true;
+            item.Focus();
+            e.Handled = true;
+        }
+        ResetDragCandidate();
+    }
 
     private void OnLocalListMouseMove(object sender, MouseEventArgs e)
     {
-        if (!ShouldBeginDrag(e)) return;
-        var items = SelectedEntries(LocalList);
-        if (items.Count == 0) return;
+        if (!ShouldBeginDrag(LocalList, e)) return;
         var data = new DataObject();
-        data.SetData(LocalEntriesFormat, items);
-        DragDrop.DoDragDrop(LocalList, data, DragDropEffects.Copy);
+        data.SetData(LocalEntriesFormat, _dragEntries);
+        _dragStarted = true;
+        try { DragDrop.DoDragDrop(LocalList, data, DragDropEffects.Copy); }
+        finally { ResetDragCandidate(); }
     }
 
     private void OnRemoteListMouseMove(object sender, MouseEventArgs e)
     {
-        if (!ShouldBeginDrag(e)) return;
-        var items = SelectedEntries(RemoteList);
-        if (items.Count == 0) return;
+        if (!ShouldBeginDrag(RemoteList, e)) return;
         var data = new DataObject();
-        data.SetData(RemoteEntriesFormat, items);
-        DragDrop.DoDragDrop(RemoteList, data, DragDropEffects.Copy);
+        data.SetData(RemoteEntriesFormat, _dragEntries);
+        _dragStarted = true;
+        try { DragDrop.DoDragDrop(RemoteList, data, DragDropEffects.Copy); }
+        finally { ResetDragCandidate(); }
     }
 
     /// <summary>左ボタン押下中で、かつ既定のドラッグ開始しきい値を超えて移動したか。</summary>
-    private bool ShouldBeginDrag(MouseEventArgs e)
+    private bool ShouldBeginDrag(ListView list, MouseEventArgs e)
     {
-        if (e.LeftButton != MouseButtonState.Pressed) return false;
-        var pos = e.GetPosition(null);
+        if (e.LeftButton != MouseButtonState.Pressed ||
+            !ReferenceEquals(_dragSourceList, list) ||
+            _dragSourceItem is null ||
+            _dragEntries.Count == 0)
+            return false;
+        var pos = e.GetPosition(list);
         return Math.Abs(pos.X - _dragStart.X) >= SystemParameters.MinimumHorizontalDragDistance
             || Math.Abs(pos.Y - _dragStart.Y) >= SystemParameters.MinimumVerticalDragDistance;
+    }
+
+    private void ResetDragCandidate()
+    {
+        _dragSourceList = null;
+        _dragSourceItem = null;
+        _dragEntries = Array.Empty<FileEntry>();
+        _deferSelectionCollapse = false;
+        _dragStarted = false;
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current is not null)
+        {
+            if (current is T match) return match;
+            current = current switch
+            {
+                Visual => VisualTreeHelper.GetParent(current),
+                FrameworkContentElement content => content.Parent,
+                _ => null,
+            };
+        }
+        return null;
     }
 
     // ローカル項目 または 外部エクスプローラのファイルだけ受け付ける。
