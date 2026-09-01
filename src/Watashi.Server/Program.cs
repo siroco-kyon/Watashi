@@ -123,8 +123,7 @@ if (useMtls)
 }
 
 // === Windows 統合認証 (初回パスワード設定の本人確認) ===
-// 型と同梱 appsettings.json の既定は Mode=None (無効)。Windows 認証を使う環境だけ、
-// AllowedDomains を設定したうえで IIS / Negotiate を明示的に選ぶ。
+// 型の既定は Mode=None (無効) だが、同梱 appsettings.json は IIS 本番向けに Mode=IIS を指定する。
 // 認証スキームはホスティング方式で異なるため設定で選ぶ:
 //   IIS       … IIS/ASP.NET Core Module がハンドシェイクを処理する (本番構成)
 //   Negotiate … Kestrel 直受け。アプリ内で Negotiate/NTLM を処理する

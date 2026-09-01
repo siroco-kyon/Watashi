@@ -816,8 +816,8 @@ Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue</code></pre>
     "WindowsAuth": {
       "Mode": "IIS",
       "AllowHttp": false,
-      "DomainMatch": "AllowList",
-      "AllowedDomains": ["CORP", "corp.example.com"],
+      "DomainMatch": "IgnoreDomain",
+      "AllowedDomains": [],
       "EnableDiagnostics": true,
       "SetupPerMinutePerIp": 30
     }
@@ -931,7 +931,7 @@ Start-Service Watashi.Server</code></pre>
               <tr><td><code>Encryption:MasterKey</code></td><td class="req">必須</td><td>32 バイト Base64</td><td>CIFS パスワード暗号化用。紛失すると既存ホスト資格情報を復号できない</td></tr>
               <tr><td><code>Auth:AllowHttpForAutoLogin</code></td><td class="opt">任意</td><td><code>false</code> 推奨</td><td>HTTP 接続で「このPCを記憶する」を許可するか。Production は false</td></tr>
               <tr><td><code>Auth:LoginPerMinutePerIp</code></td><td class="opt">任意</td><td>1 分あたり試行数</td><td>同一 NAT で誤検知する場合だけ増やす。既定 10</td></tr>
-              <tr><td><code>Auth:WindowsAuth:*</code></td><td class="req">Windows 認証利用時必須</td><td>初回設定の Windows 本人確認</td><td>同梱設定は安全のため <code>Mode=None</code>。有効化時は <code>DomainMatch=AllowList</code> と1件以上の <code>AllowedDomains</code> が必須。設定手順は <a href="../deploy/IIS-WINDOWS-AUTH-SETUP.html">HTML ガイド</a> と <a href="../deploy/IIS-HOSTING.md">IIS-HOSTING.md</a></td></tr>
+              <tr><td><code>Auth:WindowsAuth:*</code></td><td class="req">IIS 構成で必須</td><td>初回設定の Windows 本人確認</td><td>同梱設定は <code>Mode=IIS</code>。設定手順は <a href="../deploy/IIS-WINDOWS-AUTH-SETUP.html">HTML ガイド</a> と <a href="../deploy/IIS-HOSTING.md">IIS-HOSTING.md</a></td></tr>
               <tr><td><code>Routing:UseMtls</code></td><td class="opt">構成依存</td><td><code>true</code> / <code>false</code></td><td>区間 B を mTLS で相互認証するなら true</td></tr>
               <tr><td><code>Routing:ClientCertificatePath</code></td><td class="req">mTLS 時必須</td><td>中央が Agent へ提示する PFX</td><td>Server → Agent の呼び出しに使うクライアント証明書</td></tr>
               <tr><td><code>Routing:ClientCertificatePassword</code></td><td class="req">mTLS 時必須</td><td>上記 PFX のパスワード</td><td>環境変数での上書きも可</td></tr>
