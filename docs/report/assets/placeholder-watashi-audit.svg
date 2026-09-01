@@ -2,6 +2,6 @@
   <rect width="1800" height="1012" fill="#FFFFFF"/>
   <rect x="35" y="35" width="1730" height="942" rx="24" fill="#FAFBFC" stroke="#94A3B8" stroke-width="4"/>
   <rect x="75" y="75" width="1650" height="862" fill="none" stroke="#64748B" stroke-width="3" stroke-dasharray="18 18"/>
-  <text x="900" y="435" text-anchor="middle" font-family="Yu Gothic, sans-serif" font-size="42" font-weight="700" fill="#17324D">Watashi 操作ログ画面</text>
-  <text x="900" y="500" text-anchor="middle" font-family="Yu Gothic, sans-serif" font-size="26" fill="#475569"><tspan x="900" dy="42">条件検索・結果一覧・CSV出力が分かる画面を挿入</tspan><tspan x="900" dy="42">利用者名・パス・端末情報は合成データ化またはマスキングする</tspan></text>
+  <text x="900" y="425" text-anchor="middle" font-family="Yu Gothic, sans-serif" font-size="64" font-weight="700" fill="#17324D">Watashi 操作ログ画面</text>
+  <text x="900" y="490" text-anchor="middle" font-family="Yu Gothic, sans-serif" font-size="46" fill="#475569"><tspan x="900" dy="62">条件検索・結果一覧・CSV出力が分かる画面を挿入</tspan><tspan x="900" dy="62">利用者名・パス・端末情報は合成データ化またはマスキングする</tspan></text>
 </svg>
