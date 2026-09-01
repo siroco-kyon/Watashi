@@ -477,7 +477,7 @@ Watashi.Client の配布物に同梱する `deployment.json` の `serverUrl` に
 
 ## 11.5 Windows 統合認証を有効にする (初回パスワード設定)
 
-同梱 `appsettings.json` では安全のためこの機能を `Mode=None` で無効にしています。利用時は `Mode=IIS` と `DomainMatch=AllowList`、1件以上の `AllowedDomains` を明示してください。IIS 側の認証設定は [IIS Windows 認証セットアップスクリプト](configure-iis-windows-auth.ps1) で適用でき、変更箇所・実行・確認・復元は [HTML ガイド](IIS-WINDOWS-AUTH-SETUP.html) にまとめています。
+同梱 `appsettings.json` ではこの機能を `Mode=IIS` で有効にしています。IIS 側の認証設定は [IIS Windows 認証セットアップスクリプト](configure-iis-windows-auth.ps1) で適用でき、変更箇所・実行・確認・復元は [HTML ガイド](IIS-WINDOWS-AUTH-SETUP.html) にまとめています。機能を使わない場合は `Mode=None` にし、従来どおり管理者が「🔑 初期PW発行」を実行します。
 
 有効にすると、利用者が Watashi に GID を入力した時点で Windows のログオン情報による本人確認が行われ、**本人が自分で初回パスワードを決められる**ようになります。管理者が初期パスワードを配布する手順がなくなります。
 
@@ -521,8 +521,8 @@ Set-WebConfigurationProperty -PSPath "IIS:\" -Location $site `
   "LoginPerMinutePerIp": 10,
   "WindowsAuth": {
     "Mode": "IIS",
-    "DomainMatch": "AllowList",
-    "AllowedDomains": ["CORP", "corp.example.com"],
+    "DomainMatch": "IgnoreDomain",
+    "AllowedDomains": [],
     "EnableDiagnostics": true,
     "SetupPerMinutePerIp": 30
   }
@@ -531,14 +531,14 @@ Set-WebConfigurationProperty -PSPath "IIS:\" -Location $site `
 
 | キー | 既定 | 説明 |
 |---|---|---|
-| `Mode` | `None` | `None` = 機能オフ。IIS ホストなら `IIS`、Kestrel 直受けなら `Negotiate`。利用時だけ明示的に有効化する |
+| `Mode` | `IIS` | `None` = 機能オフ。IIS ホストなら `IIS`、Kestrel 直受けなら `Negotiate`。設定自体が無い場合のコード既定値は `None` |
 | `AllowHttp` | `false` | HTTP でも初回設定を許すか。ローカル開発専用。本番では `false` のまま |
-| `DomainMatch` | `AllowList` | `IgnoreDomain` = ドメイン部を見ず GID だけで照合する互換モード。`AllowList` = 許可ドメインからのみ受け付ける |
-| `AllowedDomains` | `[]` | `AllowList` のときに許可するドメイン (NetBIOS 名・DNS 名どちらでも)。Windows認証有効時に空だと起動を拒否する |
-| `EnableDiagnostics` | `false` | `GET /api/auth/win/whoami` を有効にする。導入確認中だけ `true` にし、完了後は `false` に戻す |
+| `DomainMatch` | `IgnoreDomain` | `IgnoreDomain` = ドメイン部を見ず GID だけで照合。`AllowList` = 許可ドメインからのみ受け付ける |
+| `AllowedDomains` | `[]` | `AllowList` のときに許可するドメイン (NetBIOS 名・DNS 名どちらでも)。空のままだと全て拒否されます |
+| `EnableDiagnostics` | `true` | `GET /api/auth/win/whoami` を有効にする。導入確認が済み、不要なら `false` に戻す |
 | `SetupPerMinutePerIp` | `30` | 初回設定エンドポイントの IP あたり毎分許可数 |
 
-`AllowList` を維持し、実際に利用するドメインだけを列挙してください。`IgnoreDomain` は単一ドメインが運用上保証された既存環境の互換用途に限定します。
+複数ドメインが混在する環境で、別ドメインの同名アカウントによる乗っ取りを防ぎたい場合は `AllowList` にします。
 
 > `AllowList` は「受け付けるドメイン」を絞る設定であり、Watashi ユーザーごとにドメインを割り当てる設定ではありません。
 > 複数の独立したアカウントドメインを同時に許可する場合は、GID が全許可ドメインを通して一意であることを確認してください。

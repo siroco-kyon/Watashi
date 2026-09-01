@@ -36,8 +36,8 @@ public class WindowsAuthOptions
     /// </summary>
     public bool AllowHttp { get; set; }
 
-    /// <summary><see cref="WindowsAuthDomainMatchModes"/> のいずれか。既定 AllowList。</summary>
-    public string DomainMatch { get; set; } = WindowsAuthDomainMatchModes.AllowList;
+    /// <summary><see cref="WindowsAuthDomainMatchModes"/> のいずれか。既定 IgnoreDomain。</summary>
+    public string DomainMatch { get; set; } = WindowsAuthDomainMatchModes.IgnoreDomain;
 
     /// <summary>DomainMatch = AllowList のときに許可するドメイン (NetBIOS 名・DNS 名どちらでも)。</summary>
     public IList<string> AllowedDomains { get; set; } = new List<string>();

@@ -250,8 +250,7 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 | `GET /api/auth/win/whoami` | 導入時の疎通確認 (`EnableDiagnostics=true` の場合のみ) |
 
 - 設定値は `Auth:WindowsAuth` 配下。`Mode` は `None` / `IIS` / `Negotiate`。
-  同梱 `appsettings.json` とコード既定値は `Mode=None`。有効化時は既定の `DomainMatch=AllowList` と
-  1件以上の `AllowedDomains` を必須とし、ドメイン設定漏れでは起動を拒否する
+  同梱 `appsettings.json` は IIS 本番向けに `Mode=IIS` を指定し、設定自体が無い場合のコード既定値は `None`
 - OS アカウント名は `DOMAIN\GID` / `GID@domain` / `GID` の 3 形態を正規化して照合。
   ドメイン部の扱いは `DomainMatch` (`IgnoreDomain` / `AllowList`) で切り替える
   - `AllowList` はユーザー単位のドメイン紐付けではない。複数の独立ドメインを許可する場合、

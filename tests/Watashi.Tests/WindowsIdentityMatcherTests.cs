@@ -11,14 +11,14 @@ namespace Watashi.Tests;
 public class WindowsIdentityMatcherTests
 {
     [Fact]
-    public void Defaults_are_fail_closed_until_an_allowed_domain_is_configured()
+    public void Defaults_ignore_the_domain_for_IIS_compatibility()
     {
         var options = new WindowsAuthOptions { Mode = WindowsAuthModes.Negotiate };
 
-        options.DomainMatch.Should().Be(WindowsAuthDomainMatchModes.AllowList);
-        WindowsIdentityMatcher.Matches(@"CORP\G012345", "G012345", options).Should().BeFalse();
+        options.DomainMatch.Should().Be(WindowsAuthDomainMatchModes.IgnoreDomain);
+        WindowsIdentityMatcher.Matches(@"CORP\G012345", "G012345", options).Should().BeTrue();
         Action validate = options.Validate;
-        validate.Should().Throw<InvalidOperationException>().WithMessage("*AllowedDomains*");
+        validate.Should().NotThrow();
     }
 
     private static WindowsAuthOptions IgnoreDomain() => new()
