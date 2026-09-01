@@ -36,8 +36,8 @@ public class AgentOrSharedSecretHandler : AuthorizationHandler<AgentOrSharedSecr
             http.Request.Headers.TryGetValue("X-Watashi-Secret", out var got) &&
             CryptographicEquals(got.ToString(), expected))
         {
-            // 共有秘密そのものは Agent ごとの識別情報ではない。識別済みと誤認しないよう
-            // 専用 claim だけを付与し、endpoint 側で「有効 Agent が1台だけ」の場合に限り bind する。
+            // 共有秘密そのものは Agent ごとの識別情報ではない。
+            // 専用 claim だけを付与し、endpoint 側で AgentId と有効ノードを照合する。
             context.User.AddIdentity(new System.Security.Claims.ClaimsIdentity(
                 new[] { new System.Security.Claims.Claim(SharedSecretClaim, "1") },
                 authenticationType: "AgentSharedSecret"));
