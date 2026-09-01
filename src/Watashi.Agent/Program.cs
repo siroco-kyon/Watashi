@@ -10,6 +10,7 @@ using Watashi.Agent.Data;
 using Watashi.Agent.Endpoints;
 using Watashi.Agent.Services;
 using Watashi.Shared.Cifs;
+using Watashi.Shared.Constants;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseWindowsService(o => o.ServiceName = "Watashi.Agent");
@@ -97,9 +98,13 @@ builder.Services.AddAuthorization(options =>
 // === outbound (中央サーバへの heartbeat/log) ===
 builder.Services.AddHttpClient("central", (sp, client) =>
 {
-    var sharedSecret = sp.GetRequiredService<IConfiguration>()["Auth:SharedSecret"];
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    var sharedSecret = cfg["Auth:SharedSecret"];
     if (!string.IsNullOrEmpty(sharedSecret))
         client.DefaultRequestHeaders.Add("X-Watashi-Secret", sharedSecret);
+    var agentId = cfg["Agent:AgentId"]?.Trim();
+    if (!string.IsNullOrEmpty(agentId))
+        client.DefaultRequestHeaders.Add(AgentProtocolHeaders.AgentId, agentId);
 }).ConfigurePrimaryHttpMessageHandler(sp =>
 {
     var cfg = sp.GetRequiredService<IConfiguration>();

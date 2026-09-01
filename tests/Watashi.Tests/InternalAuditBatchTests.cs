@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Watashi.Server.Auth;
 using Watashi.Server.Endpoints;
 using Watashi.Shared.Constants;
@@ -104,29 +105,64 @@ public class InternalAuditBatchTests
             new Claim(AgentCertificateValidator.AgentIdClaim, node.Name),
         }, "Certificate"));
 
-        var resolved = await InternalEndpoints.ResolveAuthenticatedNodeAsync(principal, db.Db);
+        var resolved = await InternalEndpoints.ResolveHeartbeatNodeAsync(principal, db.Db, node.Name);
 
         resolved!.Id.Should().Be(node.Id);
     }
 
     [Fact]
-    public async Task Shared_secret_is_bound_only_when_exactly_one_active_agent_exists()
+    public async Task Shared_secret_can_resolve_each_agent_by_heartbeat_agent_id()
     {
         using var db = new TestDb();
-        db.Db.ExecutionNodes.Add(AgentNode("agent-a"));
+        var agentA = AgentNode("agent-a");
+        var agentB = AgentNode("agent-b");
+        db.Db.ExecutionNodes.AddRange(agentA, agentB);
         await db.Db.SaveChangesAsync();
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
         {
             new Claim(AgentOrSharedSecretHandler.SharedSecretClaim, "1"),
         }, "AgentSharedSecret"));
 
-        (await InternalEndpoints.ResolveAuthenticatedNodeAsync(principal, db.Db))
-            .Should().NotBeNull();
-
-        db.Db.ExecutionNodes.Add(AgentNode("agent-b"));
-        await db.Db.SaveChangesAsync();
-        (await InternalEndpoints.ResolveAuthenticatedNodeAsync(principal, db.Db))
+        (await InternalEndpoints.ResolveHeartbeatNodeAsync(principal, db.Db, "agent-a"))!
+            .Id.Should().Be(agentA.Id);
+        (await InternalEndpoints.ResolveHeartbeatNodeAsync(principal, db.Db, "agent-b"))!
+            .Id.Should().Be(agentB.Id);
+        (await InternalEndpoints.ResolveHeartbeatNodeAsync(principal, db.Db, "unknown"))
             .Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Shared_secret_agent_id_must_name_an_active_agent_node()
+    {
+        using var db = new TestDb();
+        var inactive = AgentNode("agent-inactive");
+        inactive.IsActive = false;
+        var direct = AgentNode("direct-a");
+        direct.NodeType = NodeTypes.Direct;
+        db.Db.ExecutionNodes.AddRange(inactive, direct);
+        await db.Db.SaveChangesAsync();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(AgentOrSharedSecretHandler.SharedSecretClaim, "1"),
+        }, "AgentSharedSecret"));
+
+        (await InternalEndpoints.ResolveSharedSecretNodeAsync(
+            principal, db.Db, inactive.Name)).Should().BeNull();
+        (await InternalEndpoints.ResolveSharedSecretNodeAsync(
+            principal, db.Db, direct.Name)).Should().BeNull();
+    }
+
+    [Fact]
+    public void Agent_id_header_requires_one_non_empty_value_and_is_trimmed()
+    {
+        var ctx = new DefaultHttpContext();
+        InternalEndpoints.ReadClaimedAgentId(ctx.Request).Should().BeNull();
+
+        ctx.Request.Headers[AgentProtocolHeaders.AgentId] = "  agent-a  ";
+        InternalEndpoints.ReadClaimedAgentId(ctx.Request).Should().Be("agent-a");
+
+        ctx.Request.Headers[AgentProtocolHeaders.AgentId] = string.Empty;
+        InternalEndpoints.ReadClaimedAgentId(ctx.Request).Should().BeNull();
     }
 
     [Fact]
@@ -150,6 +186,29 @@ public class InternalAuditBatchTests
         log.UserId.Should().BeNull();
         log.Username.Should().Be("(agent:agent-a)");
         log.Operation.Should().Be("AGENT_REPORTED/DOWNLOAD");
+        log.Protocol.Should().Be("AGENT");
+    }
+
+    [Fact]
+    public void Shared_secret_audit_is_accepted_without_trusting_a_claimed_agent_identity()
+    {
+        var receivedAt = DateTime.UtcNow;
+        var log = new AuditLog
+        {
+            UserId = 123,
+            Username = "alice",
+            Operation = "DOWNLOAD",
+            Result = AuditResults.Success,
+            ExecutionNodeId = 999,
+        };
+
+        InternalEndpoints.BindSharedSecretAgent(log, receivedAt);
+
+        log.UserId.Should().BeNull();
+        log.Username.Should().Be("(agent:shared-secret)");
+        log.Operation.Should().Be("AGENT_REPORTED/DOWNLOAD");
+        log.ExecutionNodeId.Should().BeNull();
+        log.Timestamp.Should().Be(receivedAt);
         log.Protocol.Should().Be("AGENT");
     }
 

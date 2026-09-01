@@ -550,7 +550,7 @@ dotnet publish src\Watashi.Agent\Watashi.Agent.csproj `
 
 HTTP + 共有秘密モードでは `Certificate:Path` / `Certificate:Password` は空でよいです。Agent の待受も `Kestrel:Endpoints:Http` を使うため、Agent 側に HTTPS サーバ証明書は不要です。証明書が必要になるのは Client↔Server を HTTPS にする中央 Server 側、または `Routing:UseMtls=true` で mTLS を使う場合だけです。`Routing:UseMtls=false` で `Auth:SharedSecret` が空の場合、Agent は起動時に設定エラーとして停止します。
 
-> Agent → Server の heartbeat と監査ログは送信 Agent を一意に特定する必要があります。共有秘密は Agent 個別の資格情報ではないため、共有秘密モードで利用できる有効な Agent node は1台だけです。複数 Agent 構成では Agent ごとの証明書を登録し、mTLS を使用してください。曖昧な共有秘密リクエストは 403 で拒否されます。
+> 複数 Agent でも同じ共有秘密を利用できます。heartbeat は各 Agent の `Agent:AgentId` と中央の `ExecutionNodes.Name` を照合します。現行 Agent は heartbeat / 監査ログに `X-Watashi-Agent-Id` も送信し、監査ログを `(agent:<AgentId>)` に結び付けます。旧 Agent は引き続き接続でき、IDヘッダーのない監査ログだけは `(agent:shared-secret)` として受理されます。
 
 旧 `deploy/install-agent.ps1` を使って HTTP 共有秘密モードでインストールする場合は、必ず `-SharedSecret` を指定してください。未指定だと Agent は証明書も `X-Watashi-Secret` も送れず、heartbeat と Server→Agent の転送リクエストが認証に失敗します。
 
@@ -774,7 +774,7 @@ HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いま
 
 複数の踏み台サーバーに Agent を配置できます。各 Agent で `Agent:AgentId` を一意にし、中央の管理画面で同じ名前の ExecutionNode を登録してください。CIFS ホスト登録時にどの ExecutionNode から接続するかを選ぶため、ネットワークセグメントごとに Agent を分けられます。
 
-複数 Agent から中央 Server へ heartbeat / 監査ログを送る構成では mTLS が必須です。単一の `Routing:SharedSecret` では送信 Agent を区別できないため、複数の有効な Agent node がある状態の共有秘密リクエストは拒否されます。
+複数 Agent でも中央 Server と共通の `Routing:SharedSecret` / `Auth:SharedSecret` を使用できます。各 Agent の `Agent:AgentId` は一意にし、中央の `ExecutionNodes.Name` と完全一致させてください。共有秘密を知る Agent は他の AgentId を申告できるため、すべての Agent を同じ管理・信頼境界として扱う構成です。
 
 `Server → Agent A → Agent B → CIFS` の 1段チェーンも使えます。Agent B の ExecutionNode に `経由 Agent=Agent A` を設定してください。2段以上のチェーンと mTLS チェーンは非対応です。
 

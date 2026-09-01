@@ -507,8 +507,12 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 
 - **mTLS モード**: 中央のクライアント証明書サムプリントを `Auth:CentralCertificateThumbprint` と照合
 - **共有秘密モード**: `X-Watashi-Secret` を `Auth:SharedSecret` と一致確認
-- Agent → 中央の heartbeat / 監査ログは認証済み ExecutionNode に固定する。共有秘密では個別 Agent を
-  識別できないため、有効 Agent が1台の場合だけ受け付け、複数 Agent 構成では mTLS を必須とする
+- Agent → 中央の heartbeat / 監査ログは `X-Watashi-Agent-Id` を送信する。heartbeat では
+  本文の `AgentId` とも完全一致させ、中央の有効な ExecutionNode 名と照合する
+- 複数 Agent で同じ共有秘密を利用できる。共有秘密自体は個別 Agent の本人性を証明しないため、
+  AgentId は同一の信頼境界内での申告識別子として扱う
+- `X-Watashi-Agent-Id` を送らない旧 Agent も互換性のため受け付ける。heartbeat は本文の `AgentId` で照合し、
+  監査ログは個別 Agent を特定せず `(agent:shared-secret)` として保存する
 - 両方未設定なら全アクセス拒否 (401)
 
 ### 9.4 ハートビート

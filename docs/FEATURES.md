@@ -257,7 +257,8 @@
 ### 認証 (inbound)
 - mTLS モード: 中央サーバの **クライアント証明書サムプリント** を `Auth:CentralCertificateThumbprint` と照合
 - 共有秘密モード: `X-Watashi-Secret` ヘッダの値を `Auth:SharedSecret` と一致確認
-- Agent → 中央の heartbeat / 監査ログは認証済み node へ固定。共有秘密は単一 Agent 構成のみ、複数 Agent は mTLS 必須
+- 複数 Agent でも共通の共有秘密を利用可能。heartbeat は AgentId と中央の ExecutionNode 名を照合
+- Agent → 中央の内部通信は `X-Watashi-Agent-Id` を付与し、監査ログも AgentId 別に記録。ヘッダーを送らない旧 Agent も互換受理
 - 両方とも未設定だと全アクセス拒否（401）
 
 ### ハートビート

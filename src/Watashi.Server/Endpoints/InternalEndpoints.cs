@@ -17,15 +17,24 @@ public static class InternalEndpoints
         // 認証スキームは "Certificate" 固定で、JWT は受け付けない。
         var group = app.MapGroup("/api/internal").RequireAuthorization("Agent");
 
-        group.MapPost("/heartbeat", async (HeartbeatRequest req, ClaimsPrincipal principal, AppDbContext db, ILoggerFactory lf, CancellationToken ct) =>
+        group.MapPost("/heartbeat", async (HeartbeatRequest req, HttpContext ctx, ClaimsPrincipal principal, AppDbContext db, ILoggerFactory lf, CancellationToken ct) =>
         {
             var logger = lf.CreateLogger("Internal");
             if (string.IsNullOrWhiteSpace(req.AgentId))
                 return Results.BadRequest(new { error = "AgentId が必要です。" });
-            var node = await ResolveAuthenticatedNodeAsync(principal, db, ct);
+            var headerAgentId = ReadClaimedAgentId(ctx.Request);
+            if (ctx.Request.Headers.ContainsKey(AgentProtocolHeaders.AgentId) && headerAgentId is null)
+                return Results.BadRequest(new { error = $"{AgentProtocolHeaders.AgentId} は1つの非空値で指定してください。" });
+            if (headerAgentId is not null &&
+                !string.Equals(headerAgentId, req.AgentId, StringComparison.Ordinal))
+            {
+                logger.LogWarning("Heartbeat AgentId 不一致 header={Header} body={Body}", headerAgentId, req.AgentId);
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+            var node = await ResolveHeartbeatNodeAsync(principal, db, req.AgentId, ct);
             if (node is null)
             {
-                logger.LogWarning("Heartbeat の認証主体を一意な Agent に結び付けられません。mTLS または単一 Agent 構成が必要です。");
+                logger.LogWarning("Heartbeat の認証主体を Agent に結び付けられません。AgentId={AgentId}", req.AgentId);
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             }
             if (!string.Equals(node.Name, req.AgentId, StringComparison.Ordinal))
@@ -44,17 +53,41 @@ public static class InternalEndpoints
             return Results.Ok(new HeartbeatAck { MaxConcurrency = node.MaxConcurrency });
         });
 
-        group.MapPost("/audit-logs/batch", async (AuditBatchRequest body, ClaimsPrincipal principal, AppDbContext db, ILoggerFactory lf, CancellationToken ct) =>
+        group.MapPost("/audit-logs/batch", async (AuditBatchRequest body, HttpContext ctx, ClaimsPrincipal principal, AppDbContext db, ILoggerFactory lf, CancellationToken ct) =>
         {
             var logger = lf.CreateLogger("Internal");
             if (body.Items is null || body.Items.Length == 0) return Results.NoContent();
-            var node = await ResolveAuthenticatedNodeAsync(principal, db, ct);
-            if (node is null)
+            var certificateNode = await ResolveCertificateNodeAsync(principal, db, ct);
+            var usesSharedSecret = principal.HasClaim(AgentOrSharedSecretHandler.SharedSecretClaim, "1");
+            if (certificateNode is null && !usesSharedSecret)
             {
-                logger.LogWarning("監査ログ送信主体を一意な Agent に結び付けられません。mTLS または単一 Agent 構成が必要です。");
+                logger.LogWarning("監査ログ送信主体を認証できません。");
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             }
-            var agentLabel = node.Name;
+            var headerAgentId = ReadClaimedAgentId(ctx.Request);
+            if (ctx.Request.Headers.ContainsKey(AgentProtocolHeaders.AgentId) && headerAgentId is null)
+                return Results.BadRequest(new { error = $"{AgentProtocolHeaders.AgentId} は1つの非空値で指定してください。" });
+
+            ExecutionNode? authenticatedNode = certificateNode;
+            if (certificateNode is not null && headerAgentId is not null &&
+                !string.Equals(certificateNode.Name, headerAgentId, StringComparison.Ordinal))
+            {
+                logger.LogWarning("監査ログ AgentId 不一致 authenticated={Authenticated} header={Header}",
+                    certificateNode.Name, headerAgentId);
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+            if (authenticatedNode is null && headerAgentId is not null)
+            {
+                authenticatedNode = await ResolveSharedSecretNodeAsync(
+                    principal, db, headerAgentId, ct);
+                if (authenticatedNode is null)
+                {
+                    logger.LogWarning("監査ログの AgentId を有効なノードに結び付けられません。AgentId={AgentId}",
+                        headerAgentId);
+                    return Results.StatusCode(StatusCodes.Status403Forbidden);
+                }
+            }
+            var agentLabel = authenticatedNode?.Name ?? "shared-secret";
             var accepted = new List<int>();
             var rejected = new List<AuditRejectedItem>();
             var candidates = new List<(int Index, AuditLog Log)>();
@@ -75,7 +108,10 @@ public static class InternalEndpoints
                         logger.LogWarning("audit-log バッチ内の不正レコードをスキップ agent={Agent} len={Len}", agentLabel, json.Length);
                         continue;
                     }
-                    BindAuthenticatedAgent(log, node.Id, node.Name, DateTime.UtcNow);
+                    if (authenticatedNode is not null)
+                        BindAuthenticatedAgent(log, authenticatedNode.Id, authenticatedNode.Name, DateTime.UtcNow);
+                    else
+                        BindSharedSecretAgent(log, DateTime.UtcNow);
                     candidates.Add((index, log));
                 }
                 catch (Exception ex)
@@ -111,24 +147,55 @@ public static class InternalEndpoints
 
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
+    internal static string? ReadClaimedAgentId(HttpRequest request)
+    {
+        if (!request.Headers.TryGetValue(AgentProtocolHeaders.AgentId, out var values) ||
+            values.Count != 1)
+            return null;
+        var value = values[0]?.Trim();
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
     /// <summary>
-    /// mTLS は証明書に対応する node を使用する。共有秘密は Agent 個別の資格情報ではないため、
-    /// 有効な Agent node が1台だけの場合に限り一意に bind し、複数台なら fail-closed にする。
+    /// mTLS は証明書に対応する node を使用する。共有秘密の場合は従来互換として、
+    /// heartbeat 本文の AgentId を有効な Agent node と照合する。
     /// </summary>
-    internal static async Task<ExecutionNode?> ResolveAuthenticatedNodeAsync(
+    internal static async Task<ExecutionNode?> ResolveHeartbeatNodeAsync(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        string claimedAgentId,
+        CancellationToken ct = default)
+    {
+        var certificateNode = await ResolveCertificateNodeAsync(principal, db, ct);
+        if (certificateNode is not null) return certificateNode;
+
+        return await ResolveSharedSecretNodeAsync(principal, db, claimedAgentId, ct);
+    }
+
+    internal static async Task<ExecutionNode?> ResolveSharedSecretNodeAsync(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        string claimedAgentId,
+        CancellationToken ct = default)
+    {
+        if (!principal.HasClaim(AgentOrSharedSecretHandler.SharedSecretClaim, "1") ||
+            string.IsNullOrWhiteSpace(claimedAgentId))
+            return null;
+        var normalizedAgentId = claimedAgentId.Trim();
+        return await db.ExecutionNodes.FirstOrDefaultAsync(
+            node => node.Name == normalizedAgentId &&
+                    node.IsActive &&
+                    node.NodeType == NodeTypes.Agent,
+            ct);
+    }
+
+    internal static async Task<ExecutionNode?> ResolveCertificateNodeAsync(
         ClaimsPrincipal principal, AppDbContext db, CancellationToken ct = default)
     {
         var nodeIdValue = principal.FindFirst(AgentCertificateValidator.NodeIdClaim)?.Value;
-        if (int.TryParse(nodeIdValue, out var nodeId))
-            return await db.ExecutionNodes.FirstOrDefaultAsync(
-                node => node.Id == nodeId && node.IsActive && node.NodeType == NodeTypes.Agent, ct);
-
-        if (!principal.HasClaim(AgentOrSharedSecretHandler.SharedSecretClaim, "1")) return null;
-        var candidates = await db.ExecutionNodes
-            .Where(node => node.IsActive && node.NodeType == NodeTypes.Agent)
-            .Take(2)
-            .ToListAsync(ct);
-        return candidates.Count == 1 ? candidates[0] : null;
+        if (!int.TryParse(nodeIdValue, out var nodeId)) return null;
+        return await db.ExecutionNodes.FirstOrDefaultAsync(
+            node => node.Id == nodeId && node.IsActive && node.NodeType == NodeTypes.Agent, ct);
     }
 
     internal static void BindAuthenticatedAgent(
@@ -143,6 +210,20 @@ public static class InternalEndpoints
         log.Username = $"(agent:{nodeName})";
         log.Operation = $"AGENT_REPORTED/{reportedOperation}";
         log.ExecutionNodeId = nodeId;
+        log.Timestamp = receivedAt;
+        log.Protocol = "AGENT";
+    }
+
+    internal static void BindSharedSecretAgent(AuditLog log, DateTime receivedAt)
+    {
+        // 共通の共有秘密では複数 Agent のうちどれが送信したかを証明できない。
+        // 受理はするが、申告されたユーザー/ノードを信頼済み主体として保存しない。
+        var reportedOperation = log.Operation.Trim();
+        if (reportedOperation.Length > 128) reportedOperation = reportedOperation[..128];
+        log.UserId = null;
+        log.Username = "(agent:shared-secret)";
+        log.Operation = $"AGENT_REPORTED/{reportedOperation}";
+        log.ExecutionNodeId = null;
         log.Timestamp = receivedAt;
         log.Protocol = "AGENT";
     }
