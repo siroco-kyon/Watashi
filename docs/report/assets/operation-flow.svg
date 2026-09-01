@@ -1,18 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="950" viewBox="0 0 1800 950" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1050" viewBox="0 0 1800 1050" role="img" aria-labelledby="title desc">
   <title id="title">ファイル操作の共通処理</title>
   <desc id="desc">認証、パス解決、認可、経路選択、SMB実行、監査と応答の順序を示す。</desc>
-  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#64748B"/></marker><style>.title{font:700 60px 'Yu Gothic',sans-serif;fill:#17324D}.step{font:700 60px 'Yu Gothic',sans-serif;fill:#17324D;text-anchor:middle}.sub{font:400 48px 'Yu Gothic',sans-serif;fill:#475569;text-anchor:middle}.note{font:400 40px 'Yu Gothic',sans-serif;fill:#475569}</style></defs>
-  <rect x="35" y="35" width="1730" height="880" rx="35" fill="#FAFCFE" stroke="#CBD5E1" stroke-width="4"/>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#64748B"/></marker><style>.title{font-family:'Yu Gothic',sans-serif;font-size:72px;font-weight:700;fill:#17324D}.step{font-family:'Yu Gothic',sans-serif;font-size:72px;font-weight:700;fill:#17324D;text-anchor:middle}.sub{font-family:'Yu Gothic',sans-serif;font-size:58px;font-weight:400;fill:#475569;text-anchor:middle}.note{font-family:'Yu Gothic',sans-serif;font-size:50px;font-weight:400;fill:#475569}</style></defs>
+  <rect x="35" y="35" width="1730" height="980" rx="35" fill="#FAFCFE" stroke="#CBD5E1" stroke-width="4"/>
   <text x="65" y="92" class="title">ファイル操作の共通処理</text>
   <g>
-    <g><rect x="80" y="155" width="480" height="230" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="320" y="245" class="step">1. 認証</text><text x="320" y="315" class="sub">JWT・利用者状態</text></g>
-    <g><rect x="660" y="155" width="480" height="230" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="900" y="245" class="step">2. パス解決</text><text x="900" y="315" class="sub">正規化・境界</text></g>
-    <g><rect x="1240" y="155" width="480" height="230" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="1480" y="235" class="step">3. 認可</text><text x="1480" y="292" class="sub"><tspan x="1480">共有×サブパス</tspan><tspan x="1480" dy="52">×操作</tspan></text></g>
-    <g><rect x="1240" y="500" width="480" height="230" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1480" y="590" class="step">4. 経路選択</text><text x="1480" y="660" class="sub">Direct / Agent</text></g>
-    <g><rect x="660" y="500" width="480" height="230" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="900" y="590" class="step">5. 実行</text><text x="900" y="660" class="sub">SMB操作</text></g>
-    <g><rect x="80" y="500" width="480" height="230" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="320" y="590" class="step">6. 監査・応答</text><text x="320" y="660" class="sub">成功・拒否・失敗</text></g>
-    <g fill="none" stroke="#64748B" stroke-width="6" marker-end="url(#arrow)"><path d="M560 270 L650 270"/><path d="M1140 270 L1230 270"/><path d="M1480 385 L1480 490"/><path d="M1240 615 L1150 615"/><path d="M660 615 L570 615"/></g>
+    <g><rect x="80" y="150" width="480" height="260" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="320" y="245" class="step">1. 認証</text><text x="320" y="325" class="sub">JWT・利用者状態</text></g>
+    <g><rect x="660" y="150" width="480" height="260" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="900" y="245" class="step">2. パス解決</text><text x="900" y="325" class="sub">正規化・境界</text></g>
+    <g><rect x="1240" y="150" width="480" height="260" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="1480" y="235" class="step">3. 認可</text><text x="1480" y="300" class="sub"><tspan x="1480">共有×サブパス</tspan><tspan x="1480" dy="62">×操作</tspan></text></g>
+    <g><rect x="1240" y="500" width="480" height="260" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1480" y="595" class="step">4. 経路選択</text><text x="1480" y="675" class="sub">Direct / Agent</text></g>
+    <g><rect x="660" y="500" width="480" height="260" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="900" y="595" class="step">5. 実行</text><text x="900" y="675" class="sub">SMB操作</text></g>
+    <g><rect x="80" y="500" width="480" height="260" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="320" y="595" class="step">6. 監査・応答</text><text x="320" y="675" class="sub">成功・拒否・失敗</text></g>
+    <g fill="none" stroke="#64748B" stroke-width="6" marker-end="url(#arrow)"><path d="M560 280 L650 280"/><path d="M1140 280 L1230 280"/><path d="M1480 410 L1480 490"/><path d="M1240 630 L1150 630"/><path d="M660 630 L570 630"/></g>
   </g>
-  <text x="70" y="846" class="note">認可を経路選択より前に置き、DirectとAgentに共通の権限制御を適用する。</text>
-  <text x="70" y="891" class="note">監査記録は復旧経路を含めて一貫して扱う。</text>
+  <text x="70" y="895" class="note">認可を先に行い、DirectとAgentへ</text>
+  <text x="70" y="960" class="note">共通の権限制御を適用する。監査も一貫して扱う。</text>
 </svg>
