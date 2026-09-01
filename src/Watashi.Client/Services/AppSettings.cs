@@ -57,6 +57,8 @@ public class AppSettings
     public bool UseRecycleBinForLocalDeletes { get; set; } = true;
     /// <summary>クライアントの外観。Light / Dark のいずれか。System は旧版からの移行時だけ受け付ける。</summary>
     public string ThemeMode { get; set; } = AppThemeModes.Light;
+    /// <summary>ファイル一覧の名前を種類別の色で表示する。既存利用者の表示を維持するため既定は無効。</summary>
+    public bool EnableFileTypeColors { get; set; }
     /// <summary>リモートペインの開始位置。None / LastUsed / Favorite。</summary>
     public string RemoteStartupMode { get; set; } = RemoteStartupModes.None;
     /// <summary>RemoteStartupMode が Favorite のときに開くお気に入り。</summary>
@@ -267,6 +269,7 @@ public class AppSettings
         RemoteStartupPlace = null;
         UseRecycleBinForLocalDeletes = true;
         ThemeMode = AppThemeModes.Light;
+        EnableFileTypeColors = false;
         RememberSortOrder = false;
         LocalSortKey = null;
         RemoteSortKey = null;
@@ -353,6 +356,7 @@ public class AppSettings
         FixedLocalStartupPath = source.FixedLocalStartupPath;
         UseRecycleBinForLocalDeletes = source.UseRecycleBinForLocalDeletes;
         ThemeMode = source.ThemeMode;
+        EnableFileTypeColors = source.EnableFileTypeColors;
         RemoteStartupMode = source.RemoteStartupMode;
         RemoteStartupPlace = ClonePlace(source.RemoteStartupPlace);
         LastRemotePlace = ClonePlace(source.LastRemotePlace);

@@ -41,4 +41,12 @@
     <Color x:Key="SuccessColor">#1A7F37</Color>
     <Color x:Key="InfoColor">#0969DA</Color>
 
+    <!-- ファイル一覧の種類別文字色 (SurfaceColor 上で 4.5:1 以上) -->
+    <Color x:Key="FileDirectoryColor">#0550AE</Color>
+    <Color x:Key="FileCsvColor">#116329</Color>
+    <Color x:Key="FileTextColor">#57606A</Color>
+    <Color x:Key="FileDocumentColor">#6E40C9</Color>
+    <Color x:Key="FileImageColor">#953800</Color>
+    <Color x:Key="FileArchiveColor">#7D4E00</Color>
+
 </ResourceDictionary>

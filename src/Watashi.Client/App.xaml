@@ -17,6 +17,7 @@
             <conv:SizeFormatConverter x:Key="SizeFmt"/>
             <conv:NotBoolConverter x:Key="NotBool"/>
             <conv:TypeToIconConverter x:Key="TypeIcon"/>
+            <conv:FileEntryVisualCategoryConverter x:Key="FileEntryVisualCategory"/>
             <conv:StatusMessageToBrushConverter x:Key="StatusBrush"/>
             <conv:DiagnosticStatusToLabelConverter x:Key="DiagnosticStatusLabel"/>
         </ResourceDictionary>

@@ -96,6 +96,12 @@
                                   IsChecked="{Binding RememberSortOrder, Mode=TwoWay}"
                                   Margin="0,12,0,0"
                                   AutomationProperties.Name="一覧の並び順を記憶"/>
+                        <CheckBox Content="ファイルやフォルダーを種類別に色分けする"
+                                  IsChecked="{Binding EnableFileTypeColors, Mode=TwoWay}"
+                                  Margin="0,8,0,0"
+                                  AutomationProperties.Name="ファイルやフォルダーを種類別に色分け"/>
+                        <TextBlock Text="フォルダー、CSV、テキスト、文書、画像、圧縮ファイルの名前を色分けします。"
+                                   Style="{StaticResource Caption}" Margin="22,5,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 

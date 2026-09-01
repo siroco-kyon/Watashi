@@ -114,8 +114,8 @@ public partial class MainWindow : Window
             _vm.Remote.SortKey);
         var window = new Views.PersonalSettingsWindow(settingsVm, _vm.Local.CurrentPath) { Owner = this };
         var saved = window.ShowDialog() == true;
-        if (saved) _vm.Local.ApplyUserPreferences();
-        if (saved || window.RemoteHistoryChanged) _vm.Remote.ApplyUserPreferences();
+        if (saved) _vm.ApplyUserPreferences();
+        else if (window.RemoteHistoryChanged) _vm.Remote.ApplyUserPreferences();
     }
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)

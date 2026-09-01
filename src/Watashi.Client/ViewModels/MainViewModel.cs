@@ -22,6 +22,7 @@ public partial class MainViewModel : ObservableObject
 
     private readonly ApiClient _api;
     private readonly SessionManager _session;
+    private readonly AppSettings _settings;
     public LocalPaneViewModel Local { get; }
     public RemotePaneViewModel Remote { get; }
     public TransferViewModel Transfer { get; } = new();
@@ -43,6 +44,7 @@ public partial class MainViewModel : ObservableObject
     public string ProtocolLabel { get; }
     public bool IsHttpConnection { get; }
     public string HttpTransportWarning => AppSettings.HttpTransportWarning;
+    public bool EnableFileTypeColors => _settings.EnableFileTypeColors;
 
     public MainViewModel(
         ApiClient api,
@@ -53,7 +55,7 @@ public partial class MainViewModel : ObservableObject
         ThemeService theme,
         TransferQueueViewModel transferQueue)
     {
-        _api = api; _session = session; Local = local; Remote = remote; Theme = theme; TransferQueue = transferQueue;
+        _api = api; _session = session; _settings = settings; Local = local; Remote = remote; Theme = theme; TransferQueue = transferQueue;
         TransferQueue.JobCompleted += SchedulePaneRefresh;
         ProtocolLabel = settings.IsHttps ? "HTTPS" : settings.IsHttp ? "HTTP" : "不明";
         IsHttpConnection = settings.IsHttp;
@@ -74,6 +76,13 @@ public partial class MainViewModel : ObservableObject
             if (e.PropertyName == nameof(RemotePaneViewModel.StatusMessage))
                 PromoteStatus("リモート", Remote.StatusMessage);
         };
+    }
+
+    public void ApplyUserPreferences()
+    {
+        OnPropertyChanged(nameof(EnableFileTypeColors));
+        Local.ApplyUserPreferences();
+        Remote.ApplyUserPreferences();
     }
 
     public Task InitializeTransferQueueAsync(CancellationToken ct = default)

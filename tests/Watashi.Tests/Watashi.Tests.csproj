@@ -39,6 +39,8 @@
     <Compile Include="..\..\src\Watashi.Client\Services\AtomicFileWriter.cs" Link="Client\AtomicFileWriter.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\Brand.cs" Link="Client\Brand.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\DirectoryAvailability.cs" Link="Client\DirectoryAvailability.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\FileDragSelection.cs" Link="Client\FileDragSelection.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\FileEntryVisualCategory.cs" Link="Client\FileEntryVisualCategory.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\ProgressStreamContent.cs" Link="Client\ProgressStreamContent.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\SessionManager.cs" Link="Client\SessionManager.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\TransferQueueStore.cs" Link="Client\TransferQueueStore.cs" />

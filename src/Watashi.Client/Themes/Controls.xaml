@@ -18,16 +18,25 @@
 
     <FontFamily x:Key="UiFont">"Segoe UI", "Yu Gothic UI", "Meiryo UI"</FontFamily>
 
-    <!-- カスタムテンプレートでも Tab フォーカスを色だけに頼らず 2px 枠で示す。 -->
+    <!-- Tab フォーカスは青い点線ではなく、テーマに馴染む控えめな実線で示す。 -->
     <Style x:Key="AccessibleFocusVisual" TargetType="Control">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Control">
-                    <Rectangle Margin="-2"
-                               Stroke="{DynamicResource {x:Static wpf:SystemColors.HighlightBrushKey}}"
-                               StrokeThickness="2"
-                               StrokeDashArray="2,1"
-                               SnapsToDevicePixels="True"/>
+                    <Rectangle Margin="-1" SnapsToDevicePixels="True">
+                        <Rectangle.Style>
+                            <Style TargetType="Rectangle">
+                                <Setter Property="Stroke" Value="{StaticResource FocusBrush}"/>
+                                <Setter Property="StrokeThickness" Value="1"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
+                                        <Setter Property="Stroke" Value="{DynamicResource {x:Static wpf:SystemColors.HighlightBrushKey}}"/>
+                                        <Setter Property="StrokeThickness" Value="2"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Rectangle.Style>
+                    </Rectangle>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -762,27 +771,42 @@
             </Setter.Value>
         </Setter>
     </Style>
-    <Style TargetType="ScrollBar">
+    <Style x:Key="BaseScrollBarStyle" TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Width" Value="10" />
         <Setter Property="MinWidth" Value="10" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ScrollBar">
-                    <Grid Background="{TemplateBinding Background}">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
                         <Track Name="PART_Track" IsDirectionReversed="True">
                             <Track.Thumb>
-                                <Thumb Style="{StaticResource ScrollBarThumbStyle}" />
+                                <Thumb x:Name="PART_Thumb" Style="{StaticResource ScrollBarThumbStyle}" MinHeight="24" />
                             </Track.Thumb>
                             <Track.IncreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" />
+                                <RepeatButton Command="ScrollBar.PageDownCommand"
+                                              CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
+                                              Opacity="0"
+                                              Focusable="False" IsTabStop="False" />
                             </Track.IncreaseRepeatButton>
                             <Track.DecreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" />
+                                <RepeatButton Command="ScrollBar.PageUpCommand"
+                                              CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
+                                              Opacity="0"
+                                              Focusable="False" IsTabStop="False" />
                             </Track.DecreaseRepeatButton>
                         </Track>
-                    </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter TargetName="PART_Thumb" Property="MinHeight" Value="0" />
+                            <Setter TargetName="PART_Thumb" Property="MinWidth" Value="24" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -793,6 +817,17 @@
                 <Setter Property="Width" Value="Auto" />
             </Trigger>
         </Style.Triggers>
+    </Style>
+    <Style TargetType="ScrollBar" BasedOn="{StaticResource BaseScrollBarStyle}" />
+
+    <!-- ファイル一覧は、常時表示してもつかみやすい専用の縦スクロールレーンを使う。 -->
+    <Style x:Key="FileListScrollBarStyle" TargetType="ScrollBar"
+           BasedOn="{StaticResource BaseScrollBarStyle}">
+        <Setter Property="Width" Value="18" />
+        <Setter Property="MinWidth" Value="18" />
+        <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1,0,0,0" />
     </Style>
 
     <!-- ============================================================ -->
