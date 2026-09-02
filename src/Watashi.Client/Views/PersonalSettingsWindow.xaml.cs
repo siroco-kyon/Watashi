@@ -61,6 +61,11 @@ public partial class PersonalSettingsWindow : Window
 
     private void OnResetSettings(object sender, RoutedEventArgs e) => _vm.ResetDraft();
 
+    private void OnAddFileColorRule(object sender, RoutedEventArgs e) => _vm.AddFileColorRule();
+
+    private void OnRemoveFileColorRule(object sender, RoutedEventArgs e)
+        => _vm.RemoveFileColorRule((sender as FrameworkElement)?.Tag as FileColorRuleDraft);
+
     private async void OnSave(object sender, RoutedEventArgs e)
     {
         if (!await _vm.SaveAsync(_lifetimeCts.Token)) return;

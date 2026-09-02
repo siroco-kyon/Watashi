@@ -59,6 +59,8 @@ public class AppSettings
     public string ThemeMode { get; set; } = AppThemeModes.Light;
     /// <summary>ファイル一覧の名前を種類別の色で表示する。既存利用者の表示を維持するため既定は無効。</summary>
     public bool EnableFileTypeColors { get; set; }
+    /// <summary>拡張子とテーマ対応色の組み合わせ。Windows ユーザー単位で保存する。</summary>
+    public List<FileColorRule> FileColorRules { get; set; } = Watashi.Client.Services.FileColorRules.CreateDefaults();
     /// <summary>リモートペインの開始位置。None / LastUsed / Favorite。</summary>
     public string RemoteStartupMode { get; set; } = RemoteStartupModes.None;
     /// <summary>RemoteStartupMode が Favorite のときに開くお気に入り。</summary>
@@ -159,16 +161,19 @@ public class AppSettings
         var fixedPath = FixedLocalStartupPath?.Trim() ?? string.Empty;
         var localSort = NormalizeSortKey(LocalSortKey);
         var remoteSort = NormalizeSortKey(RemoteSortKey);
+        var fileColorRules = Watashi.Client.Services.FileColorRules.Normalize(FileColorRules);
         var changed = !string.Equals(LocalStartupMode, localMode, StringComparison.Ordinal) ||
                       !string.Equals(RemoteStartupMode, remoteMode, StringComparison.Ordinal) ||
                       !string.Equals(FixedLocalStartupPath, fixedPath, StringComparison.Ordinal) ||
                       !string.Equals(LocalSortKey, localSort, StringComparison.Ordinal) ||
-                      !string.Equals(RemoteSortKey, remoteSort, StringComparison.Ordinal);
+                      !string.Equals(RemoteSortKey, remoteSort, StringComparison.Ordinal) ||
+                      !FileColorRuleListsEqual(FileColorRules, fileColorRules);
         LocalStartupMode = localMode;
         RemoteStartupMode = remoteMode;
         FixedLocalStartupPath = fixedPath;
         LocalSortKey = localSort;
         RemoteSortKey = remoteSort;
+        FileColorRules = fileColorRules;
         if (!RememberSortOrder)
         {
             changed |= LocalSortKey is not null || RemoteSortKey is not null;
@@ -270,6 +275,7 @@ public class AppSettings
         UseRecycleBinForLocalDeletes = true;
         ThemeMode = AppThemeModes.Light;
         EnableFileTypeColors = false;
+        FileColorRules = Watashi.Client.Services.FileColorRules.CreateDefaults();
         RememberSortOrder = false;
         LocalSortKey = null;
         RemoteSortKey = null;
@@ -357,6 +363,7 @@ public class AppSettings
         UseRecycleBinForLocalDeletes = source.UseRecycleBinForLocalDeletes;
         ThemeMode = source.ThemeMode;
         EnableFileTypeColors = source.EnableFileTypeColors;
+        FileColorRules = Watashi.Client.Services.FileColorRules.Clone(source.FileColorRules);
         RemoteStartupMode = source.RemoteStartupMode;
         RemoteStartupPlace = ClonePlace(source.RemoteStartupPlace);
         LastRemotePlace = ClonePlace(source.LastRemotePlace);
@@ -365,6 +372,25 @@ public class AppSettings
         RemoteSortKey = source.RemoteSortKey;
         RemoteFavorites = source.RemoteFavorites.Select(ClonePlace).Where(x => x is not null).Cast<RemotePlaceSetting>().ToList();
         RecentRemotePlaces = source.RecentRemotePlaces.Select(ClonePlace).Where(x => x is not null).Cast<RemotePlaceSetting>().ToList();
+    }
+
+    private static bool FileColorRuleListsEqual(
+        IReadOnlyList<FileColorRule>? left,
+        IReadOnlyList<FileColorRule>? right)
+    {
+        if (ReferenceEquals(left, right)) return true;
+        if (left is null || right is null || left.Count != right.Count) return false;
+        for (var i = 0; i < left.Count; i++)
+        {
+            var a = left[i];
+            var b = right[i];
+            if (!string.Equals(a.Name, b.Name, StringComparison.Ordinal) ||
+                !string.Equals(a.ColorKey, b.ColorKey, StringComparison.Ordinal) ||
+                a.IsEnabled != b.IsEnabled ||
+                !a.Extensions.SequenceEqual(b.Extensions, StringComparer.OrdinalIgnoreCase))
+                return false;
+        }
+        return true;
     }
 
     public static bool SameRemotePlace(RemotePlaceSetting left, RemotePlaceSetting right) => SamePlace(left, right);

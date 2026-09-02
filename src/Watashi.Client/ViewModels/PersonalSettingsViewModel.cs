@@ -14,6 +14,8 @@ public partial class PersonalSettingsViewModel : ObservableObject
     private readonly string? _currentRemoteSortKey;
 
     public ObservableCollection<RemotePlaceSetting> FavoritePlaces { get; } = new();
+    public ObservableCollection<FileColorRuleDraft> FileColorRuleDrafts { get; } = new();
+    public IReadOnlyList<FileColorOption> FileColorOptions => FileColorPaletteKeys.Options;
 
     [ObservableProperty] private bool isLocalLastUsed;
     [ObservableProperty] private bool isLocalFixed;
@@ -108,6 +110,12 @@ public partial class PersonalSettingsViewModel : ObservableObject
             candidate.UseRecycleBinForLocalDeletes = UseRecycleBinForLocalDeletes;
             candidate.ThemeMode = IsDarkTheme ? AppThemeModes.Dark : AppThemeModes.Light;
             candidate.EnableFileTypeColors = EnableFileTypeColors;
+            if (!TryBuildFileColorRules(out var fileColorRules, out var colorRuleError))
+            {
+                StatusMessage = colorRuleError;
+                return false;
+            }
+            candidate.FileColorRules = fileColorRules;
             candidate.RememberSortOrder = RememberSortOrder;
             candidate.LocalSortKey = RememberSortOrder ? _currentLocalSortKey : null;
             candidate.RemoteSortKey = RememberSortOrder ? _currentRemoteSortKey : null;
@@ -226,6 +234,7 @@ public partial class PersonalSettingsViewModel : ObservableObject
         IsDarkTheme = false;
         UseRecycleBinForLocalDeletes = true;
         EnableFileTypeColors = false;
+        LoadFileColorRuleDrafts(FileColorRules.CreateDefaults());
         RememberSortOrder = false;
         StatusMessage = "保存すると個人設定を初期値へ戻します。お気に入りと履歴は残ります。";
     }
@@ -247,6 +256,96 @@ public partial class PersonalSettingsViewModel : ObservableObject
         IsLightTheme = !IsDarkTheme;
         UseRecycleBinForLocalDeletes = _settings.UseRecycleBinForLocalDeletes;
         EnableFileTypeColors = _settings.EnableFileTypeColors;
+        LoadFileColorRuleDrafts(_settings.FileColorRules);
         RememberSortOrder = _settings.RememberSortOrder;
+    }
+
+    public void AddFileColorRule()
+    {
+        if (FileColorRuleDrafts.Count >= FileColorRules.MaxRules)
+        {
+            StatusMessage = $"色分けルールは最大 {FileColorRules.MaxRules} 件です。";
+            return;
+        }
+        FileColorRuleDrafts.Add(new FileColorRuleDraft
+        {
+            Name = "新しい色分け",
+            ExtensionsText = ".ext",
+            ColorKey = FileColorPaletteKeys.Blue,
+        });
+        StatusMessage = "新しい色分けルールを追加しました。対象拡張子を編集してください。";
+    }
+
+    public void RemoveFileColorRule(FileColorRuleDraft? draft)
+    {
+        if (draft is null) return;
+        FileColorRuleDrafts.Remove(draft);
+    }
+
+    private void LoadFileColorRuleDrafts(IEnumerable<FileColorRule> rules)
+    {
+        FileColorRuleDrafts.Clear();
+        foreach (var rule in rules)
+            FileColorRuleDrafts.Add(FileColorRuleDraft.FromRule(rule));
+    }
+
+    private bool TryBuildFileColorRules(out List<FileColorRule> rules, out string error)
+    {
+        rules = new List<FileColorRule>();
+        error = string.Empty;
+        var usedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var draft in FileColorRuleDrafts)
+        {
+            var name = draft.Name.Trim();
+            if (name.Length == 0)
+            {
+                error = "色分けルールの名前を入力してください。";
+                return false;
+            }
+            if (name.Length > FileColorRules.MaxRuleNameLength)
+            {
+                error = $"色分けルール名は {FileColorRules.MaxRuleNameLength} 文字以内で入力してください。";
+                return false;
+            }
+
+            var rawExtensions = draft.ExtensionsText.Split(
+                new[] { ',', '、', ';', '；', '\r', '\n' },
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (rawExtensions.Length == 0)
+            {
+                error = $"「{name}」の対象拡張子を入力してください。";
+                return false;
+            }
+            if (rawExtensions.Length > FileColorRules.MaxExtensionsPerRule)
+            {
+                error = $"1つのルールに指定できる拡張子は最大 {FileColorRules.MaxExtensionsPerRule} 件です。";
+                return false;
+            }
+
+            var extensions = new List<string>();
+            foreach (var raw in rawExtensions)
+            {
+                if (!FileColorRules.TryNormalizeExtension(raw, out var extension))
+                {
+                    error = $"「{raw}」は有効な拡張子ではありません。.txt の形式で入力してください。";
+                    return false;
+                }
+                if (!usedExtensions.Add(extension))
+                {
+                    error = $"拡張子「{extension}」が複数の色分けルールに指定されています。";
+                    return false;
+                }
+                extensions.Add(extension);
+            }
+
+            rules.Add(new FileColorRule
+            {
+                Name = name,
+                Extensions = extensions,
+                ColorKey = FileColorPaletteKeys.Normalize(draft.ColorKey),
+                IsEnabled = draft.IsEnabled,
+            });
+        }
+        return true;
     }
 }

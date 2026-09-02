@@ -25,6 +25,40 @@ public sealed class FileListInteractionTests
             .Should().Be(expected);
     }
 
+    [Theory]
+    [InlineData("sample.dat", FileColorPaletteKeys.Teal)]
+    [InlineData("NOTES.TXT", FileColorPaletteKeys.Gray)]
+    [InlineData("installer.EXE", FileColorPaletteKeys.Red)]
+    [InlineData("table.csv", FileColorPaletteKeys.Green)]
+    public void Default_personal_rules_include_requested_extensions(string name, string expectedColor)
+    {
+        FileColorRules.ResolveColorKey(Entry(name), FileColorRules.CreateDefaults())
+            .Should().Be(expectedColor);
+    }
+
+    [Fact]
+    public void User_rules_are_case_insensitive_and_prefer_the_longest_suffix()
+    {
+        var rules = new[]
+        {
+            new FileColorRule { Name = "gzip", ColorKey = FileColorPaletteKeys.Brown, Extensions = [".gz"] },
+            new FileColorRule { Name = "tar gzip", ColorKey = FileColorPaletteKeys.Teal, Extensions = [".tar.gz"] },
+        };
+
+        FileColorRules.ResolveColorKey(Entry("BACKUP.TAR.GZ"), rules)
+            .Should().Be(FileColorPaletteKeys.Teal);
+    }
+
+    [Theory]
+    [InlineData("txt", ".txt")]
+    [InlineData("*.DAT", ".dat")]
+    [InlineData(" .tar.gz ", ".tar.gz")]
+    public void Extension_input_is_normalized(string input, string expected)
+    {
+        FileColorRules.TryNormalizeExtension(input, out var actual).Should().BeTrue();
+        actual.Should().Be(expected);
+    }
+
     [Fact]
     public void Dragging_a_selected_row_preserves_the_whole_selection_and_excludes_parent()
     {
@@ -60,6 +94,42 @@ public sealed class FileListInteractionTests
         applied.EnableFileTypeColors.Should().BeTrue();
         applied.ResetPersonalPreferences();
         applied.EnableFileTypeColors.Should().BeFalse();
+        applied.FileColorRules.Should().Contain(x => x.Extensions.Contains(".dat"));
+    }
+
+    [Fact]
+    public void Custom_file_colour_rules_are_persisted_deep_copied_and_normalized()
+    {
+        var original = new AppSettings
+        {
+            FileColorRules =
+            [
+                new FileColorRule
+                {
+                    Name = "My data",
+                    Extensions = ["DAT", "*.Bin"],
+                    ColorKey = FileColorPaletteKeys.Teal,
+                },
+            ],
+        };
+
+        var restored = AppSettings.DeserializeOrDefault(JsonSerializer.Serialize(original));
+        restored.FileColorRules.Should().ContainSingle();
+        restored.FileColorRules[0].Extensions.Should().Equal(".dat", ".bin");
+
+        var applied = new AppSettings();
+        applied.ApplyPersistentState(restored);
+        restored.FileColorRules[0].Extensions[0] = ".changed";
+        applied.FileColorRules[0].Extensions.Should().Equal(".dat", ".bin");
+    }
+
+    [Fact]
+    public void Missing_or_null_colour_rules_migrate_to_defaults()
+    {
+        AppSettings.DeserializeOrDefault("{}").FileColorRules
+            .Should().Contain(x => x.Extensions.Contains(".exe"));
+        AppSettings.DeserializeOrDefault("{\"FileColorRules\":null}").FileColorRules
+            .Should().Contain(x => x.Extensions.Contains(".txt"));
     }
 
     [Fact]
@@ -72,8 +142,10 @@ public sealed class FileListInteractionTests
 
         settingsWindow.Should().Contain("IsChecked=\"{Binding EnableFileTypeColors, Mode=TwoWay}\"");
         settingsViewModel.Should().Contain("candidate.EnableFileTypeColors = EnableFileTypeColors;")
-            .And.Contain("EnableFileTypeColors = _settings.EnableFileTypeColors;");
+            .And.Contain("EnableFileTypeColors = _settings.EnableFileTypeColors;")
+            .And.Contain("candidate.FileColorRules = fileColorRules;");
         mainViewModel.Should().Contain("OnPropertyChanged(nameof(EnableFileTypeColors));")
+            .And.Contain("OnPropertyChanged(nameof(FileColorRules));")
             .And.Contain("Local.ApplyUserPreferences();")
             .And.Contain("Remote.ApplyUserPreferences();");
         mainWindow.Should().Contain("if (saved) _vm.ApplyUserPreferences();");
@@ -92,6 +164,7 @@ public sealed class FileListInteractionTests
             .And.Contain("Property=\"Width\" Value=\"18\"")
             .And.Contain("ScrollBar.PageDownCommand")
             .And.Contain("ScrollBar.PageUpCommand")
+            .And.Contain("Orientation=\"{TemplateBinding Orientation}\"")
             .And.Contain("CommandTarget=\"{Binding RelativeSource={RelativeSource TemplatedParent}}\"");
         dragDrop.Should().Contain("FindAncestor<ListViewItem>")
             .And.Contain("FileDragSelection.Build")
@@ -118,6 +191,8 @@ public sealed class FileListInteractionTests
         {
             "FileDirectoryColor", "FileCsvColor", "FileTextColor",
             "FileDocumentColor", "FileImageColor", "FileArchiveColor",
+            "FileBlueColor", "FileGreenColor", "FileGrayColor", "FilePurpleColor",
+            "FileOrangeColor", "FileBrownColor", "FileTealColor", "FileRedColor",
         };
 
         foreach (var path in new[]

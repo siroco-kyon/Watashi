@@ -48,5 +48,13 @@
     <Color x:Key="FileDocumentColor">#D2A8FF</Color>
     <Color x:Key="FileImageColor">#FFA657</Color>
     <Color x:Key="FileArchiveColor">#E3B341</Color>
+    <Color x:Key="FileBlueColor">#79C0FF</Color>
+    <Color x:Key="FileGreenColor">#7EE787</Color>
+    <Color x:Key="FileGrayColor">#C9D1D9</Color>
+    <Color x:Key="FilePurpleColor">#D2A8FF</Color>
+    <Color x:Key="FileOrangeColor">#FFA657</Color>
+    <Color x:Key="FileBrownColor">#E3B341</Color>
+    <Color x:Key="FileTealColor">#56D4D0</Color>
+    <Color x:Key="FileRedColor">#FF7B72</Color>
 
 </ResourceDictionary>

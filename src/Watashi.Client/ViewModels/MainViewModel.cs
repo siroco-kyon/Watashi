@@ -45,6 +45,7 @@ public partial class MainViewModel : ObservableObject
     public bool IsHttpConnection { get; }
     public string HttpTransportWarning => AppSettings.HttpTransportWarning;
     public bool EnableFileTypeColors => _settings.EnableFileTypeColors;
+    public IReadOnlyList<FileColorRule> FileColorRules => _settings.FileColorRules;
 
     public MainViewModel(
         ApiClient api,
@@ -81,6 +82,7 @@ public partial class MainViewModel : ObservableObject
     public void ApplyUserPreferences()
     {
         OnPropertyChanged(nameof(EnableFileTypeColors));
+        OnPropertyChanged(nameof(FileColorRules));
         Local.ApplyUserPreferences();
         Remote.ApplyUserPreferences();
     }
