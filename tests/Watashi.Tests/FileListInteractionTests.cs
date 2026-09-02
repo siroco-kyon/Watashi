@@ -162,6 +162,11 @@ public sealed class FileListInteractionTests
         Count(main, "BasedOn=\"{StaticResource FileListScrollBarStyle}\"").Should().Be(2);
         controls.Should().Contain("x:Key=\"FileListScrollBarStyle\"")
             .And.Contain("Property=\"Width\" Value=\"18\"")
+            .And.Contain("x:Key=\"ScrollBarPageButtonStyle\"")
+            .And.Contain("Property=\"OverridesDefaultStyle\" Value=\"True\"")
+            .And.Contain("Property=\"HorizontalAlignment\" Value=\"Stretch\"")
+            .And.Contain("Property=\"VerticalAlignment\" Value=\"Stretch\"")
+            .And.Contain("Style=\"{StaticResource ScrollBarPageButtonStyle}\"")
             .And.Contain("ScrollBar.PageDownCommand")
             .And.Contain("ScrollBar.PageUpCommand")
             .And.Contain("Orientation=\"{TemplateBinding Orientation}\"")
@@ -172,6 +177,17 @@ public sealed class FileListInteractionTests
         main.Should().Contain("SelectionTextBrush")
             .And.Contain("SystemParameters.HighContrast")
             .And.Contain("Binding Foreground");
+    }
+
+    [Fact]
+    public void Double_click_opening_is_limited_to_file_rows()
+    {
+        var mainWindow = File.ReadAllText(RepoFile("src/Watashi.Client/Views/MainWindow.xaml.cs"));
+
+        mainWindow.Should().Contain("IsFileListRowInput(sender, e.OriginalSource)")
+            .And.Contain("ItemsControl.ContainerFromElement(list, source) is ListViewItem");
+        Count(mainWindow, "if (!IsFileListRowInput(sender, e.OriginalSource)) return;")
+            .Should().Be(3, "ローカル、リモート、横断検索の全一覧で行外ダブルクリックを無視するため");
     }
 
     [Fact]
