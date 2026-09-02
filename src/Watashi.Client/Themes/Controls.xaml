@@ -811,13 +811,15 @@
                                 <Thumb x:Name="PART_Thumb" Style="{StaticResource ScrollBarThumbStyle}" MinHeight="24" />
                             </Track.Thumb>
                             <Track.IncreaseRepeatButton>
-                                <RepeatButton Style="{StaticResource ScrollBarPageButtonStyle}"
+                                <RepeatButton x:Name="PART_IncreasePageButton"
+                                              Style="{StaticResource ScrollBarPageButtonStyle}"
                                               Command="ScrollBar.PageDownCommand"
                                               CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
                                               Focusable="False" IsTabStop="False" />
                             </Track.IncreaseRepeatButton>
                             <Track.DecreaseRepeatButton>
-                                <RepeatButton Style="{StaticResource ScrollBarPageButtonStyle}"
+                                <RepeatButton x:Name="PART_DecreasePageButton"
+                                              Style="{StaticResource ScrollBarPageButtonStyle}"
                                               Command="ScrollBar.PageUpCommand"
                                               CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
                                               Focusable="False" IsTabStop="False" />
@@ -828,6 +830,9 @@
                         <Trigger Property="Orientation" Value="Horizontal">
                             <Setter TargetName="PART_Thumb" Property="MinHeight" Value="0" />
                             <Setter TargetName="PART_Thumb" Property="MinWidth" Value="24" />
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                            <Setter TargetName="PART_IncreasePageButton" Property="Command" Value="ScrollBar.PageRightCommand" />
+                            <Setter TargetName="PART_DecreasePageButton" Property="Command" Value="ScrollBar.PageLeftCommand" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
