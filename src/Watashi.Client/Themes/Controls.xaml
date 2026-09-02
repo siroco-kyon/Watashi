@@ -771,6 +771,27 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!--
+        .NET 10 Fluent の RepeatButton 既定スタイルは Left / Center 配置のため、
+        Track が割り当てたページ領域の中央で高さ 0～数pxへ縮んでしまう。
+        スクロールトラック専用テンプレートで領域全体を透明なクリック面にする。
+    -->
+    <Style x:Key="ScrollBarPageButtonStyle" TargetType="RepeatButton">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="{TemplateBinding Background}"
+                            SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <Style x:Key="BaseScrollBarStyle" TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
@@ -790,15 +811,15 @@
                                 <Thumb x:Name="PART_Thumb" Style="{StaticResource ScrollBarThumbStyle}" MinHeight="24" />
                             </Track.Thumb>
                             <Track.IncreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageDownCommand"
+                                <RepeatButton Style="{StaticResource ScrollBarPageButtonStyle}"
+                                              Command="ScrollBar.PageDownCommand"
                                               CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
-                                              Opacity="0"
                                               Focusable="False" IsTabStop="False" />
                             </Track.IncreaseRepeatButton>
                             <Track.DecreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageUpCommand"
+                                <RepeatButton Style="{StaticResource ScrollBarPageButtonStyle}"
+                                              Command="ScrollBar.PageUpCommand"
                                               CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
-                                              Opacity="0"
                                               Focusable="False" IsTabStop="False" />
                             </Track.DecreaseRepeatButton>
                         </Track>

@@ -220,10 +220,31 @@ public partial class MainWindow : Window
         await _vm.Remote.LoadHostsAndLocationsAsync();
     }
 
-    private void OnLocalDoubleClick(object sender, MouseButtonEventArgs e) => _vm.Local.OpenSelectedCommand.Execute(null);
-    private void OnRemoteDoubleClick(object sender, MouseButtonEventArgs e) => _ = _vm.Remote.OpenSelectedAsync();
-    private void OnRemoteSearchDoubleClick(object sender, MouseButtonEventArgs e) =>
+    private void OnLocalDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (!IsFileListRowInput(sender, e.OriginalSource)) return;
+        e.Handled = true;
+        _vm.Local.OpenSelectedCommand.Execute(null);
+    }
+
+    private void OnRemoteDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (!IsFileListRowInput(sender, e.OriginalSource)) return;
+        e.Handled = true;
+        _ = _vm.Remote.OpenSelectedAsync();
+    }
+
+    private void OnRemoteSearchDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (!IsFileListRowInput(sender, e.OriginalSource)) return;
+        e.Handled = true;
         _ = _vm.Remote.OpenSearchResultAsync(_vm.Remote.SelectedSearchResult);
+    }
+
+    private static bool IsFileListRowInput(object sender, object originalSource)
+        => sender is ListView list &&
+           originalSource is DependencyObject source &&
+           ItemsControl.ContainerFromElement(list, source) is ListViewItem;
 
     /* リモートごみ箱は廃止。
     private async void OnOpenRemoteTrash(object sender, RoutedEventArgs e)
