@@ -171,6 +171,9 @@ public sealed class FileListInteractionTests
             .And.Contain("ScrollBar.PageUpCommand")
             .And.Contain("Orientation=\"{TemplateBinding Orientation}\"")
             .And.Contain("CommandTarget=\"{Binding RelativeSource={RelativeSource TemplatedParent}}\"");
+        controls.Should().Contain("TargetName=\"PART_Track\" Property=\"IsDirectionReversed\" Value=\"False\"")
+            .And.Contain("TargetName=\"PART_IncreasePageButton\" Property=\"Command\" Value=\"ScrollBar.PageRightCommand\"")
+            .And.Contain("TargetName=\"PART_DecreasePageButton\" Property=\"Command\" Value=\"ScrollBar.PageLeftCommand\"");
         dragDrop.Should().Contain("FindAncestor<ListViewItem>")
             .And.Contain("FileDragSelection.Build")
             .And.Contain("_deferSelectionCollapse");
