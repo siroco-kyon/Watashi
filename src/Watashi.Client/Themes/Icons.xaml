@@ -9,6 +9,147 @@
     <Geometry x:Key="MoonIconGeometry">M19,15.5 A8,8 0 0 1 8.5,5 A8,8 0 1 0 19,15.5 Z</Geometry>
     <Geometry x:Key="SunIconGeometry">M12,6 A6,6 0 1 1 12,18 A6,6 0 1 1 12,6 M12,1 L12,3 M12,21 L12,23 M1,12 L3,12 M21,12 L23,12 M4.2,4.2 L5.6,5.6 M18.4,18.4 L19.8,19.8 M19.8,4.2 L18.4,5.6 M5.6,18.4 L4.2,19.8</Geometry>
 
+    <!-- ファイル一覧用。24x24 の同一グリッドで、小さい表示でも種類を判別できる形にそろえる。 -->
+    <ControlTemplate x:Key="FolderFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Path Data="M2.5,6.5 L9,6.5 L11,8.5 L21.5,8.5 L21.5,20.5 L2.5,20.5 Z"
+                      Fill="#F6C343" Stroke="#C88900" StrokeThickness="1.5" StrokeLineJoin="Round"/>
+                <Path Data="M3.5,10.5 L20.5,10.5" Stroke="#FFF1B8" StrokeThickness="1.2"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="ExcelFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Path Data="M4,2 L15,2 L20,7 L20,22 L4,22 Z" Fill="#107C41" Stroke="#0B5C30" StrokeThickness="1.25" StrokeLineJoin="Round"/>
+                <Path Data="M15,2 L20,7 L15,7 Z" Fill="#9BD5AE"/>
+                <Path Data="M7,7 L12,13 M12,7 L7,13" Stroke="White" StrokeThickness="2.1" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                <Path Data="M7,15.5 L17,15.5 L17,20 L7,20 Z M10.3,15.5 L10.3,20 M13.7,15.5 L13.7,20 M7,17.75 L17,17.75"
+                      Stroke="White" StrokeThickness="0.8"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="WordFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Path Data="M4,2 L15,2 L20,7 L20,22 L4,22 Z" Fill="#2B7CD3" Stroke="#155DA8" StrokeThickness="1.25" StrokeLineJoin="Round"/>
+                <Path Data="M15,2 L20,7 L15,7 Z" Fill="#A9D1F5"/>
+                <Path Data="M6.5,7 L8.2,13 L10.3,9 L12.4,13 L14.1,7" Stroke="White" StrokeThickness="1.6" StrokeLineJoin="Round"/>
+                <Path Data="M7,16 L17,16 M7,19 L15,19" Stroke="White" StrokeThickness="1.3" StrokeStartLineCap="Round"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="PowerPointFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Path Data="M4,2 L15,2 L20,7 L20,22 L4,22 Z" Fill="#F06423" Stroke="#C7440C" StrokeThickness="1.25" StrokeLineJoin="Round"/>
+                <Path Data="M15,2 L20,7 L15,7 Z" Fill="#FFD0B8"/>
+                <TextBlock Text="P" Foreground="White" FontFamily="Segoe UI" FontWeight="Bold" FontSize="9" Canvas.Left="6" Canvas.Top="4"/>
+                <Path Data="M7,15 L17,15 L17,20 L7,20 Z M12,15 L12,20" Stroke="White" StrokeThickness="1.1"/>
+                <Ellipse Canvas.Left="13.5" Canvas.Top="15.5" Width="3" Height="3" Fill="White"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="PdfFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Path Data="M4,2 L15,2 L20,7 L20,22 L4,22 Z" Fill="#D83B3E" Stroke="#A71D2A" StrokeThickness="1.25" StrokeLineJoin="Round"/>
+                <Path Data="M15,2 L20,7 L15,7 Z" Fill="#F5B4B6"/>
+                <Path Data="M7,12 C10,9 13,9 17,12 C14,11 10,13 7,16 C9,12 11,8 12,6 C12,10 14,15 17,17"
+                      Stroke="White" StrokeThickness="1" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent"/>
+                <TextBlock Text="PDF" Foreground="White" FontFamily="Segoe UI" FontWeight="Bold" FontSize="4.4" Canvas.Left="7.1" Canvas.Top="16.7"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="CsvFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Path Data="M4,2 L15,2 L20,7 L20,22 L4,22 Z" Fill="#009CA6" Stroke="#00747B" StrokeThickness="1.25" StrokeLineJoin="Round"/>
+                <Path Data="M15,2 L20,7 L15,7 Z" Fill="#9BE0E3"/>
+                <Path Data="M7,9 L17,9 L17,19 L7,19 Z M10.3,9 L10.3,19 M13.7,9 L13.7,19 M7,12.3 L17,12.3 M7,15.7 L17,15.7"
+                      Stroke="White" StrokeThickness="0.9"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="ImageFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Path Data="M4,2 L15,2 L20,7 L20,22 L4,22 Z" Fill="#F39A19" Stroke="#C56A00" StrokeThickness="1.25" StrokeLineJoin="Round"/>
+                <Path Data="M15,2 L20,7 L15,7 Z" Fill="#FFE0A5"/>
+                <Ellipse Canvas.Left="7" Canvas.Top="8" Width="3.2" Height="3.2" Fill="White"/>
+                <Path Data="M6.5,19 L10.5,13.5 L13.2,16.5 L15.2,14 L18,19 Z" Fill="White"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="ArchiveFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Border Canvas.Left="3" Canvas.Top="4" Width="18" Height="17" CornerRadius="3"
+                        Background="#A96C3B" BorderBrush="#704020" BorderThickness="1.3"/>
+                <Path Data="M3.8,10 L20.2,10" Stroke="#704020" StrokeThickness="1.2"/>
+                <Path Data="M12,4 L12,14" Stroke="#F2E1CB" StrokeThickness="1.4" StrokeDashArray="1,1"/>
+                <Border Canvas.Left="10.4" Canvas.Top="13" Width="3.2" Height="4.5" CornerRadius="1"
+                        Background="#D9E0E4" BorderBrush="#596168" BorderThickness="0.7"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="TextCodeFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Path Data="M4,2 L15,2 L20,7 L20,22 L4,22 Z" Fill="#66717D" Stroke="#414B55" StrokeThickness="1.25" StrokeLineJoin="Round"/>
+                <Path Data="M15,2 L20,7 L15,7 Z" Fill="#C1C8CE"/>
+                <TextBlock Text="&lt;/&gt;" Foreground="White" FontFamily="Consolas" FontWeight="Bold" FontSize="6.3" Canvas.Left="5.5" Canvas.Top="7"/>
+                <Path Data="M7,16 L17,16 M7,19 L14.5,19" Stroke="White" StrokeThickness="1.2" StrokeStartLineCap="Round"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="AppFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Border Canvas.Left="3" Canvas.Top="3" Width="18" Height="18" CornerRadius="3"
+                        Background="#E43B3F" BorderBrush="#B21825" BorderThickness="1.3"/>
+                <Path Data="M3.8,8 L20.2,8" Stroke="White" StrokeThickness="1.1"/>
+                <Ellipse Canvas.Left="5.5" Canvas.Top="5" Width="1.4" Height="1.4" Fill="White"/>
+                <Ellipse Canvas.Left="8.2" Canvas.Top="5" Width="1.4" Height="1.4" Fill="White"/>
+                <Path Data="M8,13 L12,10.8 L16,13 L12,15.2 Z M8,13 L8,17 L12,19.2 L12,15.2 M16,13 L16,17 L12,19.2"
+                      Stroke="White" StrokeThickness="1.1" StrokeLineJoin="Round" Fill="Transparent"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="DatabaseFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Rectangle Canvas.Left="5" Canvas.Top="6" Width="14" Height="12" Fill="#00A3A3"/>
+                <Ellipse Canvas.Left="5" Canvas.Top="3" Width="14" Height="6" Fill="#24C3BF" Stroke="#007779" StrokeThickness="1.2"/>
+                <Ellipse Canvas.Left="5" Canvas.Top="15" Width="14" Height="6" Fill="#009293" Stroke="#007779" StrokeThickness="1.2"/>
+                <Path Data="M5,8 L5,17 C5,20 19,20 19,17 L19,8 M5,12 C5,15 19,15 19,12"
+                      Stroke="White" StrokeThickness="1.1" Fill="Transparent"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="MediaFileIconTemplate" TargetType="ContentControl">
+        <Viewbox Stretch="Uniform">
+            <Canvas Width="24" Height="24">
+                <Path Data="M4,2 L15,2 L20,7 L20,22 L4,22 Z" Fill="#7C3CCF" Stroke="#51219A" StrokeThickness="1.25" StrokeLineJoin="Round"/>
+                <Path Data="M15,2 L20,7 L15,7 Z" Fill="#D4B8F4"/>
+                <Path Data="M8,8 L8,15 L14,11.5 Z" Fill="White"/>
+                <TextBlock Text="♪" Foreground="White" FontFamily="Segoe UI Symbol" FontWeight="Bold" FontSize="8" Canvas.Left="12.5" Canvas.Top="13"/>
+            </Canvas>
+        </Viewbox>
+    </ControlTemplate>
+
     <!--
         ===== 鳥居アイコン (Torii) =====
         ViewBox: 64x64
