@@ -58,6 +58,85 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <!-- ローカル／リモートで共通の種類別アイコン。高コントラストでは文字アイコンへ戻す。 -->
+        <DataTemplate x:Key="FileEntryIconTemplate">
+            <Grid Width="24" Height="24">
+                <TextBlock x:Name="FallbackIcon"
+                           Text="{Binding Type, Converter={StaticResource TypeIcon}}"
+                           Style="{StaticResource FileEntryColoredText}"
+                           FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <ContentControl x:Name="VectorIcon" Width="20" Height="20"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Visibility="Collapsed" Focusable="False" IsHitTestVisible="False"/>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Directory">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource FolderFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Excel">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource ExcelFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Word">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource WordFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="PowerPoint">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource PowerPointFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Pdf">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource PdfFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Csv">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource CsvFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Image">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource ImageFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Archive">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource ArchiveFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="TextCode">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource TextCodeFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="App">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource AppFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Database">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource DatabaseFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Converter={StaticResource FileEntryVisualCategory}}" Value="Media">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Template" Value="{StaticResource MediaFileIconTemplate}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Source={x:Static wpf:SystemParameters.HighContrast}}" Value="True">
+                    <Setter TargetName="FallbackIcon" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="VectorIcon" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </Window.Resources>
 
     <Window.InputBindings>
@@ -424,15 +503,8 @@
                         </ListView.ContextMenu>
                         <ListView.View>
                             <GridView>
-                                <GridViewColumn Header="" Width="40">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Type, Converter={StaticResource TypeIcon}}"
-                                                       Style="{StaticResource FileEntryColoredText}"
-                                                       FontSize="15" HorizontalAlignment="Center"/>
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
+                                <GridViewColumn Header="" Width="40"
+                                                CellTemplate="{StaticResource FileEntryIconTemplate}"/>
                                 <GridViewColumn Header="名前" Width="260">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
@@ -753,15 +825,8 @@
                             </ListView.ContextMenu>
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="" Width="40">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Type, Converter={StaticResource TypeIcon}}"
-                                                           Style="{StaticResource FileEntryColoredText}"
-                                                           FontSize="15" HorizontalAlignment="Center"/>
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
+                                    <GridViewColumn Header="" Width="40"
+                                                    CellTemplate="{StaticResource FileEntryIconTemplate}"/>
                                     <GridViewColumn Header="名前" Width="260">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>

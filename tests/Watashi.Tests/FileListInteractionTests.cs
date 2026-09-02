@@ -12,11 +12,17 @@ public sealed class FileListInteractionTests
     [Theory]
     [InlineData("folder.csv", FileEntryTypes.Directory, FileEntryVisualCategories.Directory)]
     [InlineData("REPORT.CSV", FileEntryTypes.File, FileEntryVisualCategories.Csv)]
-    [InlineData("notes.txt", FileEntryTypes.File, FileEntryVisualCategories.Text)]
-    [InlineData("appsettings.JSON", FileEntryTypes.File, FileEntryVisualCategories.Text)]
-    [InlineData("report.xlsx", FileEntryTypes.File, FileEntryVisualCategories.Document)]
+    [InlineData("notes.txt", FileEntryTypes.File, FileEntryVisualCategories.TextCode)]
+    [InlineData("appsettings.JSON", FileEntryTypes.File, FileEntryVisualCategories.TextCode)]
+    [InlineData("report.XLSX", FileEntryTypes.File, FileEntryVisualCategories.Excel)]
+    [InlineData("proposal.docx", FileEntryTypes.File, FileEntryVisualCategories.Word)]
+    [InlineData("briefing.pptx", FileEntryTypes.File, FileEntryVisualCategories.PowerPoint)]
+    [InlineData("manual.pdf", FileEntryTypes.File, FileEntryVisualCategories.Pdf)]
     [InlineData("photo.JPEG", FileEntryTypes.File, FileEntryVisualCategories.Image)]
     [InlineData("backup.tar.gz", FileEntryTypes.File, FileEntryVisualCategories.Archive)]
+    [InlineData("setup.MSIX", FileEntryTypes.File, FileEntryVisualCategories.App)]
+    [InlineData("cache.sqlite3", FileEntryTypes.File, FileEntryVisualCategories.Database)]
+    [InlineData("movie.MP4", FileEntryTypes.File, FileEntryVisualCategories.Media)]
     [InlineData("README", FileEntryTypes.File, FileEntryVisualCategories.Other)]
     [InlineData("..", FileEntryTypes.Parent, FileEntryVisualCategories.Other)]
     public void File_entries_are_classified_case_insensitively(string name, string type, string expected)
@@ -149,6 +155,26 @@ public sealed class FileListInteractionTests
             .And.Contain("Local.ApplyUserPreferences();")
             .And.Contain("Remote.ApplyUserPreferences();");
         mainWindow.Should().Contain("if (saved) _vm.ApplyUserPreferences();");
+    }
+
+    [Fact]
+    public void File_lists_share_the_accessible_vector_icon_set()
+    {
+        var main = File.ReadAllText(RepoFile("src/Watashi.Client/Views/MainWindow.xaml"));
+        var icons = File.ReadAllText(RepoFile("src/Watashi.Client/Themes/Icons.xaml"));
+        var expectedTemplates = new[]
+        {
+            "Folder", "Excel", "Word", "PowerPoint", "Pdf", "Csv",
+            "Image", "Archive", "TextCode", "App", "Database", "Media",
+        };
+
+        Count(main, "CellTemplate=\"{StaticResource FileEntryIconTemplate}\"")
+            .Should().Be(2, "ローカルとリモートで同じアイコン表示を使うため");
+        main.Should().Contain("SystemParameters.HighContrast")
+            .And.Contain("IsHitTestVisible=\"False\"");
+        icons.Should().Contain("Fill=\"#F6C343\"");
+        foreach (var name in expectedTemplates)
+            icons.Should().Contain($"x:Key=\"{name}FileIconTemplate\"");
     }
 
     [Fact]
