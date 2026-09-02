@@ -783,7 +783,9 @@
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}">
-                        <Track Name="PART_Track" IsDirectionReversed="True">
+                        <Track Name="PART_Track"
+                               Orientation="{TemplateBinding Orientation}"
+                               IsDirectionReversed="True">
                             <Track.Thumb>
                                 <Thumb x:Name="PART_Thumb" Style="{StaticResource ScrollBarThumbStyle}" MinHeight="24" />
                             </Track.Thumb>

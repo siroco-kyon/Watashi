@@ -100,8 +100,88 @@
                                   IsChecked="{Binding EnableFileTypeColors, Mode=TwoWay}"
                                   Margin="0,8,0,0"
                                   AutomationProperties.Name="ファイルやフォルダーを種類別に色分け"/>
-                        <TextBlock Text="フォルダー、CSV、テキスト、文書、画像、圧縮ファイルの名前を色分けします。"
+                        <TextBlock Text="フォルダーと、下記の拡張子に一致するファイル名・アイコンを色分けします。"
                                    Style="{StaticResource Caption}" Margin="22,5,0,0" TextWrapping="Wrap"/>
+
+                        <Border Margin="22,10,0,0" Padding="10" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="{StaticResource RadiusSm}"
+                                IsEnabled="{Binding EnableFileTypeColors}">
+                            <StackPanel Grid.IsSharedSizeScope="True">
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="42"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="112"/>
+                                        <ColumnDefinition Width="38"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="使用" Style="{StaticResource Caption}"/>
+                                    <TextBlock Grid.Column="1" Text="名前" Style="{StaticResource Caption}"/>
+                                    <TextBlock Grid.Column="2" Text="対象拡張子（カンマ区切り）" Style="{StaticResource Caption}"/>
+                                    <TextBlock Grid.Column="3" Text="色" Style="{StaticResource Caption}"/>
+                                </Grid>
+                                <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding FileColorRuleDrafts}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="42"/>
+                                                        <ColumnDefinition Width="120"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="112"/>
+                                                        <ColumnDefinition Width="38"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                              VerticalAlignment="Center"
+                                                              AutomationProperties.Name="この色分けルールを使用"/>
+                                                    <TextBox Grid.Column="1" Margin="0,0,6,0"
+                                                             Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.Name="色分けルール名"/>
+                                                    <TextBox Grid.Column="2" Margin="0,0,6,0"
+                                                             Text="{Binding ExtensionsText, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.Name="対象拡張子"/>
+                                                    <ComboBox Grid.Column="3" Margin="0,0,6,0"
+                                                              ItemsSource="{Binding DataContext.FileColorOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              SelectedValuePath="Key"
+                                                              SelectedValue="{Binding ColorKey, Mode=TwoWay}"
+                                                              AutomationProperties.Name="表示色">
+                                                        <ComboBox.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <Border Width="13" Height="13" Margin="0,0,6,0"
+                                                                            CornerRadius="2" BorderThickness="1"
+                                                                            BorderBrush="{StaticResource BorderStrongBrush}"
+                                                                            Background="{Binding Key, Converter={StaticResource FileColorKeyBrush}}"/>
+                                                                    <TextBlock Text="{Binding DisplayName}"/>
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                        </ComboBox.ItemTemplate>
+                                                        <ComboBox.ItemContainerStyle>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                            </Style>
+                                                        </ComboBox.ItemContainerStyle>
+                                                    </ComboBox>
+                                                    <Button Grid.Column="4" Content="×" Padding="5,2" MinWidth="30"
+                                                            Style="{StaticResource GhostButton}" Tag="{Binding}"
+                                                            Click="OnRemoveFileColorRule"
+                                                            AutomationProperties.Name="この色分けルールを削除"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <DockPanel Margin="0,4,0,0">
+                                    <TextBlock DockPanel.Dock="Right" Text="色はライト／ダークテーマに自動対応します。"
+                                               Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                                    <Button Content="＋ ルールを追加" Click="OnAddFileColorRule"
+                                            HorizontalAlignment="Left" Padding="9,3"
+                                            AutomationProperties.Name="色分けルールを追加"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 
