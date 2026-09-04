@@ -427,6 +427,36 @@ public sealed class UploadSessionServiceTests
     }
 
     [Fact]
+    public async Task Committing_sessions_also_stop_retrying_once_the_give_up_window_passes()
+    {
+        using var f = await Fixture.CreateAsync();
+        var bytes = new byte[] { 1, 2, 3 };
+        var created = await f.Service.CreateAsync(
+            f.UserId, f.Request("/a.bin", bytes), CancellationToken.None);
+        // commit 途中で共有が落ちたまま止まった session。以後 reconcile も temp 削除も成功しない。
+        var stuck = await f.Db.UploadSessions.SingleAsync();
+        stuck.Status = UploadSessionStatuses.Committing;
+        await f.Db.SaveChangesAsync();
+        f.Router.DeleteTempFailure = new IOException("share is gone");
+
+        f.Clock.Advance(TimeSpan.FromHours(25));
+        await f.Service.ExpireSessionsAsync(CancellationToken.None);
+        (await f.Db.UploadSessions.SingleAsync()).Status
+            .Should().Be(UploadSessionStatuses.Committing, "猶予内は完了復旧の余地を残す");
+
+        // 猶予を過ぎたら committing も終端させる。ここを除外すると永久リトライになり、
+        // 共有の付け替え・削除が二度とできなくなる。
+        f.Clock.Advance(TimeSpan.FromDays(8));
+        await f.Service.ExpireSessionsAsync(CancellationToken.None);
+        var gaveUp = await f.Db.UploadSessions.SingleAsync();
+        gaveUp.Status.Should().Be(UploadSessionStatuses.Cancelled);
+        gaveUp.ErrorCode.Should().Be(TransferCleanupErrorCodes.CleanupGaveUp);
+        (await AdminShareEndpoints.HasDurableTransferStateAsync(f.Db, f.ShareId, CancellationToken.None))
+            .Should().BeFalse("committing のまま残ると共有を廃止できない");
+        _ = created;
+    }
+
+    [Fact]
     public async Task Cleanup_stops_retrying_once_the_give_up_window_passes()
     {
         using var f = await Fixture.CreateAsync();

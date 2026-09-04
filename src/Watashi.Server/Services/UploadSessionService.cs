@@ -562,6 +562,8 @@ public sealed class UploadSessionService
     /// 共有の廃止・付け替えのために、その共有に残る未完了 session を管理者権限で終端させる。
     /// まず正規の後片付け (一時ファイルの削除) を試し、到達できないものだけ台帳を諦める。
     /// 諦めた分は共有上にゴミとして残るため、パスを呼び出し側へ返して監査ログに残させる。
+    /// 列挙中に新しい session が作られると取りこぼすため、呼び出し側が DurableShareLock を
+    /// 保持したまま呼ぶこと (CreateAsync が同じ lock を取るので新規作成を締め出せる)。
     /// </summary>
     public async Task<(int CleanedUp, int Abandoned, List<string> OrphanedPaths)> ReleaseForShareAsync(
         int shareId,
@@ -888,9 +890,9 @@ public sealed class UploadSessionService
             // 共有そのものが到達不能になると実体の削除は二度と成功しない。無期限に再試行すると
             // 掃引のたびに死んだホストへ接続を試み、警告ログを出し続け、共有の削除・付け替えも
             // 永久にブロックされる。作成から十分に経った session は諦めて終端させる。
-            // committing だけは次回に完了復旧できる可能性があるので対象外。
-            if (session.Status != UploadSessionStatuses.Committing &&
-                UtcNow() > session.CreatedAt + _sessionLifetime + _cleanupGiveUpAfter)
+            // committing も対象に含める: 完了復旧は共有へ到達できて初めて成立するので、
+            // この時点まで失敗し続けているなら復旧の見込みはなく、除外すると永久リトライになる。
+            if (UtcNow() > session.CreatedAt + _sessionLifetime + _cleanupGiveUpAfter)
             {
                 _logger.LogWarning(
                     "Transfer v2 session {SessionId} の実体を回収できないまま諦めます。" +

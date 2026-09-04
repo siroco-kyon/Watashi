@@ -416,7 +416,8 @@ public sealed class RemoteTrashService
     /// <summary>
     /// 共有の廃止・付け替えのために、その共有に残るごみ箱台帳を管理者権限で終端させる。
     /// まず正規の完全削除を試し、到達できないものだけ台帳を諦めて残骸のパスを返す。
-    /// 共有単位の lock は PurgeCoreAsync 側が取るため、ここでは取らない。
+    /// 列挙中に新しい台帳が生まれると取りこぼすため、呼び出し側が DurableShareLock を
+    /// 保持したまま呼ぶこと。PurgeCoreAsync には保持済みであることを伝えて二重取得を避ける。
     /// </summary>
     public async Task<(int CleanedUp, int Abandoned, List<string> OrphanedPaths)> ReleaseForShareAsync(
         int shareId,
@@ -454,7 +455,7 @@ public sealed class RemoteTrashService
                         entry.UpdatedAt = UtcNow();
                         await _db.SaveChangesAsync(ct);
                     }
-                    await PurgeCoreAsync(entry, actorUserId, ct);
+                    await PurgeCoreAsync(entry, actorUserId, ct, shareLockHeld: true);
                     cleanedUp++;
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -534,10 +535,15 @@ public sealed class RemoteTrashService
         }
     }
 
+    /// <param name="shareLockHeld">
+    /// 呼び出し側が既に DurableShareLock を保持している場合は true。KeyedAsyncLock は
+    /// 再入可能ではないため、ここで取り直すと自分自身と競合して停止する。
+    /// </param>
     private async Task<RemoteTrashActionResult> PurgeCoreAsync(
         RemoteTrashEntry entry,
         int? actorUserId,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool shareLockHeld = false)
     {
         if (entry.Status == RemoteTrashStatuses.Purged)
             return Result(entry, 0, null, entry.TrashPath, null, changed: false);
@@ -546,7 +552,9 @@ public sealed class RemoteTrashService
         if (entry.Status is not (RemoteTrashStatuses.Active or RemoteTrashStatuses.Purging))
             throw Error(StatusCodes.Status409Conflict, "entry_not_purgeable", "この項目は現在完全削除できません。");
 
-        var shareGate = await DurableShareLock.AcquireAsync(entry.ShareId, ct);
+        var shareGate = shareLockHeld
+            ? null
+            : await DurableShareLock.AcquireAsync(entry.ShareId, ct);
         try
         {
             var execution = await ResolveExecutionAsync(entry.HostId, entry.ShareId, ct);
@@ -586,7 +594,7 @@ public sealed class RemoteTrashService
         }
         finally
         {
-            shareGate.Dispose();
+            shareGate?.Dispose();
         }
     }
 
