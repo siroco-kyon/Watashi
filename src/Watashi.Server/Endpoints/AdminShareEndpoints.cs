@@ -137,8 +137,9 @@ public static class AdminShareEndpoints
             if (!await db.CifsShares.AsNoTracking().AnyAsync(x => x.Id == id, ct))
                 return Results.NotFound();
 
-            // 共有単位の lock はここでは取らない。PurgeCoreAsync が内部で同じ lock を取るため
-            // 二重取得になる。個々の項目は各サービスの項目単位 lock で直列化される。
+            // 列挙と終端の間に新しい転送/ごみ箱が作られると取りこぼし、解除に成功したのに
+            // 続く変更・削除がまたブロックされる。作成側と同じ共有単位 lock を全体で保持する。
+            using var shareGate = await DurableShareLock.AcquireAsync(id, ct);
             var uploadResult = await uploads.ReleaseForShareAsync(id, ct);
             var trashResult = await trash.ReleaseForShareAsync(id, actorUserId, ct);
 

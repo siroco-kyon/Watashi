@@ -251,6 +251,23 @@ public sealed class RemoteTrashServiceTests
     }
 
     [Fact]
+    public async Task Release_for_share_runs_while_the_caller_holds_the_share_lock()
+    {
+        using var f = await Fixture.CreateAsync();
+        f.Router.PutFile("/old.bin", 10);
+        await f.TrashAsync("/old.bin");
+
+        // 強制解除の呼び出し側 (管理API) は列挙と終端の間に新規作成を締め出すため、
+        // 共有単位 lock を保持したまま呼ぶ。PurgeCore が取り直すと自分自身と競合して止まる。
+        using var shareGate = await DurableShareLock.AcquireAsync(f.ShareId, CancellationToken.None);
+        var release = f.Service.ReleaseForShareAsync(f.ShareId, f.UserId, CancellationToken.None);
+        var result = await release.WaitAsync(TimeSpan.FromSeconds(15));
+
+        result.CleanedUp.Should().Be(1);
+        (await f.Db.RemoteTrashEntries.SingleAsync()).Status.Should().Be(RemoteTrashStatuses.Purged);
+    }
+
+    [Fact]
     public async Task Purge_stops_retrying_once_the_give_up_window_passes()
     {
         using var f = await Fixture.CreateAsync();
