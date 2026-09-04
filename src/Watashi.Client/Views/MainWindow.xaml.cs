@@ -9,6 +9,7 @@ using Watashi.Client.Accessibility;
 using Watashi.Client.Services;
 using Watashi.Client.ViewModels;
 using Watashi.Shared.Constants;
+using Watashi.Shared.Helpers;
 
 namespace Watashi.Client;
 
@@ -276,9 +277,10 @@ public partial class MainWindow : Window
         if (e.OriginalSource is not GridViewColumnHeader header) return null;
         return (header.Content as string) switch
         {
-            "名前" => "name",
-            "サイズ" => "size",
-            "更新" => "date",
+            "名前" => FileEntrySort.Name,
+            "種類" => FileEntrySort.Ext,
+            "サイズ" => FileEntrySort.Size,
+            "更新" => FileEntrySort.Date,
             _ => null,
         };
     }

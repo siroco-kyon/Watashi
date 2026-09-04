@@ -505,7 +505,7 @@
                             <GridView>
                                 <GridViewColumn Header="" Width="40"
                                                 CellTemplate="{StaticResource FileEntryIconTemplate}"/>
-                                <GridViewColumn Header="名前" Width="260">
+                                <GridViewColumn Header="名前" Width="220">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Name}" Style="{StaticResource FileEntryColoredText}"
@@ -514,6 +514,7 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
+                                <GridViewColumn Header="種類" DisplayMemberBinding="{Binding Converter={StaticResource ExtText}}" Width="76"/>
                                 <GridViewColumn Header="サイズ" DisplayMemberBinding="{Binding Size, Converter={StaticResource SizeFmt}}" Width="90"/>
                                 <GridViewColumn Header="更新" DisplayMemberBinding="{Binding ModifiedAt, Converter={StaticResource Utc}}" Width="160"/>
                             </GridView>
@@ -827,7 +828,7 @@
                                 <GridView>
                                     <GridViewColumn Header="" Width="40"
                                                     CellTemplate="{StaticResource FileEntryIconTemplate}"/>
-                                    <GridViewColumn Header="名前" Width="260">
+                                    <GridViewColumn Header="名前" Width="220">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Name}" Style="{StaticResource FileEntryColoredText}"
@@ -836,6 +837,7 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
+                                    <GridViewColumn Header="種類" DisplayMemberBinding="{Binding Converter={StaticResource ExtText}}" Width="76"/>
                                     <GridViewColumn Header="サイズ" DisplayMemberBinding="{Binding Size, Converter={StaticResource SizeFmt}}" Width="90"/>
                                     <GridViewColumn Header="更新" DisplayMemberBinding="{Binding ModifiedAt, Converter={StaticResource Utc}}" Width="160"/>
                                 </GridView>

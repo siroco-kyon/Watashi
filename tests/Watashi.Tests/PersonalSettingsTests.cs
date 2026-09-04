@@ -39,6 +39,20 @@ public class PersonalSettingsTests
     }
 
     [Fact]
+    public void Extension_sort_keys_survive_a_save_and_reload()
+    {
+        var restored = AppSettings.DeserializeOrDefault(JsonSerializer.Serialize(new AppSettings
+        {
+            RememberSortOrder = true,
+            LocalSortKey = FileEntrySort.Ext,
+            RemoteSortKey = FileEntrySort.ExtDesc,
+        }));
+
+        restored.LocalSortKey.Should().Be(FileEntrySort.Ext);
+        restored.RemoteSortKey.Should().Be(FileEntrySort.ExtDesc);
+    }
+
+    [Fact]
     public void Fixed_local_folder_precedes_last_used_and_profile_without_duplicates()
     {
         var settings = new AppSettings
