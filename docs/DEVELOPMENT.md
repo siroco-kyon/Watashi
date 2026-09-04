@@ -1,6 +1,6 @@
 # Watashi 開発者ガイド
 
-開発機 (Windows + .NET 8 SDK) でのローカル開発手順をまとめます。
+開発機 (Windows + .NET 10 SDK) でのローカル開発手順をまとめます。Client は .NET 10、Server / Agent / Shared / Tests は .NET 8 を対象にします。
 
 - [前提条件](#前提条件)
 - [プロジェクト構成](#プロジェクト構成)
@@ -17,7 +17,7 @@
 | 項目 | 要件 |
 |---|---|
 | OS | Windows 10 / 11 |
-| .NET SDK | 8.0 (`dotnet --list-sdks` で `8.0.*` が見えること) |
+| .NET SDK | 10.0 (`dotnet --list-sdks` で `10.0.*` が見えること。これで .NET 8 対象プロジェクトもビルド可能) |
 | IDE | Visual Studio 2022 / VS Code どちらでも OK |
 | 推奨拡張 | C# Dev Kit, XAML Styler |
 
@@ -49,7 +49,7 @@ docs/                  # ドキュメント
 # ソリューション全体ビルド
 dotnet build Watashi.sln
 
-# 単体テスト (2026-08-04 時点の基準: 374 件)
+# 単体テスト
 dotnet test tests\Watashi.Tests
 
 # クライアントのみビルド

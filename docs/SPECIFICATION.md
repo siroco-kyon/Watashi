@@ -114,7 +114,8 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 {
   "serverUrl": "https://watashi.internal",
   "updateManifestUrl": "https://watashi.internal/install/Watashi.Client.application",
-  "enableDragDrop": true
+  "enableDragDrop": true,
+  "fileTransferTimeoutMinutes": 30
 }
 ```
 
@@ -123,11 +124,12 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 | `serverUrl` | 接続先の中央サーバー URL。`https`/`http` のスキームで `IsHttps` を判定 |
 | `updateManifestUrl` | 起動時に取得する ClickOnce 配置マニフェスト URL。直接 exe 起動時もこの URL で公開バージョンを確認 |
 | `enableDragDrop` | ドラッグ&ドロップ機能を有効にするか。管理者が配布時に決定 |
+| `fileTransferTimeoutMinutes` | ファイル転送 1 件のタイムアウト (分)。0 以下は 30 に正規化 |
 
 仕様:
 
 - `deployment.json` は exe と同じ場所に置く **Content (CopyToOutputDirectory=PreserveNewest)**
-- 起動時に `DeploymentConfig` が読み込み、`AppSettings` の `ServerUrl` / `UpdateManifestUrl` / `EnableDragDrop` を**上書き**する
+- 起動時に `DeploymentConfig` が読み込み、`AppSettings` の `ServerUrl` / `UpdateManifestUrl` / `EnableDragDrop` / `FileTransferTimeoutMinutes` を**上書き**する
   (これらのプロパティは `[JsonIgnore]` で、利用者ごとの `settings.json` には保存されない)
 - ClickOnce はマニフェストでファイルのハッシュを検証するため、`deployment.json` を後から書き換えると
   起動できない。**接続先を変えるには再発行 (re-publish) が必要**
@@ -145,6 +147,7 @@ Watashi は、社員が自分の PC から社内の CIFS/SMB ファイルサー�
 - ローカル開始位置: 前回場所 (`LastUsed`) / 固定フォルダ (`Fixed`)
 - リモート開始位置: 未選択 (`None`) / 前回場所 (`LastUsed`) / 指定したお気に入り (`Favorite`)
 - ライト / ダークテーマ
+- ファイル名の種類別カラー表示と、拡張子ルール・色・有効状態
 - ローカル削除時にWindowsごみ箱を使うか
 - ローカル / リモート一覧のソートキーを次回も復元するか
 - 最近使ったリモート場所の消去、および個人設定の初期化
@@ -342,10 +345,10 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 | 操作 | API | 補足 |
 |---|---|---|
 | 一覧 | `GET /api/files/incremental` | 安定 snapshot cursor + ソート。クライアントは許容上限の 500 件ずつ要求 |
-| 横断検索 | `POST /api/files/search` | 全許可ルート、取消/走査件数/時間/結果上限付き |
+| 横断検索 | `POST /api/files/search` | 全許可ルート、取消/走査件数/時間/結果上限付き。クライアント UI は現在非表示 |
 | ダウンロード | `GET /api/files/download` | ストリーミング |
 | アップロード | `POST /api/files/upload` | ストリーミング |
-| 削除 | `DELETE /api/files` | 管理ごみ箱へ移動、保管期間内は復元可能 |
+| 削除 | `DELETE /api/files` | 即時削除。Watashi からの復元機能はない |
 | リネーム | `POST /api/files/rename` | 同一親限定 |
 | フォルダ作成 | `POST /api/files/mkdir` | |
 | コピー | `POST /api/files/copy` | コピー元を保持。フォルダー間移動は非搭載 |
@@ -384,6 +387,7 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 - **左ペイン (ローカル) 💻**: PC のフォルダ。📂 ボタンで Windows のフォルダ選択ダイアログ
 - **右ペイン (リモート) ⛩**: 中央サーバー経由の CIFS 共有。「場所」ドロップダウンで切替。ホバー時は現在選択中の表示名・ホスト・共有・許可ルートを全文表示
 - **一覧ページング**: 初回 500 件、残りがあるときだけ「さらに読み込む」で 500 件ずつ追加
+- **一覧表示**: 名前 / 種類 (拡張子) / サイズ / 更新で昇順・降順ソート。フォルダーと 11 種類のファイル種別アイコンを表示
 - **ステータスバー**: 接続プロトコル ●、直近の操作/エラー (時刻 + 発生元)、ログイン中ユーザー、転送進捗 %
 
 ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneViewModel` / `TransferViewModel`。
@@ -423,6 +427,7 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 - 空状態 (ユーザー 0 件 / 付与パス 0 件 / リモート場所無し / フィルタ無一致) に案内文
 - ListBox/ListView 仮想化で大量データでも軽量
 - ペインごとのフィルタ/検索ボックス、マルチセレクト一括転送、転送キャンセル + 二重起動防止、転送速度/ETA + エラーバナー
+- 個人設定でファイル名の種類別カラーを有効化し、拡張子ルールとテーマ対応色を編集可能
 - 別フォルダーへの移動成功時は該当ペインの `FilterText` だけを初期化し、列ソート (`SortKey`) は維持。同一パス更新や F5 ではフィルターも維持
 
 ---
@@ -448,6 +453,8 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 
 ### 8.3 共有
 ホストに紐づく SMB 共有名 + 表示名。同一ホストで `ShareName` ユニーク制約。
+
+未完了の upload session または旧版由来のリモートごみ箱台帳が残る共有は、物理接続先 (Host / ShareName) の変更と削除を `409 share_has_durable_state` で拒否する。管理画面は `GET /api/admin/shares/{id}/durable-state` で残存件数・状態・期限・失敗理由を表示する。到達不能な共有を廃止するときは、理由付きの明示操作 `POST /api/admin/shares/{id}/durable-state/release` で正規回収を先に試し、回収不能な台帳だけを終端化する。処理結果と孤立パスは `ADMIN_SHARE_RELEASE_DURABLE` として監査する。
 
 ### 8.4 テンプレート (権限テンプレート)
 名前 + READ/WRITE/DELETE/RENAME のチェックボックス。
@@ -579,6 +586,11 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 | POST | `/api/files/copy` | リモートコピー（移動はしない） |
 | GET | `/api/files/incremental` | cursor型増分一覧 |
 | POST | `/api/files/search` | 権限内横断検索 |
+| POST/GET/DELETE | `/api/files/v2/uploads[/{sessionId}]` | upload session の作成・状態取得・取消 |
+| PUT | `/api/files/v2/uploads/{sessionId}/chunks` | offset + SHA-256 付きチャンク送信 |
+| POST | `/api/files/v2/uploads/{sessionId}/complete` | 全体ハッシュ検証と原子的確定 |
+| GET | `/api/files/v2/downloads/metadata` | サイズ・更新時刻・SHA-256・ETag 取得 |
+| GET | `/api/files/v2/downloads/range` | ETag 条件付き範囲取得 |
 
 ### 10.3 ホスト `/api/hosts` (Bearer)
 
@@ -685,7 +697,7 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 索引: Timestamp 降順 / UserId / HostId
 
 ### SystemSetting
-`Key` / `Value` (5 キー、§13.3)
+`Key` / `Value` (6 キー、§13.3)
 
 ### PendingLog (Agent ローカル)
 `Id` / バッファした監査ログ内容 / `AttemptCount`（centralが形式不正として拒否した回数。>=50でdead-letter、削除しない）
@@ -743,6 +755,7 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 | `serverUrl` | `https://watashi.internal` | 接続先中央サーバー (変更には再発行) |
 | `updateManifestUrl` | `https://watashi.internal/install/Watashi.Client.application` | 起動時に確認する ClickOnce 配置マニフェスト |
 | `enableDragDrop` | `true` | D&D 機能の有効化 |
+| `fileTransferTimeoutMinutes` | `30` | ファイル転送 1 件のタイムアウト (分) |
 
 ### 13.2 サーバー (appsettings.json)
 
@@ -752,7 +765,8 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 | Jwt | `Secret` / `Issuer` / `Audience` | JWT 署名鍵 (本番でプレースホルダ拒否) |
 | Encryption | `MasterKey` | AES-256-GCM マスターキー (本番でプレースホルダ拒否) |
 | Auth | `AllowHttpForAutoLogin` | HTTP 自動ログイン許可の最終判定 |
-| Auth | `LoginRateLimit` | ログインレート制限 (デフォルト 10/分) |
+| Auth | `LoginPerMinutePerIp` | IP 単位のログインレート制限 (デフォルト 10/分) |
+| TransferV2 | `SessionLifetimeHours` / `JanitorIntervalMinutes` / `CleanupGiveUpDays` / `MaxFileBytes` | 再開可能転送の寿命、掃引間隔、後片付け断念までの日数、1 ファイル上限 |
 | Routing | `UseMtls` | Server↔Agent の mTLS 有効化 |
 | Cifs | (プール設定) | セッションプール TTL/上限 |
 | Kestrel | (`:8080`) | 待受ポート |
