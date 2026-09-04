@@ -1,5 +1,8 @@
 # CifsTool — 社内CIFSファイル管理ツール 最終仕様書 兼 実装ガイド
 
+> [!WARNING]
+> **履歴資料です。現行仕様ではありません。** この文書は CifsTool として設計した初期実装案を保存したもので、現在の製品名、対象ランタイム、認証、転送、削除、運用仕様とは一致しません。現行仕様は [docs/SPECIFICATION.md](docs/SPECIFICATION.md)、利用者向け操作は [docs/USER-GUIDE.md](docs/USER-GUIDE.md)、管理操作は [docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md) を参照してください。
+
 > この文書は Claude Code で実装するための完全仕様書です。
 > 設計の背景や選択肢の議論は省略し、「何をどう作るか」だけを記載しています。
 > 上から順に読み、IMPLEMENTATION ORDER（末尾）の順序で実装してください。

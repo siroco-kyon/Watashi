@@ -212,7 +212,7 @@
       <div class="stat">
         <div class="ico">🖥️</div>
         <div class="big">4 つの部品</div>
-        <div class="desc">Client (WPF) / Server / Agent / Shared。すべて .NET 8、Server と Agent は Windows サービスとして常駐</div>
+        <div class="desc">Client (WPF / .NET 10) / Server / Agent / Shared (.NET 8)。Server と Agent は Windows サービスとして常駐</div>
       </div>
       <div class="stat">
         <div class="ico">🔐</div>
@@ -227,7 +227,7 @@
       <div class="stat">
         <div class="ico">🚚</div>
         <div class="big">大容量に耐える</div>
-        <div class="desc">全区間ストリーミング中継 (4 MB バッファ)。既定の要求上限 10 GB、途中失敗しても不完全ファイルを残さない</div>
+        <div class="desc">最大 8 MiB チャンク、SHA-256 検証、永続キュー。通信断や再起動後も再開し、不完全ファイルを正式名で残さない</div>
       </div>
     </div>
 
@@ -449,8 +449,8 @@
     <table>
       <thead><tr><th style="width:180px">領域</th><th>採用技術</th><th>補足</th></tr></thead>
       <tbody>
-        <tr><td>言語 / 基盤</td><td>.NET 8 / C#</td><td>Server・Agent・Client・共有ライブラリすべて</td></tr>
-        <tr><td>クライアント</td><td>WPF (<code>net8.0-windows</code>)、MVVM</td><td>CommunityToolkit.Mvvm の <code>[ObservableProperty]</code> / <code>[RelayCommand]</code></td></tr>
+        <tr><td>言語 / 基盤</td><td>.NET 10 / .NET 8 / C#</td><td>Client は .NET 10、Server・Agent・Shared は .NET 8</td></tr>
+        <tr><td>クライアント</td><td>WPF (<code>net10.0-windows</code>)、MVVM</td><td>CommunityToolkit.Mvvm の <code>[ObservableProperty]</code> / <code>[RelayCommand]</code></td></tr>
         <tr><td>サーバー / Agent</td><td>ASP.NET Core Minimal API</td><td><code>Microsoft.Extensions.Hosting.WindowsServices</code> で Windows サービス化</td></tr>
         <tr><td>データベース</td><td>SQLite + EF Core</td><td>マイグレーション自動適用、WAL モード、読み取りは <code>AsNoTracking</code></td></tr>
         <tr><td>ファイル共有アクセス</td><td>SMBLibrary (SMB 2/3)</td><td>OS のドライブマウントに依存しない実装</td></tr>
@@ -472,7 +472,7 @@
         <!-- 上段 3 プロジェクト -->
         <rect x="40" y="40" width="220" height="96" rx="11" fill="#fff" stroke="#C73E1D" stroke-width="1.8"/>
         <text x="150" y="66" text-anchor="middle" font-size="13" font-weight="700" fill="#5C1A0B">Watashi.Client</text>
-        <text x="150" y="86" text-anchor="middle" font-size="10.5" fill="#4A535C">WPF / net8.0-windows</text>
+        <text x="150" y="86" text-anchor="middle" font-size="10.5" fill="#4A535C">WPF / net10.0-windows</text>
         <text x="150" y="104" text-anchor="middle" font-size="10.5" fill="#6B7280">2 ペイン UI・管理 UI</text>
         <text x="150" y="121" text-anchor="middle" font-size="10.5" fill="#6B7280">ApiClient / SessionManager</text>
 
@@ -1461,7 +1461,7 @@
       <li>長いファイル名・パス・ホスト名は省略表示し、マウスを乗せると全文をツールチップ表示する</li>
       <li>「利用者が 0 件」「許可されたフォルダが 0 件」「表示できる場所が無い」「絞り込みに一致しない」の各状態に、それぞれ専用の案内文を出す</li>
       <li>一覧は仮想化されており、大量の項目でもスクロールが重くならない</li>
-      <li>転送中は進捗率・速度・推定残り時間を表示し、キャンセルできる。二重起動は抑止される</li>
+      <li>転送中は進捗率・速度・推定残り時間を表示する。永続キューへ追加でき、転送センターで一時停止・再開・取消・失敗項目の再試行を行える</li>
       <li>パスワード入力欄には目のアイコンがあり、入力内容を一時的に平文表示できる (ログイン・パスワード変更・管理画面の各欄)</li>
       <li>管理者でない利用者には管理ボタン自体が表示されない</li>
     </ul>
@@ -1473,7 +1473,7 @@
     <table>
       <thead><tr><th style="width:150px">操作</th><th style="width:200px">必要な権限</th><th>仕様</th></tr></thead>
       <tbody>
-        <tr><td>一覧表示</td><td>READ</td><td>1 ページ 200 件。名前 / 日付 / サイズで昇順・降順の並べ替え</td></tr>
+        <tr><td>一覧表示</td><td>READ</td><td>増分 500 件。名前 / 種類 (拡張子) / 日付 / サイズで昇順・降順の並べ替え</td></tr>
         <tr><td>ダウンロード</td><td>READ</td><td>ストリーミング。フォルダを選ぶと配下ごと再帰的に取得する</td></tr>
         <tr><td>アップロード</td><td>WRITE</td><td>ストリーミング。フォルダを選ぶと構造を保ったまま再帰的に送る</td></tr>
         <tr><td>削除</td><td>DELETE</td><td>確認ダイアログあり。フォルダは配下を再帰的に削除する</td></tr>
@@ -1485,7 +1485,7 @@
     <h3>13.2 転送のしくみ</h3>
 
     <figure>
-      <svg viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="アップロードとダウンロードのストリーミング経路。4MB バッファで中継し、ダウンロードは .part ファイル経由で完成させる">
+      <svg viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="アップロードとダウンロードの再開可能な転送経路。8 MiB チャンクを検証し、ダウンロードはジョブ専用一時ファイル経由で完成させる">
         <defs>
           <marker id="f9arw" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#C73E1D"/></marker>
           <marker id="f9arwB" markerWidth="10" markerHeight="10" refX="8.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0969DA"/></marker>
@@ -1496,12 +1496,12 @@
 
         <rect x="30" y="48" width="146" height="52" rx="9" fill="#fff" stroke="#9CA3AF" stroke-width="1.5"/>
         <text x="103" y="70" text-anchor="middle" font-size="11" fill="#1F2328">自分の PC のファイル</text>
-        <text x="103" y="88" text-anchor="middle" font-size="10" fill="#6B7280">サイズを問わない</text>
+        <text x="103" y="88" text-anchor="middle" font-size="10" fill="#6B7280">既定上限 10 TiB</text>
 
         <line x1="176" y1="74" x2="222" y2="74" stroke="#C73E1D" stroke-width="2.2" marker-end="url(#f9arw)"/>
         <rect x="230" y="48" width="146" height="52" rx="9" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.6"/>
         <text x="303" y="70" text-anchor="middle" font-size="11" fill="#5C1A0B">クライアント</text>
-        <text x="303" y="88" text-anchor="middle" font-size="10" fill="#5C1A0B">4 MB ずつ読んで送る</text>
+        <text x="303" y="88" text-anchor="middle" font-size="10" fill="#5C1A0B">最大 8 MiB + SHA-256</text>
 
         <line x1="376" y1="74" x2="422" y2="74" stroke="#C73E1D" stroke-width="2.2" marker-end="url(#f9arw)"/>
         <rect x="430" y="48" width="146" height="52" rx="9" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.6"/>
@@ -1532,13 +1532,13 @@
 
         <rect x="222" y="216" width="150" height="48" rx="9" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.5"/>
         <text x="297" y="238" text-anchor="middle" font-size="10.5" fill="#0b4a8f">中央サーバー（+ Agent）</text>
-        <text x="297" y="255" text-anchor="middle" font-size="10" fill="#0b4a8f">4 MB ずつ中継</text>
+        <text x="297" y="255" text-anchor="middle" font-size="10" fill="#0b4a8f">範囲取得 + SHA-256</text>
         <line x1="372" y1="240" x2="416" y2="240" stroke="#0969DA" stroke-width="2.2" marker-end="url(#f9arwB)"/>
 
         <rect x="424" y="208" width="176" height="64" rx="9" fill="#FFF6E0" stroke="#BF8700" stroke-width="1.6"/>
-        <text x="512" y="230" text-anchor="middle" font-size="11" font-weight="700" fill="#7a5600">まず「.part」に書き出す</text>
-        <text x="512" y="248" text-anchor="middle" font-size="10" fill="#7a5600">例: 月次報告.pdf.part</text>
-        <text x="512" y="264" text-anchor="middle" font-size="10" fill="#7a5600">この間は未完成と分かる名前</text>
+        <text x="512" y="230" text-anchor="middle" font-size="11" font-weight="700" fill="#7a5600">ジョブ専用一時ファイル</text>
+        <text x="512" y="248" text-anchor="middle" font-size="10" fill="#7a5600">確定済み offset を保存</text>
+        <text x="512" y="264" text-anchor="middle" font-size="10" fill="#7a5600">全体 SHA-256 を最後に検証</text>
 
         <line x1="600" y1="240" x2="644" y2="240" stroke="#1F883D" stroke-width="2.2" marker-end="url(#f9arw)"/>
         <rect x="652" y="216" width="222" height="48" rx="9" fill="#E6F5EB" stroke="#1F883D" stroke-width="1.6"/>
@@ -1547,21 +1547,22 @@
 
         <rect x="424" y="292" width="450" height="40" rx="8" fill="#FFE9EA" stroke="#CF222E" stroke-width="1.3"/>
         <text x="649" y="309" text-anchor="middle" font-size="10.5" font-weight="700" fill="#8a1119">通信が切れた・利用者がキャンセルした場合</text>
-        <text x="649" y="325" text-anchor="middle" font-size="10" fill="#8a1119">.part ファイルを自動削除。中途半端なファイルが業務フォルダに残らない</text>
+        <text x="649" y="325" text-anchor="middle" font-size="10" fill="#8a1119">確定位置から再開。ジョブ削除時は一時ファイルを回収</text>
         <path d="M512 272 V292" stroke="#CF222E" stroke-width="1.6" stroke-dasharray="4 3"/>
 
-        <text x="450" y="368" text-anchor="middle" font-size="10.5" fill="#6B7280">要求の既定上限は 10 GB（設定変更可）。IIS を前段に置く場合は IIS 側の上限（約 4 GB）が先に効く点に注意</text>
+        <text x="450" y="368" text-anchor="middle" font-size="10.5" fill="#6B7280">既定上限は 10 TiB。永続キューと冪等 upload session により通信断・アプリ再起動後も再開できる</text>
       </svg>
-      <figcaption>図 10：転送パイプライン。アップロードもダウンロードも全区間ストリーミングで、ダウンロードは <code>.part</code> 方式により「途中で切れた不完全なファイルが正式名で残る」ことを防いでいます。</figcaption>
+      <figcaption>図 10：再開可能な転送パイプライン。最大 8 MiB チャンクと全体ハッシュを検証し、ダウンロードはジョブ専用一時ファイルから原子的に正式名へ切り替えます。</figcaption>
     </figure>
 
     <h3>13.3 転送の詳細</h3>
     <table>
       <thead><tr><th style="width:230px">項目</th><th>内容</th></tr></thead>
       <tbody>
-        <tr><td><b>バッファサイズ</b></td><td>4 MB。共有バッファプールから借りて返すため、大容量転送でも大きなメモリ領域が積み上がらない</td></tr>
+        <tr><td><b>転送単位</b></td><td>最大 8 MiB。各チャンクとファイル全体を SHA-256 で検証し、offset / ETag / 冪等キーで再開する</td></tr>
         <tr><td><b>Agent 経由時</b></td><td>応答ヘッダーだけを先に読んで本文を流す方式で中継するため、途中の段でも全体をメモリに展開しない</td></tr>
-        <tr><td><b>要求サイズの上限</b></td><td>既定 10 GB (<code>Kestrel:Limits:MaxRequestBodySize</code>)。IIS を前段に置く構成では IIS 側の上限が別レイヤーで効き、その最大値は約 4 GB</td></tr>
+        <tr><td><b>ファイルサイズの上限</b></td><td>既定 10 TiB (<code>TransferV2:MaxFileBytes</code>)。チャンク要求は最大 8 MiB のため、旧 v1 の要求本文上限とは分離される</td></tr>
+        <tr><td><b>キューと再試行</b></td><td>利用者 + 接続先ごとに永続化。同一コピー先は直列化し、一時障害だけを上限付き指数バックオフ + jitter で自動再試行する</td></tr>
         <tr><td><b>タイムアウト</b></td><td>転送 1 件あたり既定 30 分 (<code>deployment.json</code> の <code>fileTransferTimeoutMinutes</code>)</td></tr>
         <tr><td><b>フォルダ転送</b></td><td>フォルダを選ぶと配下を再帰的に処理し、進捗はフォルダ単位で表示される。各ファイルの操作はそれぞれ監査ログに残る</td></tr>
         <tr><td><b>ローカル側の I/O</b></td><td>フォルダの走査は増分列挙、ファイル操作はすべてバックグラウンド実行のため、大量ファイルでも画面が固まらない</td></tr>
@@ -1579,7 +1580,7 @@
       <tbody>
         <tr><td><b>① ユーザー</b></td><td>一覧 / 追加 / 削除 / 管理者フラグ変更 / ロック解除 / 初回設定に戻す / パスワード強制リセット / CSV 一括登録 / CSV 出力</td><td>新規利用者は初回設定待ちで作成され、Windows 本人確認で自分の最初のパスワードを設定する。利用できない環境では管理者が初期パスワードを発行する。管理者フラグを変更すると変更前のアクセストークンとリフレッシュトークンは直ちに無効になる。CSV 一括登録は「新規のみ」「上書き」の 2 モードで、更新対象は管理者フラグに限定される。自分自身と最後の有効な管理者に対する削除・降格・初回設定への差し戻しはサーバー側で拒否される</td></tr>
         <tr><td><b>② ホスト</b></td><td>ファイルサーバーの登録 (表示名 / アドレス / ポート / 資格情報 / 実行ノード) と接続テスト</td><td>資格情報は AES-256-GCM で暗号化して保存し、API 応答には決して含まれない。接続テストは登録済みの共有を 1 つ使って SMB 接続を試みる</td></tr>
-        <tr><td><b>③ 共有</b></td><td>ホストに紐づく SMB 共有名と表示名の登録</td><td>同一ホスト内で共有名は一意</td></tr>
+        <tr><td><b>③ 共有</b></td><td>ホストに紐づく SMB 共有名と表示名の登録、残存転送状態の確認・強制解除</td><td>同一ホスト内で共有名は一意。未完了の転送／旧ごみ箱台帳がある間は物理接続先変更・削除を拒否し、強制解除は理由と孤立パスを監査する</td></tr>
         <tr><td><b>④ テンプレート</b></td><td>権限テンプレートの作成・編集・削除</td><td>強い順に表示される。使用中のテンプレートは削除できない</td></tr>
         <tr><td><b>⑤ ユーザー権限</b></td><td>利用者ごとの許可フォルダの付与・削除。実際のフォルダツリーから選べるパスブラウザ付き</td><td>左に利用者一覧 (絞り込みと件数バッジ)、右に付与済みパス。「権限セットから一括適用」「他の利用者から全件複製」が使える (重複はスキップか上書きを選択)</td></tr>
         <tr><td><b>⑥ 権限セット</b></td><td>部署・役割単位で権限行をまとめて定義</td><td>適用時に利用者権限として展開されるため、セットを後から削除しても付与済みの権限は残る</td></tr>
@@ -1635,12 +1636,19 @@
     <table class="sm">
       <thead><tr><th style="width:80px">Method</th><th style="width:250px">Path</th><th>用途</th><th style="width:150px">必要な権限</th></tr></thead>
       <tbody>
-        <tr><td><span class="m get">GET</span></td><td><code>/api/files</code></td><td>一覧 (200 件/ページ、並べ替え対応)</td><td>READ</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/files</code></td><td>旧互換一覧 (200 件/ページ、並べ替え対応)</td><td>READ</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/files/incremental</code></td><td>現行クライアントの増分一覧 (500 件 + snapshot cursor)</td><td>READ</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/files/search</code></td><td>権限内横断検索 (API のみ、クライアント UI は非表示)</td><td>READ</td></tr>
         <tr><td><span class="m get">GET</span></td><td><code>/api/files/download</code></td><td>ダウンロード (ストリーミング)</td><td>READ</td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/files/upload</code></td><td>アップロード (ストリーミング)</td><td>WRITE</td></tr>
         <tr><td><span class="m del">DELETE</span></td><td><code>/api/files</code></td><td>削除 (フォルダは再帰)</td><td>DELETE</td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/files/rename</code></td><td>名前の変更 (同一親のみ)</td><td>RENAME</td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/files/mkdir</code></td><td>フォルダ作成</td><td>WRITE</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/files/v2/uploads</code></td><td>冪等 upload session の作成</td><td>WRITE</td></tr>
+        <tr><td><span class="m get">GET</span> <span class="m del">DELETE</span></td><td><code>/api/files/v2/uploads/{sessionId}</code></td><td>状態取得・取消</td><td>WRITE</td></tr>
+        <tr><td><span class="m put">PUT</span></td><td><code>/api/files/v2/uploads/{sessionId}/chunks</code></td><td>offset + SHA-256 付きチャンク送信</td><td>WRITE</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/files/v2/uploads/{sessionId}/complete</code></td><td>全体ハッシュ検証と原子的確定</td><td>WRITE</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/files/v2/downloads/metadata</code> / <code>range</code></td><td>ETag 付きメタデータ・範囲取得</td><td>READ</td></tr>
       </tbody>
     </table>
     </div>
@@ -1683,6 +1691,8 @@
         <tr><td><span class="m post">POST</span></td><td><code>/api/admin/hosts/test-connection</code></td><td>接続テスト</td></tr>
         <tr><td><span class="m get">GET</span> <span class="m post">POST</span></td><td><code>/api/admin/shares</code></td><td>共有の一覧 (<code>?hostId</code>)・追加</td></tr>
         <tr><td><span class="m patch">PATCH</span> <span class="m del">DELETE</span></td><td><code>/api/admin/shares/{id}</code></td><td>共有の変更・削除</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/admin/shares/{id}/durable-state</code></td><td>未完了の転送・旧ごみ箱台帳を確認</td></tr>
+        <tr><td><span class="m post">POST</span></td><td><code>/api/admin/shares/{id}/durable-state/release</code></td><td>理由付きの強制解除（回収不能パスを監査）</td></tr>
         <tr><td><span class="m get">GET</span> <span class="m post">POST</span></td><td><code>/api/admin/nodes</code></td><td>実行ノードの一覧・追加</td></tr>
         <tr><td><span class="m patch">PATCH</span> <span class="m del">DELETE</span></td><td><code>/api/admin/nodes/{id}</code></td><td>実行ノードの変更・削除</td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/admin/nodes/{id}/regenerate-key</code></td><td>鍵の再生成</td></tr>
@@ -2181,10 +2191,10 @@
     <table class="sm">
       <thead><tr><th style="width:280px">項目</th><th style="width:170px">値</th><th>備考</th></tr></thead>
       <tbody>
-        <tr><td>ファイル一覧のページサイズ</td><td>200 件</td><td>並べ替えはサーバー側で行う</td></tr>
+        <tr><td>現行クライアントの増分一覧</td><td>500 件 / 要求</td><td>短期 snapshot cursor。並べ替えはサーバー側</td></tr>
         <tr><td>監査ログのページサイズ</td><td>100 件</td><td>新しい順</td></tr>
-        <tr><td>転送バッファ</td><td>4 MB</td><td>全区間共通</td></tr>
-        <tr><td>要求本文の上限</td><td>既定 10 GB</td><td>IIS を前段に置く場合は IIS 側の上限 (最大約 4 GB) が先に効く</td></tr>
+        <tr><td>転送チャンク</td><td>最大 8 MiB</td><td>チャンク SHA-256 と全体 SHA-256 を検証</td></tr>
+        <tr><td>ファイルサイズの上限</td><td>既定 10 TiB</td><td><code>TransferV2:MaxFileBytes</code> で変更可</td></tr>
         <tr><td>転送タイムアウト</td><td>既定 30 分 / 件</td><td>配布時に変更可</td></tr>
         <tr><td>アクセストークン / リフレッシュトークン</td><td>15 分 / 30 日</td><td>設定変更可</td></tr>
         <tr><td>アイドルタイムアウト</td><td>既定 30 分</td><td>管理画面で変更可</td></tr>

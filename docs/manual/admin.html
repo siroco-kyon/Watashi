@@ -535,6 +535,14 @@ G012347,false,</pre>
       </table>
       <p>同一ホスト内で <code>共有名（ShareName）</code> はユニーク制約です（同じ共有を複数の表示名で重複登録はできません）。監査ログ：<span class="tag">ADMIN_SHARE_CREATE</span> / <span class="tag">_UPDATE</span> / <span class="tag">_DELETE</span>。</p>
 
+      <h3>5-1. 共有を廃止する／別サーバーへ付け替える</h3>
+      <p>未完了の転送セッションや旧版由来のごみ箱台帳が残っている共有は、物理接続先（対象ホスト／共有名）の変更と削除が <code>409 share_has_durable_state</code> でブロックされます。表示名だけの変更は可能です。</p>
+      <p>共有を選ぶと「<strong>未完了の転送・ごみ箱データ</strong>」に件数、パス、状態、エラー、期限が表示されます。回収失敗が 0 件なら通常は期限と定期掃引を待ちます。<code>cleanup_retry</code> / <code>purge_retry</code> が残る場合は共有へ到達できないため、旧ストレージの状態を確認してください。</p>
+      <div class="danger">
+        <strong>強制解除は最後の手段です</strong>
+        「強制解除」は正規の後片付けを先に試し、到達不能な実体だけ台帳上で終端させます。理由を入力して実行し、表示された回収不能パスを保存してください。処理結果と各パスは <span class="tag">ADMIN_SHARE_RELEASE_DURABLE</span> で監査ログへ残ります。可能なら旧ストレージが生きているうちに残存 0 件を確認してから変更・削除してください。
+      </div>
+
       <!-- ===================================================== 6 -->
       <h2 id="templates"><span class="num">6</span>テンプレート（権限テンプレート）</h2>
       <p>操作権限の組み合わせに名前を付けて登録します。チェックは <strong>Read / Write / Delete / Rename</strong> の4つ。</p>
@@ -818,7 +826,7 @@ G012347,false,</pre>
           <tr><td><span class="tag">READ</span> <span class="tag">WRITE</span> <span class="tag">DELETE</span> <span class="tag">RENAME</span></td><td>利用者のファイル操作</td></tr>
           <tr><td><span class="tag">ADMIN_USER_*</span></td><td>ユーザー管理（CREATE/UPDATE/DELETE/UNLOCK/RESET_PW/REVOKE_DEVICES/IMPORT/EXPORT）</td></tr>
           <tr><td><span class="tag">ADMIN_HOST_*</span></td><td>ホスト管理（CREATE/UPDATE/DELETE/TEST）</td></tr>
-          <tr><td><span class="tag">ADMIN_SHARE_*</span></td><td>共有管理（CREATE/UPDATE/DELETE）</td></tr>
+          <tr><td><span class="tag">ADMIN_SHARE_*</span></td><td>共有管理（CREATE/UPDATE/DELETE/RELEASE_DURABLE）</td></tr>
           <tr><td><span class="tag">ADMIN_TEMPLATE_*</span></td><td>テンプレート管理（CREATE/UPDATE/DELETE）</td></tr>
           <tr><td><span class="tag">ADMIN_PERMISSION_*</span></td><td>権限管理（CREATE/DELETE/COPY）</td></tr>
           <tr><td><span class="tag">ADMIN_BUNDLE_*</span></td><td>権限セット（CREATE/UPDATE/DELETE/APPLY）</td></tr>
