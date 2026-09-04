@@ -4,6 +4,7 @@ using Watashi.Server.Data;
 using Watashi.Server.Services;
 using Watashi.Shared.Constants;
 using Watashi.Shared.DTOs.Admin;
+using Watashi.Shared.Helpers;
 using Watashi.Shared.Models;
 
 namespace Watashi.Server.Endpoints;
@@ -114,7 +115,114 @@ public static class AdminShareEndpoints
             return Results.NoContent();
         });
 
+        // 共有の廃止・付け替えを管理者が完遂できるようにするための2本。
+        // PATCH / DELETE 側のガードは残したまま、解除は明示操作として分離する。
+        group.MapGet("/{id:int}/durable-state", async (
+            int id, AppDbContext db, CancellationToken ct) =>
+        {
+            if (!await db.CifsShares.AsNoTracking().AnyAsync(x => x.Id == id, ct))
+                return Results.NotFound();
+            return Results.Ok(await ReadDurableStateAsync(db, id, ct));
+        });
+
+        group.MapPost("/{id:int}/durable-state/release", async (
+            int id, ReleaseDurableStateRequest req, AppDbContext db,
+            UploadSessionService uploads, RemoteTrashService trash,
+            AuditLogService audit, HttpContext ctx, ClaimsPrincipal principal,
+            CancellationToken ct) =>
+        {
+            if (!principal.TryGetUserId(out var actorUserId)) return Results.Unauthorized();
+            if (!req.Confirm)
+                return Results.BadRequest(new { error = "確認されていない強制解除は実行できません。" });
+            if (!await db.CifsShares.AsNoTracking().AnyAsync(x => x.Id == id, ct))
+                return Results.NotFound();
+
+            // 共有単位の lock はここでは取らない。PurgeCoreAsync が内部で同じ lock を取るため
+            // 二重取得になる。個々の項目は各サービスの項目単位 lock で直列化される。
+            var uploadResult = await uploads.ReleaseForShareAsync(id, ct);
+            var trashResult = await trash.ReleaseForShareAsync(id, actorUserId, ct);
+
+            var result = new ReleaseDurableStateResult
+            {
+                CleanedUp = uploadResult.CleanedUp + trashResult.CleanedUp,
+                Abandoned = uploadResult.Abandoned + trashResult.Abandoned,
+                OrphanedPaths = uploadResult.OrphanedPaths.Concat(trashResult.OrphanedPaths).ToList(),
+            };
+
+            var reason = string.IsNullOrWhiteSpace(req.Reason) ? "(理由未記入)" : req.Reason.Trim();
+            await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareReleaseDurableState,
+                $"share:{id}",
+                result.Abandoned > 0 ? AuditResults.Warning : AuditResults.Success,
+                $"cleaned={result.CleanedUp} abandoned={result.Abandoned} reason={reason}", ct);
+
+            // 回収できなかった実体は共有上にゴミとして残る。後から追跡できるよう
+            // パスを1件ずつ監査ログに残す (件数は共有あたり高々数件〜数十件)。
+            foreach (var path in result.OrphanedPaths.Take(MaxAuditedOrphanPaths))
+            {
+                await audit.LogAdminAsync(principal, ctx, AdminOperations.ShareReleaseDurableState,
+                    $"share:{id}{path}", AuditResults.Warning, "orphaned_path", ct);
+            }
+            return Results.Ok(result);
+        });
+
         return app;
+    }
+
+    /// <summary>放棄パスを個別に監査へ残す上限。異常件数でログを溢れさせない。</summary>
+    private const int MaxAuditedOrphanPaths = 200;
+
+    internal static async Task<ShareDurableStateDto> ReadDurableStateAsync(
+        AppDbContext db, int shareId, CancellationToken ct)
+    {
+        var uploads = await (from u in db.UploadSessions.AsNoTracking()
+                             join usr in db.Users.AsNoTracking() on u.UserId equals usr.Id into gj
+                             from usr in gj.DefaultIfEmpty()
+                             where u.ShareId == shareId &&
+                                   (u.Status == UploadSessionStatuses.Active ||
+                                    u.Status == UploadSessionStatuses.Committing ||
+                                    u.Status == UploadSessionStatuses.Failed)
+                             orderby u.CreatedAt
+                             select new DurableUploadDto
+                             {
+                                 Id = u.Id,
+                                 Username = usr != null ? usr.Username : "(不明)",
+                                 TargetPath = u.TargetPath,
+                                 TempPath = u.TempPath,
+                                 Status = u.Status,
+                                 ErrorCode = u.ErrorCode,
+                                 UpdatedAt = u.UpdatedAt,
+                                 ExpiresAt = u.ExpiresAt,
+                             }).ToListAsync(ct);
+
+        var trash = await db.RemoteTrashEntries.AsNoTracking()
+            .Where(e => e.ShareId == shareId &&
+                        (e.Status == RemoteTrashStatuses.Trashing ||
+                         e.Status == RemoteTrashStatuses.Active ||
+                         e.Status == RemoteTrashStatuses.Restoring ||
+                         e.Status == RemoteTrashStatuses.Purging ||
+                         e.Status == RemoteTrashStatuses.Failed))
+            .OrderBy(e => e.DeletedAt)
+            .Select(e => new DurableTrashDto
+            {
+                Id = e.Id,
+                OriginalPath = e.OriginalPath,
+                TrashPath = e.TrashPath,
+                Status = e.Status,
+                ErrorCode = e.ErrorCode,
+                ExpiresAt = e.ExpiresAt,
+            })
+            .ToListAsync(ct);
+
+        return new ShareDurableStateDto
+        {
+            ShareId = shareId,
+            Uploads = uploads,
+            Trash = trash,
+            BlocksPhysicalChange = uploads.Count > 0 || trash.Count > 0,
+            StuckCount =
+                uploads.Count(u => u.ErrorCode == TransferCleanupErrorCodes.CleanupRetry) +
+                trash.Count(t => t.ErrorCode == "purge_retry"),
+        };
     }
 
     internal static async Task<bool> HasDurableTransferStateAsync(

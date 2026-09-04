@@ -76,6 +76,8 @@ public static class AdminOperations
     public const string ShareCreate = "ADMIN_SHARE_CREATE";
     public const string ShareUpdate = "ADMIN_SHARE_UPDATE";
     public const string ShareDelete = "ADMIN_SHARE_DELETE";
+    /// <summary>共有の廃止・付け替えのため、未完了の転送/ごみ箱台帳を強制解除した。</summary>
+    public const string ShareReleaseDurableState = "ADMIN_SHARE_RELEASE_DURABLE";
 
     public const string TemplateCreate = "ADMIN_TEMPLATE_CREATE";
     public const string TemplateUpdate = "ADMIN_TEMPLATE_UPDATE";

@@ -55,6 +55,7 @@ public sealed class UploadSessionService
     private readonly ILogger<UploadSessionService> _logger;
     private readonly TimeProvider _clock;
     private readonly TimeSpan _sessionLifetime;
+    private readonly TimeSpan _cleanupGiveUpAfter;
     private readonly long _maxFileBytes;
 
     public UploadSessionService(
@@ -74,6 +75,8 @@ public sealed class UploadSessionService
         _clock = clock;
         _sessionLifetime = TimeSpan.FromHours(Math.Clamp(
             configuration.GetValue<int?>("TransferV2:SessionLifetimeHours") ?? 24, 1, 24 * 30));
+        _cleanupGiveUpAfter = TimeSpan.FromDays(Math.Clamp(
+            configuration.GetValue<int?>("TransferV2:CleanupGiveUpDays") ?? 7, 1, 365));
         _maxFileBytes = Math.Clamp(
             configuration.GetValue<long?>("TransferV2:MaxFileBytes") ?? DefaultMaxFileBytes,
             TransferV2Limits.MaxChunkBytes,
@@ -555,6 +558,72 @@ public sealed class UploadSessionService
         return expired;
     }
 
+    /// <summary>
+    /// 共有の廃止・付け替えのために、その共有に残る未完了 session を管理者権限で終端させる。
+    /// まず正規の後片付け (一時ファイルの削除) を試し、到達できないものだけ台帳を諦める。
+    /// 諦めた分は共有上にゴミとして残るため、パスを呼び出し側へ返して監査ログに残させる。
+    /// </summary>
+    public async Task<(int CleanedUp, int Abandoned, List<string> OrphanedPaths)> ReleaseForShareAsync(
+        int shareId,
+        CancellationToken ct)
+    {
+        var ids = await _db.UploadSessions.AsNoTracking()
+            .Where(s => s.ShareId == shareId &&
+                        (s.Status == UploadSessionStatuses.Active ||
+                         s.Status == UploadSessionStatuses.Committing ||
+                         s.Status == UploadSessionStatuses.Failed))
+            .OrderBy(s => s.CreatedAt)
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+
+        var cleanedUp = 0;
+        var abandoned = 0;
+        var orphaned = new List<string>();
+        foreach (var id in ids)
+        {
+            ct.ThrowIfCancellationRequested();
+            var gate = await SessionLocks.AcquireAsync(id, ct);
+            try
+            {
+                var session = await _db.UploadSessions.FirstOrDefaultAsync(s => s.Id == id, ct);
+                if (session is null || session.Status is UploadSessionStatuses.Completed or
+                    UploadSessionStatuses.Cancelled or UploadSessionStatuses.Expired)
+                    continue;
+
+                try
+                {
+                    var execution = await ResolveExecutionAsync(session.HostId, session.ShareId, ct);
+                    await _router.DeleteTempAsync(execution.Node, execution.Info, session.TempPath, ct);
+                    session.ErrorCode = null;
+                    cleanedUp++;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // 共有が既に到達不能なケースがこの機能の本題。実体を消せないことは
+                    // 失敗にせず、台帳を終端させたうえで残骸のパスを呼び出し側へ返す。
+                    _logger.LogWarning(ex,
+                        "共有 {ShareId} の session {SessionId} は実体を回収できないまま終端させます", shareId, id);
+                    session.ErrorCode = TransferCleanupErrorCodes.AdminAbandoned;
+                    orphaned.Add(session.TempPath);
+                    abandoned++;
+                }
+
+                session.Status = UploadSessionStatuses.Cancelled;
+                session.UpdatedAt = UtcNow();
+                await _db.SaveChangesAsync(ct);
+            }
+            finally
+            {
+                gate.Dispose();
+            }
+        }
+        return (cleanedUp, abandoned, orphaned);
+    }
+
     private async Task<bool> ReconcileOrExpireAsync(
         UploadSession session,
         ResolvedExecution execution,
@@ -816,12 +885,30 @@ public sealed class UploadSessionService
             var session = await _db.UploadSessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct);
             if (session is null) return;
 
+            // 共有そのものが到達不能になると実体の削除は二度と成功しない。無期限に再試行すると
+            // 掃引のたびに死んだホストへ接続を試み、警告ログを出し続け、共有の削除・付け替えも
+            // 永久にブロックされる。作成から十分に経った session は諦めて終端させる。
+            // committing だけは次回に完了復旧できる可能性があるので対象外。
+            if (session.Status != UploadSessionStatuses.Committing &&
+                UtcNow() > session.CreatedAt + _sessionLifetime + _cleanupGiveUpAfter)
+            {
+                _logger.LogWarning(
+                    "Transfer v2 session {SessionId} の実体を回収できないまま諦めます。" +
+                    "共有上に {TempPath} が残っている可能性があります",
+                    sessionId, session.TempPath);
+                session.Status = UploadSessionStatuses.Cancelled;
+                session.ErrorCode = TransferCleanupErrorCodes.CleanupGaveUp;
+                session.UpdatedAt = UtcNow();
+                await _db.SaveChangesAsync(ct);
+                return;
+            }
+
             // 失敗した先頭100件が毎回選ばれて後続を永久に飢餓させないよう、
             // retry対象を一時的に将来へ送る。active/failedは既に期限切れなのでterminalへ、
             // committingだけは次回に完了復旧できる状態を維持する。
             if (session.Status != UploadSessionStatuses.Committing)
                 session.Status = UploadSessionStatuses.Failed;
-            session.ErrorCode = "cleanup_retry";
+            session.ErrorCode = TransferCleanupErrorCodes.CleanupRetry;
             session.UpdatedAt = UtcNow();
             session.ExpiresAt = UtcNow().AddMinutes(5);
             await _db.SaveChangesAsync(ct);

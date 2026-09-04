@@ -250,6 +250,27 @@ public sealed class ClientUiChangeTests
     }
 
     [Fact]
+    public void Share_admin_surfaces_blocking_transfer_state_and_the_forced_release()
+    {
+        var view = File.ReadAllText(RepoFile("src/Watashi.Client/Views/Admin/ShareManagementView.xaml"));
+        var viewModel = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/Admin/ShareManagementViewModel.cs"));
+        var endpoints = File.ReadAllText(RepoFile("src/Watashi.Server/Endpoints/AdminShareEndpoints.cs"));
+
+        view.Should().Contain("{Binding DurableStateSummary}")
+            .And.Contain("{Binding DurableStateLines}")
+            .And.Contain("{Binding ReleaseDurableStateCommand}")
+            .And.Contain("IsEnabled=\"{Binding HasDurableState}\"");
+        viewModel.Should().Contain("GetShareDurableStateAsync")
+            .And.Contain("ReleaseShareDurableStateAsync")
+            .And.Contain("Confirm = true")
+            .And.Contain("MessageBoxButton.OKCancel", "強制解除は確認なしで実行させない");
+        endpoints.Should().Contain("/{id:int}/durable-state")
+            .And.Contain("/{id:int}/durable-state/release")
+            .And.Contain("AdminOperations.ShareReleaseDurableState")
+            .And.Contain("orphaned_path", "回収できなかったパスを監査ログに残す");
+    }
+
+    [Fact]
     public void Folder_navigation_clears_filters_without_resetting_sort()
     {
         var local = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/LocalPaneViewModel.cs"));
