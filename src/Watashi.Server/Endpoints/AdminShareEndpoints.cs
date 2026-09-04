@@ -137,11 +137,14 @@ public static class AdminShareEndpoints
             if (!await db.CifsShares.AsNoTracking().AnyAsync(x => x.Id == id, ct))
                 return Results.NotFound();
 
-            // 列挙と終端の間に新しい転送/ごみ箱が作られると取りこぼし、解除に成功したのに
-            // 続く変更・削除がまたブロックされる。作成側と同じ共有単位 lock を全体で保持する。
+            // リモートごみ箱はAPI廃止済みで新規台帳は作られない。既存台帳のjanitorと
+            // 同じ順序 (項目 lock → 共有 lock) で回収し、ロック順序の逆転を避ける。
+            var trashResult = await trash.ReleaseForShareAsync(id, actorUserId, ct);
+
+            // uploadは解除中の新規 session 作成を防ぐ必要があるため、作成側と同じ
+            // 共有単位 lock を列挙から終端まで保持する。
             using var shareGate = await DurableShareLock.AcquireAsync(id, ct);
             var uploadResult = await uploads.ReleaseForShareAsync(id, ct);
-            var trashResult = await trash.ReleaseForShareAsync(id, actorUserId, ct);
 
             var result = new ReleaseDurableStateResult
             {
