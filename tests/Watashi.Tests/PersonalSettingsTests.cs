@@ -215,8 +215,12 @@ public class PersonalSettingsTests
         Directory.CreateDirectory(existing);
         try
         {
-            (await DirectoryAvailability.ProbeAsync(existing)).Should().Be(DirectoryAvailabilityResult.Exists);
-            (await DirectoryAvailability.ProbeAsync(Path.Combine(existing, "missing")))
+            // 既定の 5 秒はCIのスレッドプールが詰まると Task.Run の開始が間に合わず
+            // TimedOut になり得る。ここで見たいのは存在判定なので、余裕のある値を明示する。
+            var timeout = TimeSpan.FromSeconds(60);
+            (await DirectoryAvailability.ProbeAsync(existing, timeout: timeout))
+                .Should().Be(DirectoryAvailabilityResult.Exists);
+            (await DirectoryAvailability.ProbeAsync(Path.Combine(existing, "missing"), timeout: timeout))
                 .Should().Be(DirectoryAvailabilityResult.Missing);
         }
         finally
