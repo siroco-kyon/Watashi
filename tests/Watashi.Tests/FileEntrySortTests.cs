@@ -72,6 +72,62 @@ public class FileEntrySortTests
         sorted.Select(e => e.Name).Should().Equal("dir", "file.txt");
     }
 
+    [Fact]
+    public void Sort_by_extension_ascending_and_descending()
+    {
+        var entries = new[] { F("b.xlsx"), F("a.pdf"), F("c.txt") };
+
+        FileEntrySort.Sort(entries, FileEntrySort.Ext).Select(e => e.Name)
+            .Should().Equal("a.pdf", "c.txt", "b.xlsx");
+        FileEntrySort.Sort(entries, FileEntrySort.ExtDesc).Select(e => e.Name)
+            .Should().Equal("b.xlsx", "c.txt", "a.pdf");
+    }
+
+    [Fact]
+    public void Sort_by_extension_falls_back_to_name_ascending_within_the_same_extension()
+    {
+        var entries = new[] { F("zebra.txt"), F("Apple.TXT"), F("mango.txt") };
+
+        // 降順でも二次キーの名前は昇順のまま (エクスプローラーと同じ)。
+        FileEntrySort.Sort(entries, FileEntrySort.Ext).Select(e => e.Name)
+            .Should().Equal("Apple.TXT", "mango.txt", "zebra.txt");
+        FileEntrySort.Sort(entries, FileEntrySort.ExtDesc).Select(e => e.Name)
+            .Should().Equal("Apple.TXT", "mango.txt", "zebra.txt");
+    }
+
+    [Fact]
+    public void Sort_by_extension_groups_folders_and_extensionless_files_as_empty()
+    {
+        var entries = new[] { F("report.pdf"), D("photos"), F("README"), D("archive") };
+
+        FileEntrySort.Sort(entries, FileEntrySort.Ext).Select(e => e.Name)
+            .Should().Equal("archive", "photos", "README", "report.pdf");
+        FileEntrySort.Sort(entries, FileEntrySort.ExtDesc).Select(e => e.Name)
+            .Should().Equal("report.pdf", "archive", "photos", "README");
+    }
+
+    [Theory]
+    [InlineData("report.XLSX", "xlsx")]
+    [InlineData("manual.pdf", "pdf")]
+    [InlineData("backup.TAR.GZ", "tar.gz")]
+    [InlineData("logs.tar.bz2", "tar.bz2")]
+    [InlineData("report.v1.2.xlsx", "xlsx")]
+    [InlineData("README", "")]
+    [InlineData(".gitignore", "")]
+    [InlineData("trailing.", "")]
+    public void GetExtension_lowercases_and_keeps_known_compound_extensions(string name, string expected)
+    {
+        FileEntrySort.GetExtension(F(name)).Should().Be(expected);
+    }
+
+    [Fact]
+    public void GetExtension_is_empty_for_folders_parents_and_null()
+    {
+        FileEntrySort.GetExtension(D("photos.bak")).Should().BeEmpty();
+        FileEntrySort.GetExtension(new FileEntry { Name = "..", Type = FileEntryTypes.Parent }).Should().BeEmpty();
+        FileEntrySort.GetExtension(null).Should().BeEmpty();
+    }
+
     [Theory]
     [InlineData(null, "name", "name")]
     [InlineData("", "name", "name")]
@@ -80,6 +136,10 @@ public class FileEntrySortTests
     [InlineData("date", "name", "name")]   // 別の列へ切り替えるときは昇順から
     [InlineData("name", "size", "size")]
     [InlineData("size", "size", "size_desc")]
+    [InlineData(null, "ext", "ext")]
+    [InlineData("ext", "ext", "ext_desc")]
+    [InlineData("ext_desc", "ext", "ext")]
+    [InlineData("ext", "name", "name")]
     public void Toggle_switches_between_ascending_and_descending(string? current, string column, string expected)
     {
         FileEntrySort.Toggle(current, column).Should().Be(expected);

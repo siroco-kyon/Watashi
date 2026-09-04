@@ -18,6 +18,7 @@
             <conv:NotBoolConverter x:Key="NotBool"/>
             <conv:TypeToIconConverter x:Key="TypeIcon"/>
             <conv:FileEntryVisualCategoryConverter x:Key="FileEntryVisualCategory"/>
+            <conv:FileExtensionTextConverter x:Key="ExtText"/>
             <conv:FileEntryColorBrushConverter x:Key="FileEntryColorBrush"/>
             <conv:FileColorKeyToBrushConverter x:Key="FileColorKeyBrush"/>
             <conv:StatusMessageToBrushConverter x:Key="StatusBrush"/>

@@ -496,6 +496,8 @@ public class AppSettings
         FileEntrySort.DateDesc => FileEntrySort.DateDesc,
         FileEntrySort.Size => FileEntrySort.Size,
         FileEntrySort.SizeDesc => FileEntrySort.SizeDesc,
+        FileEntrySort.Ext => FileEntrySort.Ext,
+        FileEntrySort.ExtDesc => FileEntrySort.ExtDesc,
         _ => null,
     };
 }

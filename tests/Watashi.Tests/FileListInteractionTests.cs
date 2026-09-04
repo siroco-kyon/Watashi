@@ -220,6 +220,19 @@ public sealed class FileListInteractionTests
     }
 
     [Fact]
+    public void Both_file_lists_expose_a_sortable_extension_column()
+    {
+        var main = File.ReadAllText(RepoFile("src/Watashi.Client/Views/MainWindow.xaml"));
+        var mainWindow = File.ReadAllText(RepoFile("src/Watashi.Client/Views/MainWindow.xaml.cs"));
+        var app = File.ReadAllText(RepoFile("src/Watashi.Client/App.xaml"));
+
+        Count(main, "Header=\"種類\" DisplayMemberBinding=\"{Binding Converter={StaticResource ExtText}}\"")
+            .Should().Be(2, "ローカルとリモートで同じ種類列を使うため");
+        app.Should().Contain("<conv:FileExtensionTextConverter x:Key=\"ExtText\"/>");
+        mainWindow.Should().Contain("\"種類\" => FileEntrySort.Ext");
+    }
+
+    [Fact]
     public void Focus_visual_has_no_blue_dotted_outline()
     {
         var controls = File.ReadAllText(RepoFile("src/Watashi.Client/Themes/Controls.xaml"));
