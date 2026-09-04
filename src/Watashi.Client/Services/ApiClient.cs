@@ -460,6 +460,13 @@ public class ApiClient : ITransferProtocol
     public Task DeleteShareAsync(int id, CancellationToken ct = default) =>
         SendNoContentAsync(HttpMethod.Delete, $"api/admin/shares/{id}", null, ct);
 
+    public Task<ShareDurableStateDto> GetShareDurableStateAsync(int id, CancellationToken ct = default) =>
+        GetAsync<ShareDurableStateDto>($"api/admin/shares/{id}/durable-state", ct);
+
+    public Task<ReleaseDurableStateResult> ReleaseShareDurableStateAsync(
+        int id, ReleaseDurableStateRequest req, CancellationToken ct = default) =>
+        PostJsonAsync<ReleaseDurableStateResult>($"api/admin/shares/{id}/durable-state/release", req, ct: ct);
+
     public Task<List<PermissionTemplateDto>> GetTemplatesAsync(CancellationToken ct = default) =>
         GetAsync<List<PermissionTemplateDto>>("api/admin/permission-templates", ct);
     public Task<PermissionTemplateDto> CreateTemplateAsync(PermissionTemplateDto dto, CancellationToken ct = default) =>

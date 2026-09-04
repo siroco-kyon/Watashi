@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Watashi.Server.Data;
+using Watashi.Server.Endpoints;
 using Watashi.Server.Services;
 using Watashi.Shared.Cifs;
 using Watashi.Shared.Constants;
@@ -209,6 +210,65 @@ public sealed class RemoteTrashServiceTests
 
         entry.Status.Should().Be(RemoteTrashStatuses.Purged);
         f.Router.Files.Should().NotContainKey(trashed.TargetPath!);
+    }
+
+    [Fact]
+    public async Task Release_for_share_purges_the_entry_when_the_share_is_reachable()
+    {
+        using var f = await Fixture.CreateAsync();
+        f.Router.PutFile("/old.bin", 10);
+        await f.TrashAsync("/old.bin");
+
+        var result = await f.Service.ReleaseForShareAsync(f.ShareId, f.UserId, CancellationToken.None);
+
+        result.CleanedUp.Should().Be(1);
+        result.Abandoned.Should().Be(0);
+        result.OrphanedPaths.Should().BeEmpty();
+        var entry = await f.Db.RemoteTrashEntries.SingleAsync();
+        entry.Status.Should().Be(RemoteTrashStatuses.Purged);
+        entry.ErrorCode.Should().NotBe(TransferCleanupErrorCodes.AdminAbandoned);
+    }
+
+    [Fact]
+    public async Task Release_for_share_abandons_the_entry_when_the_share_is_unreachable()
+    {
+        using var f = await Fixture.CreateAsync();
+        f.Router.PutFile("/old.bin", 10);
+        await f.TrashAsync("/old.bin");
+        f.Router.PurgeFailure = new IOException("SMB unavailable");
+
+        var result = await f.Service.ReleaseForShareAsync(f.ShareId, f.UserId, CancellationToken.None);
+
+        result.CleanedUp.Should().Be(0);
+        result.Abandoned.Should().Be(1);
+        result.OrphanedPaths.Should().ContainSingle();
+        var entry = await f.Db.RemoteTrashEntries.SingleAsync();
+        entry.Status.Should().Be(RemoteTrashStatuses.Purged);
+        entry.ErrorCode.Should().Be(TransferCleanupErrorCodes.AdminAbandoned);
+        entry.PurgedByUserId.Should().Be(f.UserId, "誰が強制解除したか追えるようにする");
+        (await AdminShareEndpoints.HasDurableTransferStateAsync(f.Db, f.ShareId, CancellationToken.None))
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Purge_stops_retrying_once_the_give_up_window_passes()
+    {
+        using var f = await Fixture.CreateAsync();
+        f.Router.PutFile("/old.bin", 10);
+        await f.TrashAsync("/old.bin");
+        f.Router.PurgeFailure = new IOException("SMB unavailable");
+
+        // 保持期間を過ぎただけでは諦めず、5分後の再試行へ送られる (既存の挙動)。
+        f.Clock.Advance(TimeSpan.FromDays(RemoteTrashService.DefaultRetentionDays + 1));
+        await f.Service.PurgeExpiredAsync(CancellationToken.None);
+        (await f.Db.RemoteTrashEntries.SingleAsync()).ErrorCode.Should().Be("purge_retry");
+
+        // 保持期間 + 猶予を過ぎたら諦めて終端させる。
+        f.Clock.Advance(RemoteTrashService.CleanupGiveUpAfter + TimeSpan.FromDays(1));
+        await f.Service.PurgeExpiredAsync(CancellationToken.None);
+        var gaveUp = await f.Db.RemoteTrashEntries.SingleAsync();
+        gaveUp.Status.Should().Be(RemoteTrashStatuses.Purged);
+        gaveUp.ErrorCode.Should().Be(TransferCleanupErrorCodes.CleanupGaveUp);
     }
 
     private sealed class Fixture : IDisposable

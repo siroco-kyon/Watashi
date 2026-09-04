@@ -35,6 +35,8 @@ public sealed record RemoteTrashActionResult(
 public sealed class RemoteTrashService
 {
     internal const int DefaultRetentionDays = 30;
+    /// <summary>保持期間を過ぎてもなお物理削除できない項目を諦めるまでの猶予。</summary>
+    internal static readonly TimeSpan CleanupGiveUpAfter = TimeSpan.FromDays(7);
     internal const long DefaultCapacityBytes = 100L * 1024 * 1024 * 1024;
     private static readonly KeyedAsyncLock<Guid> EntryLocks = new();
 
@@ -411,6 +413,79 @@ public sealed class RemoteTrashService
         return count;
     }
 
+    /// <summary>
+    /// 共有の廃止・付け替えのために、その共有に残るごみ箱台帳を管理者権限で終端させる。
+    /// まず正規の完全削除を試し、到達できないものだけ台帳を諦めて残骸のパスを返す。
+    /// 共有単位の lock は PurgeCoreAsync 側が取るため、ここでは取らない。
+    /// </summary>
+    public async Task<(int CleanedUp, int Abandoned, List<string> OrphanedPaths)> ReleaseForShareAsync(
+        int shareId,
+        int actorUserId,
+        CancellationToken ct)
+    {
+        var ids = await _db.RemoteTrashEntries.AsNoTracking()
+            .Where(e => e.ShareId == shareId &&
+                        e.Status != RemoteTrashStatuses.Purged &&
+                        e.Status != RemoteTrashStatuses.Restored)
+            .OrderBy(e => e.DeletedAt)
+            .Select(e => e.Id)
+            .ToListAsync(ct);
+
+        var cleanedUp = 0;
+        var abandoned = 0;
+        var orphaned = new List<string>();
+        foreach (var id in ids)
+        {
+            ct.ThrowIfCancellationRequested();
+            var gate = await EntryLocks.AcquireAsync(id, ct);
+            try
+            {
+                var entry = await _db.RemoteTrashEntries.FirstOrDefaultAsync(e => e.Id == id, ct);
+                if (entry is null || entry.Status is RemoteTrashStatuses.Purged or RemoteTrashStatuses.Restored)
+                    continue;
+
+                try
+                {
+                    // Trashing / Restoring / Failed は PurgeCore が受け付けないため、
+                    // janitor と同じく Active へ寄せてから idempotent な purge を通す。
+                    if (entry.Status is not (RemoteTrashStatuses.Active or RemoteTrashStatuses.Purging))
+                    {
+                        entry.Status = RemoteTrashStatuses.Active;
+                        entry.UpdatedAt = UtcNow();
+                        await _db.SaveChangesAsync(ct);
+                    }
+                    await PurgeCoreAsync(entry, actorUserId, ct);
+                    cleanedUp++;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "共有 {ShareId} のごみ箱項目 {EntryId} は実体を回収できないまま終端させます", shareId, id);
+                    _db.ChangeTracker.Clear();
+                    var stale = await _db.RemoteTrashEntries.FirstOrDefaultAsync(e => e.Id == id, ct);
+                    if (stale is null) continue;
+                    stale.Status = RemoteTrashStatuses.Purged;
+                    stale.ErrorCode = TransferCleanupErrorCodes.AdminAbandoned;
+                    stale.PurgedAt = UtcNow();
+                    stale.PurgedByUserId = actorUserId;
+                    stale.UpdatedAt = stale.PurgedAt.Value;
+                    await _db.SaveChangesAsync(ct);
+                    orphaned.Add(stale.TrashPath);
+                    abandoned++;
+                }
+            }
+            finally
+            {
+                gate.Dispose();
+            }
+        }
+        return (cleanedUp, abandoned, orphaned);
+    }
+
     private async Task DeferFailedPurgeAsync(Guid entryId, CancellationToken ct)
     {
         try
@@ -421,6 +496,26 @@ public sealed class RemoteTrashService
             var entry = await _db.RemoteTrashEntries.FirstOrDefaultAsync(e => e.Id == entryId, ct);
             if (entry is null || entry.Status == RemoteTrashStatuses.Purged)
                 return;
+
+            // 共有が到達不能になると物理削除は二度と成功しない。無期限の再試行は死んだホストへの
+            // 接続試行とログを出し続け、共有の削除・付け替えも永久にブロックする。
+            // 削除時刻から保持期間 + 猶予を過ぎたものは諦めて終端させる。
+            var settings = await GetSettingsAsync(ct);
+            var giveUpAt = entry.DeletedAt.AddDays(settings.RetentionDays) + CleanupGiveUpAfter;
+            if (UtcNow() > giveUpAt)
+            {
+                _logger.LogWarning(
+                    "ごみ箱項目 {EntryId} の実体を回収できないまま諦めます。" +
+                    "共有上に {TrashPath} が残っている可能性があります",
+                    entryId, entry.TrashPath);
+                entry.Status = RemoteTrashStatuses.Purged;
+                entry.ErrorCode = TransferCleanupErrorCodes.CleanupGaveUp;
+                entry.PurgedAt = UtcNow();
+                entry.UpdatedAt = entry.PurgedAt.Value;
+                await _db.SaveChangesAsync(ct);
+                return;
+            }
+
             entry.Status = RemoteTrashStatuses.Active;
             entry.ErrorCode = "purge_retry";
             entry.UpdatedAt = UtcNow();

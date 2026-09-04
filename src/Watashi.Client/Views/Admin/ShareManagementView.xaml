@@ -68,6 +68,30 @@
 
                     <Separator Margin="0,16,0,14"/>
 
+                    <TextBlock Text="未完了の転送・ごみ箱データ" Style="{StaticResource H3}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding DurableStateSummary}" Style="{StaticResource Caption}"
+                               TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <ItemsControl ItemsSource="{Binding DurableStateLines}" MaxHeight="160" Margin="0,0,0,10">
+                        <ItemsControl.Template>
+                            <ControlTemplate TargetType="ItemsControl">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsPresenter/>
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </ItemsControl.Template>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Style="{StaticResource Caption}"
+                                           TextWrapping="Wrap" Margin="0,0,0,2"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Content="強制解除..." Command="{Binding ReleaseDurableStateCommand}"
+                            IsEnabled="{Binding HasDurableState}" Height="34"
+                            ToolTip="共有の廃止・付け替えのために未完了データを終端させます。回収できない実体は共有上に残ります。"/>
+
+                    <Separator Margin="0,16,0,14"/>
+
                     <TextBlock Text="共有を追加" Style="{StaticResource H3}" Margin="0,0,0,12"/>
 
                     <TextBlock Text="対象ホスト" Style="{StaticResource Muted}" Margin="0,0,0,4"/>

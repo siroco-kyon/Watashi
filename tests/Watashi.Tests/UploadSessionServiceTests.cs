@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Watashi.Server.Data;
+using Watashi.Server.Endpoints;
 using Watashi.Server.Services;
 using Watashi.Shared.Cifs;
 using Watashi.Shared.Constants;
@@ -367,6 +368,87 @@ public sealed class UploadSessionServiceTests
 
     private static string Hash(ReadOnlySpan<byte> bytes)
         => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+    [Fact]
+    public async Task Release_for_share_removes_the_temp_file_when_the_share_is_reachable()
+    {
+        using var f = await Fixture.CreateAsync();
+        await f.Service.CreateAsync(f.UserId, f.Request("/a.bin", new byte[] { 1 }), CancellationToken.None);
+
+        var result = await f.Service.ReleaseForShareAsync(f.ShareId, CancellationToken.None);
+
+        result.CleanedUp.Should().Be(1);
+        result.Abandoned.Should().Be(0);
+        result.OrphanedPaths.Should().BeEmpty();
+        f.Router.Files.Should().BeEmpty("実体まで回収できたため");
+        var session = await f.Db.UploadSessions.SingleAsync();
+        session.Status.Should().Be(UploadSessionStatuses.Cancelled);
+        session.ErrorCode.Should().BeNull();
+        (await AdminShareEndpoints.HasDurableTransferStateAsync(f.Db, f.ShareId, CancellationToken.None))
+            .Should().BeFalse("解除後は共有の付け替え・削除がブロックされない");
+    }
+
+    [Fact]
+    public async Task Release_for_share_abandons_the_ledger_when_the_share_is_unreachable()
+    {
+        using var f = await Fixture.CreateAsync();
+        var created = await f.Service.CreateAsync(
+            f.UserId, f.Request("/a.bin", new byte[] { 1 }), CancellationToken.None);
+        // 共有サーバが落ちて実体を消せない状態。この機能が本来救うべきケース。
+        f.Router.DeleteTempFailure = new IOException("share is gone");
+
+        var result = await f.Service.ReleaseForShareAsync(f.ShareId, CancellationToken.None);
+
+        result.CleanedUp.Should().Be(0);
+        result.Abandoned.Should().Be(1);
+        result.OrphanedPaths.Should().ContainSingle()
+            .Which.Should().Contain(".watashi-upload-");
+        var session = await f.Db.UploadSessions.SingleAsync();
+        session.Id.Should().Be(created.Session.SessionId);
+        session.Status.Should().Be(UploadSessionStatuses.Cancelled);
+        session.ErrorCode.Should().Be(TransferCleanupErrorCodes.AdminAbandoned);
+        (await AdminShareEndpoints.HasDurableTransferStateAsync(f.Db, f.ShareId, CancellationToken.None))
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Release_for_share_is_idempotent_and_leaves_other_shares_alone()
+    {
+        using var f = await Fixture.CreateAsync();
+        await f.Service.CreateAsync(f.UserId, f.Request("/a.bin", new byte[] { 1 }), CancellationToken.None);
+
+        await f.Service.ReleaseForShareAsync(f.ShareId, CancellationToken.None);
+        var second = await f.Service.ReleaseForShareAsync(f.ShareId, CancellationToken.None);
+
+        second.CleanedUp.Should().Be(0);
+        second.Abandoned.Should().Be(0);
+        (await f.Service.ReleaseForShareAsync(f.ShareId + 999, CancellationToken.None))
+            .CleanedUp.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Cleanup_stops_retrying_once_the_give_up_window_passes()
+    {
+        using var f = await Fixture.CreateAsync();
+        await f.Service.CreateAsync(f.UserId, f.Request("/a.bin", new byte[] { 1 }), CancellationToken.None);
+        f.Router.DeleteTempFailure = new IOException("share is gone");
+
+        // 期限切れ直後は諦めず、5分後の再試行へ送られる。
+        f.Clock.Advance(TimeSpan.FromHours(25));
+        await f.Service.ExpireSessionsAsync(CancellationToken.None);
+        var retrying = await f.Db.UploadSessions.SingleAsync();
+        retrying.Status.Should().Be(UploadSessionStatuses.Failed);
+        retrying.ErrorCode.Should().Be(TransferCleanupErrorCodes.CleanupRetry);
+
+        // 猶予 (既定7日) を過ぎたら諦めて終端させ、無限リトライを止める。
+        f.Clock.Advance(TimeSpan.FromDays(8));
+        await f.Service.ExpireSessionsAsync(CancellationToken.None);
+        var gaveUp = await f.Db.UploadSessions.SingleAsync();
+        gaveUp.Status.Should().Be(UploadSessionStatuses.Cancelled);
+        gaveUp.ErrorCode.Should().Be(TransferCleanupErrorCodes.CleanupGaveUp);
+        (await AdminShareEndpoints.HasDurableTransferStateAsync(f.Db, f.ShareId, CancellationToken.None))
+            .Should().BeFalse();
+    }
 
     private sealed class Fixture : IDisposable
     {
