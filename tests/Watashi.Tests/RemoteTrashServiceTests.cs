@@ -251,16 +251,26 @@ public sealed class RemoteTrashServiceTests
     }
 
     [Fact]
-    public async Task Release_for_share_runs_while_the_caller_holds_the_share_lock()
+    public async Task Release_for_share_obeys_entry_then_share_lock_order()
     {
         using var f = await Fixture.CreateAsync();
         f.Router.PutFile("/old.bin", 10);
         await f.TrashAsync("/old.bin");
 
-        // 強制解除の呼び出し側 (管理API) は列挙と終端の間に新規作成を締め出すため、
-        // 共有単位 lock を保持したまま呼ぶ。PurgeCore が取り直すと自分自身と競合して止まる。
-        using var shareGate = await DurableShareLock.AcquireAsync(f.ShareId, CancellationToken.None);
-        var release = f.Service.ReleaseForShareAsync(f.ShareId, f.UserId, CancellationToken.None);
+        // janitorも強制解除も項目 lock → 共有 lock の順で取る。呼び出し側の
+        // 共有 lock をバイパスすると、逆順で待つ処理と循環待ちを作るため禁止する。
+        var shareGate = await DurableShareLock.AcquireAsync(f.ShareId, CancellationToken.None);
+        Task<(int CleanedUp, int Abandoned, List<string> OrphanedPaths)> release;
+        try
+        {
+            release = f.Service.ReleaseForShareAsync(f.ShareId, f.UserId, CancellationToken.None);
+            await Task.Delay(50);
+            release.IsCompleted.Should().BeFalse("共有 lock の解放を待つため");
+        }
+        finally
+        {
+            shareGate.Dispose();
+        }
         var result = await release.WaitAsync(TimeSpan.FromSeconds(15));
 
         result.CleanedUp.Should().Be(1);
