@@ -234,11 +234,12 @@
     <a href="#settings" class="nav">12. システム設定</a>
 
     <div class="grp">しくみと運用</div>
-    <a href="#auth" class="nav">13. 認証のしくみ</a>
-    <a href="#audit" class="nav">14. 監査ログコード一覧</a>
-    <a href="#trouble" class="nav">15. トラブル対応</a>
-    <a href="#recovery" class="nav">16. 管理者の緊急復旧</a>
-    <a href="#glossary" class="nav">17. 用語集</a>
+    <a href="#maintenance-operations" class="lvl1">13. 運用状態・メンテナンス</a>
+    <a href="#auth" class="nav">14. 認証のしくみ</a>
+    <a href="#audit" class="nav">15. 監査ログコード一覧</a>
+    <a href="#trouble" class="nav">16. トラブル対応</a>
+    <a href="#recovery" class="nav">17. 管理者の緊急復旧</a>
+    <a href="#glossary" class="nav">18. 用語集</a>
     <a href="#shots" class="nav">付録. 画像の差し替え方</a>
   </nav>
 
@@ -792,9 +793,18 @@ G012347,false,</pre>
       </div>
 
       <!-- ===================================================== 13 -->
-      <h2 id="auth"><span class="num">13</span>認証のしくみ（運用上の挙動）</h2>
 
-      <h3>13-1. リフレッシュトークンのローテーション＋盗難検知</h3>
+        <h2 id="maintenance-operations"><span class="num">13</span>運用状態・メンテナンス</h2>
+        <p>管理画面「運用状態」で案内文（最大500文字）と開始・終了予定（端末のローカル日時）を入力し、予定／メンテナンス中／復旧確認中／通常を切り替えます。時刻は案内用で、自動停止・自動解除はありません。</p>
+        <p>作業中は新しい業務APIを停止し、受付済みHTTP要求は完了させます。認証、状態管理、最小限の運用診断、Agent内部経路は維持します。管理者のファイル操作も停止対象です。解除には復旧確認中・処理中要求0・運用診断の確認が必要です。要求数には独立したAgent処理や後片付けを含まないため、それらも停止前に確認します。</p>
+        <p>Serverの <code>Maintenance:StateFilePath</code> はDB外の私的ファイルで、既定はProgramDataのWatashi配下のmaintenance-state.jsonです。再起動・DB復元でも停止を保持し、Web公開しません。単一Serverプロセスで運用します。</p>
+        <p>外部案内を使う場合は <code>Maintenance:PublicStatusFilePath</code> と <code>Maintenance:PublicStatusUrl</code>（HTTPS）を両方設定します。Clientは <code>deployment.json</code> の <code>maintenanceStatusUrl</code> を設定してClickOnce再発行します。外部配信なしでもAPI内の切替は使用できます。公開は書き込みとHTTPS読み戻しを確認し、失敗時は状態を再取得してから再実行します。解除を先行しません。</p>
+        <p>同梱の <code>Install-StatusAssets.ps1</code> と <code>Publish-MaintenanceState.ps1</code>、<a href="../../deploy/MAINTENANCE-ROLLOUT-PLAN.html">導入・更新・復旧・切り戻し手順</a>を参照してください。独立した静的サイト、IIS・DNS・証明書・ACLは環境に合わせて設定します。API停止時も案内できる停止範囲に分離してください。Serverを先に更新してから2000件対応Clientを配布します。</p>
+
+
+<h2 id="auth"><span class="num">14</span>認証のしくみ（運用上の挙動）</h2>
+
+      <h3>14-1. リフレッシュトークンのローテーション＋盗難検知</h3>
       <ul>
         <li>リフレッシュ成功のたびに<strong>新トークンを発行し、旧トークンは即失効</strong>します。</li>
         <li><strong>失効済みトークンが再提示された場合は再利用とみなし、当該ユーザーのアクティブな全リフレッシュトークンを失効</strong>（<span class="tag">token_reuse_detected</span>）。盗難検知機構です。</li>
@@ -805,10 +815,10 @@ G012347,false,</pre>
         画面の理由を確認してください。<code>token_reuse_detected</code> は複数端末や古い Credential Manager の token、<code>password_changed</code> はパスワード・管理者権限・初回設定状態の変更、<code>account_locked</code> はアカウントロック、<code>device_revoked</code> は端末失効です。盗難検知が疑われる場合は「全デバイス失効」→再度信頼デバイス登録を案内してください。
       </div>
 
-      <h3>13-2. ログインのレート制限</h3>
+      <h3>14-2. ログインのレート制限</h3>
       <p><code>/api/auth/login</code> と <code>/api/auth/auto-login</code> に <strong>IP単位の固定ウィンドウ制限</strong>（デフォルト 10回/分、<code>Auth:LoginPerMinutePerIp</code>）。超過すると <span class="msg err">429 Too Many Requests</span>。内部NAT等で同一IPに多数ユーザーがいる環境では値を上げてください（例 50）。</p>
 
-      <h3>13-3. その他</h3>
+      <h3>14-3. その他</h3>
       <ul>
         <li>パスワードは bcrypt（ソルト自動付与）。アクセストークンはJWT(HS256)15分。リフレッシュは30日。</li>
         <li>連続ログイン失敗が <code>MaxFailedLoginAttempts</code>（既定15）に達すると自動ロック。</li>
@@ -818,7 +828,7 @@ G012347,false,</pre>
       </ul>
 
       <!-- ===================================================== 14 -->
-      <h2 id="audit"><span class="num">14</span>監査ログコード一覧</h2>
+      <h2 id="audit"><span class="num">15</span>監査ログコード一覧</h2>
       <p>操作ログの <code>Op</code> 列に出るコードの早見表です。フィルタは<strong>完全一致</strong>なので、まとめて見たいときはCSV出力→Excelで <code>ADMIN_</code> 絞り込みが便利です。</p>
       <table>
         <thead><tr><th>コード</th><th>意味</th></tr></thead>
@@ -840,7 +850,7 @@ G012347,false,</pre>
       </div>
 
       <!-- ===================================================== 15 -->
-      <h2 id="trouble"><span class="num">15</span>トラブル対応</h2>
+      <h2 id="trouble"><span class="num">16</span>トラブル対応</h2>
       <table>
         <thead><tr><th>症状</th><th>対処</th></tr></thead>
         <tbody>
@@ -862,16 +872,16 @@ G012347,false,</pre>
       </div>
 
       <!-- ===================================================== 16 -->
-      <h2 id="recovery"><span class="num">16</span>管理者の緊急復旧（最悪のケース）</h2>
+      <h2 id="recovery"><span class="num">17</span>管理者の緊急復旧（最悪のケース）</h2>
       <p>別の管理者がいれば、その人が<strong>ユーザータブ → 🔓ロック解除／🔑PWリセット</strong>で復旧できます。<strong>他に管理者がいない</strong>場合のみ、DBを直接更新します。</p>
 
-      <h3>16-1. ロック解除だけ（パスワードは覚えている）</h3>
+      <h3>17-1. ロック解除だけ（パスワードは覚えている）</h3>
       <p><code>sqlite3.exe</code> があれば：</p>
       <pre class="code">sqlite3.exe C:\ProgramData\Watashi\watashi.db
 sqlite&gt; UPDATE Users SET IsLocked=0, FailedLoginCount=0 WHERE Username='admin';
 sqlite&gt; .quit</pre>
 
-      <h3>16-2. ロック＋パスワード忘れの両方（完全復旧）</h3>
+      <h3>17-2. ロック＋パスワード忘れの両方（完全復旧）</h3>
       <p>サーバ publish フォルダの <code>BCrypt.Net-Next.dll</code> で新ハッシュを生成し、<code>Microsoft.Data.Sqlite.dll</code> でDBに直接UPDATEします（<code>sqlite3.exe</code> 不要）。</p>
       <pre class="code"><span class="cm"># === 環境に合わせて書き換え ===</span>
 $publishDir  = "C:\Program Files\Watashi\Server"   <span class="cm"># Watashi.Server.exe のフォルダ</span>
@@ -913,7 +923,7 @@ Start-Service Watashi.Server</pre>
       <p>実行後は <code>admin</code> ＋仮パスワードでログイン → 強制変更画面で本番用パスワードに置き換え → <strong>パスワードマネージャ等に保管</strong>して二度と忘れないようにしてください。このスクリプトは <code>PasswordChangedAt</code> も更新するため、既存リフレッシュトークンは自動失効します（横取り防止）。</p>
 
       <!-- ===================================================== 17 -->
-      <h2 id="glossary"><span class="num">17</span>用語集</h2>
+      <h2 id="glossary"><span class="num">18</span>用語集</h2>
       <dl class="terms">
         <dt>ホスト</dt><dd>接続先のCIFS（SMB）ファイルサーバー。IP＋資格情報＋実行ノードで登録。</dd>
         <dt>共有 (Share)</dt><dd>ホスト上のSMB共有。表示名と実際の共有名を持つ。</dd>
@@ -958,15 +968,6 @@ Start-Service Watashi.Server</pre>
       </p>
 
     </div><!-- /wrap -->
-
-      <section id="maintenance-operations">
-        <h2>メンテナンスの切替と配置（2026-09-05）</h2>
-        <p>管理画面「運用状態」で案内文（最大500文字）と開始・終了予定（端末のローカル日時）を入力し、予定／メンテナンス中／復旧確認中／通常を切り替えます。時刻は案内用で、自動停止・自動解除はありません。</p>
-        <p>作業中は新しい業務APIを停止し、受付済みHTTP要求は完了させます。認証、状態管理、最小限の運用診断、Agent内部経路は維持します。管理者のファイル操作も停止対象です。解除には復旧確認中・処理中要求0・運用診断の確認が必要です。要求数には独立したAgent処理や後片付けを含まないため、それらも停止前に確認します。</p>
-        <p>Serverの <code>Maintenance:StateFilePath</code> はDB外の私的ファイルで、既定はProgramDataのWatashi配下のmaintenance-state.jsonです。再起動・DB復元でも停止を保持し、Web公開しません。単一Serverプロセスで運用します。</p>
-        <p>外部案内を使う場合は <code>Maintenance:PublicStatusFilePath</code> と <code>Maintenance:PublicStatusUrl</code>（HTTPS）を両方設定します。Clientは <code>deployment.json</code> の <code>maintenanceStatusUrl</code> を設定してClickOnce再発行します。外部配信なしでもAPI内の切替は使用できます。公開は書き込みとHTTPS読み戻しを確認し、失敗時は状態を再取得してから再実行します。解除を先行しません。</p>
-        <p>同梱の <code>Install-StatusAssets.ps1</code> と <code>Publish-MaintenanceState.ps1</code>、<a href="../../deploy/MAINTENANCE-ROLLOUT-PLAN.md">導入・更新・復旧・切り戻し手順</a>を参照してください。独立した静的サイト、IIS・DNS・証明書・ACLは環境に合わせて設定します。API停止時も案内できる停止範囲に分離してください。Serverを先に更新してから2000件対応Clientを配布します。</p>
-      </section>
 
 </main>
 </div><!-- /layout -->

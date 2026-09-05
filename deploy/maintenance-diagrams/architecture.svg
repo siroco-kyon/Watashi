@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 446" role="img" aria-labelledby="title desc">
+<title id="title">停止範囲を分離した構成</title>
+<desc id="desc">Clientは業務APIと独立状態サイトを参照する。DBと私的状態はAPI側にあり、公開JSONは別サイトへ書き込みHTTPSで読み戻す。</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M0 0L10 5L0 10Z" fill="#a63d26"/>
+</marker>
+</defs>
+<style>text{font-family:'Yu Gothic','Meiryo',sans-serif;fill:#23313d;font-size:17px}.heading{font-size:20px;font-weight:700}.small{font-size:15px;fill:#52616c}.arrow{fill:none;stroke:#a63d26;stroke-width:2.5;marker-end:url(#arrow)}</style>
+<rect width="1080" height="446" rx="16" fill="#faf9f6"/>
+<rect x="20" y="95" width="260" height="130" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="150.0" y="125" text-anchor="middle" class="heading">利用者のClient</text>
+<text x="150.0" y="154" text-anchor="middle" class="small">業務APIと案内を確認</text>
+<text x="150.0" y="179" text-anchor="middle" class="small">ClickOnceで必須更新</text>
+<rect x="365" y="55" width="320" height="305" rx="14" fill="#f9e9e4" stroke="#dcb6ac"/>
+<text x="525" y="82" text-anchor="middle" class="small">API更新で停止する範囲</text>
+<rect x="390" y="108" width="270" height="100" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="525.0" y="138" text-anchor="middle" class="heading">業務API</text>
+<text x="525.0" y="167" text-anchor="middle" class="small">管理画面で状態を切替</text>
+<rect x="380" y="247" width="140" height="87" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="450.0" y="277" text-anchor="middle" class="heading">DB</text>
+<text x="450.0" y="306" text-anchor="middle" class="small">業務データ</text>
+<rect x="535" y="247" width="140" height="87" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="605.0" y="277" text-anchor="middle" class="heading">私的状態</text>
+<text x="605.0" y="306" text-anchor="middle" class="small">停止を保持</text>
+<rect x="730" y="55" width="330" height="305" rx="14" fill="#eaf3ee" stroke="#aacabb"/>
+<text x="895" y="82" text-anchor="middle" class="small">停止範囲を分けた静的サイト</text>
+<rect x="755" y="108" width="280" height="100" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="895.0" y="138" text-anchor="middle" class="heading">案内ページ</text>
+<text x="895.0" y="167" text-anchor="middle" class="small">index.html</text>
+<rect x="755" y="247" width="280" height="87" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="895.0" y="277" text-anchor="middle" class="heading">公開JSON</text>
+<text x="895.0" y="306" text-anchor="middle" class="small">status.json</text>
+<path class="arrow" d="M280 155H389"/>
+<text x="333" y="138" text-anchor="middle" class="small">HTTPS</text>
+<path class="arrow" d="M660 193H706V290H754"/>
+<text x="704" y="227" text-anchor="middle" class="small">公開</text>
+<path class="arrow" d="M895 247V209"/>
+<text x="950" y="230" text-anchor="middle" class="small">読込</text>
+<path class="arrow" d="M145 95V28H895V107"/>
+<text x="522" y="20" text-anchor="middle" class="small">API停止中も、独立した案内を匿名で取得</text>
+<text x="540" y="393" text-anchor="middle" class="small">ホスト再起動中も案内する場合は、状態サイトを別ホストへ配置します。</text>
+<text x="540" y="420" text-anchor="middle" class="small">私的状態はWeb公開・DB復元の対象と分けます。公開後はHTTPSで内容の一致を確認します。</text>
+</svg>

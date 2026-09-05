@@ -21,6 +21,11 @@ Agent は 1 台構成に加えて、共有秘密認証の `Server → Agent A �
                             └──────────────────┘           └──────────────┘
 ```
 
+
+Ctrl+D（ダウンロード）／Ctrl+U（アップロード）、操作中ペイン・選択件数・転送先の表示、非モーダルの転送センターに対応しています。リモート一覧は初回・追加とも2000件です。Serverを先に更新してからClientを配布してください。
+
+メンテナンスの予定・開始・復旧確認・解除を管理画面から切り替えられます。起動時と画面上部に案内し、転送を待機として保持します。API停止中の案内には独立した状態サイトを配置し、ServerとClientの設定・再発行が必要です。[導入・更新・復旧手順](deploy/MAINTENANCE-ROLLOUT-PLAN.html)を参照してください。
+
 ## ドキュメント
 
 | 文書 | 内容 |
@@ -37,6 +42,7 @@ Agent は 1 台構成に加えて、共有秘密認証の `Server → Agent A �
 | **[docs/BRANDING.md](docs/BRANDING.md)** | ブランディング変更 — 配布物の名前・アイコンの差し替え箇所 |
 | **[docs/CHANGELOG.md](docs/CHANGELOG.md)** | 変更履歴 (UI 刷新・バグ修正など) |
 | [docs/UI_USABILITY_IMPROVEMENT_PLAN.md](docs/UI_USABILITY_IMPROVEMENT_PLAN.md) | 改善計画と実装結果 — Ctrl+D / Ctrl+U、2000件一覧、メンテナンス表示と導入手順 |
+| [メンテナンス導入・運用ガイド](deploy/MAINTENANCE-ROLLOUT-PLAN.html) | 構成・状態遷移・更新作業をSVGで図解。配置・更新・復旧・切り戻しの手順 |
 | [deploy/README.md](deploy/README.md) | デプロイ手順 (Windows Service + ClickOnce) |
 | [CifsTool_FINAL_SPEC.md](CifsTool_FINAL_SPEC.md) | 初期実装時の履歴資料 (現行仕様ではない) |
 
@@ -156,9 +162,3 @@ dotnet test  tests\Watashi.Tests
 ## ライセンス / 注意
 
 社内利用を想定した実装です。本番投入前に必ず [docs/SETUP.md#-本番投入チェックリスト](docs/SETUP.md#-本番投入チェックリスト) を完了させてください。
-
-## UIとメンテナンスの改善（2026-09-05）
-
-Ctrl+D（ダウンロード）／Ctrl+U（アップロード）、操作中ペイン・選択件数・転送先の表示、非モーダルの転送センターに対応しました。リモート一覧は初回・追加とも2000件です。Serverを先に更新してからClientを配布してください。
-
-メンテナンスの予定・開始・復旧確認・解除を管理画面から切り替えられます。起動時と画面上部に案内し、転送を待機として保持します。API停止中の案内には独立した状態サイトを配置し、ServerとClientの設定・再発行が必要です。[導入・更新・復旧手順](deploy/MAINTENANCE-ROLLOUT-PLAN.md)を参照してください。

@@ -727,4 +727,4 @@ IIS ホスト方式なら通常は `Request.IsHttps` が HTTPS として扱わ�
 
 ## 独立したメンテナンス案内サイト
 
-API停止中にも案内する場合は、APIと別のIISサイト・アプリケーションプールに静的ページとJSONを配置します。ホスト再起動を含む場合は別ホストに分離します。Serverの公開先設定と書き込み／読み取り権限、ClientのmaintenanceStatusUrlと再発行、状態切替・更新・切り戻しは[メンテナンス導入・運用手順](MAINTENANCE-ROLLOUT-PLAN.md)を参照してください。同梱スクリプトはIIS・DNS・証明書・ACLを自動変更しません。
+API停止中にも案内する場合は、APIと別のIISサイト・アプリケーションプールに静的ページとJSONを配置します。ホスト再起動を含む場合は別ホストに分離します。Serverの公開先設定と書き込み／読み取り権限、ClientのmaintenanceStatusUrlと再発行、状態切替・更新・切り戻しは[メンテナンス導入・運用手順](MAINTENANCE-ROLLOUT-PLAN.html)を参照してください。同梱スクリプトはIIS・DNS・証明書・ACLを自動変更しません。

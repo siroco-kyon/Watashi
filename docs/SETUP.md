@@ -780,6 +780,20 @@ HTTP + 共有秘密モードでは、下表の Agent 関連証明書は使いま
 
 ---
 
+### 独立したメンテナンス案内サイト
+
+API停止中も案内できるよう、APIと別のIISサイト・アプリケーションプールへ `deploy/maintenance` の静的資産を配置します。ホスト再起動中も配信するなら別ホストに分離します。DNS、HTTPS証明書、Static Content、Serverの書き込み権限と状態サイトの読み取り権限を用意してください。
+
+| 設定 | 配置・役割 |
+|---|---|
+| Maintenance:StateFilePath | ServerのDB外の私的状態ファイル。Web公開しない |
+| Maintenance:PublicStatusFilePath | 公開JSONの絶対パス。原子的な置換権限が必要 |
+| Maintenance:PublicStatusUrl | 公開JSONのHTTPS URL。Serverから読み戻せること |
+| deployment.json:maintenanceStatusUrl | Clientから確認する公開JSON。設定後にClickOnce再発行 |
+
+Serverを先に更新してから2000件対応Clientを配布します。公開先の2項目は両方空なら外部配信なし、指定する場合は両方必要です。状態は単一Serverプロセスで管理します。配置コマンド、IIS・ACL、更新・復旧・切り戻しは[図解付き導入手順](../deploy/MAINTENANCE-ROLLOUT-PLAN.html)を参照してください。
+
+
 ## ④ 初期データ登録
 
 ログイン後、管理者として以下を順に登録:
@@ -905,6 +919,10 @@ sc.exe start Watashi.Server
 
 ---
 
+### メンテナンスを伴う更新
+
+管理画面「運用状態」で予定を案内し、作業開始時にメンテナンスへ切り替えます。処理中要求・Agent・後片付けを確認して停止し、整合したDBバックアップを保持します。私的状態と公開JSONは更新やDB復元で初期化しません。復旧確認・診断・必要なClient更新を経て通常へ切り替え、検証用ファイルで確認します。時刻による自動停止・解除はありません。[更新・切り戻しの詳細](../deploy/MAINTENANCE-ROLLOUT-PLAN.html#operations)を参照してください。
+
 ## トラブルシューティング
 
 ### サーバー起動時にコケる
@@ -983,15 +1001,3 @@ Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
 
 ### ストリーミング転送中にキャンセルしたい
 - 転送センターから個別/全体キャンセル、一時停止した項目の再開、失敗項目の再試行が可能。キューは再起動後も復元される。
-
-## メンテナンスの切替（2026-09-05）
-
-管理画面「運用状態」で状態を取得し、案内文（最大500文字）、開始・終了予定（端末のローカル日時）を入力して予定／メンテナンス中／復旧確認中／通常を切り替えます。予定時刻は案内用で、自動停止・自動解除は行いません。
-
-メンテナンス中は新しい業務APIを停止し、受付済みのHTTP要求は完了させます。認証、状態管理、最小限の運用診断、Agent内部経路は維持します。通常へ戻すには復旧確認中への切替、処理中要求0、運用診断の確認が必要です。Adminのファイル操作も停止対象です。処理中要求数には独立したAgent処理や後片付けを含まないため、それらも停止前に確認してください。
-
-Serverの `Maintenance:StateFilePath` はDB外の私的ファイルです。既定はProgramDataのWatashi配下のmaintenance-state.jsonで、再起動・DB復元後も停止を保持します。Web公開しないでください。外部案内を使う場合は `Maintenance:PublicStatusFilePath` と `Maintenance:PublicStatusUrl`（HTTPS）を両方設定し、Clientの `deployment.json` に `maintenanceStatusUrl` を設定して再発行します。外部配信なしでもAPI内の切替は利用できます。
-
-外部配信は書き込みとHTTPS読み戻しを確認します。公開失敗の場合は状態を再取得してから修正・再実行してください。停止解除を先行させません。API停止中の案内には独立した状態サイトが必要です。Serverを先に更新してから2000件対応Clientを配布します。
-
-[導入・更新・復旧・切り戻し手順](../deploy/MAINTENANCE-ROLLOUT-PLAN.md) と、同梱の `deploy/maintenance/Install-StatusAssets.ps1`、`Publish-MaintenanceState.ps1` を参照してください。本番のIIS・DNS・証明書・ACLは環境に合わせた設定が必要です。

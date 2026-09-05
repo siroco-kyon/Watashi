@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 308" role="img" aria-labelledby="title desc">
+<title id="title">メンテナンスの状態遷移</title>
+<desc id="desc">通常から予定、メンテナンス、復旧確認の順に管理者が切り替える。復旧条件と公開保存を確認して通常へ戻す。</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M0 0L10 5L0 10Z" fill="#a63d26"/>
+</marker>
+</defs>
+<style>text{font-family:'Yu Gothic','Meiryo',sans-serif;fill:#23313d;font-size:17px}.heading{font-size:20px;font-weight:700}.small{font-size:15px;fill:#52616c}.arrow{fill:none;stroke:#a63d26;stroke-width:2.5;marker-end:url(#arrow)}</style>
+<rect width="1080" height="308" rx="16" fill="#faf9f6"/>
+<rect x="20" y="60" width="225" height="110" rx="10" fill="#eaf3ee" stroke="#d3d8da"/>
+<text x="132.5" y="90" text-anchor="middle" class="heading">通常</text>
+<text x="132.5" y="119" text-anchor="middle" class="small">normal</text>
+<text x="132.5" y="144" text-anchor="middle" class="small">業務を受け付ける</text>
+<rect x="285" y="60" width="225" height="110" rx="10" fill="#f4f0e1" stroke="#d3d8da"/>
+<text x="397.5" y="90" text-anchor="middle" class="heading">予定</text>
+<text x="397.5" y="119" text-anchor="middle" class="small">scheduled</text>
+<text x="397.5" y="144" text-anchor="middle" class="small">案内しながら業務継続</text>
+<rect x="550" y="60" width="225" height="110" rx="10" fill="#f9e9e4" stroke="#d3d8da"/>
+<text x="662.5" y="90" text-anchor="middle" class="heading">メンテナンス</text>
+<text x="662.5" y="119" text-anchor="middle" class="small">maintenance</text>
+<text x="662.5" y="144" text-anchor="middle" class="small">新しい業務要求を停止</text>
+<rect x="815" y="60" width="225" height="110" rx="10" fill="#eaf0f7" stroke="#d3d8da"/>
+<text x="927.5" y="90" text-anchor="middle" class="heading">復旧確認</text>
+<text x="927.5" y="119" text-anchor="middle" class="small">recovering</text>
+<text x="927.5" y="144" text-anchor="middle" class="small">受付停止を維持</text>
+<path class="arrow" d="M245 113H284"/>
+<path class="arrow" d="M510 113H549"/>
+<path class="arrow" d="M775 113H814"/>
+<text x="540" y="32" text-anchor="middle" class="small">切替は管理者が手動で実行。予定日時では自動切替しません。</text>
+<path class="arrow" d="M928 171V240H132V171"/>
+<text x="530" y="230" text-anchor="middle" class="small">復旧確認 ＋ 処理中要求0 ＋ 運用診断 ＋ 公開・保存の確認</text>
+<text x="540" y="281" text-anchor="middle" class="small">公開失敗時は受付停止を維持し、最新の状態を取得してから再実行します。</text>
+</svg>
