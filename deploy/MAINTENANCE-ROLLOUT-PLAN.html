@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Watashi | メンテナンス導入・運用ガイド</title>
+<style>
+:root{font-family:system-ui,'Yu Gothic','Meiryo',sans-serif;color:#23313d;background:#f5f4ef;font-size:16px;line-height:1.85;--accent:#aa3d26;--line:#dcded8}*{box-sizing:border-box}body{margin:0}a{color:var(--accent);text-underline-offset:3px}a:focus-visible{outline:3px solid #cc8e24;outline-offset:3px}.skip{position:absolute;top:-70px;background:white;padding:10px}.skip:focus{top:10px;z-index:10}.masthead{background:#263c39;color:white;padding:56px max(28px,calc((100% - 1320px)/2));border-bottom:6px solid #c15d3e}.eyebrow{font-size:12px;letter-spacing:.2em;color:#d4dfd8}h1{font-size:clamp(28px,3.6vw,43px);letter-spacing:.01em;line-height:1.4;margin:16px 0}.masthead p{max-width:800px;color:#e0e6e2;margin:12px 0 0}.meta{display:flex;gap:24px;margin-top:28px;font-size:13px;color:#d4dfd8}.layout{display:grid;grid-template-columns:235px minmax(0,1fr);gap:52px;max-width:1380px;margin:auto;padding:44px 28px 90px}aside{position:sticky;top:24px;align-self:start;font-size:14px}aside strong{display:block;font-size:12px;letter-spacing:.12em;color:#68736c;margin-bottom:14px}nav a{display:flex;gap:13px;padding:12px 2px;border-bottom:1px solid var(--line);text-decoration:none;color:#354740}nav span{font-variant-numeric:tabular-nums;color:#9b4d35}aside p{font-size:12px;line-height:1.7;color:#6d7771;margin-top:24px}main{min-width:0;background:#fff;border:1px solid var(--line);padding:34px 42px}section{scroll-margin-top:24px;border-top:1px solid var(--line);margin-top:42px;padding-top:32px}h2{display:flex;gap:16px;align-items:baseline;font-size:26px;line-height:1.5;margin:0 0 22px}h2 span{font-size:15px;color:var(--accent);font-weight:500}p{margin:18px 0}li{padding-left:6px;margin:13px 0}li::marker{color:var(--accent);font-weight:700}strong{font-weight:700}figure{margin:26px 0}figure img{display:block;width:100%;height:auto}figcaption{font-size:12px;color:#65706b;margin-top:10px;text-align:center}.table{overflow-x:auto;margin:24px 0}table{border-collapse:collapse;width:100%;font-size:14px;text-align:left}th,td{border-bottom:1px solid var(--line);padding:13px 14px;vertical-align:top}th{background:#eef1eb;font-weight:700}td:first-child{min-width:130px}code{font-family:Consolas,monospace;font-size:.9em;overflow-wrap:anywhere;background:#f0f2ee;padding:2px 5px;border-radius:4px}.code{margin:24px 0;border:1px solid #cdd8d1;border-radius:8px;overflow:hidden}.code-label{padding:8px 17px;background:#eaf0e9;color:#52685e;font-size:12px}pre{margin:0;padding:18px;background:#f8faf7;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:13px}pre code{background:none;padding:0;font-size:inherit}footer{max-width:1380px;margin:auto;padding:0 28px 36px;font-size:13px;color:#65736a}footer a{margin-right:20px}@media(max-width:850px){.layout{display:block;padding:20px 14px}aside{position:static;margin-bottom:24px}nav{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}aside p{display:none}main{padding:24px 20px}h2{font-size:23px}.masthead{padding:34px 24px}.meta{flex-wrap:wrap;gap:12px}table{font-size:13px}figure{overflow-x:auto}figure img{min-width:620px}}@media print{body{background:white;font-size:10pt}.masthead{background:white;color:#23313d;padding:0 0 18px;border-color:#aa3d26}.masthead p,.meta,.eyebrow{color:#23313d}.layout{display:block;padding:0}aside{display:none}main{border:0;padding:0}section{break-before:auto}h2{break-after:avoid}figure,pre,tr{break-inside:avoid}figure img{min-width:0}a{color:inherit}footer{padding:20px 0}h1{font-size:26pt}h2{font-size:19pt}}@page{size:A4;margin:17mm}
+</style>
+</head>
+<body>
+<a class="skip" href="#guide">本文へ移動</a>
+<header class="masthead">
+<div class="eyebrow">WATASHI / OPERATIONS GUIDE</div>
+<h1>メンテナンス導入・運用ガイド</h1>
+<p>利用者への案内を保ちながら、受付を止め、更新し、復旧を確認する。<br>初回配置から更新当日、切り戻しまでを一つの手順で確認できます。</p>
+<div class="meta">
+<span>対象：導入・運用管理者</span>
+<span>更新：2026-09-06</span>
+<span>HTML・SVG / オフライン閲覧対応</span>
+</div>
+</header>
+<div class="layout">
+<aside>
+<strong>CONTENTS</strong>
+<nav>
+<a href="#architecture">
+<span>01</span>構成と停止範囲</a>
+<a href="#installation">
+<span>02</span>初回配置</a>
+<a href="#states">
+<span>03</span>状態の切替</a>
+<a href="#operations">
+<span>04</span>更新当日の作業</a>
+<a href="#rollback">
+<span>05</span>切り戻し・障害時</a>
+<a href="#acceptance">
+<span>06</span>受入確認</a>
+</nav>
+<p>図とコードは文書に同梱。パス・ホスト名・日時は導入環境の実値に置き換えてください。</p>
+</aside>
+<main id="guide">
+<p>更新: 2026-09-06。以下の設定・API・配布物は実装済みです。パス、ホスト名、サービス名は環境の実値へ置き換えてください。作業対象のホストと停止範囲を確認してから進めてください。</p>
+<section id="architecture">
+<h2>
+<span>01</span>構成と停止範囲</h2>
+<figure>
+<img src="maintenance-diagrams/architecture.svg" alt="APIと案内サイトの停止範囲"/>
+<figcaption>APIと案内サイトの停止範囲</figcaption>
+</figure>
+<div class="table">
+<table>
+<thead>
+<tr>
+<th>要素</th>
+<th>例</th>
+<th>役割</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>業務API</td>
+<td>
+<code>https://watashi.example.jp</code>
+</td>
+<td>認証・ファイル操作・状態切替</td>
+</tr>
+<tr>
+<td>ClickOnce配布</td>
+<td>
+<code>https://download.example.jp/Watashi/</code>
+</td>
+<td>必須更新マニフェストと配布物</td>
+</tr>
+<tr>
+<td>独立した状態サイト</td>
+<td>
+<code>https://status.example.jp/</code>
+</td>
+<td>
+<code>index.html</code> と <code>status.json</code>。API・DB・配布物に依存しない</td>
+</tr>
+<tr>
+<td>私的状態ファイル</td>
+<td>
+<code>C:\ProgramData\Watashi\maintenance-state.json</code>
+</td>
+<td>Server再起動・DB復元後も受付停止を維持。Web公開しない</td>
+</tr>
+<tr>
+<td>公開JSON</td>
+<td>
+<code>D:\Sites\WatashiStatus\status.json</code>
+</td>
+<td>Serverが原子的に置換し、HTTPSで一致を読み戻す</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>状態サイトはAPIとは別のIISサイト・アプリケーションプールで配置し、API更新時に一緒に停止しない構成にします。API配下に仮想ディレクトリを追加するだけでは十分ではありません。ホスト再起動中も案内する場合は別ホストが必要です。別ホストではServerが書き込める共有上のパスを公開JSONに設定し、共有とNTFSの両方の権限を付与します。状態サイトは静的ファイルだけを匿名で読める構成にします。</p>
+<p>既存構成の手順は <a href="IIS-HOSTING.md">IIS-HOSTING.md</a> と <a href="README.md">README.md</a> を参照してください。</p>
+</section>
+<section id="installation">
+<h2>
+<span>02</span>初回配置</h2>
+<ol start="1">
+<li>状態サイト用DNS、信頼されるHTTPS証明書、IISのStatic Contentを用意します。APIの停止範囲と分離したサイトを作り、以下の配置先を物理パスに指定します。状態サイトのプールは「マネージドコードなし」で構いません。</li>
+<li>リポジトリのルートから配置します。まず <code>-WhatIf</code> で対象を確認できます。</li>
+</ol>
+<div class="code">
+<div class="code-label">powershell</div>
+<pre>
+<code>.\deploy\maintenance\Install-StatusAssets.ps1 -Destination &#x27;D:\Sites\WatashiStatus&#x27; -WhatIf
+.\deploy\maintenance\Install-StatusAssets.ps1 -Destination &#x27;D:\Sites\WatashiStatus&#x27;</code>
+</pre>
+</div>
+<p>スクリプトは <code>index.html</code>、<code>web.config</code>、<code>status.json</code> だけをコピーし、既存の <code>status.json</code> は保持します。IIS・ACL・DNS・証明書は自動設定しません。スクリプト自体や私的ファイルをWebルートへ置かないでください。初期JSONは配置確認用です。Serverから状態を公開してから利用者へ案内します。</p>
+<ol start="3">
+<li>Server実行アカウントに、私的ファイルと公開JSONの親ディレクトリへの変更権限（作成・置換・削除を含む）を付与します。私的ディレクトリは管理者とServerだけが読めるようにし、状態サイトには公開ディレクトリの読み取りだけを付与します。Serverアカウントから公開URLを信頼された証明書で取得できることを確認します。</li>
+<li>本番Server設定へ追加します。同一ホストの複数環境では私的ファイルも環境ごとに分けます。</li>
+</ol>
+<div class="code">
+<div class="code-label">json</div>
+<pre>
+<code>{
+  &quot;Maintenance&quot;: {
+    &quot;StateFilePath&quot;: &quot;C:\\ProgramData\\Watashi\\maintenance-state.json&quot;,
+    &quot;PublicStatusFilePath&quot;: &quot;D:\\Sites\\WatashiStatus\\status.json&quot;,
+    &quot;PublicStatusUrl&quot;: &quot;https://status.example.jp/status.json&quot;
+  }
+}</code>
+</pre>
+</div>
+<p>
+<code>StateFilePath</code> が空なら上記ProgramData配下が既定です。公開先の2項目は両方空なら外部配信なし、使用する場合は絶対パスとHTTPS URLの両方が必要です。私的ファイルと公開ファイルは同じパスにできません。状態管理は単一Serverプロセスを前提とし、同じ私的ファイルを複数プロセスで共有する構成には対応しません。</p>
+<ol start="5">
+<li>
+<strong>Serverを先に更新</strong>します。初回導入時の旧Serverには受付停止機能がないため、既存の作業停止・アクセス制限手順で停止して更新します。新Clientの2000件要求は旧Serverではエラーになります。新Serverは旧Clientの500件要求も受け付けます。</li>
+<li>管理画面「運用状態」で状態を取得し、通常状態を公開します。公開確認成功を確認し、外部JSONがAPIと同じ状態・revision・時刻になっていることを確認します。</li>
+<li>Clientの <code>src/Watashi.Client/deployment.json</code> に次の項目を追加し、署名を含む通常のClickOnce再発行を行います。</li>
+</ol>
+<div class="code">
+<div class="code-label">json</div>
+<pre>
+<code>{
+  &quot;maintenanceStatusUrl&quot;: &quot;https://status.example.jp/status.json&quot;
+}</code>
+</pre>
+</div>
+<p>既存の <code>serverUrl</code>、<code>updateManifestUrl</code> 等は保持します。空文字なら独立サイトの確認を省略します。配布後のファイルは直接編集せず再発行してください。状態ページURLも事前に利用者へ案内します。ClickOnce自身のアプリ起動前の更新に失敗すると、WPFの案内画面まで到達できないためです。</p>
+</section>
+<section id="states">
+<h2>
+<span>03</span>状態の切替</h2>
+<figure>
+<img src="maintenance-diagrams/state-flow.svg" alt="メンテナンスの状態遷移"/>
+<figcaption>メンテナンスの状態遷移</figcaption>
+</figure>
+<div class="table">
+<table>
+<thead>
+<tr>
+<th>状態</th>
+<th>表示・受付</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>normal</code>
+</td>
+<td>利用可能。受付を開く</td>
+</tr>
+<tr>
+<td>
+<code>scheduled</code>
+</td>
+<td>予定を表示し、業務は継続。指定時刻の自動停止ではない</td>
+</tr>
+<tr>
+<td>
+<code>maintenance</code>
+</td>
+<td>メンテナンス中。新しい業務APIを503で停止</td>
+</tr>
+<tr>
+<td>
+<code>recovering</code>
+</td>
+<td>復旧確認中。受付停止を維持</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>管理画面「運用状態」で案内文（最大500文字）と開始・終了予定（端末のローカル日時）を入力し、状態ボタンで切り替えます。日時は案内用で、終了予定を過ぎても自動解除しません。</p>
+<ul>
+<li>
+<code>GET /api/status</code>: 匿名の状態取得。応答は <code>no-store</code>。</li>
+<li>
+<code>GET /api/admin/maintenance</code>: Adminのみ。状態、処理中の業務要求数、公開確認済みrevision、公開エラーを取得。</li>
+<li>
+<code>PUT /api/admin/maintenance</code>: Adminのみ。<code>expectedRevision</code>、<code>state</code>、<code>message</code>、任意の <code>startsAtUtc</code> / <code>expectedEndAtUtc</code> を送信。日時はUTCのISO 8601形式。</li>
+<li>古いrevisionは409。公開失敗の503でも受付停止が有効になっている場合があるため、状態を再取得してから修正・再実行します。</li>
+<li>操作は <code>ADMIN_MAINTENANCE_UPDATE</code> として監査記録されます。</li>
+</ul>
+<p>自動化用スクリプトも同じ認証済みAPIを使います。Adminとして取得した短時間有効なアクセストークンをセキュア入力します。履歴・ログ・文書へトークンを貼り付けないでください。</p>
+<div class="code">
+<div class="code-label">powershell</div>
+<pre>
+<code>$maintenanceToken = Read-Host &#x27;Admin access token&#x27; -AsSecureString
+$maintenanceCurrent = Invoke-RestMethod &#x27;https://watashi.example.jp/api/status&#x27;
+.\deploy\maintenance\Publish-MaintenanceState.ps1 `
+  -ApiBaseUrl &#x27;https://watashi.example.jp&#x27; -AccessToken $maintenanceToken `
+  -ExpectedRevision $maintenanceCurrent.revision -State maintenance `
+  -Message &#x27;更新作業中です。終了予定は18:00です。&#x27; `
+  -ExpectedEndAt &#x27;2026-09-05T18:00:00+09:00&#x27;</code>
+</pre>
+</div>
+<p>他の状態も同じ方法です。実行直前に状態を再取得してください。<code>-WhatIf</code> は送信前確認のみです。HTTPSリダイレクトは追従しません。公開JSONの直接編集は受付停止と連動しないため、通常の切替には使いません。</p>
+</section>
+<section id="operations">
+<h2>
+<span>04</span>更新当日の作業</h2>
+<figure>
+<img src="maintenance-diagrams/rollout.svg" alt="更新当日の作業順序"/>
+<figcaption>更新当日の作業順序</figcaption>
+</figure>
+<ol start="1">
+<li>
+<code>scheduled</code> で作業時間・連絡先を案内し、外部サイトとClient表示を確認します。</li>
+<li>作業開始時に <code>maintenance</code> にします。APIの受付停止と外部の公開確認成功を確認してからサービス停止へ進みます。公開失敗はACL・証明書・到達性・キャッシュを修正して再取得・再実行します。</li>
+<li>「処理中の業務要求」が0になるまで待ちます。受付済みのHTTP要求は完了できます。この数はAgentの独立処理やバックグラウンドの後片付けを含みません。Agent、転送、監査ログ再送、DB書き込みの状態も確認して停止します。</li>
+<li>バイナリ、本番設定、DB、証明書参照、サービス設定、監査ログ再送用データ、未完了転送データを復旧できる形で保持します。DBは <a href="backup.ps1">backup.ps1</a> のオンラインバックアップ、または書き込み元を停止した整合したバックアップを使います。実行中のSQLiteファイルだけを単純コピーしません。</li>
+<li>API・必要なAgentを停止して更新します。<strong>私的状態ファイルと公開JSONを、配布物やDBと一緒に初期化しないでください。</strong> 再起動後も停止状態は保持されます。外部サイトを一緒に停止しません。</li>
+<li>
+<code>recovering</code> に切り替え、管理画面の運用診断、DB、共有の到達性、Agent、ログ、公開JSON、必須更新マニフェストを確認します。管理者のファイル操作も停止対象で、ファイル検証用のバイパスはありません。</li>
+<li>必要なClientを再発行し、先行端末で更新、ログイン、案内表示を確認します。必須更新確認ができなければ通常起動できません。</li>
+<li>
+<code>normal</code> に切り替えます。停止中から直接通常には戻せません。復旧確認中・処理中要求0・運用診断がUnhealthyでないことが必要です。公開先ありの場合はHTTPS読み戻しと私的保存の成功後に受付が開きます。</li>
+<li>再開後に専用の検証場所で一覧・小さなファイルのアップロード／ダウンロードとハッシュを確認します。異常があれば直ちに <code>maintenance</code> に戻します。メンテナンス待機の転送だけが再開し、中止・対応待ち・競合待ちは勝手に再開しないことを確認します。</li>
+</ol>
+</section>
+<section id="rollback">
+<h2>
+<span>05</span>切り戻し・障害時</h2>
+<ul>
+<li>APIが起動しなくても独立サイトの最後の案内は残ります。停止中は管理APIで変更できないため、停止前に十分な案内を書きます。状態確認に失敗したClientは既知の待機を保持し、取得不能を通常状態と表示しません。</li>
+<li>私的状態はDB復元から分離します。バックアップから古い通常状態へ戻して解除しないでください。私的ファイル破損時は受付停止で起動し、管理操作時に破損内容を退避します。読み取り・保存不可はACLやディスクを修復してください。</li>
+<li>バイナリとDBの互換性を確認して戻します。この機能を持たない旧Serverでは私的ファイルの停止が効かないため、ネットワーク／IISのアクセス制限を先に有効にし、検証後に解除します。</li>
+<li>DBは移行前の整合したものを使用し、転送の永続データ・一時データとの対応を確認します。期限切れの途中転送は失敗と表示され、利用者が「再試行」して先頭から再送します。競合は内容を確認して対応します。</li>
+<li>Clientを戻す場合も復旧コードを新しい発行バージョンで再発行します。マニフェストを手作業で古くしません。新しい待機状態を知らない旧Clientでキューを再開せず、キューを保持したまま対応版を配布してください。</li>
+</ul>
+</section>
+<section id="acceptance">
+<h2>
+<span>06</span>受入確認</h2>
+<ul>
+<li>状態サイトのルートとJSONを取得でき、APIプール停止中も表示できる。古いキャッシュが残らない。</li>
+<li>匿名は状態取得のみ、管理PUTはAdminのみ。業務APIは503と <code>code: maintenance</code> を返す。認証、状態管理、最小限の診断、Agent内部経路は維持される。</li>
+<li>予定／作業中／復旧確認／通常が表示される。長い日本語案内と小さい画面で確認する。</li>
+<li>転送中に停止し、処理中要求の完了後に待機する。Client／Server再起動・DB復元で既知の停止を失わない。</li>
+<li>公開先書き込み不可・HTTPS失敗・古いJSONでは公開成功と表示せず、解除を先行しない。</li>
+<li>必須更新が必要／更新URLが到達不能な場合に待機を解除しない。</li>
+<li>2000件超の実共有で初回・追加・再表示・ソート・絞り込み・スクロール・選択保持を確認する。SMBとネットワークを含む応答時間は環境ごとに実測する。</li>
+</ul>
+<p>自動テストは状態遷移や境界条件を確認しますが、本番IIS・証明書・SMB・ClickOnceの受入確認を代替しません。</p>
+</section>
+</main>
+</div>
+<footer>
+<a href="../docs/manual/admin.html">管理者マニュアル</a>
+<a href="../docs/SETUP.html">環境構築ガイド</a>
+<a href="MAINTENANCE-ROLLOUT-PLAN.md">Markdown版</a>
+<a href="#">先頭へ戻る</a>
+</footer>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 435" role="img" aria-labelledby="title desc">
+<title id="title">更新当日の作業順序</title>
+<desc id="desc">予告、受付停止とバックアップ、更新、復旧確認、Client更新、通常復帰とファイル検証の六段階。</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M0 0L10 5L0 10Z" fill="#a63d26"/>
+</marker>
+</defs>
+<style>text{font-family:'Yu Gothic','Meiryo',sans-serif;fill:#23313d;font-size:17px}.heading{font-size:20px;font-weight:700}.small{font-size:15px;fill:#52616c}.arrow{fill:none;stroke:#a63d26;stroke-width:2.5;marker-end:url(#arrow)}</style>
+<rect width="1080" height="435" rx="16" fill="#faf9f6"/>
+<rect x="20" y="35" width="310" height="120" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="175.0" y="65" text-anchor="middle" class="heading">1 予告</text>
+<text x="175.0" y="94" text-anchor="middle" class="small">作業時間と連絡先を案内</text>
+<text x="175.0" y="119" text-anchor="middle" class="small">Client・外部ページを確認</text>
+<rect x="385" y="35" width="310" height="120" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="540.0" y="65" text-anchor="middle" class="heading">2 受付停止</text>
+<text x="540.0" y="94" text-anchor="middle" class="small">処理中要求・Agentを確認</text>
+<text x="540.0" y="119" text-anchor="middle" class="small">整合したバックアップ</text>
+<rect x="750" y="35" width="310" height="120" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="905.0" y="65" text-anchor="middle" class="heading">3 更新</text>
+<text x="905.0" y="94" text-anchor="middle" class="small">API・必要なAgentを停止</text>
+<text x="905.0" y="119" text-anchor="middle" class="small">私的状態を保持して更新</text>
+<rect x="750" y="235" width="310" height="120" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="905.0" y="265" text-anchor="middle" class="heading">4 復旧確認</text>
+<text x="905.0" y="294" text-anchor="middle" class="small">API再起動、診断とログ確認</text>
+<text x="905.0" y="319" text-anchor="middle" class="small">受付停止は維持</text>
+<rect x="385" y="235" width="310" height="120" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="540.0" y="265" text-anchor="middle" class="heading">5 Client更新</text>
+<text x="540.0" y="294" text-anchor="middle" class="small">必要な版を再発行</text>
+<text x="540.0" y="319" text-anchor="middle" class="small">先行端末と更新配信を確認</text>
+<rect x="20" y="235" width="310" height="120" rx="10" fill="#ffffff" stroke="#d3d8da"/>
+<text x="175.0" y="265" text-anchor="middle" class="heading">6 通常へ戻す</text>
+<text x="175.0" y="294" text-anchor="middle" class="small">公開・保存後に受付を再開</text>
+<text x="175.0" y="319" text-anchor="middle" class="small">小さな検証用ファイルで確認</text>
+<path class="arrow" d="M330 95H384"/>
+<path class="arrow" d="M695 95H749"/>
+<path class="arrow" d="M905 156V234"/>
+<path class="arrow" d="M750 295H696"/>
+<path class="arrow" d="M385 295H331"/>
+<text x="540" y="404" text-anchor="middle" class="small">検証で異常があれば、直ちに受付停止へ戻して切り戻し手順を実施します。</text>
+</svg>

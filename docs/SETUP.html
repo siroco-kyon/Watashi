@@ -989,7 +989,7 @@ Start-Service Watashi.Server</code></pre>
         <div class="callout danger">
           <p><strong>接続先や D&amp;D を変更したいときは、<code>deployment.json</code> を編集して「再発行」してください。</strong>ClickOnce はマニフェストでファイルのハッシュを検証するため、発行後に配布物の <code>deployment.json</code> を直接書き換えるとインストール / 更新に失敗します (必ず再発行・再署名)。この仕組みによって「クライアントから接続先を変えさせない」運用が保証されます。</p>
         </div>
-      </section>
+      <h3 id="maintenance-site">5-1. 独立した状態サイトを配置する</h3><p>API停止中にも案内できるよう、APIとは別のIISサイト・アプリケーションプールへ静的HTMLとJSONを配置します。ホスト再起動を含むなら別ホストに分離します。ServerにMaintenance:StateFilePath（私的ファイル）、PublicStatusFilePath（公開JSON）、PublicStatusUrl（HTTPS）を設定し、ClientのmaintenanceStatusUrlを設定して再発行します。</p><p>Serverを先に更新してから2000件対応Clientを配布します。DNS・証明書・ACL・配置スクリプト・動作確認は<a href="../deploy/MAINTENANCE-ROLLOUT-PLAN.html">SVG図解付き導入手順</a>を参照してください。</p></section>
 
       <section id="agent">
         <h2>6. エージェント (踏み台)</h2>
@@ -1443,6 +1443,13 @@ Get-Service Watashi.Server, Watashi.Agent | Format-Table
 Restart-Service Watashi.Server</code></pre>
         </div>
         <p><code>HealthStatus=Unhealthy</code> が長時間続く Agent ノードは、管理画面 → ノードタブで確認してください。</p>
+
+        <h3 id="maintenance-operations">9-4. メンテナンスを伴う更新</h3>
+        <p>管理画面「運用状態」で案内文（最大500文字）と開始・終了予定（端末のローカル日時）を入力し、予定／メンテナンス中／復旧確認中／通常を切り替えます。時刻は案内用で、自動停止・自動解除はありません。</p>
+        <p>作業中は新しい業務APIを停止し、受付済みHTTP要求は完了させます。認証、状態管理、最小限の運用診断、Agent内部経路は維持します。管理者のファイル操作も停止対象です。解除には復旧確認中・処理中要求0・運用診断の確認が必要です。要求数には独立したAgent処理や後片付けを含まないため、それらも停止前に確認します。</p>
+        <p>Serverの <code>Maintenance:StateFilePath</code> はDB外の私的ファイルで、既定はProgramDataのWatashi配下のmaintenance-state.jsonです。再起動・DB復元でも停止を保持し、Web公開しません。単一Serverプロセスで運用します。</p>
+        <p>外部案内を使う場合は <code>Maintenance:PublicStatusFilePath</code> と <code>Maintenance:PublicStatusUrl</code>（HTTPS）を両方設定します。Clientは <code>deployment.json</code> の <code>maintenanceStatusUrl</code> を設定してClickOnce再発行します。外部配信なしでもAPI内の切替は使用できます。公開は書き込みとHTTPS読み戻しを確認し、失敗時は状態を再取得してから再実行します。解除を先行しません。</p>
+        <p>同梱の <code>Install-StatusAssets.ps1</code> と <code>Publish-MaintenanceState.ps1</code>、<a href="../deploy/MAINTENANCE-ROLLOUT-PLAN.html">導入・更新・復旧・切り戻し手順</a>を参照してください。独立した静的サイト、IIS・DNS・証明書・ACLは環境に合わせて設定します。API停止時も案内できる停止範囲に分離してください。Serverを先に更新してから2000件対応Clientを配布します。</p>
       </section>
 
       <section id="trouble">
@@ -1522,7 +1529,7 @@ try { $b = [Convert]::FromBase64String($key); "OK: $($b.Length) bytes" } catch {
               <tr><td>ファイル一覧が空 / 403</td><td>① ユーザー権限が登録されているか (管理画面 → ユーザー権限)。② AllowedPath とリクエストパスの関係。③ CIFS 資格情報 (管理画面 → ホスト → 接続テスト)</td></tr>
               <tr><td>操作が遅い / SMB ハンドシェイクが頻発</td><td><code>Cifs:SessionIdleSeconds</code> を伸ばす (60 → 120)。<code>Cifs:MaxSessionsPerKey</code> を増やす (4 → 8)</td></tr>
               <tr><td>「リネームでは親ディレクトリを変更できません」</td><td>仕様。同一フォルダ内でのリネームのみ許可し、フォルダ間の移動は禁止 (DELETE 権限の抜け穴対策)</td></tr>
-              <tr><td>転送中にキャンセルしたい</td><td>転送センターから個別/全体キャンセル、一時停止、失敗項目の再試行が可能。キューは再起動後も復元される</td></tr>
+              <tr><td>転送中にキャンセルしたい</td><td>転送センターから個別/全体キャンセル、一時停止した項目の再開、失敗項目の再試行が可能。キューは再起動後も復元される</td></tr>
             </tbody>
           </table>
         </div>
@@ -1537,7 +1544,8 @@ try { $b = [Convert]::FromBase64String($key); "OK: $($b.Length) bytes" } catch {
           <li><a href="../deploy/IIS-MIME.md">deploy/IIS-MIME.md</a> — ClickOnce 配信のための MIME 設定</li>
         </ul>
       </section>
-    </main>
+
+</main>
   </div>
 
   <footer>Watashi — Setup Guide</footer>

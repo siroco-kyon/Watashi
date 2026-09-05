@@ -13,6 +13,7 @@ namespace Watashi.Server.Services;
 public sealed class RemoteQueryCursorStore
 {
     public const int MaxSnapshots = 8;
+    public const int MaxListPageSize = 2000;
     public const int MaxTotalEntries = 200_000;
     public static readonly TimeSpan SnapshotLifetime = TimeSpan.FromMinutes(2);
 
@@ -107,6 +108,7 @@ public sealed class RemoteQueryCursorStore
     {
         var snapshot = read.Snapshot;
         var pageSize = read.PageSize > 0 ? read.PageSize : limit;
+        if (pageSize is < 1 or > MaxListPageSize) throw new ArgumentOutOfRangeException(nameof(limit));
         var entries = snapshot.Entries.Skip(read.Offset).Take(pageSize).ToList();
         var loaded = read.Offset + entries.Count;
         var hasMore = loaded < snapshot.Entries.Count;
@@ -129,6 +131,7 @@ public sealed class RemoteQueryCursorStore
     {
         var snapshot = read.Snapshot;
         var pageSize = read.PageSize > 0 ? read.PageSize : limit;
+        if (pageSize < 1 || pageSize > RemoteSearchService.MaxPageSize) throw new ArgumentOutOfRangeException(nameof(limit));
         var results = snapshot.Results.Skip(read.Offset).Take(pageSize).ToList();
         var loaded = read.Offset + results.Count;
         var hasMore = loaded < snapshot.Results.Count;
@@ -180,7 +183,8 @@ public sealed class RemoteQueryCursorStore
                 throw RemoteQueryCursorException.Invalid("cursor_expiry_mismatch");
             if (parsed.Offset < 0 || parsed.Offset > snapshot.ItemCount)
                 throw RemoteQueryCursorException.Invalid("cursor_offset_invalid");
-            if (parsed.PageSize is <= 0 or > RemoteSearchService.MaxPageSize)
+            var maximumPageSize = expectedKind == 'L' ? MaxListPageSize : RemoteSearchService.MaxPageSize;
+            if (parsed.PageSize <= 0 || parsed.PageSize > maximumPageSize)
                 throw RemoteQueryCursorException.Invalid("cursor_page_size_invalid");
             return new RemoteCursorRead<T>(snapshot.Id, snapshot, parsed.Offset, parsed.PageSize);
         }

@@ -29,7 +29,17 @@ public partial class RemotePaneViewModel : ObservableObject
     private readonly List<FileEntry> _all = new();
     private FileEntry? _parentEntry;
 
-    public ObservableCollection<FileEntry> Entries { get; } = new();
+    public FileEntryCollection Entries { get; } = new();
+    public event Action<string>? SelectionRequested;
+    private bool _listingValid;
+    public bool IsCurrentListingAvailable => !RemoteOperationsBlocked && !IsBusy && !IsLoadingMore && _listingValid && SelectedLocation is not null &&
+        string.Equals(CurrentPath, _lastSuccessfulPath, StringComparison.OrdinalIgnoreCase);
+    [ObservableProperty] private bool remoteOperationsBlocked;
+    public string ListingSummary => $"{Entries.Count(x => x.Type != FileEntryTypes.Parent):N0} 件が一致 / {LoadedEntryCount:N0} 件読み込み済み" +
+        (HasMoreEntries ? $"（全 {TotalEntryCount:N0} 件・続きがあります）" : string.Empty);
+    public string NoFilterMatchesMessage => HasMoreEntries
+        ? "読み込み済みの項目に一致しません。さらに読み込むと見つかる可能性があります。"
+        : "読み込み済みの項目に一致しません。";
     public ObservableCollection<LocationDto> Locations { get; } = new();
     public ObservableCollection<RemotePlaceSetting> FavoritePlaces { get; } = new();
     public ObservableCollection<RemotePlaceSetting> RecentPlaces { get; } = new();
@@ -104,6 +114,8 @@ public partial class RemotePaneViewModel : ObservableObject
 
     partial void OnSelectedLocationChanged(LocationDto? value)
     {
+        _listingValid = false;
+        OnPropertyChanged(nameof(IsCurrentListingAvailable));
         CancelCurrentRefresh();
         FilterText = string.Empty;
         OnPropertyChanged(nameof(HasLocation));
@@ -144,7 +156,14 @@ public partial class RemotePaneViewModel : ObservableObject
         _ = RefreshCoreAsync(recordRecent);
     }
 
-    partial void OnCurrentPathChanged(string value) => OnPropertyChanged(nameof(CanSaveCurrentPlace));
+    partial void OnCurrentPathChanged(string value)
+    {
+        OnPropertyChanged(nameof(CanSaveCurrentPlace));
+        OnPropertyChanged(nameof(IsCurrentListingAvailable));
+    }
+    partial void OnRemoteOperationsBlockedChanged(bool value) => OnPropertyChanged(nameof(IsCurrentListingAvailable));
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(IsCurrentListingAvailable));
+    partial void OnIsLoadingMoreChanged(bool value) => OnPropertyChanged(nameof(IsCurrentListingAvailable));
 
     partial void OnSelectedFavoriteChanged(RemotePlaceSetting? value) =>
         OnPropertyChanged(nameof(HasSelectedFavorite));
@@ -249,7 +268,7 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public async Task NavigateAsync(string? newPath)
     {
-        if (SelectedLocation is null) return;
+        if (SelectedLocation is null || RemoteOperationsBlocked) return;
         var target = PathHelper.NormalizePath(newPath ?? CurrentPath);
         if (!PathHelper.IsPathWithin(SelectedLocation.Path, target))
         {
@@ -274,7 +293,7 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public Task GoBackAsync()
     {
-        if (_back.Count == 0 || SelectedLocation is null) return Task.CompletedTask;
+        if (RemoteOperationsBlocked || _back.Count == 0 || SelectedLocation is null) return Task.CompletedTask;
         var prev = _back.Pop();
         if (!PathHelper.IsPathWithin(SelectedLocation.Path, prev))
         {
@@ -291,7 +310,7 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public Task GoForwardAsync()
     {
-        if (_forward.Count == 0 || SelectedLocation is null) return Task.CompletedTask;
+        if (RemoteOperationsBlocked || _forward.Count == 0 || SelectedLocation is null) return Task.CompletedTask;
         var next = _forward.Pop();
         if (!PathHelper.IsPathWithin(SelectedLocation.Path, next))
         {
@@ -306,12 +325,14 @@ public partial class RemotePaneViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public Task GoUpAsync()
+    public async Task GoUpAsync()
     {
-        if (!CanGoUp) return Task.CompletedTask;
+        if (!CanGoUp || RemoteOperationsBlocked) return;
         var parent = PathHelper.GetParent(_lastSuccessfulPath);
-        if (parent == _lastSuccessfulPath) return Task.CompletedTask;
-        return NavigateAsync(parent);
+        if (parent == _lastSuccessfulPath) return;
+        var previousName = _lastSuccessfulPath.TrimEnd('/').Split('/').Last();
+        await NavigateAsync(parent);
+        if (IsCurrentListingAvailable) await SelectEntryAsync(previousName);
     }
 
     [RelayCommand]
@@ -323,7 +344,7 @@ public partial class RemotePaneViewModel : ObservableObject
         bool recordLast = false)
     {
         var location = SelectedLocation;
-        if (location is null) return;
+        if (location is null || RemoteOperationsBlocked) return;
 
         var path = PathHelper.NormalizePath(CurrentPath);
         if (!PathHelper.IsPathWithin(location.Path, path))
@@ -334,12 +355,16 @@ public partial class RemotePaneViewModel : ObservableObject
         }
         CurrentPath = path;
         var sort = SortKey;
+        // Refresh the already loaded range, so a selection on the second page can survive F5/rename.
+        var previousLoadedCount = Entries.LocationKey == $"{location.PermissionId}:{location.HostId}:{location.ShareId}:{path}"
+            ? Math.Max(ApiClient.RemoteListPageSize, LoadedEntryCount) : ApiClient.RemoteListPageSize;
         var generation = Interlocked.Increment(ref _refreshGeneration);
         var cts = new CancellationTokenSource();
         Interlocked.Exchange(ref _refreshCts, cts)?.Cancel();
         try
         {
             IsBusy = true;
+            _listingValid = false;
             ResetListPaging();
             var res = await _api.ListFilesIncrementalAsync(
                 location.PermissionId,
@@ -350,6 +375,14 @@ public partial class RemotePaneViewModel : ObservableObject
                 limit: ApiClient.RemoteListPageSize,
                 ct: cts.Token);
 
+            var refreshedEntries = res.Entries.ToList();
+            while (res.HasMore && refreshedEntries.Count < previousLoadedCount && !string.IsNullOrEmpty(res.NextCursor))
+            {
+                res = await _api.ListFilesIncrementalAsync(location.PermissionId, location.HostId, location.ShareId,
+                    path, sort, limit: ApiClient.RemoteListPageSize, cursor: res.NextCursor, ct: cts.Token);
+                refreshedEntries.AddRange(res.Entries);
+            }
+
             if (generation != Volatile.Read(ref _refreshGeneration) ||
                 !ReferenceEquals(location, SelectedLocation) ||
                 !string.Equals(path, CurrentPath, StringComparison.OrdinalIgnoreCase) ||
@@ -357,7 +390,7 @@ public partial class RemotePaneViewModel : ObservableObject
                 return;
 
             _all.Clear();
-            _all.AddRange(res.Entries);
+            _all.AddRange(refreshedEntries);
             _parentEntry = new FileEntry
             {
                 Name = "..",
@@ -372,6 +405,7 @@ public partial class RemotePaneViewModel : ObservableObject
             IsListTruncated = res.Truncated;
             UpdateListProgress();
             _lastSuccessfulPath = path;
+            _listingValid = true;
             if (clearFilterOnSuccess) FilterText = string.Empty;
             ApplyView();
             StatusMessage = res.Truncated
@@ -404,7 +438,7 @@ public partial class RemotePaneViewModel : ObservableObject
     {
         var cursor = _nextListCursor;
         var location = SelectedLocation;
-        if (IsBusy || IsLoadingMore || !HasMoreEntries ||
+        if (RemoteOperationsBlocked || IsBusy || IsLoadingMore || !HasMoreEntries ||
             string.IsNullOrWhiteSpace(cursor) || location is null)
             return;
 
@@ -465,6 +499,20 @@ public partial class RemotePaneViewModel : ObservableObject
         }
     }
 
+    private async Task SelectEntryAsync(string name)
+    {
+        var location = SelectedLocation;
+        var path = CurrentPath;
+        while (IsCurrentListingAvailable && HasMoreEntries && !_all.Any(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            var count = LoadedEntryCount;
+            await LoadMoreAsync();
+            if (!ReferenceEquals(location, SelectedLocation) || path != CurrentPath || count == LoadedEntryCount) return;
+        }
+        if (IsCurrentListingAvailable && ReferenceEquals(location, SelectedLocation) && path == CurrentPath)
+            SelectionRequested?.Invoke(name);
+    }
+
     private void ResetListPaging()
     {
         _nextListCursor = null;
@@ -481,17 +529,21 @@ public partial class RemotePaneViewModel : ObservableObject
             ? string.Empty
             : $"{LoadedEntryCount:N0} / {TotalEntryCount:N0} 件を読み込み済み" +
               (IsListTruncated ? "（上限10万件）" : string.Empty);
+        OnPropertyChanged(nameof(ListingSummary));
+        OnPropertyChanged(nameof(NoFilterMatchesMessage));
     }
 
     /// <summary>_all から絞り込み (FilterText) を適用して表示用 Entries を作り直す。並びはサーバ側で確定済み。</summary>
     private void ApplyView()
     {
-        Entries.Clear();
-        if (_parentEntry is not null) Entries.Add(_parentEntry);
+        var items = new List<FileEntry>();
+        if (_parentEntry is not null) items.Add(_parentEntry);
         foreach (var e in _all.Where(e => FileEntryFilter.Matches(e, FilterText)))
-            Entries.Add(e);
+            items.Add(e);
+        Entries.ReplaceAll(items, $"{SelectedLocation?.PermissionId}:{SelectedLocation?.HostId}:{SelectedLocation?.ShareId}:{CurrentPath}");
         OnPropertyChanged(nameof(HasNoFilterMatches));
         OnPropertyChanged(nameof(IsFolderEmpty));
+        OnPropertyChanged(nameof(ListingSummary));
     }
 
     /// <summary>列ヘッダクリックで昇順 ⇄ 降順を切り替え、サーバから並べ直して取得する。</summary>
@@ -520,7 +572,7 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public async Task OpenSelectedAsync()
     {
-        if (Selected is null || SelectedLocation is null) return;
+        if (!IsCurrentListingAvailable || RemoteOperationsBlocked || Selected is null || SelectedLocation is null) return;
         if (Selected.Type == FileEntryTypes.Parent)
         {
             if (Selected.CanGoUp != true) return;
@@ -559,7 +611,7 @@ public partial class RemotePaneViewModel : ObservableObject
     [RelayCommand]
     public async Task NewFolderAsync(string? name)
     {
-        if (IsBusy || SelectedLocation is null || string.IsNullOrWhiteSpace(name)) return;
+        if (!IsCurrentListingAvailable || RemoteOperationsBlocked || SelectedLocation is null || string.IsNullOrWhiteSpace(name)) return;
         if (!SelectedLocation.Permissions.Write)
         {
             StatusMessage = "フォルダ作成失敗: 書き込み権限がありません。";
@@ -570,6 +622,7 @@ public partial class RemotePaneViewModel : ObservableObject
             await _api.MkdirAsync(SelectedLocation.HostId, SelectedLocation.ShareId, JoinPath(CurrentPath, name));
             await RefreshAsync();
             StatusMessage = $"フォルダを作成しました: {name}";
+            await SelectEntryAsync(name);
         }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
@@ -584,7 +637,7 @@ public partial class RemotePaneViewModel : ObservableObject
     /// </summary>
     public async Task RenameSelectedAsync(string? newName)
     {
-        if (IsBusy || Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
+        if (!IsCurrentListingAvailable || RemoteOperationsBlocked || Selected is null || SelectedLocation is null || Selected.Type == FileEntryTypes.Parent) return;
         if (string.IsNullOrWhiteSpace(newName) || newName == Selected.Name) return;
         if (!SelectedLocation.Permissions.Rename)
         {
@@ -604,12 +657,34 @@ public partial class RemotePaneViewModel : ObservableObject
             await _api.RenameAsync(SelectedLocation.HostId, SelectedLocation.ShareId, oldPath, newPath);
             await RefreshAsync();
             StatusMessage = $"リネーム: → {newName}";
+            await SelectEntryAsync(newName);
         }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
             StatusMessage = "リネーム失敗: " + ex.Message;
         }
         catch (Exception ex) { StatusMessage = "リネーム失敗: " + ex.Message; }
+    }
+
+    public async Task<IReadOnlyList<FileOperationOutcome>> DeleteEntriesAsync(
+        LocationDto location, string basePath, IReadOnlyList<FileEntry> entries)
+    {
+        IsBusy = true;
+        try
+        {
+            return await BatchFileOperation.RunAsync(entries.Where(x => x.Type != FileEntryTypes.Parent), x => x.Name,
+                entry =>
+                {
+                    if (RemoteOperationsBlocked) throw new InvalidOperationException("メンテナンスのため削除を保留しました。");
+                    return _api.DeleteFileAsync(location.HostId, location.ShareId, JoinPath(basePath, entry.Name));
+                });
+        }
+        finally
+        {
+            IsBusy = false;
+            if (ReferenceEquals(location, SelectedLocation) && string.Equals(basePath, CurrentPath, StringComparison.OrdinalIgnoreCase))
+                await RefreshAsync();
+        }
     }
 
     /// <summary>

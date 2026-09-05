@@ -344,7 +344,7 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 
 | 操作 | API | 補足 |
 |---|---|---|
-| 一覧 | `GET /api/files/incremental` | 安定 snapshot cursor + ソート。クライアントは許容上限の 500 件ずつ要求 |
+| 一覧 | `GET /api/files/incremental` | 安定 snapshot cursor + ソート。クライアントは許容上限の 2000 件ずつ要求 |
 | 横断検索 | `POST /api/files/search` | 全許可ルート、取消/走査件数/時間/結果上限付き。クライアント UI は現在非表示 |
 | ダウンロード | `GET /api/files/download` | ストリーミング |
 | アップロード | `POST /api/files/upload` | ストリーミング |
@@ -359,6 +359,24 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 - 最大8MiB chunk、chunk SHA-256、全体SHA-256、ETag、offset、冪等keyで通信断/再起動後に再開
 - 永続キューは同一コピー先を直列化し、一時障害だけを指数バックオフで自動再試行
 - Direct / Agent / Gateway の全経路で同じ整合性検証を行う
+
+転送センターは非モーダルで、状態フィルター・転送元／先・サイズ／日時・再試行／エラー詳細を表示する。conflict_waitingは上書き・スキップ・別名の判断を待つ。期限切れuploadは失敗とし、利用者の再試行で先頭から再送する。
+
+ClientはServer更新後に配布します。
+
+Ctrl+D（右→左）、Ctrl+U（左→右）、F6 / Shift+F6、Ctrl+L、Ctrl+F、Ctrl+Shift+N、絞り込み欄のEsc、F1を追加しました。ボタンと転送キーは共通の実行条件を使い、入力欄・IME変換中・長押しでは転送しません。F2は単一選択、複数削除は全件確認・部分結果表示、同一場所の再描画は選択・スクロールを保持します。転送センターは非モーダルで状態による絞り込みと詳細表示に対応します。
+
+| API | 認可と契約 |
+|---|---|
+| GET `/api/status` | 匿名。state、revision、message、startsAtUtc、expectedEndAtUtc、updatedAtUtc。no-store |
+| GET `/api/admin/maintenance` | Admin。上記状態、activeRequests、publishedRevision、publicationError、isConfigured |
+| PUT `/api/admin/maintenance` | Admin。expectedRevision、state、message（最大500文字）、任意の予定UTC日時。競合409、入力不正400、公開失敗503 |
+
+状態はnormal／scheduled／maintenance／recovering。scheduledは案内のみ。maintenanceとrecoveringは新しい業務APIを503 (`code: maintenance`, Retry-After: 15) で停止します。認証・内部Agent経路と状態取得／管理・最小限の運用診断は維持します。受付済み要求は完了でき、要求数は独立したAgent処理を含みません。通常への復帰にはrecovering、処理中要求0、運用診断の確認、設定済み公開先のHTTPS読み戻し、私的状態の永続化が必要です。
+
+`Maintenance:StateFilePath` はDB外の私的ファイル。`Maintenance:PublicStatusFilePath` と `Maintenance:PublicStatusUrl` は任意の外部配信用ペアです。Clientの `maintenanceStatusUrl` は配布時固定で再発行が必要です。DBスキーマ変更はありません。単一Serverプロセスで運用します。
+
+Clientは匿名で30秒ごとに状態を確認し、既知の停止をローカルキャッシュと永続キューに保持します。公開JSONのnormalだけでは待機を解除しません。APIの新しい状態と必須更新確認後にmaintenance_waitingのみを再開します。conflict_waitingは上書き・スキップ・別名の判断を待ちます。期限切れuploadは失敗として明示し、再試行で先頭から再送します。
 
 ### 6.3 ダウンロードの完全性 (.part 方式)
 
@@ -386,29 +404,37 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 - **ヘッダー**: 鳥居ロゴ + Watashi、右上にユーザー名・プロトコル (HTTP/HTTPS)・月／太陽のテーマ切替・管理ボタン (管理者のみ)・更新・ログアウト・情報
 - **左ペイン (ローカル) 💻**: PC のフォルダ。📂 ボタンで Windows のフォルダ選択ダイアログ
 - **右ペイン (リモート) ⛩**: 中央サーバー経由の CIFS 共有。「場所」ドロップダウンで切替。ホバー時は現在選択中の表示名・ホスト・共有・許可ルートを全文表示
-- **一覧ページング**: 初回 500 件、残りがあるときだけ「さらに読み込む」で 500 件ずつ追加
+- **一覧ページング**: 初回 2000 件、残りがあるときだけ「さらに読み込む」で 2000 件ずつ追加
 - **一覧表示**: 名前 / 種類 (拡張子) / サイズ / 更新で昇順・降順ソート。フォルダーと 11 種類のファイル種別アイコンを表示
-- **ステータスバー**: 接続プロトコル ●、直近の操作/エラー (時刻 + 発生元)、ログイン中ユーザー、転送進捗 %
+- **ステータスバー**: 接続・メンテナンス状態、直近の操作/エラー (時刻 + 発生元)、ログイン中ユーザー
 
 ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneViewModel` / `TransferViewModel`。
+
+同一場所の一覧更新では選択・スクロールを保持。別の場所には選択を引き継がない。2000件を一括通知し、仮想化を維持する。絞り込みは読み込み済み項目のみ。操作中ペイン・選択件数・転送先を表示する。
 
 ### 7.3 操作・ショートカット
 
 | 操作 | キー/UI |
 |---|---|
+| ダウンロード / アップロード | `Ctrl+D` (右→左) / `Ctrl+U` (左→右) |
+| 左右の一覧切替 | `F6` / `Shift+F6` |
+| パス欄 / 絞り込み欄 | `Ctrl+L` / `Ctrl+F` (操作中ペイン) |
+| 絞り込み解除 / 操作案内 | `Esc` (絞り込み欄) / `F1` |
 | フォルダ展開 | ダブルクリック |
 | 親フォルダへ | `Backspace` / `..` (権限ルートではグレー) |
 | 戻る/進む/上へ | `Alt + ←` / `→` / `↑` |
 | 全体更新 (両ペイン) | `F5` |
-| 削除 | 削除ボタン / `Delete` (確認ダイアログ付き) |
-| リネーム | `F2` / 右クリック (同一フォルダ内のみ、`/` `\` 不可) |
-| 新規フォルダ | ツールバー / 右クリック (`PromptDialog`) |
+| 削除 | 操作メニュー / `Delete` (全対象を確認、キャンセルが初期選択) |
+| リネーム | `F2` / 右クリック (単一選択、同一フォルダ内のみ、`/` `\` 不可) |
+| 新規フォルダ | 各ペインのボタン / `Ctrl+Shift+N` / 右クリック |
 | パス直接移動 | パス欄に入力 + `Enter` |
+
+転送方向は操作中ペインによらず固定。ボタンとキーは同じ実行条件を使い、入力欄・IME変換中・長押しでは転送しない。対象なし・一覧未確定・権限なし・メンテナンス中は転送不可。
 
 ### 7.4 右クリックメニュー
 
 開く/展開、アップロード/ダウンロード、リネーム (F2)、削除 (Del)、新規フォルダ、
-エクスプローラで表示 (ローカルのみ)、パスをコピー。
+エクスプローラで表示 (ローカルのみ)。パスのコピーはパス欄のCtrl+Cを使用。
 
 ### 7.5 ドラッグ&ドロップ (配布時に有効化されている場合のみ)
 
@@ -431,6 +457,10 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 - 別フォルダーへの移動成功時は該当ペインの `FilterText` だけを初期化し、列ソート (`SortKey`) は維持。同一パス更新や F5 ではフィルターも維持
 
 ---
+
+### 7.7 メンテナンス表示
+
+起動・ログイン・メイン画面に予定／作業中／復旧確認中を表示し、案内文・予定時刻・最終確認・再確認・外部ページを提供する。既知の停止をキャッシュし、API復旧と必須更新確認後に待機を解除する。ClickOnce起動前の更新処理で失敗した場合は外部ページを利用する。
 
 ## 8. 管理機能 (Admin)
 
@@ -490,6 +520,12 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 `SessionIdleMinutes` (30) / `AuditLogRetentionDays` (365) / `MaxFailedLoginAttempts` (15)。
 
 ---
+
+### 8.11 運用状態・メンテナンス
+
+状態はnormal／scheduled／maintenance／recovering。scheduledは案内のみ。maintenanceとrecoveringは新しい業務APIを503 (`code: maintenance`, Retry-After: 15) で停止します。認証・内部Agent経路と状態取得／管理・最小限の運用診断は維持します。受付済み要求は完了でき、要求数は独立したAgent処理を含みません。通常への復帰にはrecovering、処理中要求0、運用診断の確認、設定済み公開先のHTTPS読み戻し、私的状態の永続化が必要です。
+
+案内文は最大500文字。予定日時は表示用で自動切替はない。変更はADMIN_MAINTENANCE_UPDATEで監査する。
 
 ## 9. ノードルーティングと Agent (踏み台)
 
@@ -645,6 +681,14 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 
 ---
 
+### 10.8 メンテナンス状態
+
+| API | 認可と契約 |
+|---|---|
+| GET `/api/status` | 匿名。state、revision、message、startsAtUtc、expectedEndAtUtc、updatedAtUtc。no-store |
+| GET `/api/admin/maintenance` | Admin。上記状態、activeRequests、publishedRevision、publicationError、isConfigured |
+| PUT `/api/admin/maintenance` | Admin。expectedRevision、state、message（最大500文字）、任意の予定UTC日時。競合409、入力不正400、公開失敗503 |
+
 ## 11. データモデル
 
 主要エンティティ (SQLite + EF Core)。`[JsonIgnore]` 付きフィールドは API レスポンスから自動除外。
@@ -772,6 +816,12 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 | Kestrel | (`:8080`) | 待受ポート |
 | Serilog | (ログ設定) | 日次ローテーション |
 
+#### メンテナンス配信設定
+
+`Maintenance:StateFilePath` はDB外の私的ファイル。`Maintenance:PublicStatusFilePath` と `Maintenance:PublicStatusUrl` は任意の外部配信用ペアです。Clientの `maintenanceStatusUrl` は配布時固定で再発行が必要です。DBスキーマ変更はありません。単一Serverプロセスで運用します。
+
+ClientのmaintenanceStatusUrlは配布時固定の公開JSON URL。Serverの公開先は絶対パスとHTTPS URLを両方指定する。
+
 ### 13.3 システム設定 (DB / 管理画面で変更可)
 
 | キー | デフォルト | 説明 |
@@ -826,6 +876,10 @@ Item: `Id` / `BundleId` / `ShareId` / `PermissionTemplateId` / `SubPath` / `Disp
 IIS リバースプロキシ構成は [deploy/IIS-HOSTING.md](../deploy/IIS-HOSTING.md) を参照。
 
 ---
+
+### 14.5 メンテナンスを伴う更新
+
+Serverを先に更新してから2000件対応Clientを配布する。旧Clientの500件要求は継続使用でき、検索APIの上限500件は維持する。状態サイトはAPI・配布先の停止範囲から分離する。私的状態はDB復元の対象と分け、停止解除を先行しない。[SVG図解付き導入・更新・復旧手順](../deploy/MAINTENANCE-ROLLOUT-PLAN.html)を参照。
 
 ## 15. 用語集
 

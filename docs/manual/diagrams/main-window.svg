@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 610" role="img" aria-labelledby="title desc">
+<title id="title">Watashiメイン画面の構成</title><desc id="desc">上からメンテナンス案内、ヘッダー、転送バー、左右の一覧、状態バー。左がローカル、右がリモート。選択件数と転送先を上部で確認する。</desc>
+<style>text{font-family:'Yu Gothic','Meiryo',sans-serif;fill:#24313d;font-size:17px}.small{font-size:15px;fill:#54636d}.heading{font-weight:700}.accent{fill:#a63d26}.number{font-size:19px;font-weight:700;fill:#a63d26}</style>
+<rect x="1" y="1" width="1078" height="608" rx="14" fill="#f4f5f7" stroke="#cbd2d8"/>
+<rect x="15" y="15" width="1050" height="62" rx="8" fill="#f9e9e4"/><text x="30" y="42" class="number">⑥</text><text x="64" y="42" class="heading">メンテナンスの案内</text><text x="64" y="65" class="small">状態・メッセージ・予定時刻・最終確認 ／ 状態を再確認・案内ページ</text>
+<rect x="15" y="86" width="1050" height="50" rx="8" fill="#fff"/><text x="30" y="118" class="number">①</text><text x="64" y="118" class="heading">Watashi</text><text x="340" y="118" class="small">利用者・接続方式 ／ 更新・テーマ・個人設定・管理・ログアウト</text>
+<rect x="15" y="145" width="1050" height="77" rx="8" fill="#fff"/><text x="30" y="176" class="number">②</text><text x="64" y="176" class="heading">アップロード (Ctrl+U)　　ダウンロード (Ctrl+D)　　転送センター　　操作・キー (F1)</text><text x="64" y="205" class="small">選択件数 → 転送先の場所・フォルダー ／ 使用できない理由</text>
+<rect x="15" y="235" width="516" height="306" rx="8" fill="#fff" stroke="#a63d26" stroke-width="2"/><rect x="549" y="235" width="516" height="306" rx="8" fill="#fff" stroke="#cbd2d8"/>
+<text x="30" y="266" class="number">③</text><text x="65" y="266" class="heading">ローカル（このPC）・操作中</text><text x="564" y="266" class="number">④</text><text x="599" y="266" class="heading">リモート ／ 接続場所を選択</text>
+<text x="30" y="305" class="small">新規フォルダー　 操作 ▾　 選択 2件</text><text x="564" y="305" class="small">新規フォルダー　 操作 ▾　 選択 0件</text>
+<rect x="30" y="321" width="484" height="38" rx="5" fill="#f4f5f7"/><text x="43" y="347" class="small">戻る・進む・上へ ／ C:\Downloads　移動</text><rect x="564" y="321" width="484" height="38" rx="5" fill="#f4f5f7"/><text x="577" y="347" class="small">戻る・進む・上へ ／ /資料/2026年度　移動</text>
+<text x="30" y="389" class="small">絞り込み欄</text><text x="564" y="389" class="small">絞り込み欄（読み込み済みの項目が対象）</text>
+<path d="M30 405H514M564 405H1048" stroke="#cbd2d8"/><text x="30" y="431" class="small">名前　　　　　種類　　　サイズ　　　更新</text><text x="564" y="431" class="small">名前　　　　　種類　　　サイズ　　　更新</text>
+<text x="30" y="467">報告書.xlsx　／　資料.pdf</text><text x="564" y="467">共有フォルダーとファイルの一覧</text><text x="564" y="520" class="small">2000件読み込み済み　　次の2000件を読み込む</text>
+<rect x="15" y="552" width="1050" height="43" rx="8" fill="#e9edf1"/><text x="30" y="582" class="number">⑤</text><text x="64" y="582" class="small">接続・メンテナンス状態 ／ 直近の操作・エラー ／ ログイン中の利用者</text>
+</svg>

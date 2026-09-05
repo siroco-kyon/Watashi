@@ -176,12 +176,13 @@ public sealed class ClientUiChangeTests
     }
 
     [Fact]
-    public void Remote_list_uses_the_server_supported_five_hundred_item_page()
+    public void Remote_list_uses_the_server_supported_two_thousand_item_page()
     {
-        ApiClient.RemoteListPageSize.Should().Be(500);
+        ApiClient.RemoteListPageSize.Should().Be(2000);
         var vm = File.ReadAllText(RepoFile("src/Watashi.Client/ViewModels/RemotePaneViewModel.cs"));
 
-        Count(vm, "limit: ApiClient.RemoteListPageSize").Should().Be(2);
+        // Initial load, restoration of loaded pages, and explicit next page.
+        Count(vm, "limit: ApiClient.RemoteListPageSize").Should().Be(3);
     }
 
     [Fact]
@@ -280,7 +281,7 @@ public sealed class ClientUiChangeTests
         remote.Should().Contain("FilterText = string.Empty;");
         local.IndexOf("_all.AddRange(items);", StringComparison.Ordinal).Should().BeLessThan(
             local.IndexOf("if (clearFilterOnSuccess) FilterText = string.Empty;", StringComparison.Ordinal));
-        remote.IndexOf("_all.AddRange(res.Entries);", StringComparison.Ordinal).Should().BeLessThan(
+        remote.IndexOf("_all.AddRange(refreshedEntries);", StringComparison.Ordinal).Should().BeGreaterThan(0).And.BeLessThan(
             remote.IndexOf("if (clearFilterOnSuccess) FilterText = string.Empty;", StringComparison.Ordinal));
         local.Should().NotContain("SortKey = null;");
         remote.Should().NotContain("SortKey = null;");

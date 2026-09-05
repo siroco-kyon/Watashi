@@ -18,6 +18,8 @@ public static class TransferJobStates
     public const string Canceling = "canceling";
     public const string RetryWaiting = "retry_waiting";
     public const string Paused = "paused";
+    public const string MaintenanceWaiting = "maintenance_waiting";
+    public const string ConflictWaiting = "conflict_waiting";
     public const string Completed = "completed";
     public const string Failed = "failed";
     public const string Canceled = "canceled";
@@ -50,6 +52,9 @@ public class TransferJobRecord
     public string ConflictPolicy { get; set; } = TransferConflictPolicies.Ask;
     public int AttemptCount { get; set; }
     public string? LastError { get; set; }
+    public string? MaintenanceResumeState { get; set; }
+    public long? ConflictDestinationSize { get; set; }
+    public DateTime? ConflictDestinationModifiedUtc { get; set; }
     public string? ServerSessionId { get; set; }
     public int ServerSessionGeneration { get; set; }
     public string? ContentSha256 { get; set; }
@@ -215,7 +220,12 @@ public class TransferQueueStore
             job.TotalBytes = Math.Max(0, job.TotalBytes);
             job.BytesTransferred = Math.Clamp(job.BytesTransferred, 0, job.TotalBytes);
             job.ServerSessionGeneration = Math.Max(0, job.ServerSessionGeneration);
-            if (job.State is TransferJobStates.Running or TransferJobStates.Canceling)
+            if (job.State == TransferJobStates.Running && job.MaintenanceResumeState == TransferJobStates.Queued)
+            {
+                job.State = TransferJobStates.MaintenanceWaiting;
+                job.LastError = "メンテナンス終了の確認を待っています。復旧確認後に再開します。";
+            }
+            else if (job.State is TransferJobStates.Running or TransferJobStates.Canceling)
             {
                 job.State = TransferJobStates.Paused;
                 job.LastError = "アプリ終了前に完了しなかったため一時停止しました。再開してください。";
@@ -226,6 +236,9 @@ public class TransferQueueStore
                 job.LastError = "自動再試行時刻が失われたため、待機列へ戻しました。";
             }
             if (!KnownState(job.State)) job.State = TransferJobStates.Paused;
+            if (job.State == TransferJobStates.MaintenanceWaiting &&
+                job.MaintenanceResumeState is not (TransferJobStates.Queued or TransferJobStates.RetryWaiting))
+                job.MaintenanceResumeState = TransferJobStates.Queued;
             if (!KnownConflictPolicy(job.ConflictPolicy)) job.ConflictPolicy = TransferConflictPolicies.Ask;
             result.Add(job);
         }
@@ -250,6 +263,7 @@ public class TransferQueueStore
     private static bool KnownState(string? state) => state is
         TransferJobStates.Queued or TransferJobStates.Running or TransferJobStates.RetryWaiting or
         TransferJobStates.Canceling or TransferJobStates.Paused or TransferJobStates.Completed or TransferJobStates.Failed or
+        TransferJobStates.MaintenanceWaiting or TransferJobStates.ConflictWaiting or
         TransferJobStates.Canceled or TransferJobStates.Skipped;
 
     private static bool KnownConflictPolicy(string? policy) => policy is

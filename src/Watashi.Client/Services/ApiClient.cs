@@ -16,7 +16,7 @@ namespace Watashi.Client.Services;
 
 public class ApiClient : ITransferProtocol
 {
-    public const int RemoteListPageSize = 500;
+    public const int RemoteListPageSize = 2000;
 
     private static readonly HttpRequestOptionsKey<long> SessionGenerationKey =
         new("Watashi.SessionGeneration");
@@ -24,13 +24,16 @@ public class ApiClient : ITransferProtocol
     private readonly IHttpClientFactory _httpFactory;
     private readonly SessionManager _session;
     private readonly AppSettings _settings;
+    private readonly MaintenanceMonitorService? _maintenance;
 
-    public ApiClient(HttpClient http, IHttpClientFactory httpFactory, SessionManager session, AppSettings settings)
+    public ApiClient(HttpClient http, IHttpClientFactory httpFactory, SessionManager session, AppSettings settings,
+        MaintenanceMonitorService? maintenance = null)
     {
         _http = http;
         _httpFactory = httpFactory;
         _session = session;
         _settings = settings;
+        _maintenance = maintenance;
         ConfigureBaseAddress();
     }
 
@@ -576,6 +579,19 @@ public class ApiClient : ITransferProtocol
         GetAsync<BrowseResponse>($"api/admin/browse?hostId={hostId}&shareId={shareId}&path={Uri.EscapeDataString(path ?? "/")}", ct);
 
     // === Helpers ===
+    public Task<MaintenanceAdminStatusDto> GetMaintenanceAsync(CancellationToken ct = default)
+        => GetAsync<MaintenanceAdminStatusDto>("api/admin/maintenance", ct);
+
+    public async Task<MaintenanceAdminStatusDto> SetMaintenanceAsync(MaintenanceUpdateRequest body, CancellationToken ct = default)
+    {
+        using var req = await CreateAuthedRequestAsync(HttpMethod.Put, "api/admin/maintenance", ct);
+        req.Content = JsonContent.Create(body, options: JsonOptions);
+        using var res = await _http.SendAsync(req, ct);
+        await ThrowIfErrorAsync(res, req, ct);
+        return (await res.Content.ReadFromJsonAsync<MaintenanceAdminStatusDto>(JsonOptions, ct))
+            ?? throw new InvalidDataException("メンテナンス設定の応答が空です。");
+    }
+
     private async Task<T> SendTransferJsonAsync<T>(
         HttpMethod method,
         string url,
@@ -666,13 +682,19 @@ public class ApiClient : ITransferProtocol
     {
         if (res.IsSuccessStatusCode) return;
         string? msg = null;
+        string? errorCode = null;
         try
         {
             using var s = await res.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(s, cancellationToken: ct);
+            if (doc.RootElement.TryGetProperty("code", out var code) && code.ValueKind == JsonValueKind.String)
+                errorCode = code.GetString();
             if (doc.RootElement.TryGetProperty("error", out var e)) msg = e.GetString();
             else if (doc.RootElement.TryGetProperty("detail", out var d)) msg = d.GetString();
             else if (doc.RootElement.TryGetProperty("title", out var t)) msg = t.GetString();
+            if (errorCode == "maintenance" && doc.RootElement.TryGetProperty("message", out var maintenanceMessage) &&
+                maintenanceMessage.ValueKind == JsonValueKind.String)
+                msg = maintenanceMessage.GetString();
         }
         catch
         {
@@ -701,7 +723,9 @@ public class ApiClient : ITransferProtocol
             // リクエストの token と現在の token が一致するときだけ失効させる。
             _session.ExpireSession(msg, expectedAccessToken, expectedSessionGeneration);
         }
-        throw new ApiException(res.StatusCode, msg);
+        if (res.StatusCode == HttpStatusCode.ServiceUnavailable && errorCode == "maintenance")
+            _maintenance?.ReportMaintenance(msg);
+        throw new ApiException(res.StatusCode, msg, errorCode);
     }
 
     private static string? BearerToken(HttpRequestMessage request)

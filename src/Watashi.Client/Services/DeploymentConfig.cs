@@ -22,6 +22,9 @@ public class DeploymentConfig
     [JsonPropertyName("updateManifestUrl")]
     public string? UpdateManifestUrl { get; set; }
 
+    [JsonPropertyName("maintenanceStatusUrl")]
+    public string? MaintenanceStatusUrl { get; set; }
+
     [JsonPropertyName("enableDragDrop")]
     public bool EnableDragDrop { get; set; } = true;
 
@@ -57,6 +60,11 @@ public class DeploymentConfig
             string.IsNullOrWhiteSpace(cfg.UpdateManifestUrl)) return false;
         settings.ServerUrl = cfg.ServerUrl.Trim();
         settings.UpdateManifestUrl = cfg.UpdateManifestUrl?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(cfg.MaintenanceStatusUrl) &&
+            (!Uri.TryCreate(cfg.MaintenanceStatusUrl.Trim(), UriKind.Absolute, out var statusUri) ||
+             statusUri.Scheme is not ("https" or "http") || !string.IsNullOrEmpty(statusUri.UserInfo) ||
+             !string.IsNullOrEmpty(statusUri.Fragment))) return false;
+        settings.MaintenanceStatusUrl = cfg.MaintenanceStatusUrl?.Trim() ?? string.Empty;
         settings.EnableDragDrop = cfg.EnableDragDrop;
         settings.FileTransferTimeoutMinutes = NormalizeTimeoutMinutes(cfg.FileTransferTimeoutMinutes);
         return true;

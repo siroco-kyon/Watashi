@@ -249,6 +249,7 @@
     <div class="grp">準備</div>
     <a href="#intro" class="lvl1">0. このツールについて</a>
     <a href="#install" class="lvl1">1. インストールと起動</a>
+    <a href="#maintenance-notice" class="lvl2">メンテナンス画面</a>
     <a href="#login" class="lvl1">2. ログイン</a>
     <a href="#firstpw" class="lvl1">3. パスワードの設定・変更</a>
 
@@ -260,6 +261,7 @@
 
     <div class="grp">ファイルのやりとり</div>
     <a href="#upload" class="lvl1">8. アップロード</a>
+    <a href="#transfer-center" class="lvl2">転送センター</a>
     <a href="#download" class="lvl1">9. ダウンロード</a>
     <a href="#dragdrop" class="lvl1">10. ドラッグ＆ドロップ</a>
     <a href="#multi" class="lvl1">11. まとめて転送</a>
@@ -411,7 +413,9 @@
       <!-- ========================================================= -->
       <!-- 2. ログイン -->
       <!-- ========================================================= -->
-      <h2 id="login"><span class="num">2</span>ログイン</h2>
+      <h3 id="maintenance-notice">1-3. メンテナンス画面が表示されたら</h3><p>メンテナンス予定・作業中・復旧確認中は起動時や画面上部に案内文、予定時刻、最終確認を表示し、30秒ごとに確認します。作業中はリモート操作を停止し、転送をメンテナンス待機として保持します。Serverの再開と必須更新確認後にその待機分だけを再開します。取得不能時も既知の待機は解除しません。設定済みの案内ページは画面から開けます。ClickOnceの起動前更新で止まった場合は事前に案内された状態ページを開いてください。</p><p>予定時刻は案内用です。終了見込みを過ぎても利用可能の案内までお待ちください。</p>
+
+<h2 id="login"><span class="num">2</span>ログイン</h2>
 
       <p>起動するとログイン画面が開きます。<strong>接続先サーバーはすでに設定済み</strong>です。最初にユーザー名（GID）を入力して <span class="uibtn">次へ</span> を押すと、設定済みの利用者にはパスワード欄、初回設定待ちの利用者には本人用の初回設定画面が表示されます。</p>
 
@@ -569,116 +573,24 @@
       <!-- 4. メイン画面 -->
       <!-- ========================================================= -->
       <h2 id="main"><span class="num">4</span>メイン画面の見かた</h2>
-
-      <p>ログインが終わると、メイン画面が開きます。画面は大きく6つの部分でできています。まずは「どこに何があるか」をざっくり覚えましょう。</p>
-
-      <figure>
-        <svg viewBox="0 0 820 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="メイン画面のレイアウト図">
-          <rect x="1" y="1" width="818" height="468" rx="10" fill="#fff" stroke="#9CA3AF"/>
-          <!-- ① ヘッダー -->
-          <rect x="1" y="1" width="818" height="46" rx="10" fill="#fff" stroke="#D5D9DE"/>
-          <circle cx="22" cy="24" r="9" fill="#C73E1D"/>
-          <text x="40" y="29" font-size="14" font-weight="700" fill="#1F2328">Watashi</text>
-          <rect x="560" y="11" width="120" height="26" rx="13" fill="#F0F2F5"/>
-          <text x="575" y="29" font-size="12" fill="#1F2328">👤 alice / HTTPS</text>
-          <rect x="688" y="11" width="44" height="26" rx="6" fill="#C73E1D"/>
-          <text x="710" y="29" text-anchor="middle" font-size="12" fill="#fff">管理</text>
-          <text x="748" y="29" font-size="13">⟳</text>
-          <text x="770" y="29" font-size="13">⏻</text>
-          <text x="792" y="29" font-size="13">ⓘ</text>
-          <circle cx="803" cy="24" r="14" fill="none" stroke="#C73E1D" stroke-width="2"/>
-          <text x="803" y="29" text-anchor="middle" font-size="12" font-weight="700" fill="#C73E1D">①</text>
-
-          <!-- ② ツールバー -->
-          <rect x="1" y="47" width="818" height="42" fill="#fff" stroke="#D5D9DE"/>
-          <rect x="14" y="55" width="120" height="26" rx="6" fill="#C73E1D"/>
-          <text x="74" y="72" text-anchor="middle" font-size="12" fill="#fff">⬆ アップロード</text>
-          <rect x="142" y="55" width="120" height="26" rx="6" fill="#C73E1D"/>
-          <text x="202" y="72" text-anchor="middle" font-size="12" fill="#fff">⬇ ダウンロード</text>
-          <circle cx="300" cy="68" r="14" fill="none" stroke="#C73E1D" stroke-width="2"/>
-          <text x="300" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="#C73E1D">②</text>
-
-          <!-- ③ ローカルペイン -->
-          <rect x="10" y="98" width="390" height="300" rx="8" fill="#fff" stroke="#D5D9DE"/>
-          <rect x="10" y="98" width="390" height="30" rx="8" fill="#F0F2F5"/>
-          <text x="24" y="118" font-size="13" font-weight="700" fill="#1B2A41">💻 ローカル (このPC)</text>
-          <rect x="20" y="136" width="370" height="24" rx="5" fill="#fff" stroke="#9CA3AF"/>
-          <text x="28" y="153" font-size="11" fill="#1F2328">◀ ▶ ⬆ ⟳  D:\work</text>
-          <text x="360" y="153" font-size="11" fill="#C73E1D">📂 移動</text>
-          <text x="28" y="184" font-size="12" fill="#1F2328">📁 ..</text>
-          <text x="28" y="206" font-size="12" fill="#1F2328">📁 ProjectA</text>
-          <text x="28" y="228" font-size="12" fill="#1F2328">📄 memo.txt</text>
-          <circle cx="376" cy="112" r="13" fill="none" stroke="#C73E1D" stroke-width="2"/>
-          <text x="376" y="117" text-anchor="middle" font-size="11" font-weight="700" fill="#C73E1D">③</text>
-
-          <!-- ④ リモートペイン -->
-          <rect x="420" y="98" width="390" height="300" rx="8" fill="#fff" stroke="#D5D9DE"/>
-          <rect x="420" y="98" width="390" height="30" rx="8" fill="#F9E5E0"/>
-          <text x="434" y="118" font-size="13" font-weight="700" fill="#5C1A0B">⛩ リモート　接続場所:[経理部▼]</text>
-          <rect x="430" y="136" width="370" height="24" rx="5" fill="#fff" stroke="#9CA3AF"/>
-          <text x="438" y="153" font-size="11" fill="#1F2328">◀ ▶ ⬆ ⟳  /dept-A/2026</text>
-          <text x="772" y="153" font-size="11" fill="#C73E1D">移動</text>
-          <text x="438" y="184" font-size="12" fill="#1F2328">📁 ..</text>
-          <text x="438" y="206" font-size="12" fill="#1F2328">📁 reports</text>
-          <text x="438" y="228" font-size="12" fill="#1F2328">📄 budget.xlsx</text>
-          <circle cx="786" cy="112" r="13" fill="none" stroke="#C73E1D" stroke-width="2"/>
-          <text x="786" y="117" text-anchor="middle" font-size="11" font-weight="700" fill="#C73E1D">④</text>
-
-          <!-- ⑥ 転送バー -->
-          <rect x="10" y="404" width="800" height="30" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/>
-          <text x="22" y="423" font-size="11" fill="#1F2328">転送中: report.xlsx</text>
-          <rect x="150" y="414" width="180" height="9" rx="4" fill="#fff" stroke="#9CA3AF"/>
-          <rect x="150" y="414" width="140" height="9" rx="4" fill="#C73E1D"/>
-          <text x="345" y="423" font-size="11" fill="#C73E1D">80%</text>
-          <rect x="640" y="411" width="70" height="18" rx="4" fill="#CF222E"/>
-          <text x="675" y="424" text-anchor="middle" font-size="10" fill="#fff">キャンセル</text>
-          <circle cx="797" cy="419" r="13" fill="none" stroke="#C73E1D" stroke-width="2"/>
-          <text x="797" y="424" text-anchor="middle" font-size="11" font-weight="700" fill="#C73E1D">⑥</text>
-
-          <!-- ⑤ ステータスバー -->
-          <rect x="1" y="440" width="818" height="28" fill="#F0F2F5" stroke="#D5D9DE"/>
-          <circle cx="18" cy="454" r="5" fill="#1F883D"/>
-          <text x="30" y="458" font-size="11" fill="#1F2328">● 接続中 (HTTPS)　|　アップロード完了　|　ユーザー: alice</text>
-          <circle cx="800" cy="454" r="13" fill="none" stroke="#C73E1D" stroke-width="2"/>
-          <text x="800" y="459" text-anchor="middle" font-size="11" font-weight="700" fill="#C73E1D">⑤</text>
-        </svg>
-        <figcaption>図4-1：メイン画面のレイアウトと各部の番号</figcaption>
-      </figure>
-
-      <div class="shot">
-        <img class="shot-img" src="images/03-main.png" data-desc="実際のメイン画面全体" alt="メイン画面">
-        <figcaption>図4-2：実際のメイン画面（スクリーンショットを差し込めます）</figcaption>
-      </div>
-
-      <table>
-        <thead><tr><th>番号</th><th>名前</th><th>内容</th></tr></thead>
-        <tbody>
-          <tr><td>①</td><td>ヘッダー</td><td>左に鳥居ロゴと「Watashi」。右に<strong>ログイン中のユーザー名</strong>・接続方式（HTTPS/HTTP）・<span class="uibtn">管理</span>ボタン（管理者のみ表示）・<span class="uichip">⟳ 更新</span>・<span class="uichip">⏻ ログアウト</span>・<span class="uichip">ⓘ 情報</span>。</td></tr>
-          <tr><td>②</td><td>ツールバー</td><td><span class="uibtn">⬆ アップロード</span> と <span class="uibtn">⬇ ダウンロード</span> の2つのボタン。</td></tr>
-          <tr><td>③</td><td>ローカルペイン（左）</td><td>💻 あなたのパソコンの中のフォルダ・ファイル。</td></tr>
-          <tr><td>④</td><td>リモートペイン（右）</td><td>⛩ 社内サーバーのフォルダ・ファイル。上部の<strong>「接続場所」</strong>で見る場所を切り替えます。</td></tr>
-          <tr><td>⑤</td><td>ステータスバー</td><td>下端。接続状態（緑の●）、直近の操作結果やエラー、ログイン中のユーザー名を表示。</td></tr>
-          <tr><td>⑥</td><td>転送バー</td><td>アップロード／ダウンロード中だけ現れる進捗バー。速度・残り時間・<span class="uibtn ghost">キャンセル</span>も表示。</td></tr>
-        </tbody>
-      </table>
-
-      <div class="note">
-        <strong>赤い帯（エラーバナー）について</strong>
-        操作が失敗したときは、画面上部に<strong>赤い帯</strong>でエラー内容が大きく表示されます。内容を読んだら、帯の右にある <strong>✕</strong> で閉じられます。
-      </div>
-
-      <div class="tip">
-        <strong>長い名前は、マウスを乗せると全部見える</strong>
-        ファイル名やパスが長くて「…」で省略されているときは、その行に<strong>マウスカーソルを乗せる（ホバーする）</strong>と、省略されていない全文がポップアップ（ツールチップ）で表示されます。
-      </div>
-
-      <h3>4-1. 個人設定</h3>
+<p>左右の一覧で項目を選び、上部で転送先を確認して操作します。利用可能な操作は、場所・権限・一覧の読み込み状態・メンテナンス状態で変わります。</p>
+<figure><img src="diagrams/main-window.svg" alt="メイン画面の構成。左がローカル、右がリモート。上部に案内と転送先" style="width:100%;height:auto"/><figcaption>図4-1：メイン画面の構成（操作位置を示す図）</figcaption></figure>
+<table><thead><tr><th>番号</th><th>場所</th><th>確認すること</th></tr></thead><tbody>
+<tr><td>①</td><td>ヘッダー</td><td>利用者と接続方式。更新・テーマ・個人設定・管理（Adminのみ）・パスワード・ログアウト・情報</td></tr>
+<tr><td>②</td><td>転送バー</td><td>アップロード／ダウンロード、選択件数、転送先、使用できない理由。転送センターと操作案内を開く</td></tr>
+<tr><td>③</td><td>ローカル</td><td>このPCのフォルダー。ダウンロードの保存先。操作中のペインを見出しで確認</td></tr>
+<tr><td>④</td><td>リモート</td><td>接続場所とフォルダー。アップロードの保存先。初回・追加とも2000件ずつ読み込む</td></tr>
+<tr><td>⑤</td><td>状態バー</td><td>接続・メンテナンス状態、直近の操作やエラー、ログイン中の利用者</td></tr>
+<tr><td>⑥</td><td>案内</td><td>メンテナンス予定・作業中・復旧確認中を表示。状態確認と外部案内ページを開く</td></tr>
+</tbody></table>
+<p>各ペインの「新規フォルダー」や「操作」メニューからファイル操作を選べます。長い名前・パスはマウスを置くと全文を確認できます。同じ場所の再表示では選択とスクロール位置を保持します。</p>
+<h3>4-1. 個人設定</h3>
       <p>ヘッダーの <span class="uichip">⚙ 個人設定</span> では、ローカル／リモートの開始位置、ライト／ダークテーマ、並び順の記憶、ローカル削除で Windows のごみ箱を使うかを設定できます。</p>
       <p><strong>種類別カラー</strong>を有効にすると、ファイル名を拡張子ごとに色分けできます。ルール名、対象拡張子、色、有効／無効は編集でき、初期値へ戻すこともできます。設定は Watashi のログインIDではなく、使用中の Windows ユーザーごとに保存されます。</p>
 
-      <!-- ========================================================= -->
-      <!-- 5. フォルダの移動 -->
-      <!-- ========================================================= -->
+
+
+
       <h2 id="browse"><span class="num">5</span>フォルダの移動（中を見る）</h2>
 
       <p>左右どちらのペインでも、フォルダの中に入ったり、ひとつ上に戻ったりする方法は同じです。</p>
@@ -777,7 +689,9 @@
       <!-- ========================================================= -->
       <h2 id="search"><span class="num">7</span>絞り込み（検索）と並べ替え</h2>
 
-      <h3>7-1. 名前で絞り込む（検索）</h3>
+      <p>リモート一覧は初回・追加とも<strong>2000件</strong>。絞り込みは読み込み済みだけが対象で、全体検索ではありません。同じ場所の再表示では選択・スクロールを保持します。リモートごみ箱はありません。</p>
+
+<h3>7-1. 名前で絞り込む（検索）</h3>
       <p>各ペインのパス欄の下に <strong>🔍 絞り込み欄</strong>があります。ここに文字を入力すると、その文字を名前に<strong>含む</strong>ファイル・フォルダだけが表示されます（部分一致）。</p>
       <ul>
         <li>例：<code>2026</code> と入れると、名前に「2026」を含むものだけが残ります。</li>
@@ -830,8 +744,8 @@
       <ol class="steps">
         <li><strong>左ペイン（ローカル）</strong>で、送りたいファイル（またはフォルダ）を<strong>クリックして選択</strong>します。</li>
         <li><strong>右ペイン（リモート）</strong>で、置きたい先のフォルダを開いておきます。必要なら上部の「接続場所」も選びます。</li>
-        <li>ツールバーの <span class="uibtn">⬆ アップロード</span> を押します。</li>
-        <li>進捗バーが出て、終わると <span class="msg ok">アップロード完了: ◯◯</span> と表示されます。</li>
+        <li>上部の <span class="uibtn">⬆ アップロード</span> または <kbd>Ctrl+U</kbd> を押します。</li>
+        <li>転送キューへの追加を確認し、転送センターで完了を確認します。</li>
       </ol>
 
       <div class="tip">
@@ -839,36 +753,11 @@
         左ペインでファイルを右クリック →「アップロード」でも同じ動作です。
       </div>
 
-      <h3>8-2. すでに同じ名前のファイルがあるとき（上書き確認）</h3>
-      <p>置き先に同じ名前のファイルがある場合は、上書きするか確認されます。</p>
-      <p><span class="msg">◯◯ はリモートに既に存在します。上書きしますか？</span></p>
-      <ul>
-        <li><strong>はい</strong>：古いファイルが新しいもので置き換わります。</li>
-        <li><strong>いいえ</strong>：アップロードを取りやめます。</li>
-      </ul>
-
-      <h3>8-3. フォルダごとアップロード</h3>
-      <p>ファイルだけでなく、<strong>フォルダを丸ごと</strong>アップロードもできます。フォルダを選んで <span class="uibtn">⬆ アップロード</span> すると確認が出ます。</p>
-      <p><span class="msg">フォルダ "◯◯" をフォルダごとアップロードしますか？</span></p>
-      <p>置き先に同じ名前のフォルダがある場合は、<strong>中身を結合（マージ）し、同じ名前のファイルは上書き</strong>してアップロードします。</p>
-
-      <h3>8-4. 進捗・速度・残り時間・キャンセル</h3>
-      <p>転送中は画面下に進捗バーが出ます。</p>
-      <ul>
-        <li><strong>転送中: ファイル名</strong> … 今送っているファイル</li>
-        <li><strong>速度</strong>（例：12.3 MB/s）と <strong>残り時間</strong>の目安</li>
-        <li><strong>%（パーセント）</strong> … 全体の進み具合</li>
-        <li><span class="uibtn ghost" style="background:#CF222E;color:#fff;border:none">キャンセル</span> … 押すと途中で中止できます（<span class="msg">アップロードをキャンセルしました。</span>）</li>
-      </ul>
-      <div class="note">
-        <strong>大きなファイルも再開できます</strong>
-        転送は最大 8 MiB ごとに SHA-256 で検証され、通信断やアプリ再起動後も確定済み位置から再開します。上限はサーバー設定（既定 10 TiB）です。<br>
-        新しい転送は実行中でもキューへ追加できます。ヘッダーの<strong>転送センター</strong>で、個別／全体キャンセル、一時停止、再開、失敗項目の再試行、完了済み項目の消去ができます。
-      </div>
-
-      <!-- ========================================================= -->
-      <!-- 9. ダウンロード -->
-      <!-- ========================================================= -->
+      <h3>8-2. 同名ファイルとフォルダーの転送</h3>
+<p>同名ファイルがある場合は、表示された内容を確認して上書き・スキップ・別名を選びます。フォルダーは確認後に中身を転送し、同名フォルダーは結合します。転送準備で決めた転送先は、画面の選択が変わっても変更しません。</p>
+<h3 id="transfer-center">8-3. 転送センターで進捗と問題を確認する</h3><p>転送センターはメイン画面と同時に操作できます。「すべて／実行中・待機／要対応／完了・中止」で絞り込み、転送元・先、サイズ、日時、再試行時刻、エラーを確認します。競合待ちでは内容を確認して上書き・スキップ・別名を選びます。</p>
+<p>転送は最大8 MiBごとのチャンクとSHA-256で検証し、確定済み位置を保存します。一時的な通信障害は上限付きで自動再試行します。期限切れのuploadは失敗となり、「再試行」で先頭から再送します。メンテナンス待機は復旧と更新確認後に再開し、一時停止・競合待ち・中止は勝手に解除しません。</p>
+<p>「再開」は一時停止した項目、「再試行」は失敗した項目に使用します。競合待ちでは上書き・スキップ・別名のいずれかを選びます。転送センターを閉じても転送は継続します。「終了した履歴を消去」は失敗した転送の部分データも対象になるため、確認内容を読んでから実行してください。</p>
       <h2 id="download"><span class="num">9</span>ダウンロード（サーバー → 自分のPC）</h2>
 
       <p class="lead">ダウンロード＝<strong>社内サーバーのファイルを、自分のパソコンに取り出すこと</strong>です。「右から左へ」運びます。</p>
@@ -877,8 +766,8 @@
       <ol class="steps">
         <li><strong>右ペイン（リモート）</strong>で、取り出したいファイルをクリックして選択します。</li>
         <li><strong>左ペイン（ローカル）</strong>で、保存したい先のフォルダを開いておきます。</li>
-        <li>ツールバーの <span class="uibtn">⬇ ダウンロード</span> を押します（右クリック →「ダウンロード」でも可）。</li>
-        <li>進捗バーが出て、終わると <span class="msg ok">ダウンロード完了: ◯◯</span> と表示されます。</li>
+        <li>上部の <span class="uibtn">⬇ ダウンロード</span> または <kbd>Ctrl+D</kbd> を押します（右クリック →「ダウンロード」でも可）。</li>
+        <li>転送キューへの追加を確認し、転送センターで完了を確認します。</li>
       </ol>
 
       <div class="note">
@@ -933,23 +822,9 @@
       <!-- ========================================================= -->
       <!-- 12. 新規フォルダ -->
       <!-- ========================================================= -->
-      <h2 id="newfolder"><span class="num">12</span>新しいフォルダを作る</h2>
-      <ol class="steps">
-        <li>フォルダを作りたいペインで、作りたい場所を開きます。</li>
-        <li>一覧の上で<strong>右クリック</strong> →「<strong>新規フォルダ...</strong>」を選びます。</li>
-        <li>フォルダ名を入力する小さな窓が出るので、名前を入れて <span class="uibtn">OK</span>。</li>
-      </ol>
-      <p>成功すると <span class="msg ok">フォルダを作成しました: ◯◯</span> と表示されます。</p>
-      <div class="warn">
-        <strong>リモートに作るときは、先に「接続場所」を選んでください</strong>
-        リモート側で場所を選んでいないと <span class="msg">先にリモート場所を選択してください。</span> と出ます。<br>
-        また、リモートに新規フォルダを作るには<strong>書き込み（Write）権限</strong>が必要です。権限がないと <span class="msg err">フォルダ作成失敗: 書き込み権限がありません。</span> と出ます（→<a href="#perm">第16章</a>）。
-      </div>
+      <h2 id="newfolder"><span class="num">12</span>新しいフォルダを作る</h2><ol class="steps"><li>作成先のペインでフォルダーを開きます。</li><li>そのペインの「新規フォルダー」、右クリック、またはCtrl+Shift+Nを選びます。</li><li>名前を入力して作成します。作成後は一覧でその名前が選択されます。</li></ol><p>Ctrl+Shift+Nは操作中のペインが対象です。入力欄・IME変換中・長押しでは実行しません。リモートでは書き込み権限が必要で、メンテナンス中は作成できません。</p>
 
-      <!-- ========================================================= -->
-      <!-- 13. リネーム -->
-      <!-- ========================================================= -->
-      <h2 id="rename"><span class="num">13</span>名前の変更（リネーム）</h2>
+<h2 id="rename"><span class="num">13</span>名前の変更（リネーム）</h2>
       <ol class="steps">
         <li>名前を変えたいファイル／フォルダを選びます。</li>
         <li><kbd>F2</kbd> キーを押す（または右クリック →「リネーム...」）。</li>
@@ -971,26 +846,9 @@
       <!-- 14. 削除 -->
       <!-- ========================================================= -->
       <h2 id="delete"><span class="num">14</span>削除</h2>
-      <div class="danger">
-        <strong>リモート削除は復元できません</strong>
-        リモートのファイル・フォルダは確認後に即時削除され、Watashi に復元機能はありません。本当に消してよいか、よく確認してください。ローカル削除は個人設定により Windows のごみ箱へ移動できます。
-      </div>
-      <ol class="steps">
-        <li>消したいファイル／フォルダを選びます。</li>
-        <li><kbd>Delete</kbd> キーを押す（または右クリック →「削除」）。</li>
-        <li>確認ダイアログが出ます。内容を読んで、よければ <span class="uibtn">OK</span>。</li>
-      </ol>
-      <p>確認ダイアログの文面（例）：</p>
-      <p><span class="msg">リモートのファイル "budget.xlsx" を削除しますか？ この操作は元に戻せません。</span></p>
-      <div class="warn">
-        <strong>フォルダを消すと中身ごと消えます</strong>
-        フォルダを削除すると、その中のファイル・サブフォルダも<strong>すべて一緒に</strong>消えます。<br>
-        リモートの削除には<strong>削除（Delete）権限</strong>が必要です。無いと <span class="msg err">削除失敗: 削除権限がありません。</span> と出ます。
-      </div>
+<ol class="steps"><li>一覧で対象を選択します。Ctrl／Shift＋クリックで複数選択できます。</li><li>「操作 → 削除」、右クリックの削除、またはDeleteを選びます。</li><li>場所・件数・全対象名・削除方法を確認します。初期選択はキャンセルです。</li><li>実行後に成功／失敗件数を確認します。一部失敗では項目ごとの結果を表示します。</li></ol>
+<div class="warn"><strong>リモートは完全削除です</strong><p>リモートごみ箱・復元はありません。ローカルは個人設定によりWindowsのごみ箱へ移動するか完全削除します。許可ルートそのものは削除できません。</p></div>
 
-      <!-- ========================================================= -->
-      <!-- 15. 右クリックメニュー -->
-      <!-- ========================================================= -->
       <h2 id="context"><span class="num">15</span>右クリックメニュー早見表</h2>
       <p>ファイル一覧の上で<strong>右クリック</strong>すると、選んでいる項目に対してできる操作が一覧で出ます。</p>
       <table>
@@ -1110,14 +968,14 @@
       <h2 id="keys"><span class="num">17</span>キーボードショートカット一覧</h2>
       <table>
         <thead><tr><th>キー</th><th>動作</th><th>使う場所</th></tr></thead>
-        <tbody>
+        <tbody><tr><td><kbd>Ctrl+D</kbd></td><td>右の選択を左へダウンロード</td><td>メイン画面</td></tr><tr><td><kbd>Ctrl+U</kbd></td><td>左の選択を右へアップロード</td><td>メイン画面</td></tr><tr><td><kbd>F6 / Shift+F6</kbd></td><td>左右の一覧を切替</td><td>メイン画面</td></tr><tr><td><kbd>Ctrl+L / Ctrl+F</kbd></td><td>操作中ペインのパス欄／絞り込み欄</td><td>メイン画面</td></tr><tr><td><kbd>Ctrl+Shift+N</kbd></td><td>操作中ペインに新規フォルダー</td><td>メイン画面</td></tr><tr><td><kbd>Esc（絞り込み欄）</kbd></td><td>絞り込み解除して一覧へ</td><td>メイン画面</td></tr><tr><td><kbd>F1</kbd></td><td>操作案内</td><td>メイン画面</td></tr>
           <tr><td><kbd>ダブルクリック</kbd> / <kbd>Enter</kbd></td><td>フォルダを開く（中に入る）</td><td>ファイル一覧</td></tr>
           <tr><td><kbd>Backspace</kbd></td><td>ひとつ上のフォルダへ</td><td>ファイル一覧</td></tr>
           <tr><td><kbd>Alt</kbd>＋<kbd>←</kbd></td><td>戻る</td><td>各ペイン</td></tr>
           <tr><td><kbd>Alt</kbd>＋<kbd>→</kbd></td><td>進む</td><td>各ペイン</td></tr>
           <tr><td><kbd>Alt</kbd>＋<kbd>↑</kbd></td><td>ひとつ上のフォルダへ</td><td>各ペイン</td></tr>
           <tr><td><kbd>F5</kbd></td><td>左右どちらも最新に更新</td><td>画面全体</td></tr>
-          <tr><td><kbd>F2</kbd></td><td>名前の変更（リネーム）</td><td>ファイル一覧</td></tr>
+          <tr><td><kbd>F2</kbd></td><td>1件だけ選択した名前の変更</td><td>ファイル一覧</td></tr>
           <tr><td><kbd>Delete</kbd></td><td>削除（確認あり）</td><td>ファイル一覧</td></tr>
           <tr><td><kbd>Enter</kbd></td><td>そのパスへ移動</td><td>パス入力欄</td></tr>
           <tr><td><kbd>Ctrl</kbd>＋<kbd>C</kbd></td><td>今いる場所のパスをコピー（欄をクリックで全選択される）</td><td>パス入力欄</td></tr>
@@ -1129,7 +987,9 @@
       <!-- ========================================================= -->
       <!-- 18. ログアウト -->
       <!-- ========================================================= -->
-      <h2 id="logout"><span class="num">18</span>ログアウト／自動ログアウト</h2>
+      <p>転送方向は操作中ペインで変わりません。入力欄・IME変換中・長押しでは転送キーを実行しません。対象なし・権限なし・一覧読込中・メンテナンス中も実行しません。選択件数と転送先を確認してください。F2は単一選択。Deleteは複数選択の全対象を確認し、キャンセルが初期選択です。部分失敗は項目ごとに表示します。</p>
+
+<h2 id="logout"><span class="num">18</span>ログアウト／自動ログアウト</h2>
 
       <h3>18-1. 自分でログアウトする</h3>
       <p>画面右上の <span class="uichip">⏻</span> ボタンを押します。確認ダイアログ <span class="msg">ログアウトしますか？</span> が出るので <span class="uibtn">OK</span>。ログイン画面に戻ります。</p>
@@ -1294,7 +1154,8 @@
       </p>
 
     </div><!-- /wrap -->
-  </main>
+
+</main>
 </div><!-- /layout -->
 
 <a href="#" class="totop" id="totop" aria-label="ページ先頭へ">↑</a>

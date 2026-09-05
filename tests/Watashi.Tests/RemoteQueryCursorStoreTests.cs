@@ -116,6 +116,60 @@ public sealed class RemoteQueryCursorStoreTests
         first.HasMore.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(1999)]
+    [InlineData(2000)]
+    [InlineData(2001)]
+    [InlineData(4001)]
+    public void List_2000_entry_pages_cover_boundaries_without_duplicates(int count)
+    {
+        var store = CreateStore();
+        var entries = Enumerable.Range(0, count).Select(i => new FileEntry { Name = $"item-{i:D5}" }).ToArray();
+        var read = store.AddList(1, Scope, "/allowed", "name", entries, count, false, false, null);
+        var page = store.GetListPage(read, 2000);
+        page.Entries.Should().HaveCount(Math.Min(count, 2000));
+        var names = new List<string>();
+        while (true)
+        {
+            names.AddRange(page.Entries.Select(x => x.Name));
+            page.LoadedCount.Should().Be(names.Count);
+            page.TotalCount.Should().Be(count);
+            page.HasMore.Should().Be(names.Count < count);
+            if (!page.HasMore) { page.NextCursor.Should().BeNull(); break; }
+            var continuation = store.OpenList(page.NextCursor!, 1);
+            // Continuations retain the initial 2000 width, even for an old client's 500 request.
+            var next = store.GetListPage(continuation, 500);
+            next.Entries.Should().HaveCount(Math.Min(count - names.Count, 2000));
+            store.GetListPage(continuation, 1).Entries.Select(x => x.Name)
+                .Should().Equal(next.Entries.Select(x => x.Name));
+            page = next;
+        }
+        names.Should().Equal(entries.Select(x => x.Name));
+        names.Should().OnlyHaveUniqueItems();
+    }
+
+    [Fact]
+    public void Search_keeps_500_limit_and_rejects_list_cursors()
+    {
+        var store = CreateStore();
+        var results = Enumerable.Range(0, 501).Select(_ => new RemoteSearchResult()).ToArray();
+        var read = store.AddSearch(1, "item", new[] { Scope }, results, 501, 501, false, null, Array.Empty<RemoteQueryWarning>());
+        var first = store.GetSearchPage(read, 500);
+        first.Results.Should().HaveCount(500);
+        store.GetSearchPage(store.OpenSearch(first.NextCursor!, 1), 2000).Results.Should().ContainSingle();
+        var tooLarge = () => store.GetSearchPage(read, 501);
+        tooLarge.Should().Throw<ArgumentOutOfRangeException>();
+        var wrongKind = () => store.OpenList(first.NextCursor!, 1);
+        wrongKind.Should().Throw<RemoteQueryCursorException>().Where(x => x.Code == "cursor_kind_mismatch");
+        var list = store.AddList(1, Scope, "/allowed", null,
+            Enumerable.Range(0, 2001).Select(_ => new FileEntry()).ToArray(), 2001, false, false, null);
+        var listCursor = store.GetListPage(list, 2000).NextCursor!;
+        var wrongSearch = () => store.OpenSearch(listCursor, 1);
+        wrongSearch.Should().Throw<RemoteQueryCursorException>().Where(x => x.Code == "cursor_kind_mismatch");
+        var tooLargeList = () => store.GetListPage(list, 2001);
+        tooLargeList.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
     private static RemoteQueryCursorStore CreateStore() => new(
         TimeProvider.System,
         Enumerable.Repeat((byte)0x11, 32).ToArray());
