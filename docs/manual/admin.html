@@ -267,7 +267,7 @@
 
       <div class="key">
         <strong>管理者ができること（全体像）</strong>
-        Watashi の管理コンソールは <strong>10個のタブ</strong>で構成され、次のことを管理します。
+        Watashi の管理コンソールは <strong>11個のタブ</strong>で構成され、次のことを管理します。
         <ul style="margin-top:6px">
           <li><strong>誰が使えるか</strong>：ユーザーの作成・パスワード・ロック・自動ログイン端末</li>
           <li><strong>どこに繋ぐか</strong>：CIFSファイルサーバー（ホスト）・共有・接続経路（実行ノード）</li>
@@ -283,6 +283,7 @@
 
       <!-- ===================================================== 1 -->
       <h2 id="open"><span class="num">1</span>管理画面の開き方</h2>
+      <p>管理画面は開くときにモニターの作業領域と表示倍率に合わせてサイズを調整します。小さい画面では本文全体を縦・横にスクロールできます。一覧は一覧内で、長い編集フォームはフォーム内でスクロールします。左右の境界をドラッグして幅も調整できます。</p>
       <ol class="steps">
         <li><strong>管理者ユーザー</strong>（<code>IsAdmin = true</code>）でログインします。</li>
         <li>メイン画面の右上にある朱色の <span class="uibtn">管理</span> ボタンをクリックします。</li>
@@ -309,11 +310,12 @@
             <rect x="510" y="48" width="96" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="558" y="67" text-anchor="middle">信頼デバイス</text>
             <rect x="610" y="48" width="84" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="652" y="67" text-anchor="middle">実行ノード</text>
             <rect x="698" y="48" width="74" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="735" y="67" text-anchor="middle">操作ログ</text>
-            <rect x="14" y="84" width="98" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="63" y="103" text-anchor="middle">システム設定</text>
+            <rect x="14" y="84" width="84" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="56" y="103" text-anchor="middle">運用状態</text>
+            <rect x="102" y="84" width="98" height="28" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/><text x="151" y="103" text-anchor="middle">システム設定</text>
           </g>
-          <text x="16" y="135" font-size="12" fill="#6B7280">10個のタブ。左から順に設定していくのが基本（第2章の流れ）。</text>
+          <text x="16" y="135" font-size="12" fill="#6B7280">11個のタブ。左から順に設定していくのが基本（第2章の流れ）。</text>
         </svg>
-        <figcaption>図1-1：管理コンソールの10タブ</figcaption>
+        <figcaption>図1-1：管理コンソールの11タブ</figcaption>
       </figure>
 
       <div class="shot">
@@ -591,54 +593,43 @@ G012347,false,</pre>
       <h2 id="userperm"><span class="num">7</span>ユーザー権限（核心機能）</h2>
       <p class="lead">Watashi の中心となる機能。<strong>ユーザー × 共有 × サブパス × テンプレート</strong>の粒度で「誰がどこで何をできるか」を割り当てます。</p>
 
-      <p>画面は <strong>左：ユーザー一覧（検索＋件数バッジ）</strong>／<strong>右：選択ユーザーの付与済みパス＋追加カード</strong>の構成です。ユーザーは <strong>名前（Username）</strong> で表示され、名前と Username のどちらでも検索できます。</p>
+      <p>画面は <strong>左：ユーザー一覧（検索＋件数バッジ）</strong>／<strong>右：選択ユーザーの一覧／追加／編集／実効権限プレビューの切替</strong>の構成です。ユーザーは <strong>名前（Username）</strong> で表示され、名前と Username のどちらでも検索できます。</p>
 
       <figure>
-        <svg viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ユーザー権限画面の構成">
-          <rect x="1" y="1" width="798" height="358" rx="8" fill="#fff" stroke="#D5D9DE"/>
-          <!-- left -->
-          <rect x="10" y="10" width="220" height="340" rx="6" fill="#F0F2F5" stroke="#D5D9DE"/>
-          <text x="24" y="34" font-size="13" font-weight="700" fill="#1B2A41">ユーザー [14]</text>
-          <rect x="20" y="44" width="200" height="22" rx="5" fill="#fff" stroke="#9CA3AF"/><text x="28" y="60" font-size="11" fill="#6B7280">🔍 絞り込み...</text>
-          <g font-size="12">
-            <rect x="20" y="74" width="200" height="30" rx="5" fill="#C73E1D"/><text x="30" y="93" fill="#fff">tanaka</text><text x="200" y="93" text-anchor="end" fill="#fff">4件</text>
-            <text x="30" y="124" fill="#1F2328">suzuki</text><text x="210" y="124" text-anchor="end" fill="#6B7280">1件</text>
-            <text x="30" y="150" fill="#1F2328">ito</text><text x="210" y="150" text-anchor="end" fill="#6B7280">0件</text>
+        <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ユーザー一覧と右側の一覧・編集切替">
+          <rect x="1" y="1" width="798" height="278" rx="8" fill="#fff" stroke="#D5D9DE"/>
+          <rect x="12" y="12" width="200" height="256" rx="6" fill="#F0F2F5"/>
+          <g font-size="13" fill="#1F2328">
+            <text x="26" y="40" font-weight="700">ユーザー一覧・検索</text>
+            <text x="26" y="78">田中（tanaka）　4件</text>
+            <text x="26" y="110">鈴木（suzuki）　1件</text>
+            <text x="232" y="40" font-weight="700">選択ユーザー・処理結果</text>
+            <text x="232" y="76" fill="#C73E1D">付与済みのパス</text>
+            <text x="365" y="76">＋ パスを追加</text>
+            <text x="490" y="76">✏ 選択を編集</text>
+            <text x="615" y="76">実効権限プレビュー</text>
           </g>
-          <!-- right -->
-          <text x="248" y="34" font-size="13" font-weight="700" fill="#5C1A0B">👤 tanaka ／ 付与済みのパス 4件</text>
-          <rect x="248" y="44" width="540" height="120" rx="6" fill="#fff" stroke="#D5D9DE"/>
-          <g font-size="11" fill="#1F2328">
-            <text x="258" y="62" font-weight="700" fill="#6B7280">ホスト ｜ 共有 ｜ パス ｜ テンプレ ｜ 表示名</text>
-            <line x1="256" y1="68" x2="780" y2="68" stroke="#E5E7EB"/>
-            <text x="258" y="86">test ｜ watashitest ｜ / ｜ フルアクセス</text>
-            <text x="258" y="106">test ｜ watashitest ｜ /新しいフォルダ ｜ 読取のみ</text>
-            <text x="258" y="126">test ｜ watashitest ｜ /プロジェクト ｜ フルアクセス</text>
-            <text x="258" y="146">test2 ｜ ステージ共有 ｜ / ｜ 読取+書込</text>
-          </g>
-          <!-- add card -->
-          <rect x="248" y="174" width="540" height="176" rx="6" fill="#F9E5E0" stroke="#C73E1D"/>
-          <text x="258" y="194" font-size="12" font-weight="700" fill="#5C1A0B">＋ パスを追加</text>
-          <g font-size="11" fill="#1F2328">
-            <text x="258" y="216">サーバー: [test ▼]    共有: [watashitest ▼]</text>
-            <text x="258" y="238">権限テンプレート: [フルアクセス ▼]</text>
-            <text x="258" y="260">許可パス: [/dept-A]    表示名(任意): [経理部 2026]</text>
-            <text x="258" y="282">ブラウズ: [/dept-A]  [開く]   2025 / 2026 / archive</text>
-          </g>
-          <rect x="258" y="300" width="180" height="30" rx="6" fill="#C73E1D"/><text x="348" y="320" text-anchor="middle" font-size="12" fill="#fff">＋ このパスを追加</text>
+          <line x1="230" y1="88" x2="348" y2="88" stroke="#C73E1D" stroke-width="3"/>
+          <rect x="230" y="100" width="556" height="158" rx="6" fill="#F0F2F5"/>
+          <text x="252" y="142" font-size="16" fill="#1F2328">選んだ一覧またはフォームを広く表示</text>
+          <text x="252" y="176" font-size="13" fill="#4A535C">一覧を見たいときは「付与済みのパス」</text>
+          <text x="252" y="206" font-size="13" fill="#4A535C">追加・編集するときは目的のタブへ切替</text>
+          <text x="252" y="236" font-size="13" fill="#4A535C">長いフォームはスクロールして最後まで入力</text>
         </svg>
-        <figcaption>図7-1：ユーザー権限画面（左：ユーザー一覧／右：付与済み＋追加カード）</figcaption>
+        <figcaption>図7-1：一覧とフォームは同じ領域を切り替えて使用します。</figcaption>
       </figure>
 
+      <p>「付与済みのパス」「＋ パスを追加」「✏ 選択を編集」「🔎 実効権限プレビュー」を切り替えて、それぞれを広く表示します。同じユーザー内の切替では入力途中の値と選択を保持します。</p>
+      <p>フォルダー一覧は高さ200。<strong>「広く開く」</strong>でサイズ変更可能な選択ウィンドウを開けます。参照パス・一覧・選択は元のフォームと共有し、選択は許可パス欄へ反映されます。「閉じて戻る」では権限を保存しません。</p>
       <h3>7-1. パスを追加する手順</h3>
       <ol class="steps">
         <li>左でユーザーをクリック（検索で絞り込み可）。件数バッジ（例 <code>tanaka 4件</code>）で付与状況がわかります。</li>
-        <li>下の「<strong>＋ パスを追加</strong>」で <strong>サーバー</strong> を選ぶ。</li>
+        <li>右側の「<strong>＋ パスを追加</strong>」タブで <strong>サーバー</strong> を選ぶ。</li>
         <li><strong>共有</strong>が自動でそのサーバー配下に絞られるので選ぶ。</li>
         <li><strong>権限テンプレート</strong>を選ぶ（デフォルトはフルアクセス）。</li>
         <li><strong>許可パス</strong>を入力（共有全体なら <code>/</code>、サブフォルダなら <code>/dept-A</code>）。任意で<strong>表示名</strong>。</li>
         <li>（任意）「<strong>ブラウズ</strong>」で実在ディレクトリを開き、サブフォルダをクリックすると許可パスに自動反映。</li>
-        <li><span class="uibtn">＋ このパスを追加</span> を押す → <span class="msg ok">パスを追加しました。</span></li>
+        <li><span class="uibtn">＋ この期限付き権限を追加</span> を押す → <span class="msg ok">パスを追加しました。</span></li>
       </ol>
 
       <div class="key">
@@ -665,13 +656,14 @@ G012347,false,</pre>
 
       <!-- ===================================================== 8 -->
       <h2 id="bundles"><span class="num">8</span>権限セット（PermissionBundle）</h2>
+      <p>右側の<strong>「内容一覧」「＋ 行を追加」</strong>を切り替えて使います。入力と未保存の行は切替時に保持されます。フォルダーは「広く開く」でも選択できます。行を追加しただけでは未保存で、上部の「保存」で確定します。</p>
       <p>「経理部標準」「営業部標準」のように、<strong>複数の権限行をひとまとめにした再利用可能セット</strong>です。同じパス群を毎回手入力する手間を解消します。</p>
 
       <h4>ワークフロー</h4>
       <ol class="steps">
         <li><span class="uibtn ghost">+ 新規セット</span> で名前を入力 → 空のセットが作成される。</li>
         <li>左でセットを選択して右に詳細表示。</li>
-        <li>「<strong>＋ セットに行を追加</strong>」で 共有／テンプレート／許可パス／表示名 を入力して <span class="uibtn ghost">追加</span>。<br><span class="msg">行を追加しました。「保存」で確定してください。</span></li>
+        <li>「<strong>＋ 行を追加</strong>」タブで 共有／テンプレート／許可パス／表示名 を入力して <span class="uibtn ghost">追加</span>。<br><span class="msg">行を追加しました。「保存」で確定してください。</span></li>
         <li>すべての行を入れたら <span class="uibtn">💾 保存</span> で確定。</li>
         <li><strong>ユーザー権限</strong>タブに移動し、各ユーザーへ「セットから一括適用」。</li>
       </ol>

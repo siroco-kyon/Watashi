@@ -1,6 +1,6 @@
 # Watashi 開発者ガイド
 
-開発機 (Windows + .NET 10 SDK) でのローカル開発手順をまとめます。Client は .NET 10、Server / Agent / Shared / Tests は .NET 8 を対象にします。
+開発機 (Windows + .NET 10 SDK) でのローカル開発手順をまとめます。Client は .NET 10、Server / Agent / Shared / Watashi.Tests は .NET 8（WPFレイアウト検証は .NET 10） を対象にします。
 
 - [前提条件](#前提条件)
 - [プロジェクト構成](#プロジェクト構成)
@@ -36,6 +36,7 @@ src/
     ├── ViewModels/    # MVVM (CommunityToolkit.Mvvm)
     ├── Services/      # ApiClient / SessionManager / CredentialStore
     └── Converters/    # WPF Value Converters
+tests/Watashi.Client.LayoutTests/ # Windows上でWPFを非表示描画するレイアウト検証
 tests/Watashi.Tests/   # xUnit (Auth / Session / Migration / Permission / Crypto / CSV / AdminGuard ほか)
 deploy/                # Windows Service インストーラ、ClickOnce 設定
 docs/                  # ドキュメント
@@ -52,9 +53,15 @@ dotnet build Watashi.sln
 # 単体テスト
 dotnet test tests\Watashi.Tests
 
+# WPF管理画面のレイアウト検証（Windows、サーバー接続・ウィンドウ表示なし）
+dotnet run --project tests/Watashi.Client.LayoutTests --configuration Release
+# 末尾に -- 出力フォルダー を付けると描画PNGも保存
+
 # クライアントのみビルド
 dotnet build src\Watashi.Client\Watashi.Client.csproj
 ```
+
+レイアウト検証は明暗テーマと1200×720／1060×550／890×450／720×340 DIPの本文領域で、一覧の高さ・2000件の仮想化・スクロール終端・入力保持・拡大ブラウズの反映を確認します。DPI換算は通常テストで別途確認します。実際のモニター間移動、Windowsの高コントラスト、キーボードのフォーカス移動は実機確認が必要です。
 
 認証・セッション変更時は、全体テストに加えて境界テストを絞って先に実行すると原因を特定しやすい:
 

@@ -3,9 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid Margin="14">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="280"/>
+            <ColumnDefinition Width="280" MinWidth="240"/>
             <ColumnDefinition Width="12"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*" MinWidth="520"/>
         </Grid.ColumnDefinitions>
 
         <!-- Left: bundle list -->
@@ -109,151 +109,161 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Add entry form -->
-                <Border DockPanel.Dock="Bottom" Style="{StaticResource CardSubtle}" Margin="14,8,14,14">
-                    <StackPanel>
-                        <TextBlock Text="＋ セットに行を追加" Style="{StaticResource H3}" Margin="0,0,0,8"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="10"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
+                <TextBlock DockPanel.Dock="Bottom" Margin="14,8" Text="{Binding StatusMessage}"
+                           Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
+                           TextWrapping="Wrap"/>
+                <TabControl Margin="0,4,0,0">
+                    <TabItem Header="内容一覧">
+                        <!-- Entry list -->
+                        <DockPanel Margin="14,8,14,0">
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                <TextBlock Text="このセットの行 (保存で確定)" Style="{StaticResource Muted}" DockPanel.Dock="Left"/>
+                                <Button Content="🗑 行を削除" Style="{StaticResource GhostButton}"
+                                        Command="{Binding RemoveEntryCommand}"
+                                        HorizontalAlignment="Right" DockPanel.Dock="Right"/>
+                                <ComboBox Width="110"
+                                          ItemsSource="{Binding EntrySortOptions}"
+                                          SelectedItem="{Binding SelectedEntrySortOption}"
+                                          DisplayMemberPath="Label"
+                                          ToolTip="行の並び替え"
+                                          DockPanel.Dock="Right"
+                                          Margin="0,0,6,0"/>
+                                <TextBox Width="170"
+                                         Text="{Binding EntrySearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="行を検索"
+                                         DockPanel.Dock="Right"
+                                         Margin="0,0,6,0"/>
+                            </DockPanel>
+                            <ListView ItemsSource="{Binding EditingEntriesView}" SelectedItem="{Binding SelectedEntry}"
+                                      ItemContainerStyle="{StaticResource GridViewListViewItemStyle}">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="ホスト" Width="120">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding HostName}" TextTrimming="CharacterEllipsis"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="共有" Width="140">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding ShareName}" TextTrimming="CharacterEllipsis"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="パス" Width="240">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding AllowedPath}" TextTrimming="CharacterEllipsis"
+                                                               ToolTip="{Binding AllowedPath}"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="テンプレ" Width="120">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding TemplateName}" TextTrimming="CharacterEllipsis"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="表示名" Width="160">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </DockPanel>
+                    </TabItem>
+                    <TabItem Header="＋ 行を追加">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <!-- Add entry form -->
+                            <Border Style="{StaticResource CardSubtle}" Margin="14,8,14,14">
+                                <StackPanel>
+                                    <TextBlock Text="＋ セットに行を追加" Style="{StaticResource H3}" Margin="0,0,0,8"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="6"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="6"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="6"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="6"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="10"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="6"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
 
-                            <!-- サーバー / 共有 -->
-                            <StackPanel Grid.Row="0" Grid.Column="0">
-                                <TextBlock Text="サーバー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding EntryHost}" DisplayMemberPath="Name"/>
-                            </StackPanel>
-                            <StackPanel Grid.Row="0" Grid.Column="2">
-                                <TextBlock Text="共有" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <ComboBox ItemsSource="{Binding Shares}" SelectedItem="{Binding EntryShare}" DisplayMemberPath="DisplayName"/>
-                            </StackPanel>
+                                        <!-- サーバー / 共有 -->
+                                        <StackPanel Grid.Row="0" Grid.Column="0">
+                                            <TextBlock Text="サーバー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                            <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding EntryHost}" DisplayMemberPath="Name"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="2">
+                                            <TextBlock Text="共有" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                            <ComboBox ItemsSource="{Binding Shares}" SelectedItem="{Binding EntryShare}" DisplayMemberPath="DisplayName"/>
+                                        </StackPanel>
 
-                            <!-- 権限テンプレート -->
-                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                                <TextBlock Text="権限テンプレート" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding EntryTemplate}" DisplayMemberPath="Name"/>
-                            </StackPanel>
+                                        <!-- 権限テンプレート -->
+                                        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                                            <TextBlock Text="権限テンプレート" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                            <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding EntryTemplate}" DisplayMemberPath="Name"/>
+                                        </StackPanel>
 
-                            <!-- 許可パス / 表示名 -->
-                            <StackPanel Grid.Row="4" Grid.Column="0">
-                                <TextBlock Text="許可パス" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding EntryAllowedPath, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="{Binding EntryAllowedPath}"/>
-                            </StackPanel>
-                            <StackPanel Grid.Row="4" Grid.Column="2">
-                                <TextBlock Text="表示名 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <TextBox Text="{Binding EntryDisplayName, UpdateSourceTrigger=PropertyChanged}"/>
-                            </StackPanel>
+                                        <!-- 許可パス / 表示名 -->
+                                        <StackPanel Grid.Row="4" Grid.Column="0">
+                                            <TextBlock Text="許可パス" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                            <TextBox Text="{Binding EntryAllowedPath, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="{Binding EntryAllowedPath}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="4" Grid.Column="2">
+                                            <TextBlock Text="表示名 (任意)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                            <TextBox Text="{Binding EntryDisplayName, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </StackPanel>
 
-                            <!-- ブラウズ (ユーザー権限タブと同じ実在パス参照) -->
-                            <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
-                                <TextBlock Text="ブラウズ (選択した共有内の実在パスを参照)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                                <DockPanel>
-                                    <Button Content="開く" Command="{Binding BrowseCommand}"
-                                            DockPanel.Dock="Right" MinWidth="68" Margin="6,0,0,0"/>
-                                    <TextBox Text="{Binding BrowsePath, UpdateSourceTrigger=PropertyChanged}"
-                                             ToolTip="{Binding BrowsePath}"/>
-                                </DockPanel>
-                            </StackPanel>
+                                        <!-- ブラウズ (ユーザー権限タブと同じ実在パス参照) -->
+                                        <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3">
+                                            <TextBlock Text="ブラウズ (選択した共有内の実在パスを参照)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                                            <DockPanel>
+                                                <Button Content="広く開く" Click="OnExpandBrowser" DockPanel.Dock="Right" Margin="6,0,0,0"/>
+                                                <Button Content="開く" Command="{Binding BrowseCommand}"
+                                                        DockPanel.Dock="Right" MinWidth="68" Margin="6,0,0,0"/>
+                                                <TextBox Text="{Binding BrowsePath, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="{Binding BrowsePath}"/>
+                                            </DockPanel>
+                                        </StackPanel>
 
-                            <ListBox Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3"
-                                     ItemsSource="{Binding BrowseEntries}"
-                                     SelectedItem="{Binding SelectedBrowseEntry}"
-                                     DisplayMemberPath="Name"
-                                     Height="70"
-                                     ToolTip="サブフォルダをクリックすると「許可パス」に反映されます"/>
+                                        <ListBox Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="3"
+                                                 ItemsSource="{Binding BrowseEntries}"
+                                                 SelectedItem="{Binding SelectedBrowseEntry}"
+                                                 DisplayMemberPath="Name"
+                                                 Height="200"
+                                                 AutomationProperties.Name="権限セットのフォルダー一覧"
+                                                 ToolTip="サブフォルダをクリックすると「許可パス」に反映されます"/>
 
-                            <Button Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="3"
-                                    Content="＋ 行を追加 (保存はセット側で確定)"
-                                    Command="{Binding AddEntryCommand}" Height="34"/>
-                            <TextBlock Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="3"
-                                       Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
-                                       TextWrapping="Wrap"/>
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                                        <Button Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="3"
+                                                Content="＋ 行を追加 (保存はセット側で確定)"
+                                                Command="{Binding AddEntryCommand}" Height="34"/>
 
-                <!-- Entry list -->
-                <DockPanel Margin="14,8,14,0">
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-                        <TextBlock Text="このセットの行 (保存で確定)" Style="{StaticResource Muted}" DockPanel.Dock="Left"/>
-                        <Button Content="🗑 行を削除" Style="{StaticResource GhostButton}"
-                                Command="{Binding RemoveEntryCommand}"
-                                HorizontalAlignment="Right" DockPanel.Dock="Right"/>
-                        <ComboBox Width="110"
-                                  ItemsSource="{Binding EntrySortOptions}"
-                                  SelectedItem="{Binding SelectedEntrySortOption}"
-                                  DisplayMemberPath="Label"
-                                  ToolTip="行の並び替え"
-                                  DockPanel.Dock="Right"
-                                  Margin="0,0,6,0"/>
-                        <TextBox Width="170"
-                                 Text="{Binding EntrySearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="行を検索"
-                                 DockPanel.Dock="Right"
-                                 Margin="0,0,6,0"/>
-                    </DockPanel>
-                    <ListView ItemsSource="{Binding EditingEntriesView}" SelectedItem="{Binding SelectedEntry}"
-                              ItemContainerStyle="{StaticResource GridViewListViewItemStyle}">
-                        <ListView.View>
-                            <GridView>
-                                <GridViewColumn Header="ホスト" Width="120">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding HostName}" TextTrimming="CharacterEllipsis"/>
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                                <GridViewColumn Header="共有" Width="140">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding ShareName}" TextTrimming="CharacterEllipsis"/>
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                                <GridViewColumn Header="パス" Width="240">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding AllowedPath}" TextTrimming="CharacterEllipsis"
-                                                       ToolTip="{Binding AllowedPath}"/>
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                                <GridViewColumn Header="テンプレ" Width="120">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding TemplateName}" TextTrimming="CharacterEllipsis"/>
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                                <GridViewColumn Header="表示名" Width="160">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/>
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                            </GridView>
-                        </ListView.View>
-                    </ListView>
-                </DockPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
             </DockPanel>
         </Border>
     </Grid>

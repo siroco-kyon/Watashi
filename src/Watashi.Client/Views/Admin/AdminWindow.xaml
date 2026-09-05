@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="clr-namespace:Watashi.Client.Views.Admin"
         Title="Watashi - 管理"
-        Width="1220" Height="860" MinWidth="940" MinHeight="680"
+        Width="1220" Height="800" MinWidth="720" MinHeight="420"
         WindowStartupLocation="CenterOwner"
         Icon="{StaticResource ToriiIcon}"
         Background="{StaticResource BgBrush}">
@@ -30,6 +30,21 @@
                     Background="{StaticResource BgBrush}"
                     BorderBrush="Transparent"
                     Padding="0,4,0,0">
+            <TabControl.ContentTemplate>
+                <DataTemplate>
+                    <!-- 一覧に有限の高さを渡して仮想化を維持し、小画面では本文ごとスクロールする。 -->
+                    <ScrollViewer x:Name="PageScroll"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                  CanContentScroll="False" Focusable="False"
+                                  AutomationProperties.Name="管理画面の本文">
+                        <Grid MinWidth="900" MinHeight="600"
+                              Width="{Binding ViewportWidth, ElementName=PageScroll}"
+                              Height="{Binding ViewportHeight, ElementName=PageScroll}">
+                            <ContentPresenter Content="{Binding}"/>
+                        </Grid>
+                    </ScrollViewer>
+                </DataTemplate>
+            </TabControl.ContentTemplate>
             <TabItem Header="ユーザー">       <v:UserManagementView DataContext="{Binding Users}"/></TabItem>
             <TabItem Header="ホスト">        <v:HostManagementView DataContext="{Binding Hosts}"/></TabItem>
             <TabItem Header="共有">          <v:ShareManagementView DataContext="{Binding Shares}"/></TabItem>
