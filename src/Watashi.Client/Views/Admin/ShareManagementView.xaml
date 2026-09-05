@@ -3,9 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid Margin="14">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*" MinWidth="300"/>
             <ColumnDefinition Width="12"/>
-            <ColumnDefinition Width="340"/>
+            <ColumnDefinition Width="340" MinWidth="280"/>
         </Grid.ColumnDefinitions>
 
         <!-- List -->
@@ -47,68 +47,71 @@
                 <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
                     <TextBlock Text="共有情報" Style="{StaticResource H3}"/>
                 </Border>
-                <StackPanel Margin="16">
-                    <TextBlock Text="選択中の共有" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBlock Text="{Binding Selected.DisplayName, TargetNullValue=共有を選択してください}"
-                               FontWeight="SemiBold" Margin="0,0,0,10"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.Name="編集フォーム">
+                    <StackPanel Margin="16">
+                        <TextBlock Text="選択中の共有" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBlock Text="{Binding Selected.DisplayName, TargetNullValue=共有を選択してください}"
+                                   FontWeight="SemiBold" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="対象ホスト" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <ComboBox ItemsSource="{Binding Hosts}" SelectedValue="{Binding EditHostId}"
-                              SelectedValuePath="Id" DisplayMemberPath="Name" IsEnabled="{Binding HasSelected}" Margin="0,0,0,10"/>
+                        <TextBlock Text="対象ホスト" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <ComboBox ItemsSource="{Binding Hosts}" SelectedValue="{Binding EditHostId}"
+                                  SelectedValuePath="Id" DisplayMemberPath="Name" IsEnabled="{Binding HasSelected}" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="共有名 (SMBの共有名)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding EditShareName, UpdateSourceTrigger=PropertyChanged}"
-                             IsEnabled="{Binding HasSelected}" Margin="0,0,0,10"/>
+                        <TextBlock Text="共有名 (SMBの共有名)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding EditShareName, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding HasSelected}" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="表示名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding EditDisplayName, UpdateSourceTrigger=PropertyChanged}"
-                             IsEnabled="{Binding HasSelected}" Margin="0,0,0,14"/>
+                        <TextBlock Text="表示名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding EditDisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding HasSelected}" Margin="0,0,0,14"/>
 
-                    <Button Content="保存" Command="{Binding SaveCommand}" IsEnabled="{Binding HasSelected}" Height="34"/>
+                        <Button Content="保存" Command="{Binding SaveCommand}" IsEnabled="{Binding HasSelected}" Height="34"/>
 
-                    <Separator Margin="0,16,0,14"/>
+                        <Separator Margin="0,16,0,14"/>
 
-                    <TextBlock Text="未完了の転送・ごみ箱データ" Style="{StaticResource H3}" Margin="0,0,0,8"/>
-                    <TextBlock Text="{Binding DurableStateSummary}" Style="{StaticResource Caption}"
-                               TextWrapping="Wrap" Margin="0,0,0,8"/>
-                    <ItemsControl ItemsSource="{Binding DurableStateLines}" MaxHeight="160" Margin="0,0,0,10">
-                        <ItemsControl.Template>
-                            <ControlTemplate TargetType="ItemsControl">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <ItemsPresenter/>
-                                </ScrollViewer>
-                            </ControlTemplate>
-                        </ItemsControl.Template>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" Style="{StaticResource Caption}"
-                                           TextWrapping="Wrap" Margin="0,0,0,2"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <Button Content="強制解除..." Command="{Binding ReleaseDurableStateCommand}"
-                            IsEnabled="{Binding HasDurableState}" Height="34"
-                            ToolTip="共有の廃止・付け替えのために未完了データを終端させます。回収できない実体は共有上に残ります。"/>
+                        <TextBlock Text="未完了の転送・ごみ箱データ" Style="{StaticResource H3}" Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding DurableStateSummary}" Style="{StaticResource Caption}"
+                                   TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <ItemsControl ItemsSource="{Binding DurableStateLines}" MaxHeight="160" Margin="0,0,0,10">
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Style="{StaticResource Caption}"
+                                               TextWrapping="Wrap" Margin="0,0,0,2"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="強制解除..." Command="{Binding ReleaseDurableStateCommand}"
+                                IsEnabled="{Binding HasDurableState}" Height="34"
+                                ToolTip="共有の廃止・付け替えのために未完了データを終端させます。回収できない実体は共有上に残ります。"/>
 
-                    <Separator Margin="0,16,0,14"/>
+                        <Separator Margin="0,16,0,14"/>
 
-                    <TextBlock Text="共有を追加" Style="{StaticResource H3}" Margin="0,0,0,12"/>
+                        <TextBlock Text="共有を追加" Style="{StaticResource H3}" Margin="0,0,0,12"/>
 
-                    <TextBlock Text="対象ホスト" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <ComboBox ItemsSource="{Binding Hosts}" SelectedValue="{Binding NewHostId}"
-                              SelectedValuePath="Id" DisplayMemberPath="Name" Margin="0,0,0,10"/>
+                        <TextBlock Text="対象ホスト" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <ComboBox ItemsSource="{Binding Hosts}" SelectedValue="{Binding NewHostId}"
+                                  SelectedValuePath="Id" DisplayMemberPath="Name" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="共有名 (SMBの共有名)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding NewShareName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+                        <TextBlock Text="共有名 (SMBの共有名)" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding NewShareName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="表示名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding NewDisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14"/>
+                        <TextBlock Text="表示名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding NewDisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14"/>
 
-                    <Button Content="＋ 作成" Style="{StaticResource PrimaryButton}" Command="{Binding CreateCommand}" Height="34"/>
+                        <Button Content="＋ 作成" Style="{StaticResource PrimaryButton}" Command="{Binding CreateCommand}" Height="34"/>
 
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
-                               TextWrapping="Wrap" Margin="0,12,0,0"/>
-                </StackPanel>
+                        <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
+                                   TextWrapping="Wrap" Margin="0,12,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
     </Grid>

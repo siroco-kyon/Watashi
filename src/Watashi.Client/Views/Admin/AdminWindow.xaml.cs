@@ -40,6 +40,7 @@ public partial class AdminWindow : Window
     {
         SourceInitialized -= OnSourceInitialized;
         _monitorWorkAreaHook = MonitorHelper.AttachWorkAreaHook(this);
+        MonitorHelper.FitInitialSizeToWorkArea(this);
     }
 
     private void OnClosed(object? sender, EventArgs e)

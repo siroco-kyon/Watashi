@@ -4,9 +4,9 @@
              xmlns:ctl="clr-namespace:Watashi.Client.Controls">
     <Grid Margin="14">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*" MinWidth="300"/>
             <ColumnDefinition Width="12"/>
-            <ColumnDefinition Width="380"/>
+            <ColumnDefinition Width="380" MinWidth="280"/>
         </Grid.ColumnDefinitions>
 
         <!-- List -->
@@ -51,47 +51,50 @@
                 <Border DockPanel.Dock="Top" Style="{StaticResource SectionHeader}" CornerRadius="6,6,0,0">
                     <TextBlock Text="ホスト情報" Style="{StaticResource H3}"/>
                 </Border>
-                <StackPanel Margin="16">
-                    <TextBlock Text="表示名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.Name="編集フォーム">
+                    <StackPanel Margin="16">
+                        <TextBlock Text="表示名" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="ホスト名 / IP" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding HostAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+                        <TextBlock Text="ホスト名 / IP" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding HostAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
 
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="ポート" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                        <TextBlock Grid.Row="0" Grid.Column="2" Text="実行ノード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding Port}"/>
-                        <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding Nodes}" SelectedValue="{Binding SelectedNodeId}"
-                                  SelectedValuePath="Id" DisplayMemberPath="Name"/>
-                    </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="ポート" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="実行ノード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding Port}"/>
+                            <ComboBox Grid.Row="1" Grid.Column="2" ItemsSource="{Binding Nodes}" SelectedValue="{Binding SelectedNodeId}"
+                                      SelectedValuePath="Id" DisplayMemberPath="Name"/>
+                        </Grid>
 
-                    <TextBlock Text="CIFSユーザー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding CredUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
+                        <TextBlock Text="CIFSユーザー" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding CredUser, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
 
-                    <TextBlock Text="CIFSパスワード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
-                    <ctl:PasswordRevealBox Password="{Binding CredPassword, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Margin="0,0,0,4"/>
-                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
-                               Text="編集時に空欄のままにすると、保存されているパスワードを保持します。"/>
+                        <TextBlock Text="CIFSパスワード" Style="{StaticResource Muted}" Margin="0,0,0,4"/>
+                        <ctl:PasswordRevealBox Password="{Binding CredPassword, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" Margin="0,0,0,4"/>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,14"
+                                   Text="編集時に空欄のままにすると、保存されているパスワードを保持します。"/>
 
-                    <StackPanel Orientation="Horizontal">
-                        <Button Content="＋ 新規作成" Style="{StaticResource PrimaryButton}" Command="{Binding CreateCommand}" Margin="0,0,6,0"/>
-                        <Button Content="保存" Command="{Binding SaveCommand}" Margin="0,0,6,0"/>
-                        <Button Content="クリア" Style="{StaticResource GhostButton}" Command="{Binding ClearFormCommand}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="＋ 新規作成" Style="{StaticResource PrimaryButton}" Command="{Binding CreateCommand}" Margin="0,0,6,0"/>
+                            <Button Content="保存" Command="{Binding SaveCommand}" Margin="0,0,6,0"/>
+                            <Button Content="クリア" Style="{StaticResource GhostButton}" Command="{Binding ClearFormCommand}"/>
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
+                                   TextWrapping="Wrap" Margin="0,12,0,0"/>
                     </StackPanel>
-
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="{Binding StatusMessage, Converter={StaticResource StatusBrush}}"
-                               TextWrapping="Wrap" Margin="0,12,0,0"/>
-                </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
     </Grid>

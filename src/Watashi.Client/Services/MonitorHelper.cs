@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 
 namespace Watashi.Client.Services;
 
@@ -41,6 +42,24 @@ internal static class MonitorHelper
     private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
     private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    // CenterOwner で開く管理画面を、所有者のモニターの表示倍率と作業領域に収める。
+    public static void FitInitialSizeToWorkArea(Window window)
+    {
+        var reference = window.Owner ?? window;
+        var monitor = MonitorFromWindow(new WindowInteropHelper(reference).Handle, MONITOR_DEFAULTTONEAREST);
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(monitor, ref info)) return;
+
+        var dpi = VisualTreeHelper.GetDpi(reference);
+        var size = MonitorWorkAreaMath.FitInitialSize(window.Width, window.Height,
+            info.rcWork.Right - info.rcWork.Left, info.rcWork.Bottom - info.rcWork.Top,
+            dpi.DpiScaleX, dpi.DpiScaleY);
+        window.MinWidth = Math.Min(window.MinWidth, size.Width);
+        window.MinHeight = Math.Min(window.MinHeight, size.Height);
+        window.Width = size.Width;
+        window.Height = size.Height;
+    }
 
     public static IDisposable AttachWorkAreaHook(Window window)
     {

@@ -4,9 +4,9 @@
              xmlns:ctl="clr-namespace:Watashi.Client.Controls">
     <Grid Margin="14">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*" MinWidth="300"/>
             <ColumnDefinition Width="12"/>
-            <ColumnDefinition Width="320"/>
+            <ColumnDefinition Width="320" MinWidth="280"/>
         </Grid.ColumnDefinitions>
 
         <!-- Users list -->

@@ -288,6 +288,21 @@ public sealed class ClientUiChangeTests
     }
 
     [Theory]
+    [InlineData(1220, 800, 1366, 728, 1, 1, 1220, 728)]
+    [InlineData(1220, 800, 1366, 720, 1.25, 1.25, 1092.8, 576)]
+    [InlineData(1220, 800, 1366, 720, 1.5, 1.5, 910.6666667, 480)]
+    [InlineData(760, 640, 1920, 1040, 2, 2, 760, 520)]
+    [InlineData(1220, 800, 2560, 1400, 1, 1, 1220, 800)]
+    public void Initial_window_size_fits_the_monitor_work_area_in_dips(
+        double width, double height, double workWidth, double workHeight,
+        double dpiX, double dpiY, double expectedWidth, double expectedHeight)
+    {
+        var result = MonitorWorkAreaMath.FitInitialSize(width, height, workWidth, workHeight, dpiX, dpiY);
+        result.Width.Should().BeApproximately(expectedWidth, 0.001);
+        result.Height.Should().BeApproximately(expectedHeight, 0.001);
+    }
+
+    [Theory]
     [InlineData(0, 0, 1920, 1080, 0, 0, 1920, 1040, 0, 0, 1920, 1040)]
     [InlineData(-1920, 0, 0, 1080, -1920, 0, 0, 1040, 0, 0, 1920, 1040)]
     [InlineData(0, 0, 1920, 1080, 48, 0, 1920, 1080, 48, 0, 1872, 1080)]
