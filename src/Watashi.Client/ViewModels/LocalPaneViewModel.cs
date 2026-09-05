@@ -22,12 +22,15 @@ public partial class LocalPaneViewModel : ObservableObject
     private DateTime _lastSettingsSave = DateTime.MinValue;
     private string _lastSuccessfulPath = string.Empty;
     private bool _initialized;
+    private bool _listingValid;
 
     // 取得した全件 (Parent を除く)。表示用 Entries はここからソート+絞り込みして作る。
     private readonly List<FileEntry> _all = new();
     private bool _hasParent;
 
-    public ObservableCollection<FileEntry> Entries { get; } = new();
+    public FileEntryCollection Entries { get; } = new();
+    public event Action<string>? SelectionRequested;
+    public string ListingSummary => $"{Entries.Count(x => x.Type != FileEntryTypes.Parent):N0} / {_all.Count:N0} 件を表示";
 
     [ObservableProperty] private string currentPath = string.Empty;
     [ObservableProperty] private FileEntry? selected;
@@ -44,7 +47,7 @@ public partial class LocalPaneViewModel : ObservableObject
 
     public bool IsFolderEmpty => string.IsNullOrWhiteSpace(FilterText) && _all.Count == 0;
     public bool IsCurrentListingAvailable =>
-        !IsBusy &&
+        !IsBusy && _listingValid &&
         !string.IsNullOrWhiteSpace(_lastSuccessfulPath) &&
         string.Equals(CurrentPath, _lastSuccessfulPath, StringComparison.OrdinalIgnoreCase);
     public bool UseRecycleBinForDeletes
@@ -172,7 +175,12 @@ public partial class LocalPaneViewModel : ObservableObject
             try { return Directory.GetParent(_lastSuccessfulPath); }
             catch { return null; }
         });
-        if (parent is not null) await NavigateAsync(parent.FullName);
+        var previousName = Path.GetFileName(_lastSuccessfulPath.TrimEnd(Path.DirectorySeparatorChar));
+        if (parent is not null)
+        {
+            await NavigateAsync(parent.FullName);
+            if (IsCurrentListingAvailable) SelectionRequested?.Invoke(previousName);
+        }
     }
 
     [RelayCommand]
@@ -192,6 +200,7 @@ public partial class LocalPaneViewModel : ObservableObject
         try
         {
             IsBusy = true;
+            _listingValid = false;
             var path = CurrentPath;
             var hasParent = await Task.Run(() =>
             {
@@ -208,6 +217,7 @@ public partial class LocalPaneViewModel : ObservableObject
             if (clearFilterOnSuccess) FilterText = string.Empty;
             ApplyView();
             _lastSuccessfulPath = path;
+            _listingValid = true;
             OnPropertyChanged(nameof(IsCurrentListingAvailable));
             StatusMessage = string.Empty;
             SaveLastPathThrottled(path);
@@ -237,13 +247,15 @@ public partial class LocalPaneViewModel : ObservableObject
     /// <summary>_all をクライアント側でソート (SortKey) + 絞り込み (FilterText) して Entries を作り直す。</summary>
     private void ApplyView()
     {
-        Entries.Clear();
+        var items = new List<FileEntry>();
         if (_hasParent)
-            Entries.Add(new FileEntry { Name = "..", Type = FileEntryTypes.Parent, CanGoUp = true });
+            items.Add(new FileEntry { Name = "..", Type = FileEntryTypes.Parent, CanGoUp = true });
         foreach (var e in FileEntrySort.Sort(_all, SortKey).Where(e => FileEntryFilter.Matches(e, FilterText)))
-            Entries.Add(e);
+            items.Add(e);
+        Entries.ReplaceAll(items, CurrentPath);
         OnPropertyChanged(nameof(HasNoFilterMatches));
         OnPropertyChanged(nameof(IsFolderEmpty));
+        OnPropertyChanged(nameof(ListingSummary));
     }
 
     /// <summary>列ヘッダクリックで昇順 ⇄ 降順を切り替える (ローカルはクライアント側ソート)。</summary>
@@ -288,6 +300,7 @@ public partial class LocalPaneViewModel : ObservableObject
         {
             await Task.Run(() => Directory.CreateDirectory(path));
             await RefreshAsync();
+            SelectionRequested?.Invoke(name);
         }
         catch (Exception ex) { StatusMessage = ex.Message; }
     }
@@ -322,6 +335,33 @@ public partial class LocalPaneViewModel : ObservableObject
         catch (Exception ex) { StatusMessage = ex.Message; }
     }
 
+    public async Task<IReadOnlyList<FileOperationOutcome>> DeleteEntriesAsync(
+        string basePath, IReadOnlyList<FileEntry> entries, bool recycle)
+    {
+        IsBusy = true;
+        try
+        {
+            return await BatchFileOperation.RunAsync(entries.Where(x => x.Type != FileEntryTypes.Parent), x => x.Name,
+                entry => Task.Run(() =>
+                {
+                    var full = Path.Combine(basePath, entry.Name);
+                    if (recycle)
+                    {
+                        if (entry.Type == FileEntryTypes.Directory)
+                            FileSystem.DeleteDirectory(full, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin, UICancelOption.ThrowException);
+                        else FileSystem.DeleteFile(full, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin, UICancelOption.ThrowException);
+                    }
+                    else if (entry.Type == FileEntryTypes.Directory) Directory.Delete(full, recursive: true);
+                    else File.Delete(full);
+                }));
+        }
+        finally
+        {
+            IsBusy = false;
+            if (string.Equals(basePath, CurrentPath, StringComparison.OrdinalIgnoreCase)) await RefreshAsync();
+        }
+    }
+
     /// <summary>
     /// 選択中アイテムをローカル上でリネーム。新しい名前は呼び出し側 (右クリックメニュー / F2)
     /// が PromptDialog 経由で取得して渡す想定。同フォルダ内の改名のみ受け付け、`/` `\` を含む
@@ -347,6 +387,7 @@ public partial class LocalPaneViewModel : ObservableObject
                 else File.Move(oldFull, newFull);
             });
             await RefreshAsync();
+            SelectionRequested?.Invoke(newName);
             StatusMessage = $"リネーム: {Selected?.Name ?? newName}";
         }
         catch (Exception ex) { StatusMessage = "リネーム失敗: " + ex.Message; }

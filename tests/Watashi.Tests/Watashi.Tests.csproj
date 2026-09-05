@@ -35,6 +35,9 @@
     <!-- WPF へ依存しないクライアント認証サービスを同じソースから回帰テストする。 -->
     <Compile Include="..\..\src\Watashi.Client\Services\ApiException.cs" Link="Client\ApiException.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\ApiClient.cs" Link="Client\ApiClient.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\MaintenanceMonitorService.cs" Link="Client\MaintenanceMonitorService.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\BatchFileOperation.cs" Link="Client\BatchFileOperation.cs" />
+    <Compile Include="..\..\src\Watashi.Client\Services\FileEntryCollection.cs" Link="Client\FileEntryCollection.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\AppSettings.cs" Link="Client\AppSettings.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\AtomicFileWriter.cs" Link="Client\AtomicFileWriter.cs" />
     <Compile Include="..\..\src\Watashi.Client\Services\Brand.cs" Link="Client\Brand.cs" />

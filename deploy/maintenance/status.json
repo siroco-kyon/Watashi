@@ -1,0 +1,9 @@
+{
+  "state": "normal",
+  "revision": 0,
+  "message": "初期配置用の案内です。運用状態は管理者へご確認ください。",
+  "startsAtUtc": null,
+  "expectedEndAtUtc": null,
+  "updatedAtUtc": "2026-09-05T00:00:00Z",
+  "isBlocking": false
+}

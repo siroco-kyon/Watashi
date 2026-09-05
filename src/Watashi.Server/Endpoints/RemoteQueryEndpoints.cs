@@ -10,7 +10,7 @@ namespace Watashi.Server.Endpoints;
 
 public static class RemoteQueryEndpoints
 {
-    private const int DefaultListPageSize = 200;
+    private const int DefaultListPageSize = 2000;
 
     public static IEndpointRouteBuilder MapRemoteQueryEndpoints(this IEndpointRouteBuilder app)
     {
@@ -53,7 +53,7 @@ public static class RemoteQueryEndpoints
                     return Results.Ok(cursors.GetListPage(cursorRead, DefaultListPageSize));
                 }
 
-                var pageSize = ValidateLimit(limit, DefaultListPageSize);
+                var pageSize = ValidateBounded(limit, DefaultListPageSize, RemoteQueryCursorStore.MaxListPageSize, "limit");
                 var listTimeoutSeconds = ValidateBounded(
                     timeoutSeconds,
                     RemoteSearchService.DefaultTimeoutSeconds,

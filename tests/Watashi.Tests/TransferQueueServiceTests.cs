@@ -6,7 +6,7 @@ using Watashi.Shared.DTOs.Files;
 
 namespace Watashi.Tests;
 
-public class TransferQueueServiceTests
+public partial class TransferQueueServiceTests
 {
     [Fact]
     public async Task Initialization_removes_expired_terminal_history_and_partial_files()
@@ -526,6 +526,7 @@ public class TransferQueueServiceTests
         public int InitialUploadOffset { get; init; }
         public int FailCreatesRemaining { get; set; }
         public HttpStatusCode FailCreateStatus { get; init; } = HttpStatusCode.ServiceUnavailable;
+        public string? FailCreateCode { get; init; }
         public int CreateCalls { get; private set; }
         public bool RemoteExists { get; init; }
         public byte[] DownloadBytes { get; init; } = Array.Empty<byte>();
@@ -533,8 +534,12 @@ public class TransferQueueServiceTests
         public bool CorruptDownloadBody { get; init; }
         public TaskCompletionSource? BlockUploads { get; init; }
         public TaskCompletionSource? BlockCancels { get; init; }
+        public TaskCompletionSource? BlockCompletes { get; init; }
+        public Func<Task>? AfterDownloadRange { get; set; }
         public bool ReturnMismatchedCancelSession { get; init; }
         public TaskCompletionSource UploadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource CompleteStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int CompleteCalls { get; private set; }
         public int CancelCalls { get; private set; }
         public CreateUploadSessionRequest? CreatedRequest { get; private set; }
         public List<long> UploadOffsets { get; } = new();
@@ -545,7 +550,7 @@ public class TransferQueueServiceTests
             CreateCalls++;
             CreatedRequest = request;
             if (FailCreatesRemaining-- > 0)
-                return Task.FromException<UploadSessionDto>(new ApiException(FailCreateStatus, "temporary"));
+                return Task.FromException<UploadSessionDto>(new ApiException(FailCreateStatus, "temporary", FailCreateCode));
             _offset = InitialUploadOffset;
             return Task.FromResult(Session("active"));
         }
@@ -563,8 +568,13 @@ public class TransferQueueServiceTests
             return Session("active");
         }
 
-        public Task<UploadSessionDto> CompleteUploadSessionAsync(Guid sessionId, CancellationToken ct = default)
-            => Task.FromResult(Session("completed"));
+        public async Task<UploadSessionDto> CompleteUploadSessionAsync(Guid sessionId, CancellationToken ct = default)
+        {
+            CompleteCalls++;
+            CompleteStarted.TrySetResult();
+            if (BlockCompletes is not null) await BlockCompletes.Task.WaitAsync(ct);
+            return Session("completed");
+        }
 
         public async Task<UploadSessionDto> CancelUploadSessionAsync(Guid sessionId, CancellationToken ct = default)
         {
@@ -585,6 +595,7 @@ public class TransferQueueServiceTests
                 Size = DownloadBytes.LongLength,
                 ETag = DownloadEtag,
                 Sha256 = Convert.ToHexString(SHA256.HashData(DownloadBytes)).ToLowerInvariant(),
+                ModifiedAtUtc = new DateTime(2026, 9, 1, 12, 0, 0, DateTimeKind.Utc),
             });
 
         public async Task DownloadRangeV2Async(
@@ -596,6 +607,7 @@ public class TransferQueueServiceTests
             var data = DownloadBytes.AsMemory((int)offset, length).ToArray();
             if (CorruptDownloadBody && data.Length > 0) data[0] ^= 0xff;
             await output.WriteAsync(data, ct);
+            if (AfterDownloadRange is not null) await AfterDownloadRange();
         }
 
         private UploadSessionDto Session(string status) => new()

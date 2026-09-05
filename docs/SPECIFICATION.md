@@ -344,7 +344,7 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 
 | 操作 | API | 補足 |
 |---|---|---|
-| 一覧 | `GET /api/files/incremental` | 安定 snapshot cursor + ソート。クライアントは許容上限の 500 件ずつ要求 |
+| 一覧 | `GET /api/files/incremental` | 安定 snapshot cursor + ソート。クライアントは許容上限の 2000 件ずつ要求 |
 | 横断検索 | `POST /api/files/search` | 全許可ルート、取消/走査件数/時間/結果上限付き。クライアント UI は現在非表示 |
 | ダウンロード | `GET /api/files/download` | ストリーミング |
 | アップロード | `POST /api/files/upload` | ストリーミング |
@@ -386,9 +386,9 @@ Windows 統合認証で認証された OS アカウント名と対象ユーザ�
 - **ヘッダー**: 鳥居ロゴ + Watashi、右上にユーザー名・プロトコル (HTTP/HTTPS)・月／太陽のテーマ切替・管理ボタン (管理者のみ)・更新・ログアウト・情報
 - **左ペイン (ローカル) 💻**: PC のフォルダ。📂 ボタンで Windows のフォルダ選択ダイアログ
 - **右ペイン (リモート) ⛩**: 中央サーバー経由の CIFS 共有。「場所」ドロップダウンで切替。ホバー時は現在選択中の表示名・ホスト・共有・許可ルートを全文表示
-- **一覧ページング**: 初回 500 件、残りがあるときだけ「さらに読み込む」で 500 件ずつ追加
+- **一覧ページング**: 初回 2000 件、残りがあるときだけ「さらに読み込む」で 2000 件ずつ追加
 - **一覧表示**: 名前 / 種類 (拡張子) / サイズ / 更新で昇順・降順ソート。フォルダーと 11 種類のファイル種別アイコンを表示
-- **ステータスバー**: 接続プロトコル ●、直近の操作/エラー (時刻 + 発生元)、ログイン中ユーザー、転送進捗 %
+- **ステータスバー**: 接続・メンテナンス状態、直近の操作/エラー (時刻 + 発生元)、ログイン中ユーザー
 
 ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneViewModel` / `TransferViewModel`。
 
@@ -408,7 +408,7 @@ ViewModel 構成: `MainViewModel` (統括) + `LocalPaneViewModel` / `RemotePaneV
 ### 7.4 右クリックメニュー
 
 開く/展開、アップロード/ダウンロード、リネーム (F2)、削除 (Del)、新規フォルダ、
-エクスプローラで表示 (ローカルのみ)、パスをコピー。
+エクスプローラで表示 (ローカルのみ)。パスのコピーはパス欄のCtrl+Cを使用。
 
 ### 7.5 ドラッグ&ドロップ (配布時に有効化されている場合のみ)
 
@@ -842,3 +842,23 @@ IIS リバースプロキシ構成は [deploy/IIS-HOSTING.md](../deploy/IIS-HOST
 | **deployment.json** | 配布時に管理者が固定する接続先・機能設定 (利用者変更不可) |
 | **ClickOnce** | クライアントの配布・自動更新の仕組み |
 | **mTLS** | Server↔Agent 間の双方向 TLS クライアント証明書認証 |
+
+## メンテナンス状態とUI拡張（2026-09-05）
+
+一覧APIは既定・上限2000件、旧Clientの500件要求も受理します。検索APIは上限500件のままです。新ClientはServer更新後に配布します。
+
+Ctrl+D（右→左）、Ctrl+U（左→右）、F6 / Shift+F6、Ctrl+L、Ctrl+F、Ctrl+Shift+N、絞り込み欄のEsc、F1を追加しました。ボタンと転送キーは共通の実行条件を使い、入力欄・IME変換中・長押しでは転送しません。F2は単一選択、複数削除は全件確認・部分結果表示、同一場所の再描画は選択・スクロールを保持します。転送センターは非モーダルで状態による絞り込みと詳細表示に対応します。
+
+| API | 認可と契約 |
+|---|---|
+| GET `/api/status` | 匿名。state、revision、message、startsAtUtc、expectedEndAtUtc、updatedAtUtc。no-store |
+| GET `/api/admin/maintenance` | Admin。上記状態、activeRequests、publishedRevision、publicationError、isConfigured |
+| PUT `/api/admin/maintenance` | Admin。expectedRevision、state、message（最大500文字）、任意の予定UTC日時。競合409、入力不正400、公開失敗503 |
+
+状態はnormal／scheduled／maintenance／recovering。scheduledは案内のみ。maintenanceとrecoveringは新しい業務APIを503 (`code: maintenance`, Retry-After: 15) で停止します。認証・内部Agent経路と状態取得／管理・最小限の運用診断は維持します。受付済み要求は完了でき、要求数は独立したAgent処理を含みません。通常への復帰にはrecovering、処理中要求0、運用診断の確認、設定済み公開先のHTTPS読み戻し、私的状態の永続化が必要です。
+
+`Maintenance:StateFilePath` はDB外の私的ファイル。`Maintenance:PublicStatusFilePath` と `Maintenance:PublicStatusUrl` は任意の外部配信用ペアです。Clientの `maintenanceStatusUrl` は配布時固定で再発行が必要です。DBスキーマ変更はありません。単一Serverプロセスで運用します。
+
+Clientは匿名で30秒ごとに状態を確認し、既知の停止をローカルキャッシュと永続キューに保持します。公開JSONのnormalだけでは待機を解除しません。APIの新しい状態と必須更新確認後にmaintenance_waitingのみを再開します。conflict_waitingは上書き・スキップ・別名の判断を待ちます。期限切れuploadは失敗として明示し、再試行で先頭から再送します。
+
+詳しい運用条件は[メンテナンス手順](../deploy/MAINTENANCE-ROLLOUT-PLAN.md)を参照してください。

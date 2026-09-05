@@ -1,0 +1,30 @@
+<Window x:Class="Watashi.Client.Views.MaintenanceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Watashi.Client.Controls"
+        Title="Watashi - メンテナンスのご案内" Width="660" Height="460" MinWidth="460" MinHeight="380"
+        WindowStartupLocation="CenterScreen" Icon="{StaticResource ToriiIcon}"
+        AutomationProperties.Name="メンテナンスのご案内">
+    <Grid Margin="24">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="Watashi" Style="{StaticResource H1}"/>
+            <TextBlock Text="利用再開までお待ちください" Style="{StaticResource H3}" Margin="0,8,0,0"/>
+        </StackPanel>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <controls:MaintenanceBanner/>
+                <TextBlock Text="状態は30秒ごとに確認します。終了予定を過ぎても、復旧確認が完了するまでは利用を保留します。"
+                           TextWrapping="Wrap" Margin="0,14,0,0"/>
+                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,10,0,0"
+                           Visibility="{Binding HasNotice, Converter={StaticResource BoolToVisInverted}}"/>
+            </StackPanel>
+        </ScrollViewer>
+        <WrapPanel Grid.Row="2" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="閉じる" IsCancel="True" Margin="0,0,8,4"/>
+            <Button Content="管理者ログインへ" Click="OnContinue" Margin="0,0,8,4"/>
+            <Button Content="ログインへ進む" Click="OnContinue" Style="{StaticResource PrimaryButton}"
+                    IsEnabled="{Binding IsBlocked, Converter={StaticResource NotBool}}" Margin="0,0,0,4"/>
+        </WrapPanel>
+    </Grid>
+</Window>

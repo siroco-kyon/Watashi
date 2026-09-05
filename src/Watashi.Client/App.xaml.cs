@@ -19,6 +19,8 @@ public partial class App : Application
     private ThemeService? _themeService;
     private SplashWindow? _splash;
     private SessionManager? _session;
+    public MaintenanceMonitorService Maintenance { get; private set; } = null!;
+    private bool _updateInProgress;
 
     /// <summary>
     /// スプラッシュを閉じる。ログイン画面などの対話 UI を出す直前と、起動を中断する各経路で呼ぶ。
@@ -78,15 +80,24 @@ public partial class App : Application
                 return;
             }
 
-            _splash.SetProgress(25, "更新を確認しています...");
+            Maintenance = new MaintenanceMonitorService(_settings, verifyVersion: async ct =>
+                (await StartupUpdateChecker.CheckAsync(_settings.UpdateManifestUrl, ct)).Outcome == StartupUpdateCheckOutcome.UpToDate);
+            await Maintenance.RefreshAsync();
+            Maintenance.Start();
+            if (Maintenance.IsBlocked)
+            {
+                CloseSplash();
+                if (new MaintenanceWindow(Maintenance).ShowDialog() != true) { Shutdown(); return; }
+            }
+            _splash?.SetProgress(25, "更新を確認しています...");
             if (await StopForPublishedUpdateAsync())
             {
                 CloseSplash();
                 return;
             }
 
-            _splash.SetProgress(60, "アプリケーションを初期化しています...");
-            Services = BuildServices(_settings, _themeService);
+            _splash?.SetProgress(60, "アプリケーションを初期化しています...");
+            Services = BuildServices(_settings, _themeService, Maintenance);
             _session = Services.GetRequiredService<SessionManager>();
             InputManager.Current.PreProcessInput += OnPreProcessInput;
             Services.GetRequiredService<ApiClient>().ConfigureBaseAddress();
@@ -103,6 +114,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        Maintenance?.Dispose();
         InputManager.Current.PreProcessInput -= OnPreProcessInput;
         _session = null;
         base.OnExit(e);
@@ -132,7 +144,7 @@ public partial class App : Application
                 "Watashi - 更新確認エラー",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            Shutdown();
+            if (MainWindow is not Watashi.Client.MainWindow) Shutdown();
             return true;
         }
 
@@ -145,6 +157,12 @@ public partial class App : Application
             MessageBoxButton.OK,
             MessageBoxImage.Information);
 
+        if (MainWindow is MainWindow main)
+        {
+            _updateInProgress = true;
+            main.Close();
+            await main.CleanupCompleted;
+        }
         if (!StartupUpdateChecker.LaunchUpdate(result.ManifestUri))
         {
             MessageBox.Show(
@@ -329,6 +347,7 @@ public partial class App : Application
     private void ShowMain()
     {
         var w = Services.GetRequiredService<MainWindow>();
+        w.AttachMaintenance(Maintenance);
         MainWindow = w;
         w.Closed += async (_, _) =>
         {
@@ -336,6 +355,7 @@ public partial class App : Application
             // 同じ利用者の次のMainWindowを生成する。
             await w.CleanupCompleted;
             if (ReferenceEquals(MainWindow, w)) MainWindow = null;
+            if (_updateInProgress) return;
             if (_logoutInProgress)
             {
                 _logoutInProgress = false;
@@ -414,11 +434,18 @@ public partial class App : Application
         }
     }
 
-    private static IServiceProvider BuildServices(AppSettings settings, ThemeService themeService)
+    public async Task CheckMaintenanceUpdateAsync()
+    {
+        if (!await StopForPublishedUpdateAsync()) await Maintenance.RefreshAsync();
+    }
+
+    private static IServiceProvider BuildServices(AppSettings settings, ThemeService themeService,
+        MaintenanceMonitorService maintenance)
     {
         var services = new ServiceCollection();
         services.AddSingleton(settings);
         services.AddSingleton(themeService);
+        services.AddSingleton(maintenance);
         services.AddSingleton<CredentialStore>();
         services.AddSingleton<SessionManager>();
         services.AddSingleton<LocalFileService>();

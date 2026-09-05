@@ -84,6 +84,11 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<OperationalDiagnosticsService>();
+builder.Services.AddSingleton<IMaintenancePublisher, MaintenanceFilePublisher>();
+builder.Services.AddSingleton<MaintenanceService>();
+builder.Services.AddHttpClient(MaintenanceFilePublisher.HttpClientName, client =>
+    { client.Timeout = TimeSpan.FromSeconds(10); client.MaxResponseContentBufferSize = 64 * 1024; })
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<UploadSessionService>();
 // APIは廃止済みだが、既存DB/SMBに残るごみ箱台帳を期限後に安全に回収するため
 // backend janitorだけは維持する。
@@ -255,6 +260,9 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// DB migrationより先にDB外のメンテナンス状態を読み込む。
+_ = app.Services.GetRequiredService<MaintenanceService>();
+
 var hasUsableAdmin = false;
 var hasUntouchedInitialAdmin = false;
 await using (var scope = app.Services.CreateAsyncScope())
@@ -333,6 +341,7 @@ app.UseAuthorization();
 // mcp claim 付き JWT を許可エンドポイント以外で 403 にする。
 // 必ず認証ミドルウェア後に呼ぶこと (User クレームを参照するため)。
 app.UseMiddleware<Watashi.Server.Auth.PasswordChangeRequiredMiddleware>();
+app.UseMiddleware<MaintenanceMiddleware>();
 
 // ブラウザで / を開いたときに 404 ではなく簡単な案内を返す。動作確認用。
 app.MapGet("/", () => Results.Ok(new
@@ -357,6 +366,7 @@ app.MapGet("/", () => Results.Ok(new
 }));
 
 app.MapHealthEndpoints();
+app.MapMaintenanceEndpoints();
 app.MapAuthEndpoints();
 // Windows SSO (/sso) は現在使用しない。ただし無効化は Auth:WindowsAuth:EnableSso=false と
 // クライアント側のログインボタン非表示で足りる。この登録ごと外すと初回パスワード設定に必要な

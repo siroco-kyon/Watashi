@@ -31,6 +31,7 @@ public partial class MainWindow : Window
         _session = session;
         DataContext = vm;
         InitializeDragDrop(settings);
+        InitializeUsability();
         Loaded += OnLoaded;
         Closed += OnClosed;
         SourceInitialized += OnSourceInitialized;
@@ -53,6 +54,7 @@ public partial class MainWindow : Window
         Loaded -= OnLoaded;
         // ローカルの UNC／切断済みドライブ探索が遅くても、独立して利用できる
         // 転送キューとリモートカタログを待たせない。
+        await EnsureMaintenanceReadyAsync();
         var localInitialization = _vm.Local.InitializeAsync();
         var transferInitialization = _vm.InitializeTransferQueueAsync();
         var remoteInitialization = _vm.Remote.LoadHostsAndLocationsAsync();
@@ -65,6 +67,7 @@ public partial class MainWindow : Window
     {
         try
         {
+            CloseTransferCenter();
             SourceInitialized -= OnSourceInitialized;
             _monitorWorkAreaHook?.Dispose();
             _monitorWorkAreaHook = null;
@@ -119,37 +122,11 @@ public partial class MainWindow : Window
         else if (window.RemoteHistoryChanged) _vm.Remote.ApplyUserPreferences();
     }
 
-    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0) return;
-
-        // Alt combinations are reported as Key.System by WPF, with the actual
-        // arrow key stored in SystemKey.
-        var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (key is not (Key.Left or Key.Right or Key.Up)) return;
-
-        var useRemotePane = RemotePane.IsKeyboardFocusWithin;
-        if (!useRemotePane && !LocalPane.IsKeyboardFocusWithin) return;
-
-        e.Handled = true;
-        if (useRemotePane)
-        {
-            if (key == Key.Left) _vm.Remote.GoBackCommand.Execute(null);
-            else if (key == Key.Right) _vm.Remote.GoForwardCommand.Execute(null);
-            else _vm.Remote.GoUpCommand.Execute(null);
-        }
-        else
-        {
-            if (key == Key.Left) _vm.Local.GoBackCommand.Execute(null);
-            else if (key == Key.Right) _vm.Local.GoForwardCommand.Execute(null);
-            else _vm.Local.GoUpCommand.Execute(null);
-        }
-    }
-
     private async void OnLogout(object sender, RoutedEventArgs e)
     {
         var ok = MessageBox.Show("ログアウトしますか？", "ログアウト", MessageBoxButton.OKCancel, MessageBoxImage.Question);
         if (ok != MessageBoxResult.OK) return;
+        CloseTransferCenter();
         var sp = ((App)Application.Current).Services;
         var session = sp.GetRequiredService<Services.SessionManager>();
         try
@@ -202,12 +179,6 @@ public partial class MainWindow : Window
         var window = ((App)Application.Current).Services
             .GetRequiredService<Views.TrustedDevicesWindow>();
         window.Owner = this;
-        window.ShowDialog();
-    }
-
-    private void OnOpenTransferCenter(object sender, RoutedEventArgs e)
-    {
-        var window = new Views.TransferCenterWindow(_vm.TransferQueue) { Owner = this };
         window.ShowDialog();
     }
 
@@ -347,6 +318,7 @@ public partial class MainWindow : Window
 
     private void OnLocalListKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.IsRepeat || Keyboard.Modifiers != ModifierKeys.None || _imeComposing) return;
         if (e.Key == Key.Enter) { e.Handled = true; _vm.Local.OpenSelectedCommand.Execute(null); }
         else if (e.Key == Key.Back) { e.Handled = true; _vm.Local.GoUpCommand.Execute(null); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnLocalDelete(sender, e); }
@@ -355,6 +327,7 @@ public partial class MainWindow : Window
 
     private void OnRemoteListKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.IsRepeat || Keyboard.Modifiers != ModifierKeys.None || _imeComposing) return;
         if (e.Key == Key.Enter) { e.Handled = true; _ = _vm.Remote.OpenSelectedAsync(); }
         else if (e.Key == Key.Back) { e.Handled = true; _vm.Remote.GoUpCommand.Execute(null); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnRemoteDelete(sender, e); }
@@ -363,60 +336,37 @@ public partial class MainWindow : Window
 
     private async void OnNewRemoteFolder(object sender, RoutedEventArgs e)
     {
+        if (!_vm.CanCreateRemoteFolder) return;
         if (_vm.Remote.SelectedLocation is null)
         {
             MessageBox.Show("先にリモート場所を選択してください。", "新規フォルダ", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+        _vm.FileOperationInProgress = true;
+        try
+        {
         var name = Views.PromptDialog.Show("リモートに作成する新しいフォルダ名:", "新規フォルダ", this);
         if (string.IsNullOrWhiteSpace(name)) return;
         await _vm.Remote.NewFolderAsync(name);
+        }
+        finally { _vm.FileOperationInProgress = false; }
     }
 
     private async void OnNewLocalFolder(object sender, RoutedEventArgs e)
     {
+        if (!_vm.CanCreateLocalFolder) return;
+        _vm.FileOperationInProgress = true;
+        try
+        {
         var name = Views.PromptDialog.Show("ローカルに作成する新しいフォルダ名:", "新規フォルダ", this);
         if (string.IsNullOrWhiteSpace(name)) return;
         await _vm.Local.NewFolderWithNameAsync(name);
+        }
+        finally { _vm.FileOperationInProgress = false; }
     }
 
-    private async void OnLocalDelete(object sender, RoutedEventArgs e)
-    {
-        var target = _vm.Local.Selected;
-        if (target is null || target.Type == FileEntryTypes.Parent)
-        {
-            _vm.Local.StatusMessage = "ローカルで削除するファイル/フォルダを選択してください。";
-            return;
-        }
-        var kind = target.Type == FileEntryTypes.Directory ? "フォルダ" : "ファイル";
-        var action = _vm.Local.UseRecycleBinForDeletes
-            ? "Windowsのごみ箱へ移動"
-            : "完全に削除";
-        var warning = _vm.Local.UseRecycleBinForDeletes
-            ? "ごみ箱から復元できます。"
-            : "この操作は元に戻せません。";
-        var ok = MessageBox.Show(
-            $"ローカルの{kind} \"{target.Name}\" を{action}しますか？\n{warning}",
-            "削除確認", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
-        if (ok != MessageBoxResult.OK) return;
-        await _vm.Local.DeleteSelectedAsync();
-    }
-
-    private async void OnRemoteDelete(object sender, RoutedEventArgs e)
-    {
-        var target = _vm.Remote.Selected;
-        if (target is null || target.Type == FileEntryTypes.Parent)
-        {
-            _vm.Remote.StatusMessage = "リモートで削除するファイル/フォルダを選択してください。";
-            return;
-        }
-        var kind = target.Type == FileEntryTypes.Directory ? "フォルダ" : "ファイル";
-        var ok = MessageBox.Show(
-            $"リモートの{kind} \"{target.Name}\" を完全に削除しますか？\nこの操作は元に戻せません。",
-            "削除確認", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
-        if (ok != MessageBoxResult.OK) return;
-        await _vm.Remote.DeleteSelectedAsync();
-    }
+    private async void OnLocalDelete(object sender, RoutedEventArgs e) => await DeleteSelectionAsync(false);
+    private async void OnRemoteDelete(object sender, RoutedEventArgs e) => await DeleteSelectionAsync(true);
 
     // ===== Context menu handlers =====
     // ContextMenu の MenuItem からも、ListView の KeyDown (F2 など) からも同じ入口に集約する。
@@ -425,13 +375,13 @@ public partial class MainWindow : Window
         => _vm.Local.OpenSelectedCommand.Execute(null);
 
     private void OnUpload(object sender, RoutedEventArgs e)
-        => _ = _vm.UploadManyAsync(SelectedEntries(LocalList));
+        => ExecuteTransfer(true);
 
     private void OnDownload(object sender, RoutedEventArgs e)
-        => _ = _vm.DownloadManyAsync(SelectedEntries(RemoteList));
+        => ExecuteTransfer(false);
 
     private void OnLocalContextUpload(object sender, RoutedEventArgs e)
-        => _ = _vm.UploadManyAsync(SelectedEntries(LocalList));
+        => ExecuteTransfer(true);
 
     /// <summary>ListView の複数選択を FileEntry のリストとして取り出す (".." は除外)。</summary>
     private static IReadOnlyList<Shared.DTOs.Files.FileEntry> SelectedEntries(ListView list)
@@ -441,25 +391,31 @@ public partial class MainWindow : Window
 
     private async void OnLocalContextRename(object sender, RoutedEventArgs e)
     {
+        if (!_vm.CanRenameLocalSelection) return;
         var target = _vm.Local.Selected;
         if (target is null || target.Type == FileEntryTypes.Parent)
         {
             _vm.Local.StatusMessage = "リネーム対象を選択してください。";
             return;
         }
+        _vm.FileOperationInProgress = true;
+        try
+        {
         var newName = Views.PromptDialog.Show(
             $"\"{target.Name}\" の新しい名前:",
             target.Name,
             this);
         if (newName is null) return;
         await _vm.Local.RenameSelectedAsync(newName);
+        }
+        finally { _vm.FileOperationInProgress = false; }
     }
 
     private void OnRemoteContextOpen(object sender, RoutedEventArgs e)
         => _ = _vm.Remote.OpenSelectedAsync();
 
     private void OnRemoteContextDownload(object sender, RoutedEventArgs e)
-        => _ = _vm.DownloadManyAsync(SelectedEntries(RemoteList));
+        => ExecuteTransfer(false);
 
     /* リモートコピー機能は廃止。
     private async void OnRemoteContextCopy(object sender, RoutedEventArgs e)
@@ -488,17 +444,23 @@ public partial class MainWindow : Window
 
     private async void OnRemoteContextRename(object sender, RoutedEventArgs e)
     {
+        if (!_vm.CanRenameRemoteSelection) return;
         var target = _vm.Remote.Selected;
         if (target is null || target.Type == FileEntryTypes.Parent)
         {
             _vm.Remote.StatusMessage = "リネーム対象を選択してください。";
             return;
         }
+        _vm.FileOperationInProgress = true;
+        try
+        {
         var newName = Views.PromptDialog.Show(
             $"\"{target.Name}\" の新しい名前:",
             target.Name,
             this);
         if (newName is null) return;
         await _vm.Remote.RenameSelectedAsync(newName);
+        }
+        finally { _vm.FileOperationInProgress = false; }
     }
 }

@@ -1437,16 +1437,16 @@
         <tr><td>親フォルダへ</td><td><kbd>Backspace</kbd> または <code>..</code></td><td>許可された一番上のフォルダではグレー表示になり、それ以上は上がれない</td></tr>
         <tr><td>戻る / 進む / 上へ</td><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd> / <kbd>↑</kbd></td><td>—</td></tr>
         <tr><td>両ペインを更新</td><td><kbd>F5</kbd></td><td>—</td></tr>
-        <tr><td>削除</td><td><kbd>Delete</kbd> / 削除ボタン</td><td>確認ダイアログあり。フォルダは中身ごと削除される</td></tr>
+        <tr><td>削除</td><td><kbd>Delete</kbd> / 操作メニュー</td><td>確認ダイアログあり。フォルダは中身ごと削除される</td></tr>
         <tr><td>名前の変更</td><td><kbd>F2</kbd> / 右クリック</td><td>同じフォルダ内のみ。<code>/</code> <code>\</code> は使えない</td></tr>
-        <tr><td>新規フォルダ</td><td>ツールバー / 右クリック</td><td>名前入力ダイアログが開く</td></tr>
+        <tr><td>新規フォルダ</td><td>操作メニュー / 右クリック</td><td>名前入力ダイアログが開く</td></tr>
         <tr><td>パスを直接指定して移動</td><td>パス欄に入力して <kbd>Enter</kbd></td><td>両ペインとも可能</td></tr>
         <tr><td>絞り込み</td><td>各ペインの検索ボックス</td><td>クリアボタンあり。該当なしの場合は案内文を表示</td></tr>
         <tr><td>複数選択して一括転送</td><td><kbd>Ctrl</kbd> / <kbd>Shift</kbd> + クリック</td><td>—</td></tr>
       </tbody>
     </table>
 
-    <p>右クリックメニューからは、開く / 展開、アップロード・ダウンロード、名前の変更、削除、新規フォルダ、エクスプローラーで表示 (ローカルのみ)、パスのコピーが行えます。</p>
+    <p>右クリックメニューからは、開く / 展開、アップロード・ダウンロード、名前の変更、削除、新規フォルダ、エクスプローラーで表示 (ローカルのみ) が行えます。パスはパス欄のCtrl+Cでコピーします。</p>
 
     <h3>12.4 ドラッグ &amp; ドロップ</h3>
     <p>配布時に有効化されている場合のみ利用できます (§7.3)。</p>
@@ -1461,7 +1461,7 @@
       <li>長いファイル名・パス・ホスト名は省略表示し、マウスを乗せると全文をツールチップ表示する</li>
       <li>「利用者が 0 件」「許可されたフォルダが 0 件」「表示できる場所が無い」「絞り込みに一致しない」の各状態に、それぞれ専用の案内文を出す</li>
       <li>一覧は仮想化されており、大量の項目でもスクロールが重くならない</li>
-      <li>転送中は進捗率・速度・推定残り時間を表示する。永続キューへ追加でき、転送センターで一時停止・再開・取消・失敗項目の再試行を行える</li>
+      <li>転送中は進捗率・速度・推定残り時間を表示する。永続キューへ追加でき、転送センターで待機状態の確認・再開・取消・失敗項目の再試行を行える</li>
       <li>パスワード入力欄には目のアイコンがあり、入力内容を一時的に平文表示できる (ログイン・パスワード変更・管理画面の各欄)</li>
       <li>管理者でない利用者には管理ボタン自体が表示されない</li>
     </ul>
@@ -1473,7 +1473,7 @@
     <table>
       <thead><tr><th style="width:150px">操作</th><th style="width:200px">必要な権限</th><th>仕様</th></tr></thead>
       <tbody>
-        <tr><td>一覧表示</td><td>READ</td><td>増分 500 件。名前 / 種類 (拡張子) / 日付 / サイズで昇順・降順の並べ替え</td></tr>
+        <tr><td>一覧表示</td><td>READ</td><td>増分 2000 件。名前 / 種類 (拡張子) / 日付 / サイズで昇順・降順の並べ替え</td></tr>
         <tr><td>ダウンロード</td><td>READ</td><td>ストリーミング。フォルダを選ぶと配下ごと再帰的に取得する</td></tr>
         <tr><td>アップロード</td><td>WRITE</td><td>ストリーミング。フォルダを選ぶと構造を保ったまま再帰的に送る</td></tr>
         <tr><td>削除</td><td>DELETE</td><td>確認ダイアログあり。フォルダは配下を再帰的に削除する</td></tr>
@@ -1637,7 +1637,7 @@
       <thead><tr><th style="width:80px">Method</th><th style="width:250px">Path</th><th>用途</th><th style="width:150px">必要な権限</th></tr></thead>
       <tbody>
         <tr><td><span class="m get">GET</span></td><td><code>/api/files</code></td><td>旧互換一覧 (200 件/ページ、並べ替え対応)</td><td>READ</td></tr>
-        <tr><td><span class="m get">GET</span></td><td><code>/api/files/incremental</code></td><td>現行クライアントの増分一覧 (500 件 + snapshot cursor)</td><td>READ</td></tr>
+        <tr><td><span class="m get">GET</span></td><td><code>/api/files/incremental</code></td><td>現行クライアントの増分一覧 (2000 件 + snapshot cursor)</td><td>READ</td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/files/search</code></td><td>権限内横断検索 (API のみ、クライアント UI は非表示)</td><td>READ</td></tr>
         <tr><td><span class="m get">GET</span></td><td><code>/api/files/download</code></td><td>ダウンロード (ストリーミング)</td><td>READ</td></tr>
         <tr><td><span class="m post">POST</span></td><td><code>/api/files/upload</code></td><td>アップロード (ストリーミング)</td><td>WRITE</td></tr>
@@ -2191,7 +2191,7 @@
     <table class="sm">
       <thead><tr><th style="width:280px">項目</th><th style="width:170px">値</th><th>備考</th></tr></thead>
       <tbody>
-        <tr><td>現行クライアントの増分一覧</td><td>500 件 / 要求</td><td>短期 snapshot cursor。並べ替えはサーバー側</td></tr>
+        <tr><td>現行クライアントの増分一覧</td><td>2000 件 / 要求</td><td>短期 snapshot cursor。並べ替えはサーバー側</td></tr>
         <tr><td>監査ログのページサイズ</td><td>100 件</td><td>新しい順</td></tr>
         <tr><td>転送チャンク</td><td>最大 8 MiB</td><td>チャンク SHA-256 と全体 SHA-256 を検証</td></tr>
         <tr><td>ファイルサイズの上限</td><td>既定 10 TiB</td><td><code>TransferV2:MaxFileBytes</code> で変更可</td></tr>
@@ -2270,6 +2270,32 @@
     </table>
 
 
+      <section id="usability-maintenance">
+        <h2>操作とメンテナンス表示（2026-09-05）</h2>
+        <table><thead><tr><th>キー</th><th>動作</th></tr></thead><tbody>
+          <tr><td>Ctrl+D / Ctrl+U</td><td>右の選択→左へダウンロード／左の選択→右へアップロード</td></tr>
+          <tr><td>F6 / Shift+F6</td><td>左右の一覧を切替</td></tr>
+          <tr><td>Ctrl+L / Ctrl+F</td><td>操作中ペインのパス欄／絞り込み欄へ</td></tr>
+          <tr><td>Ctrl+Shift+N</td><td>新規フォルダー</td></tr>
+          <tr><td>Esc（絞り込み欄）/ F1</td><td>絞り込み解除して一覧へ／操作案内</td></tr>
+        </tbody></table>
+        <p>転送方向は操作中ペインで変わりません。入力欄・IME変換中・長押しでは転送キーを実行しません。対象なし・権限なし・一覧読込中・メンテナンス中も実行しません。選択件数と転送先を確認してください。F2は単一選択。Deleteは複数選択の全対象を確認し、キャンセルが初期選択です。部分失敗は項目ごとに表示します。</p>
+        <p>リモート一覧は初回・追加とも<strong>2000件</strong>。絞り込みは読み込み済みだけが対象で、全体検索ではありません。同じ場所の再表示では選択・スクロールを保持します。リモートごみ箱はありません。</p>
+        <p>転送センターはメイン画面と同時に操作できます。「すべて／実行中・待機／要対応／完了・中止」で絞り込み、転送元・先、サイズ、日時、再試行時刻、エラーを確認します。競合待ちでは内容を確認して上書き・スキップ・別名を選びます。</p>
+        <p>メンテナンス予定・作業中・復旧確認中は起動時や画面上部に案内文、予定時刻、最終確認を表示し、30秒ごとに確認します。作業中はリモート操作を停止し、転送をメンテナンス待機として保持します。Serverの再開と必須更新確認後にその待機分だけを再開します。取得不能時も既知の待機は解除しません。設定済みの案内ページは画面から開けます。ClickOnceの起動前更新で止まった場合は事前に案内された状態ページを開いてください。</p>
+      </section>
+
+
+      <section id="maintenance-operations">
+        <h2>メンテナンスの切替と配置（2026-09-05）</h2>
+        <p>管理画面「運用状態」で案内文（最大500文字）と開始・終了予定（端末のローカル日時）を入力し、予定／メンテナンス中／復旧確認中／通常を切り替えます。時刻は案内用で、自動停止・自動解除はありません。</p>
+        <p>作業中は新しい業務APIを停止し、受付済みHTTP要求は完了させます。認証、状態管理、最小限の運用診断、Agent内部経路は維持します。管理者のファイル操作も停止対象です。解除には復旧確認中・処理中要求0・運用診断の確認が必要です。要求数には独立したAgent処理や後片付けを含まないため、それらも停止前に確認します。</p>
+        <p>Serverの <code>Maintenance:StateFilePath</code> はDB外の私的ファイルで、既定はProgramDataのWatashi配下のmaintenance-state.jsonです。再起動・DB復元でも停止を保持し、Web公開しません。単一Serverプロセスで運用します。</p>
+        <p>外部案内を使う場合は <code>Maintenance:PublicStatusFilePath</code> と <code>Maintenance:PublicStatusUrl</code>（HTTPS）を両方設定します。Clientは <code>deployment.json</code> の <code>maintenanceStatusUrl</code> を設定してClickOnce再発行します。外部配信なしでもAPI内の切替は使用できます。公開は書き込みとHTTPS読み戻しを確認し、失敗時は状態を再取得してから再実行します。解除を先行しません。</p>
+        <p>同梱の <code>Install-StatusAssets.ps1</code> と <code>Publish-MaintenanceState.ps1</code>、<a href="../../deploy/MAINTENANCE-ROLLOUT-PLAN.md">導入・更新・復旧・切り戻し手順</a>を参照してください。独立した静的サイト、IIS・DNS・証明書・ACLは環境に合わせて設定します。API停止時も案内できる停止範囲に分離してください。Serverを先に更新してから2000件対応Clientを配布します。</p>
+      </section>
+<p>状態API: GET /api/status（匿名）、GET/PUT /api/admin/maintenance（Admin）。PUTはexpectedRevisionで競合を検出（409）。公開失敗は503。業務停止は503とcode: maintenance、Retry-After: 15。検索APIの上限500件は変更しません。DBスキーマ変更はありません。</p>
+
   </div>
 
   <button class="printbtn" onclick="window.print()">🖨 印刷 / PDF 保存</button>
@@ -2277,6 +2303,7 @@
   <footer>
     Watashi 統合仕様書 — 社内利用を想定した実装です。本番投入前に §18 のチェックリストを完了させてください。
   </footer>
+
 
 </body>
 </html>

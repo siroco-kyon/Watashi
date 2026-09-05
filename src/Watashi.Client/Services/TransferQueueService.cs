@@ -56,6 +56,10 @@ public sealed class TransferQueueService : IAsyncDisposable
     private bool _initialized;
     private bool _disposing;
     private bool _disposed;
+    private volatile bool _maintenanceBlocked;
+    private bool _maintenanceStateKnown;
+
+    public bool IsMaintenanceBlocked => _maintenanceBlocked;
 
     public event Action<IReadOnlyList<TransferJobRecord>>? QueueChanged;
     public event Action<string>? QueueError;
@@ -94,9 +98,16 @@ public sealed class TransferQueueService : IAsyncDisposable
                 try
                 {
                     _jobs.AddRange(await _store.LoadAsync(ct));
+                    if (!_maintenanceStateKnown && _jobs.Any(job => job.State == TransferJobStates.MaintenanceWaiting))
+                        _maintenanceBlocked = true;
+                    var requiresMaintenanceSave = _jobs.Any(job => job.State == TransferJobStates.MaintenanceWaiting ||
+                        (_maintenanceBlocked && job.State is TransferJobStates.Queued or TransferJobStates.RetryWaiting));
+                    ApplyMaintenanceLocked();
+                    if (requiresMaintenanceSave) await _store.SaveAsync(_jobs, ct);
                 }
                 catch
                 {
+                    _jobs.Clear();
                     _exclusiveLease.Dispose();
                     _exclusiveLease = null;
                     throw;
@@ -120,6 +131,68 @@ public sealed class TransferQueueService : IAsyncDisposable
         await _mutex.WaitAsync(ct);
         try { return SnapshotLocked(); }
         finally { _mutex.Release(); }
+    }
+
+    /// <summary>進行中の要求は中断せず、確定済みチャンクを保存した境界で保留する。</summary>
+    public async Task SetMaintenanceAsync(bool blocked, CancellationToken ct = default)
+    {
+        QueuePublication publication;
+        await _mutex.WaitAsync(ct);
+        try
+        {
+            ThrowIfDisposed();
+            var before = CloneAllLocked();
+            _maintenanceStateKnown = true;
+            _maintenanceBlocked = blocked;
+            ApplyMaintenanceLocked();
+            try
+            {
+                if (_initialized) await SaveOrRollbackLockedAsync(before, ct);
+            }
+            catch
+            {
+                // 保存できない場合に復旧を宣言してpumpを開けない。
+                _maintenanceBlocked = true;
+                throw;
+            }
+            publication = CapturePublicationLocked();
+        }
+        finally { _mutex.Release(); }
+        Publish(publication);
+        if (!blocked)
+        {
+            foreach (var retry in publication.Jobs.Where(job => job.State == TransferJobStates.RetryWaiting))
+                ScheduleRetryWake(retry.NextAttemptAtUtc);
+            SignalPump();
+        }
+    }
+
+    private void ApplyMaintenanceLocked()
+    {
+        foreach (var job in _jobs)
+        {
+            if (_maintenanceBlocked && job.State is TransferJobStates.Queued or TransferJobStates.RetryWaiting)
+            {
+                job.MaintenanceResumeState = job.State;
+                job.State = TransferJobStates.MaintenanceWaiting;
+                job.LastError = "メンテナンス終了の確認を待っています。転送の途中データは保持しています。";
+            }
+            else if (!_maintenanceBlocked && job.State == TransferJobStates.MaintenanceWaiting)
+            {
+                job.State = job.MaintenanceResumeState == TransferJobStates.RetryWaiting
+                    ? TransferJobStates.RetryWaiting : TransferJobStates.Queued;
+                job.MaintenanceResumeState = null;
+                job.LastError = null;
+            }
+            else if (job.State == TransferJobStates.Running)
+                job.MaintenanceResumeState = _maintenanceBlocked ? TransferJobStates.Queued : null;
+        }
+    }
+
+    private void CheckMaintenanceBoundary(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (_maintenanceBlocked) throw new MaintenanceHoldException();
     }
 
     public async Task<string> EnqueueUploadAsync(
@@ -234,8 +307,9 @@ public sealed class TransferQueueService : IAsyncDisposable
         await _mutex.WaitAsync(ct);
         try
         {
+            if (_maintenanceBlocked) throw new InvalidOperationException("メンテナンス中は競合の再試行を開始できません。");
             var job = _jobs.FirstOrDefault(j => IdEquals(j, jobId) &&
-                j.State is TransferJobStates.Failed or TransferJobStates.Canceled or TransferJobStates.Paused &&
+                j.State == TransferJobStates.ConflictWaiting &&
                 !_active.ContainsKey(j.Id));
             if (job is null) return;
             selected = Clone(job);
@@ -255,7 +329,10 @@ public sealed class TransferQueueService : IAsyncDisposable
             if (!IsCanceledUploadSession(response.Status))
                 throw new IOException($"サーバー側の一時転送を中止できませんでした ({response.Status})。");
         }
-        await MutateAsync(job => IdEquals(job, jobId), job =>
+        await MutateAsync(job => IdEquals(job, jobId) &&
+            job.State == TransferJobStates.ConflictWaiting &&
+            job.ServerSessionGeneration == selected.ServerSessionGeneration &&
+            job.ServerSessionId == selected.ServerSessionId, job =>
         {
             job.ConflictPolicy = conflictPolicy;
             job.ServerSessionId = null;
@@ -263,6 +340,8 @@ public sealed class TransferQueueService : IAsyncDisposable
             job.BytesTransferred = 0;
             job.State = TransferJobStates.Queued;
             job.LastError = null;
+            job.ConflictDestinationSize = null;
+            job.ConflictDestinationModifiedUtc = null;
         }, signal: true, ct);
     }
 
@@ -497,6 +576,7 @@ public sealed class TransferQueueService : IAsyncDisposable
         try
         {
             EnsureInitialized();
+            if (_maintenanceBlocked) throw new InvalidOperationException("メンテナンス中は転送を追加できません。");
             if (jobs.Any(job => _jobs.Any(existing => IdEquals(existing, job.Id))))
                 throw new InvalidOperationException("転送IDが重複しています。");
             var before = CloneAllLocked();
@@ -523,7 +603,7 @@ public sealed class TransferQueueService : IAsyncDisposable
                     await _mutex.WaitAsync(_lifetime.Token);
                     try
                     {
-                        if (_active.Count >= _maxConcurrent) break;
+                        if (_maintenanceBlocked || _active.Count >= _maxConcurrent) break;
                         var activeResourceKeys = _activeResourceKeys.Values
                             .SelectMany(keys => keys)
                             .Concat(_jobs.Where(j => j.State == TransferJobStates.Canceling).Select(ResourceKey))
@@ -601,51 +681,123 @@ public sealed class TransferQueueService : IAsyncDisposable
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            var state = _lifetime.IsCancellationRequested ? TransferJobStates.Paused : TransferJobStates.Canceled;
-            var reason = state == TransferJobStates.Paused
-                ? "アプリ終了のため一時停止しました。"
-                : "利用者が転送をキャンセルしました。";
-            if (state == TransferJobStates.Canceled)
+            await HandleCancellationAsync(jobId);
+        }
+        catch (Exception ex) when (ex is MaintenanceHoldException ||
+                                   ex is ApiException { StatusCode: HttpStatusCode.ServiceUnavailable, ErrorCode: "maintenance" })
+        {
+            if (ex is ApiException)
             {
-                var cancelResult = await CancelRemoteSessionBestEffortAsync(jobId);
-                if (cancelResult == RemoteCancelResult.Completed)
-                {
-                    state = TransferJobStates.Completed;
-                    reason = null;
-                }
-                else if (cancelResult == RemoteCancelResult.Uncertain)
-                {
-                    state = TransferJobStates.Paused;
-                    reason = "サーバー側の中止結果を確認できませんでした。再試行または再度中止してください。";
-                }
+                try { await SetMaintenanceAsync(true); }
+                catch (Exception saveError) { PublishError("メンテナンスの保留状態を保存できませんでした: " + saveError.Message); }
             }
-            await PersistTerminalSafelyAsync(jobId, state, reason);
+            if (linked.IsCancellationRequested)
+                await HandleCancellationAsync(jobId);
+            else
+                await HoldForMaintenanceAsync(jobId);
+        }
+        catch (TransferConflictException ex)
+        {
+            if (linked.IsCancellationRequested) await HandleCancellationAsync(jobId);
+            else await PersistTerminalSafelyAsync(jobId, TransferJobStates.ConflictWaiting, ex.Message);
         }
         catch (Exception ex)
         {
-            if (!await ScheduleAutomaticRetrySafelyAsync(jobId, ex))
+            if (linked.IsCancellationRequested) await HandleCancellationAsync(jobId);
+            else if (!await ScheduleAutomaticRetrySafelyAsync(jobId, ex))
                 await PersistTerminalSafelyAsync(jobId, TransferJobStates.Failed, FriendlyError(ex));
         }
         finally
         {
+            bool cancelPending;
             await _mutex.WaitAsync();
             try
             {
                 if (_active.Remove(jobId, out var cts)) cts.Dispose();
                 _activeResourceKeys.Remove(jobId);
+                cancelPending = _jobs.Any(job => IdEquals(job, jobId) && job.State == TransferJobStates.Canceling);
             }
             finally { _mutex.Release(); }
+            if (cancelPending) await HandleCancellationAsync(jobId);
             SignalPump();
+        }
+    }
+
+    private async Task HandleCancellationAsync(string jobId)
+    {
+        if (_lifetime.IsCancellationRequested && _maintenanceBlocked &&
+            (await FindSnapshotAsync(jobId, CancellationToken.None))?.State == TransferJobStates.Running)
+        {
+            await HoldForMaintenanceAsync(jobId);
+            return;
+        }
+        var state = _lifetime.IsCancellationRequested ? TransferJobStates.Paused : TransferJobStates.Canceled;
+        var reason = state == TransferJobStates.Paused
+            ? "アプリ終了のため一時停止しました。"
+            : "利用者が転送をキャンセルしました。";
+        if (state == TransferJobStates.Canceled)
+        {
+            var cancelResult = await CancelRemoteSessionBestEffortAsync(jobId);
+            if (cancelResult == RemoteCancelResult.Completed)
+            {
+                state = TransferJobStates.Completed;
+                reason = null;
+            }
+            else if (cancelResult == RemoteCancelResult.Uncertain)
+            {
+                state = TransferJobStates.Paused;
+                reason = "サーバー側の中止結果を確認できませんでした。再度中止してください。";
+            }
+        }
+        await PersistTerminalSafelyAsync(jobId, state, reason);
+    }
+
+    private async Task HoldForMaintenanceAsync(string jobId)
+    {
+        try
+        {
+            await MutateAsync(job => IdEquals(job, jobId) && job.State == TransferJobStates.Running, job =>
+            {
+                job.AttemptCount = Math.Max(0, job.AttemptCount - 1);
+                job.State = _maintenanceBlocked ? TransferJobStates.MaintenanceWaiting : TransferJobStates.Queued;
+                job.MaintenanceResumeState = _maintenanceBlocked ? TransferJobStates.Queued : null;
+                job.LastError = _maintenanceBlocked ? "メンテナンス終了の確認を待っています。途中から再開します。" : null;
+                job.NextAttemptAtUtc = null;
+            }, signal: true, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            await PersistTerminalSafelyAsync(jobId, TransferJobStates.Paused,
+                "メンテナンスの保留状態を保存できませんでした。復旧後に再開してください: " + ex.Message);
         }
     }
 
     private async Task<string> ProcessAsync(string jobId, CancellationToken ct)
     {
+        CheckMaintenanceBoundary(ct);
         var job = await FindSnapshotAsync(jobId, ct)
             ?? throw new InvalidOperationException("転送ジョブが見つかりません。");
-        return job.Direction == TransferDirections.Upload
-            ? await ProcessUploadAsync(job, ct)
-            : await ProcessDownloadAsync(job, ct);
+        try
+        {
+            return job.Direction == TransferDirections.Upload
+                ? await ProcessUploadAsync(job, ct)
+                : await ProcessDownloadAsync(job, ct);
+        }
+        catch (ApiException ex) when (job.Direction == TransferDirections.Upload &&
+            ex.StatusCode == HttpStatusCode.Conflict && ex.ErrorCode is "target_exists" or "target_conflict")
+        {
+            // Only a confirmed destination-name conflict exposes overwrite. Other 409s
+            // (offset, checksum, session identity) remain ordinary failures.
+            var current = await FindSnapshotAsync(jobId, ct) ?? job;
+            var metadata = await _protocol.GetDownloadMetadataV2Async(current.HostId, current.ShareId, current.RemotePath, ct);
+            if (!metadata.Exists || metadata.Type != "file") throw;
+            await UpdateAsync(jobId, item =>
+            {
+                item.ConflictDestinationSize = metadata.Size;
+                item.ConflictDestinationModifiedUtc = metadata.ModifiedAtUtc;
+            }, ct);
+            throw new TransferConflictException("転送先に同名ファイルが作成されました。上書き・スキップ・別名を選択してください。");
+        }
     }
 
     private async Task<string> ProcessUploadAsync(TransferJobRecord job, CancellationToken ct)
@@ -666,6 +818,7 @@ public sealed class TransferQueueService : IAsyncDisposable
             await UpdateAsync(job.Id, current => current.ContentSha256 = sha, ct);
             job.ContentSha256 = sha;
         }
+        CheckMaintenanceBoundary(ct);
 
         Guid sessionId;
         UploadSessionDto session;
@@ -674,27 +827,19 @@ public sealed class TransferQueueService : IAsyncDisposable
             try { session = await _protocol.GetUploadSessionAsync(sessionId, ct); }
             catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
-                session = await CreateUploadSessionAsync(job, ct);
-                sessionId = session.SessionId;
+                await InvalidateUploadSessionAsync(job.Id, ct);
+                throw new IOException("アップロードセッションが期限切れまたは削除済みのため途中再開できません。再試行すると先頭から再送します。", ex);
             }
             if (!UploadSessionMatches(job, session, sessionId))
             {
-                await UpdateAsync(job.Id, current =>
-                {
-                    current.ServerSessionId = null;
-                    current.ServerSessionGeneration++;
-                    current.BytesTransferred = 0;
-                }, ct);
-                job.ServerSessionId = null;
-                job.ServerSessionGeneration++;
-                job.BytesTransferred = 0;
-                session = await CreateUploadSessionAsync(job, ct);
-                sessionId = session.SessionId;
+                await InvalidateUploadSessionAsync(job.Id, ct);
+                throw new IOException("保存されたアップロードセッションとサーバーの情報が一致しません。再試行すると新しいセッションで先頭から再送します。");
             }
         }
         else
         {
             var metadata = await _protocol.GetDownloadMetadataV2Async(job.HostId, job.ShareId, job.RemotePath, ct);
+            CheckMaintenanceBoundary(ct);
             if (metadata.Exists)
             {
                 if (metadata.Type != "file")
@@ -702,7 +847,14 @@ public sealed class TransferQueueService : IAsyncDisposable
                 if (job.ConflictPolicy == TransferConflictPolicies.Skip)
                     return TransferJobStates.Skipped;
                 if (job.ConflictPolicy == TransferConflictPolicies.Ask)
+                {
+                    await UpdateAsync(job.Id, current =>
+                    {
+                        current.ConflictDestinationSize = metadata.Size;
+                        current.ConflictDestinationModifiedUtc = metadata.ModifiedAtUtc;
+                    }, ct);
                     throw new TransferConflictException("リモートに同名ファイルがあります。上書き・スキップ・別名を選択してください。");
+                }
                 if (job.ConflictPolicy == TransferConflictPolicies.Rename)
                 {
                     job.RemotePath = await FindAvailableRemotePathAsync(job, ct);
@@ -717,17 +869,8 @@ public sealed class TransferQueueService : IAsyncDisposable
             return TransferJobStates.Completed;
         if (!session.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
         {
-            await UpdateAsync(job.Id, current =>
-            {
-                current.ServerSessionId = null;
-                current.ServerSessionGeneration++;
-                current.BytesTransferred = 0;
-            }, ct);
-            job.ServerSessionId = null;
-            job.ServerSessionGeneration++;
-            job.BytesTransferred = 0;
-            session = await CreateUploadSessionAsync(job, ct);
-            sessionId = session.SessionId;
+            await InvalidateUploadSessionAsync(job.Id, ct);
+            throw new IOException($"アップロードセッションを途中再開できません ({session.Status})。再試行すると先頭から再送します。");
         }
         if (session.UploadedOffset < 0 || session.UploadedOffset > job.TotalBytes)
             throw new InvalidDataException("サーバーの再開位置がファイル範囲外です。");
@@ -745,6 +888,7 @@ public sealed class TransferQueueService : IAsyncDisposable
         var buffer = new byte[ChunkSize];
         while (offset < job.TotalBytes)
         {
+            CheckMaintenanceBoundary(ct);
             var wanted = (int)Math.Min(buffer.Length, job.TotalBytes - offset);
             var count = await ReadExactlyUpToAsync(stream, buffer, wanted, ct);
             if (count != wanted) throw new EndOfStreamException("アップロード元ファイルが途中で短くなりました。");
@@ -758,6 +902,7 @@ public sealed class TransferQueueService : IAsyncDisposable
             await UpdateAsync(job.Id, current => current.BytesTransferred = offset, ct);
         }
 
+        CheckMaintenanceBoundary(ct);
         session = await _protocol.CompleteUploadSessionAsync(sessionId, ct);
         EnsureUploadSessionMatches(job, session, sessionId);
         if (!session.Status.Equals("completed", StringComparison.OrdinalIgnoreCase))
@@ -772,6 +917,7 @@ public sealed class TransferQueueService : IAsyncDisposable
 
     private async Task<UploadSessionDto> CreateUploadSessionAsync(TransferJobRecord job, CancellationToken ct)
     {
+        CheckMaintenanceBoundary(ct);
         var session = await _protocol.CreateUploadSessionAsync(new CreateUploadSessionRequest
         {
             HostId = job.HostId,
@@ -792,6 +938,14 @@ public sealed class TransferQueueService : IAsyncDisposable
         }, ct);
         return session;
     }
+
+    private Task InvalidateUploadSessionAsync(string jobId, CancellationToken ct)
+        => UpdateAsync(jobId, current =>
+        {
+            current.ServerSessionId = null;
+            current.ServerSessionGeneration++;
+            current.BytesTransferred = 0;
+        }, ct);
 
     private static bool UploadSessionMatches(
         TransferJobRecord job, UploadSessionDto session, Guid expectedSessionId)
@@ -817,6 +971,7 @@ public sealed class TransferQueueService : IAsyncDisposable
     private async Task<string> ProcessDownloadAsync(TransferJobRecord job, CancellationToken ct)
     {
         var metadata = await _protocol.GetDownloadMetadataV2Async(job.HostId, job.ShareId, job.RemotePath, ct);
+        CheckMaintenanceBoundary(ct);
         if (!metadata.Exists || metadata.Type != "file" || !metadata.Size.HasValue)
             throw new FileNotFoundException("ダウンロード元ファイルが見つかりません。", job.RemotePath);
         if (string.IsNullOrWhiteSpace(metadata.ETag))
@@ -855,7 +1010,17 @@ public sealed class TransferQueueService : IAsyncDisposable
                 return TransferJobStates.Skipped;
             }
             if (job.ConflictPolicy == TransferConflictPolicies.Ask)
+            {
+                var existing = new FileInfo(destination);
+                await UpdateAsync(job.Id, current =>
+                {
+                    current.TotalBytes = metadata.Size.Value;
+                    current.SourceLastWriteUtc = metadata.ModifiedAtUtc;
+                    current.ConflictDestinationSize = existing.Length;
+                    current.ConflictDestinationModifiedUtc = existing.LastWriteTimeUtc;
+                }, ct);
                 throw new TransferConflictException("ローカルに同名ファイルがあります。上書き・スキップ・別名を選択してください。");
+            }
             if (job.ConflictPolicy == TransferConflictPolicies.Rename)
             {
                 var oldDestination = destination;
@@ -904,15 +1069,26 @@ public sealed class TransferQueueService : IAsyncDisposable
             output.Position = actualOffset;
             while (actualOffset < expectedSize)
             {
+                CheckMaintenanceBoundary(ct);
                 var length = (int)Math.Min(ChunkSize, expectedSize - actualOffset);
-                await _protocol.DownloadRangeV2Async(
-                    job.HostId, job.ShareId, job.RemotePath, actualOffset, length, metadata.ETag, output, ct);
+                try
+                {
+                    await _protocol.DownloadRangeV2Async(
+                        job.HostId, job.ShareId, job.RemotePath, actualOffset, length, metadata.ETag, output, ct);
+                }
+                catch
+                {
+                    // 応答失敗中に書かれた未検証rangeを再開位置として使わない。
+                    output.SetLength(actualOffset);
+                    throw;
+                }
                 await output.FlushAsync(ct);
                 actualOffset += length;
                 await UpdateAsync(job.Id, current => current.BytesTransferred = actualOffset, ct);
             }
         }
 
+        CheckMaintenanceBoundary(ct);
         var actualSha256 = await ComputeFileSha256Async(tempPath, ct);
         if (!CryptographicOperations.FixedTimeEquals(
                 Convert.FromHexString(actualSha256),
@@ -924,7 +1100,19 @@ public sealed class TransferQueueService : IAsyncDisposable
         }
 
         // 各rangeのchecksumに加え、metadata取得時の全体SHAとも一致した後だけ最終名へcommitする。
-        File.Move(tempPath, destination, overwrite: job.ConflictPolicy == TransferConflictPolicies.Overwrite);
+        CheckMaintenanceBoundary(ct);
+        try { File.Move(tempPath, destination, overwrite: job.ConflictPolicy == TransferConflictPolicies.Overwrite); }
+        catch (IOException) when (job.ConflictPolicy != TransferConflictPolicies.Overwrite && File.Exists(destination))
+        {
+            var existing = new FileInfo(destination);
+            await UpdateAsync(job.Id, current =>
+            {
+                current.SourceLastWriteUtc = metadata.ModifiedAtUtc;
+                current.ConflictDestinationSize = existing.Length;
+                current.ConflictDestinationModifiedUtc = existing.LastWriteTimeUtc;
+            }, ct);
+            throw new TransferConflictException("保存直前にローカルに同名ファイルが作成されました。上書き・スキップ・別名を選択してください。");
+        }
         return TransferJobStates.Completed;
     }
 
@@ -937,6 +1125,7 @@ public sealed class TransferQueueService : IAsyncDisposable
         var extension = Path.GetExtension(name);
         for (var i = 1; i <= 1000; i++)
         {
+            CheckMaintenanceBoundary(ct);
             var candidateName = $"{stem} ({i}){extension}";
             var candidate = directory == "/" ? "/" + candidateName : directory + "/" + candidateName;
             var metadata = await _protocol.GetDownloadMetadataV2Async(job.HostId, job.ShareId, candidate, ct);
@@ -1049,10 +1238,15 @@ public sealed class TransferQueueService : IAsyncDisposable
 
     private async Task SetTerminalAsync(string id, string state, string? error, CancellationToken ct)
     {
-        await MutateAsync(job => IdEquals(job, id), job =>
+        // An error/confirmation discovered just as the user cancels must not replace
+        // Canceling. A confirmed completion still wins over cancellation.
+        await MutateAsync(job => IdEquals(job, id) &&
+            !(job.State == TransferJobStates.Canceling &&
+              state is TransferJobStates.Failed or TransferJobStates.ConflictWaiting), job =>
         {
             job.State = state;
             job.LastError = error;
+            job.MaintenanceResumeState = null;
             job.NextAttemptAtUtc = null;
             if (state is TransferJobStates.Completed or TransferJobStates.Skipped)
             {
@@ -1109,6 +1303,7 @@ public sealed class TransferQueueService : IAsyncDisposable
                 changed = true;
             }
             if (!changed) return;
+            ApplyMaintenanceLocked();
             await SaveOrRollbackLockedAsync(before, ct);
             publication = CapturePublicationLocked();
         }
@@ -1167,6 +1362,9 @@ public sealed class TransferQueueService : IAsyncDisposable
         ConflictPolicy = source.ConflictPolicy,
         AttemptCount = source.AttemptCount,
         LastError = source.LastError,
+        MaintenanceResumeState = source.MaintenanceResumeState,
+        ConflictDestinationSize = source.ConflictDestinationSize,
+        ConflictDestinationModifiedUtc = source.ConflictDestinationModifiedUtc,
         ServerSessionId = source.ServerSessionId,
         ServerSessionGeneration = source.ServerSessionGeneration,
         ContentSha256 = source.ContentSha256,
@@ -1249,8 +1447,9 @@ public sealed class TransferQueueService : IAsyncDisposable
                 retryAt = DateTime.UtcNow.Add(delay);
                 job.State = TransferJobStates.RetryWaiting;
                 job.NextAttemptAtUtc = retryAt;
-                job.LastError = $"一時的な通信エラーのため {retryAt:yyyy/MM/dd HH:mm:ss} に自動再試行します: {FriendlyError(error)}";
+                job.LastError = $"一時的な通信エラーのため自動再試行を待っています: {FriendlyError(error)}";
                 job.UpdatedAt = DateTime.UtcNow;
+                ApplyMaintenanceLocked();
                 await SaveOrRollbackLockedAsync(before, CancellationToken.None);
                 publication = CapturePublicationLocked();
             }
@@ -1602,4 +1801,5 @@ public sealed class TransferQueueService : IAsyncDisposable
     }
 
     private sealed class TransferConflictException(string message) : IOException(message);
+    private sealed class MaintenanceHoldException : Exception { }
 }

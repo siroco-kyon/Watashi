@@ -4,6 +4,41 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="14">
             <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="メンテナンスの案内と受付" Style="{StaticResource H3}"/>
+                    <TextBlock Text="{Binding MaintenanceStateLabel}" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                    <TextBlock Text="{Binding MaintenanceActivityLabel}" Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding MaintenancePublicationLabel}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                    <TextBlock Text="利用者への案内"/>
+                    <TextBox Text="{Binding MaintenanceMessage, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                             TextWrapping="Wrap" MinHeight="60" MaxLength="500" Margin="0,4,0,8"
+                             AutomationProperties.Name="メンテナンスの案内文"/>
+                    <WrapPanel>
+                        <StackPanel Margin="0,0,16,8">
+                            <TextBlock Text="開始予定（このPCの時刻）"/>
+                            <TextBox Text="{Binding MaintenanceStartText, UpdateSourceTrigger=PropertyChanged}" Width="190"
+                                     ToolTip="yyyy/MM/dd HH:mm。時刻による自動開始は行いません。"
+                                     AutomationProperties.Name="メンテナンス開始予定"/>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,0,8">
+                            <TextBlock Text="終了予定（このPCの時刻）"/>
+                            <TextBox Text="{Binding MaintenanceEndText, UpdateSourceTrigger=PropertyChanged}" Width="190"
+                                     ToolTip="yyyy/MM/dd HH:mm。予定時刻を過ぎても自動解除しません。"
+                                     AutomationProperties.Name="メンテナンス終了予定"/>
+                        </StackPanel>
+                    </WrapPanel>
+                    <TextBlock Text="予告 → メンテナンス開始 → 処理中0件を確認 → 更新作業 → 復旧確認 → 解除の順で操作します。"
+                               TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <WrapPanel IsEnabled="{Binding IsSavingMaintenance, Converter={StaticResource NotBool}}">
+                        <Button Content="状態を再取得" Command="{Binding RefreshMaintenanceCommand}" Margin="0,0,6,6"/>
+                        <Button Content="予告を公開" Command="{Binding ChangeMaintenanceCommand}" CommandParameter="scheduled" Margin="0,0,6,6"/>
+                        <Button Content="メンテナンス開始" Command="{Binding ChangeMaintenanceCommand}" CommandParameter="maintenance" Margin="0,0,6,6"/>
+                        <Button Content="復旧確認へ" Command="{Binding ChangeMaintenanceCommand}" CommandParameter="recovering" Margin="0,0,6,6"/>
+                        <Button Content="解除して通常へ" Command="{Binding ChangeMaintenanceCommand}" CommandParameter="normal" Margin="0,0,0,6"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
                 <DockPanel>
                     <Button DockPanel.Dock="Right" Content="↻ 再診断" Command="{Binding RefreshCommand}"
                             AutomationProperties.Name="運用状態を再診断"/>

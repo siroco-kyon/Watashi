@@ -30,6 +30,10 @@ public class AppSettings
     [JsonIgnore]
     public string UpdateManifestUrl { get; set; } = string.Empty;
 
+    /// <summary>更新対象から独立した状態JSONのURL。配布時に固定する。</summary>
+    [JsonIgnore]
+    public string MaintenanceStatusUrl { get; set; } = string.Empty;
+
     /// <summary>
     /// ペイン間およびエクスプローラからのドラッグ＆ドロップ転送の有効/無効。
     /// deployment.json で配布時に固定する。クライアントからは変更できないため保存しない。

@@ -982,4 +982,16 @@ Get-EventLog -LogName Application -Source "Watashi.Server" -Newest 20
 - 仕様。同一フォルダ内でのリネームのみ許可。フォルダ間の移動は禁止 (DELETE 権限の抜け穴対策)
 
 ### ストリーミング転送中にキャンセルしたい
-- 転送センターから個別/全体キャンセル、一時停止、失敗項目の再試行が可能。キューは再起動後も復元される。
+- 転送センターから個別/全体キャンセル、一時停止した項目の再開、失敗項目の再試行が可能。キューは再起動後も復元される。
+
+## メンテナンスの切替（2026-09-05）
+
+管理画面「運用状態」で状態を取得し、案内文（最大500文字）、開始・終了予定（端末のローカル日時）を入力して予定／メンテナンス中／復旧確認中／通常を切り替えます。予定時刻は案内用で、自動停止・自動解除は行いません。
+
+メンテナンス中は新しい業務APIを停止し、受付済みのHTTP要求は完了させます。認証、状態管理、最小限の運用診断、Agent内部経路は維持します。通常へ戻すには復旧確認中への切替、処理中要求0、運用診断の確認が必要です。Adminのファイル操作も停止対象です。処理中要求数には独立したAgent処理や後片付けを含まないため、それらも停止前に確認してください。
+
+Serverの `Maintenance:StateFilePath` はDB外の私的ファイルです。既定はProgramDataのWatashi配下のmaintenance-state.jsonで、再起動・DB復元後も停止を保持します。Web公開しないでください。外部案内を使う場合は `Maintenance:PublicStatusFilePath` と `Maintenance:PublicStatusUrl`（HTTPS）を両方設定し、Clientの `deployment.json` に `maintenanceStatusUrl` を設定して再発行します。外部配信なしでもAPI内の切替は利用できます。
+
+外部配信は書き込みとHTTPS読み戻しを確認します。公開失敗の場合は状態を再取得してから修正・再実行してください。停止解除を先行させません。API停止中の案内には独立した状態サイトが必要です。Serverを先に更新してから2000件対応Clientを配布します。
+
+[導入・更新・復旧・切り戻し手順](../deploy/MAINTENANCE-ROLLOUT-PLAN.md) と、同梱の `deploy/maintenance/Install-StatusAssets.ps1`、`Publish-MaintenanceState.ps1` を参照してください。本番のIIS・DNS・証明書・ACLは環境に合わせた設定が必要です。
