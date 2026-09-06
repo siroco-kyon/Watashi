@@ -1,10 +1,12 @@
 <Window x:Class="Watashi.Client.Views.TransferCenterWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="転送ジョブセンター" Width="1050" Height="760" MinWidth="780" MinHeight="620"
+        Title="転送ジョブセンター" Width="1050" Height="760" MinWidth="560" MinHeight="360"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Icon="{StaticResource ToriiIcon}"
         AutomationProperties.Name="転送ジョブセンター">
+    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+    <Grid MinWidth="620" MinHeight="460" Width="{Binding ViewportWidth, ElementName=PageScroll}" Height="{Binding ViewportHeight, ElementName=PageScroll}">
     <DockPanel Margin="16">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Text="転送ジョブセンター" Style="{StaticResource H2}"/>
@@ -16,25 +18,39 @@
                        Visibility="{Binding IsMaintenanceBlocked, Converter={StaticResource BoolToVis}}"/>
             <Border Style="{StaticResource AccessibleErrorBanner}" Padding="10" Margin="0,8,0,0"
                     Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
+                <ScrollViewer MaxHeight="64" VerticalScrollBarVisibility="Auto">
                 <TextBlock x:Name="TransferErrorLiveRegion" Text="{Binding ErrorMessage}"
                            Style="{StaticResource AccessibleErrorText}" TextWrapping="Wrap"
                            AutomationProperties.LiveSetting="Assertive"/>
+                </ScrollViewer>
             </Border>
             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                 <Label Content="表示(_V):" Target="{Binding ElementName=FilterBox}" VerticalAlignment="Center"/>
-                <ComboBox x:Name="FilterBox" Width="170" ItemsSource="{Binding FilterOptions}" SelectedItem="{Binding SelectedFilter}"
+                <ComboBox x:Name="FilterBox" Width="215" ItemsSource="{Binding FilterOptions}" SelectedValuePath="Key" DisplayMemberPath="Label" SelectedValue="{Binding SelectedFilter}"
                           AutomationProperties.Name="転送状態で絞り込み"/>
+                <Button x:Name="OpenDetailsButton" Content="詳細を開く(_D)" Click="OnOpenDetails" Margin="12,0,0,0" IsEnabled="{Binding HasSelectedJob}"/>
             </StackPanel>
         </StackPanel>
 
         <WrapPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="失敗だけ再試行" Command="{Binding RetryFailedCommand}" Margin="0,0,8,4"/>
             <Button Content="すべて中止" Command="{Binding CancelAllCommand}" Style="{StaticResource DangerButton}" Margin="0,0,8,4"/>
-            <Button Content="終了した履歴を消去" Command="{Binding RemoveFinishedCommand}" Margin="0,0,0,4"
-                    ToolTip="完了・失敗・中止・スキップ済みの履歴と部分ファイルを消去します"/>
+            <Button Content="完了・スキップの履歴を消去" Command="{Binding RemoveFinishedCommand}" Margin="0,0,0,4"
+                    ToolTip="完了・スキップ済みの履歴を消去します。失敗・中止した転送の再開情報は残ります"/>
+            <Button Content="失敗・中止の履歴を破棄" Command="{Binding DiscardInterruptedCommand}" Margin="8,0,0,4"/>
         </WrapPanel>
 
-        <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12" Margin="0,12,0,0">
+        <Grid x:Name="TransferBody" SizeChanged="OnBodySizeChanged">
+          <Grid.RowDefinitions>
+            <RowDefinition x:Name="ListRow" Height="*"/>
+            <RowDefinition x:Name="SplitterRow" Height="0"/>
+            <RowDefinition x:Name="DetailRow" Height="0"/>
+          </Grid.RowDefinitions>
+        <GridSplitter x:Name="DetailSplitter" Grid.Row="1" Height="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ResizeDirection="Rows" Visibility="Collapsed"/>
+        <Border x:Name="DetailPane" Grid.Row="2" Visibility="Collapsed" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12">
+            <DockPanel>
+                <Button x:Name="CloseDetailsButton" DockPanel.Dock="Top" Content="詳細を閉じる(_B)" Click="OnCloseDetails" HorizontalAlignment="Right" Margin="0,0,0,8"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
                 <TextBlock Text="選択した転送の詳細" Style="{StaticResource H3}"/>
                 <TextBlock Text="一覧から項目を選ぶと、転送元・先と実行できる操作を表示します。" Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"/>
@@ -52,7 +68,8 @@
                                    Visibility="{Binding IsConflict, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                 </Grid>
-                <TextBlock Text="{Binding SelectedJob.ErrorText}" Margin="0,6,0,0" TextWrapping="Wrap" MaxHeight="64"/>
+                <TextBlock Text="{Binding SelectedJob.NextActionHint}" Margin="0,8,0,4" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                <TextBox Text="{Binding SelectedJob.ErrorText, Mode=OneWay}" IsReadOnly="True" Margin="0,6,0,0" TextWrapping="Wrap" AutomationProperties.Name="転送エラーの詳細"/>
                 <TextBlock Text="{Binding SelectedJob.RetryAtText}" TextWrapping="Wrap"/>
                 <WrapPanel Margin="0,8,0,0">
                     <Button Content="再試行" Command="{Binding RetrySelectedCommand}" Margin="0,0,8,4"/>
@@ -68,9 +85,11 @@
                     </WrapPanel>
                 </StackPanel>
             </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
 
-        <DataGrid ItemsSource="{Binding VisibleJobs}" SelectedItem="{Binding SelectedJob}"
+        <DataGrid x:Name="JobList" ItemsSource="{Binding VisibleJobs}" SelectedItem="{Binding SelectedJob}"
                   AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" SelectionUnit="FullRow"
                   EnableRowVirtualization="True" EnableColumnVirtualization="True"
                   ScrollViewer.CanContentScroll="True" VirtualizingPanel.VirtualizationMode="Recycling"
@@ -92,5 +111,8 @@
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
+        </Grid>
     </DockPanel>
+    </Grid>
+    </ScrollViewer>
 </Window>

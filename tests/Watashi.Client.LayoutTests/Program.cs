@@ -12,12 +12,12 @@ using Watashi.Shared.DTOs.Admin;
 using Watashi.Shared.DTOs.Files;
 
 // STA/WPF layout smoke tests. No windows are shown, and no production service is contacted.
-internal static class Program
+internal static partial class Program
 {
     [STAThread]
     private static void Main(string[] args)
     {
-        var app = new Application();
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         foreach (var dictionary in new[] { "Colors", "Icons", "Controls" })
             app.Resources.MergedDictionaries.Add(new ResourceDictionary
             {
@@ -40,12 +40,16 @@ internal static class Program
                 Source = new Uri($"/Watashi.Client;component/Themes/Colors.{theme}.xaml", UriKind.Relative),
             };
             foreach (var key in palette.Keys) app.Resources[key] = palette[key];
+            CheckTransfers(new Size(1200, 900), output, theme);
             // Client-area DIPs, including the reduced space at 125/150% on a 1366x768 display.
             foreach (var size in new[] { new Size(1200, 720), new Size(1060, 550), new Size(890, 450), new Size(720, 340) })
+            {
                 CheckAdmin(size, output, theme);
+                CheckTransfers(size, output, theme);
+            }
         }
         CheckExpandedBrowser(output);
-        Console.WriteLine("PASS: admin layout, scrolling, virtualization, draft retention and expanded browser.");
+        Console.WriteLine("PASS: admin and transfer layout, scrolling, virtualization, draft retention and expanded browser.");
     }
 
     private static void CheckAdmin(Size size, string? output, string theme)
