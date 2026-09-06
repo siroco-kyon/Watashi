@@ -43,7 +43,7 @@ jobs:
           --results-directory TestResults
           --logger "trx;LogFileName=tests.trx"
 
-      - name: Check WPF admin layout without opening windows
+      - name: Check WPF admin and transfer layout without opening windows
         run: dotnet run --project tests/Watashi.Client.LayoutTests --configuration Release --no-build
 
       - name: Enforce line coverage floor

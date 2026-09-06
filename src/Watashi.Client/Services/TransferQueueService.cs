@@ -397,7 +397,12 @@ public sealed class TransferQueueService : IAsyncDisposable
         }
     }
 
-    public async Task CancelAllAsync(CancellationToken ct = default)
+    public Task CancelAllAsync(CancellationToken ct = default) => CancelMatchingAsync(null, ct);
+
+    public Task CancelJobsAsync(IEnumerable<string> jobIds, CancellationToken ct = default)
+        => CancelMatchingAsync(jobIds.ToHashSet(StringComparer.OrdinalIgnoreCase), ct);
+
+    private async Task CancelMatchingAsync(HashSet<string>? ids, CancellationToken ct)
     {
         var activeCancellations = new List<CancellationTokenSource>();
         var inactiveSessions = new List<TransferJobRecord>();
@@ -407,7 +412,8 @@ public sealed class TransferQueueService : IAsyncDisposable
         {
             ThrowIfDisposed();
             var candidates = _jobs
-                .Where(job => !IsTerminal(job.State) && job.State != TransferJobStates.Canceling)
+                .Where(job => !IsTerminal(job.State) && job.State != TransferJobStates.Canceling &&
+                              (ids is null || ids.Contains(job.Id)))
                 .ToArray();
             if (candidates.Length == 0) return;
             var before = CloneAllLocked();
@@ -492,18 +498,28 @@ public sealed class TransferQueueService : IAsyncDisposable
         if (finalPublication is not null) Publish(finalPublication);
     }
 
-    public async Task RemoveFinishedAsync(CancellationToken ct = default)
+    public Task RemoveFinishedAsync(CancellationToken ct = default)
+        => RemoveHistoryAsync(null, interrupted: false, ct);
+
+    public Task RemoveCompletedJobsAsync(IEnumerable<string> jobIds, CancellationToken ct = default)
+        => RemoveHistoryAsync(jobIds.ToHashSet(StringComparer.OrdinalIgnoreCase), interrupted: false, ct);
+
+    public Task DiscardInterruptedAsync(IEnumerable<string> jobIds, CancellationToken ct = default)
+        => RemoveHistoryAsync(jobIds.ToHashSet(StringComparer.OrdinalIgnoreCase), interrupted: true, ct);
+
+    private async Task RemoveHistoryAsync(HashSet<string>? ids, bool interrupted, CancellationToken ct)
     {
         TransferJobRecord[] removable;
         await _mutex.WaitAsync(ct);
         try
         {
-            removable = _jobs.Where(job => job.State is TransferJobStates.Completed or
-                TransferJobStates.Failed or TransferJobStates.Canceled or TransferJobStates.Skipped)
+            ThrowIfDisposed();
+            removable = _jobs.Where(job => (ids is null || ids.Contains(job.Id)) &&
+                (interrupted ? job.State is TransferJobStates.Failed or TransferJobStates.Canceled
+                             : job.State is TransferJobStates.Completed or TransferJobStates.Skipped))
                 .Select(Clone).ToArray();
         }
         finally { _mutex.Release(); }
-
         await RemoveJobsAsync(removable, ct);
     }
 
@@ -545,6 +561,26 @@ public sealed class TransferQueueService : IAsyncDisposable
     private async Task RemoveJobsAsync(IReadOnlyCollection<TransferJobRecord> removable, CancellationToken ct)
     {
         if (removable.Count == 0) return;
+        QueuePublication publication;
+        await _mutex.WaitAsync(ct);
+        try
+        {
+            ThrowIfDisposed();
+            var expected = removable.ToDictionary(job => job.Id, StringComparer.OrdinalIgnoreCase);
+            removable = _jobs.Where(job => expected.TryGetValue(job.Id, out var old) &&
+                    job.State == old.State && job.UpdatedAt == old.UpdatedAt &&
+                    job.ServerSessionGeneration == old.ServerSessionGeneration && !_active.ContainsKey(job.Id))
+                .Select(Clone).ToArray();
+            if (removable.Count == 0) return;
+            var before = CloneAllLocked();
+            var ids = removable.Select(job => job.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            _jobs.RemoveAll(job => ids.Contains(job.Id));
+            // Persist first: a failed save must never destroy resumable partial data.
+            await SaveOrRollbackLockedAsync(before, ct);
+            publication = CapturePublicationLocked();
+        }
+        finally { _mutex.Release(); }
+        Publish(publication);
         await Parallel.ForEachAsync(
             removable.Where(job => job.Direction == TransferDirections.Upload &&
                                    Guid.TryParse(job.ServerSessionId, out _)),
@@ -552,7 +588,6 @@ public sealed class TransferQueueService : IAsyncDisposable
             async (job, token) => await CleanupRemovedUploadSessionBestEffortAsync(job, token));
         foreach (var job in removable.Where(x => x.Direction == TransferDirections.Download))
             DeletePartialBestEffort(job.LocalPath, job.Id);
-        await RemoveAsync(job => removable.Any(x => IdEquals(job, x.Id)), ct);
     }
 
     private static bool IsExpiredHistory(TransferJobRecord job, DateTime now)

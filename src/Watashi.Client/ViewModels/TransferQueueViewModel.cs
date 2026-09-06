@@ -49,6 +49,15 @@ public sealed class TransferQueueItemViewModel : ObservableObject
     public string SourceText => Job.Direction == TransferDirections.Upload ? Job.LocalPath : Job.RemotePath;
     public string DestinationText => Job.Direction == TransferDirections.Upload ? Job.RemotePath : Job.LocalPath;
     public string? ErrorText => Job.LastError;
+    public string NextActionHint => Job.State switch
+    {
+        TransferJobStates.Failed => "エラー内容を確認して「再試行」を選んでください。",
+        TransferJobStates.Paused or TransferJobStates.Canceled => "続ける場合は「再開」を選んでください。",
+        TransferJobStates.ConflictWaiting => "転送元・先の情報を比較し、上書き・スキップ・別名から選んでください。",
+        TransferJobStates.MaintenanceWaiting => "メンテナンス終了と更新の確認を待っています。",
+        TransferJobStates.RetryWaiting => "予定時刻になると自動で再試行します。",
+        _ => string.Empty,
+    };
     public string SourceMetadata => $"{FormatBytes(Job.TotalBytes)} / 更新: {FormatDate(Job.SourceLastWriteUtc)}";
     public string DestinationMetadata => Job.ConflictDestinationSize.HasValue
         ? $"{FormatBytes(Job.ConflictDestinationSize.Value)} / 更新: {FormatDate(Job.ConflictDestinationModifiedUtc)}"
@@ -86,6 +95,15 @@ public sealed class TransferQueueItemViewModel : ObservableObject
     }
 }
 
+public sealed partial class TransferFilterOption(string key) : ObservableObject
+{
+    public string Key { get; } = key;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Label))]
+    private int count;
+    public string Label => $"{Key} ({Count})";
+}
+
 public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly TransferQueueService _queue;
@@ -97,9 +115,12 @@ public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
 
     public ObservableCollection<TransferQueueItemViewModel> Jobs { get; } = new();
     public ICollectionView VisibleJobs { get; }
-    public IReadOnlyList<string> FilterOptions { get; } = new[] { "すべて", "実行中・待機", "要対応", "完了・中止" };
+    public IReadOnlyList<TransferFilterOption> FilterOptions { get; } = new[] { "すべて", "実行中・待機", "要対応", "完了・中止" }.Select(key => new TransferFilterOption(key)).ToArray();
     public event Action<string>? JobCompleted;
-    [ObservableProperty] private TransferQueueItemViewModel? selectedJob;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelectedJob))]
+    private TransferQueueItemViewModel? selectedJob;
+    public bool HasSelectedJob => SelectedJob is not null;
     [ObservableProperty] private string errorMessage = string.Empty;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string selectedFilter = "すべて";
@@ -130,6 +151,7 @@ public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
     public IAsyncRelayCommand RetrySkipCommand { get; }
     public IAsyncRelayCommand RetryRenameCommand { get; }
     public IAsyncRelayCommand RemoveFinishedCommand { get; }
+    public IAsyncRelayCommand DiscardInterruptedCommand { get; }
 
     public TransferQueueViewModel(TransferQueueService queue)
     {
@@ -146,7 +168,7 @@ public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
         _queue.QueueChanged += OnQueueChanged;
         _queue.QueueError += OnQueueError;
         CancelSelectedCommand = new AsyncRelayCommand(CancelSelectedAsync, () => !IsBusy && SelectedJob?.CanCancel == true);
-        CancelAllCommand = new AsyncRelayCommand(() => RunAsync(_queue.CancelAllAsync), () => !IsBusy && HasPending);
+        CancelAllCommand = new AsyncRelayCommand(CancelAllAsync, () => !IsBusy && HasPending);
         RetrySelectedCommand = new AsyncRelayCommand(RetrySelectedAsync, () => CanStart && SelectedJob?.CanRetry == true);
         RetryFailedCommand = new AsyncRelayCommand(() => RunAsync(_queue.RetryFailedAsync), () => CanStart && HasFailed);
         ResumeSelectedCommand = new AsyncRelayCommand(ResumeSelectedAsync, () => CanStart && SelectedJob?.CanResume == true);
@@ -158,8 +180,9 @@ public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
             () => ResolveSelectedAsync(TransferConflictPolicies.Rename), () => CanStart && SelectedJob?.IsConflict == true);
         RemoveFinishedCommand = new AsyncRelayCommand(
             RemoveFinishedAsync, () => !IsBusy && Jobs.Any(x =>
-                x.Job.State is TransferJobStates.Completed or TransferJobStates.Failed or
-                    TransferJobStates.Canceled or TransferJobStates.Skipped));
+                x.Job.State is TransferJobStates.Completed or TransferJobStates.Skipped));
+        DiscardInterruptedCommand = new AsyncRelayCommand(DiscardInterruptedAsync,
+            () => !IsBusy && Jobs.Any(x => x.Job.State is TransferJobStates.Failed or TransferJobStates.Canceled));
     }
 
     private bool CanStart => !IsBusy && !IsMaintenanceBlocked;
@@ -167,13 +190,34 @@ public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
     public Task SetMaintenanceAsync(bool blocked, CancellationToken ct = default)
         => _queue.SetMaintenanceAsync(blocked, ct);
 
+    private Task CancelAllAsync()
+    {
+        var ids = Jobs.Where(job => job.CanCancel).Select(job => job.Id).ToArray();
+        if (!Confirm($"表示の絞り込みに関係なく、対象の {ids.Length} 件を中止します。続行しますか？", "転送の中止"))
+            return Task.CompletedTask;
+        return RunAsync(ct => _queue.CancelJobsAsync(ids, ct));
+    }
+
     private Task RemoveFinishedAsync()
     {
-        if (MessageBox.Show("完了・失敗・中止・スキップ済みの履歴と途中データを消去します。失敗や中止した転送の再開情報も消去されます。続行しますか？",
-                "転送履歴の消去", MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) != MessageBoxResult.OK)
+        var ids = Jobs.Where(job => job.Job.State is TransferJobStates.Completed or TransferJobStates.Skipped).Select(job => job.Id).ToArray();
+        if (!Confirm($"完了・スキップ済みの履歴 {ids.Length} 件を消去します。失敗・中止した転送の再開情報は残ります。", "転送履歴の整理"))
             return Task.CompletedTask;
-        return RunAsync(_queue.RemoveFinishedAsync);
+        return RunAsync(ct => _queue.RemoveCompletedJobsAsync(ids, ct));
     }
+
+    private Task DiscardInterruptedAsync()
+    {
+        var ids = Jobs.Where(job => job.Job.State is TransferJobStates.Failed or TransferJobStates.Canceled)
+            .Select(job => job.Id).ToArray();
+        if (!Confirm($"表示の絞り込みに関係なく、失敗・中止した {ids.Length} 件の履歴と途中データを破棄します。これらの転送は再開できなくなります。続行しますか？", "再開情報の破棄"))
+            return Task.CompletedTask;
+        return RunAsync(ct => _queue.DiscardInterruptedAsync(ids, ct));
+    }
+
+    private static bool Confirm(string message, string title)
+        => MessageBox.Show(message, title, MessageBoxButton.OKCancel, MessageBoxImage.Warning,
+            MessageBoxResult.Cancel) == MessageBoxResult.OK;
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
@@ -313,6 +357,14 @@ public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
         _knownStates.Clear();
         foreach (var job in snapshot) _knownStates[job.Id] = job.State;
         SelectedJob = selectedId is null ? null : Jobs.FirstOrDefault(x => x.Id == selectedId && VisibleJobs.Contains(x));
+        foreach (var option in FilterOptions)
+            option.Count = Jobs.Count(job => option.Key switch
+            {
+                "実行中・待機" => !job.IsFinished && !job.NeedsAttention,
+                "要対応" => job.NeedsAttention,
+                "完了・中止" => job.IsFinished,
+                _ => true,
+            });
         OnPropertyChanged(nameof(HasJobs));
         OnPropertyChanged(nameof(HasFailed));
         OnPropertyChanged(nameof(HasPending));
@@ -358,6 +410,7 @@ public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
         RetrySkipCommand.NotifyCanExecuteChanged();
         RetryRenameCommand.NotifyCanExecuteChanged();
         RemoveFinishedCommand.NotifyCanExecuteChanged();
+        DiscardInterruptedCommand.NotifyCanExecuteChanged();
     }
 
     public async ValueTask DisposeAsync()
