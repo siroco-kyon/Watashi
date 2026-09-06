@@ -667,12 +667,17 @@
               <tr><td><code>Views/LoginWindow.xaml</code></td><td>ログイン</td><td><code>Title="Watashi - ログイン"</code></td></tr>
               <tr><td><code>Views/MainWindow.xaml</code></td><td>メイン・通常時のホバー</td><td><code>Title="Watashi"</code></td></tr>
               <tr><td><code>Views/Admin/AdminWindow.xaml</code></td><td>管理画面</td><td><code>Title="Watashi - 管理"</code></td></tr>
+              <tr><td><code>Views/InitialPasswordWindow.xaml</code></td><td>初回パスワード設定</td><td><code>Title="Watashi - 初回パスワード設定"</code></td></tr>
+              <tr><td><code>Views/MaintenanceWindow.xaml</code></td><td>メンテナンス案内のタイトル・見出し</td><td><code>Title="Watashi - メンテナンスのご案内"</code> / <code>Text="Watashi"</code></td></tr>
+              <tr><td><code>Views/AboutWindow.xaml</code></td><td>バージョン情報のアプリ名・コピー内容</td><td><code>Text="Watashi"</code></td></tr>
               <tr><td><code>Themes/Icons.xaml</code></td><td>画面内のロゴ文字</td><td><code>Text="Watashi"</code></td></tr>
               <tr><td><code>App.xaml.cs</code></td><td>ダイアログ</td><td><code>"Watashi - …"</code></td></tr>
             </tbody>
           </table>
         </div>
 
+        <p>バージョン情報のコピー内容は、<code>AboutWindow.xaml</code>のアプリ名を参照します。名前変更スクリプトで見出しを変更するとコピー内容にも反映されます。補足文字「CIFS ファイル管理」は自動置換の対象外です。必要に応じて<code>MainWindow.xaml</code>、<code>LoginWindow.xaml</code>、<code>SplashWindow.xaml</code>、<code>AboutWindow.xaml</code>を変更してください。</p>
+        <p>鳥居以外のブランドにする場合は、<code>AboutWindow.xaml</code>の初期メッセージとボタンの読み上げ名、<code>AboutWindow.xaml.cs</code>のひとことも確認してください。「鳥居をくぐって、信頼できる場所へ。」などの文言は名前変更スクリプトでは変更されません。画像は<code>Themes/Icons.xaml</code>の<code>ToriiIcon</code>を参照します。</p>
         <h3>一括置換スクリプト</h3>
         <pre><code># 変更内容だけ確認
 powershell -NoProfile -File scripts/Rename-Brand.ps1 `
@@ -1649,7 +1654,8 @@ powershell.exe -NoProfile -File scripts/Generate-ToriiIconVariants.ps1</code></p
         <h3>通常の改名</h3>
         <ul class="checklist">
           <li>.NET 10 SDKでクライアントをリビルドした</li>
-          <li>ログイン・メイン・管理画面の表示名を確認した</li>
+          <li>ログイン・メイン・管理・初回パスワード・メンテナンス・バージョン情報の表示名を確認した</li>
+          <li>バージョン情報のコピー内容と、鳥居のひとこと・読み上げ名がブランドに合うことを確認した</li>
           <li>ライト／ダークを切り替え、背景・文字・アクセント・入力欄・右クリックメニュー・ツールチップを確認した</li>
           <li>「Windowsに合わせる」とハイコントラストで、OS所有画面を含め操作可能なことを確認した</li>
           <li>exeとタスクバーのアイコンを確認した</li>

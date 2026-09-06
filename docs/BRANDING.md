@@ -74,10 +74,14 @@ UI 文字列としての「Watashi」は以下に直書きされています。�
 | 〃 | ヘッダーの文字 | `<TextBlock Text="Watashi" Style="{StaticResource H3}" .../>` |
 | `src/Watashi.Client/Themes/Icons.xaml` | ロゴテンプレート ×2 (`ToriiLogo` / `ToriiLogoLight`) | `<TextBlock Text="Watashi" .../>` |
 | `src/Watashi.Client/App.xaml.cs` | 各種ダイアログのタイトル (配布設定エラー / 致命エラー / PC 記憶) | `"Watashi - 配布設定エラー"` / `$"Watashi - {title}"` / `"Watashi - PC 記憶"` |
+| `src/Watashi.Client/Views/InitialPasswordWindow.xaml` | 初回パスワード設定のタイトル | `Title="Watashi - 初回パスワード設定"` |
+| `src/Watashi.Client/Views/MaintenanceWindow.xaml` | メンテナンス案内のタイトル・見出し | `Title="Watashi - メンテナンスのご案内"` / `Text="Watashi"` |
 | `src/Watashi.Client/Views/AboutWindow.xaml` | バージョン情報のアプリ名（コピー内容にも反映） | `Text="Watashi"` |
 
 > ロゴ直下の補足文字「CIFS ファイル管理」も、必要なら合わせて変更してください。
 > 出現箇所は 4 ファイル: `MainWindow.xaml` (ヘッダー) / `LoginWindow.xaml` (「社内 CIFS ファイル管理」) / `SplashWindow.xaml` (スプラッシュ) / `AboutWindow.xaml` (バージョン情報)。
+
+バージョン情報のコピー内容は `AboutWindow.xaml` のアプリ名を参照するため、スクリプトによる名前変更が反映されます。鳥居以外のブランドにする場合は、同ファイルの初期メッセージとボタンの読み上げ名、`AboutWindow.xaml.cs` のひとことも変更してください。「鳥居をくぐって、信頼できる場所へ。」などの文言は自動置換されません。画像は `Themes/Icons.xaml` の `ToriiIcon` を参照します。
 
 **置換の目安** (UI に出る文字列のみ対象、大文字小文字を区別):
 - `Text="Watashi"` → `Text="新名称"`
@@ -584,7 +588,7 @@ powershell -NoProfile -File scripts/Check-BrandSetup.ps1
 
 1. .NET 10 SDK でクライアントをリビルド: `dotnet build src\Watashi.Client\Watashi.Client.csproj`
 2. アイコンを変えた場合は `scripts/Generate-ToriiIcon.ps1` を再実行して `.ico` を更新
-3. クライアント起動 → **ログイン画面・メイン画面・管理画面**の表示名を目視確認
+3. クライアント起動 → **ログイン・メイン・管理・初回パスワード・メンテナンス・バージョン情報**の表示名を目視確認。バージョン情報のコピー内容、ひとこと、読み上げ名もブランドに合うことを確認
 4. メイン画面右上の月／太陽ボタンでライト／ダークへ切り替え、背景、文字、アクセント、入力欄、ComboBox、ToolTip、右クリックメニューを確認
 5. Windows ハイコントラストで、OS 所有のタイトルバーやファイル選択画面も含め操作可能か確認
 6. エクスプローラで `Watashi.Client.exe` (または新 exe 名) のアイコン、タスクバー表示を確認
