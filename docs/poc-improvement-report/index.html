@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watashi 試験導入（PoC）改善結果のご報告</title>
+<style>
+  :root{
+    --accent:#C73E1D;       /* 鳥居の朱色 */
+    --accent-hover:#A83216;
+    --accent-deep:#5C1A0B;
+    --accent-soft:#F9E5E0;
+    --header:#1B2A41;
+    --header-alt:#243B5C;
+    --bg:#F6F7F9;
+    --surface:#FFFFFF;
+    --surface-alt:#F0F2F5;
+    --border:#D5D9DE;
+    --text:#1F2328;
+    --text-2:#4A535C;
+    --muted:#6B7280;
+    --danger:#CF222E;
+    --danger-soft:#FFE9EA;
+    --warning:#BF8700;
+    --warning-soft:#FFF6E0;
+    --success:#1F883D;
+    --success-soft:#E6F5EB;
+    --info:#0969DA;
+    --info-soft:#E6F0FB;
+    --shadow:0 1px 2px rgba(15,27,45,.06), 0 10px 30px rgba(15,27,45,.06);
+    --maxw:1000px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+    color:var(--text); background:var(--bg); line-height:1.85; font-size:16px;
+  }
+  code,.mono{font-family:"Consolas","SFMono-Regular",Menlo,monospace;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px;}
+
+  /* 表紙 */
+  .cover{
+    background:linear-gradient(135deg,var(--header) 0%,var(--header-alt) 100%);
+    color:#fff; padding:64px 28px 56px; position:relative; overflow:hidden; text-align:center;
+  }
+  .cover::after{content:""; position:absolute; left:0; right:0; bottom:0; height:6px; background:var(--accent);}
+  .cover .torii{margin:0 auto 16px; display:block;}
+  .cover .doctype{display:inline-block; font-size:13px; letter-spacing:3px; color:#9fb0c9; border:1px solid #3a4f70; border-radius:20px; padding:4px 16px; margin-bottom:18px;}
+  .cover h1{font-size:38px; margin:0 0 10px; font-weight:800; letter-spacing:1px;}
+  .cover .tag{font-size:17px; color:#c8d3e3; margin:0;}
+  .cover .meta{margin-top:26px; font-size:13px; color:#8294b0;}
+
+  h2{font-size:26px; margin:56px 0 16px; padding-bottom:10px; border-bottom:3px solid var(--accent); display:flex; align-items:center; gap:12px; scroll-margin-top:14px;}
+  h2 .n{background:var(--accent); color:#fff; font-size:16px; font-weight:700; min-width:38px; height:38px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center;}
+  h3{font-size:19px; margin:30px 0 10px; color:var(--accent-deep);}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0; padding-left:24px;} li{margin:6px 0;}
+  a{color:var(--accent);}
+
+  /* 結論ボックス */
+  .conclusion{
+    background:var(--accent-soft); border:1px solid #e7c3ba; border-left:6px solid var(--accent);
+    border-radius:12px; padding:22px 26px; margin:26px 0; box-shadow:var(--shadow);
+  }
+  .conclusion h3{margin:0 0 8px; color:var(--accent-deep); font-size:18px;}
+  .conclusion p{margin:6px 0; font-size:16px;}
+  .conclusion b{color:var(--accent-deep);}
+
+  /* サマリーカード */
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin:24px 0;}
+  @media(max-width:760px){.stats{grid-template-columns:1fr;}}
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; box-shadow:var(--shadow); text-align:center;}
+  .stat .ico{font-size:30px;}
+  .stat .big{font-size:22px; font-weight:800; color:var(--header); margin:6px 0 2px;}
+  .stat .desc{font-size:13px; color:var(--text-2);}
+
+  /* コールアウト */
+  .note,.tip,.warn{border-radius:10px; padding:14px 18px; margin:18px 0; border:1px solid var(--border); position:relative; padding-left:50px;}
+  .note::before,.tip::before,.warn::before{position:absolute; left:16px; top:13px; font-size:19px;}
+  .note{background:var(--info-soft); border-color:#bcd6f5;} .note::before{content:"ℹ️";}
+  .tip{background:var(--success-soft); border-color:#bfe3cb;} .tip::before{content:"💡";}
+  .warn{background:var(--warning-soft); border-color:#f0dca0;} .warn::before{content:"⚠️";}
+
+  /* テーブル */
+  table{border-collapse:collapse; width:100%; margin:18px 0; font-size:14.5px; background:var(--surface); box-shadow:var(--shadow); border-radius:8px; overflow:hidden;}
+  th,td{border:1px solid var(--border); padding:11px 13px; text-align:left; vertical-align:top;}
+  th{background:var(--header); color:#fff; font-weight:700;}
+  tbody tr:nth-child(even){background:#fafbfc;}
+  td.ok{color:var(--success); font-weight:700; white-space:nowrap;}
+  td.num{white-space:nowrap; font-family:"Consolas","SFMono-Regular",Menlo,monospace; font-size:13.5px;}
+
+  /* Before / After 比較表 */
+  .cmp th:nth-child(2){background:#7a2438;}   /* 従来=くすんだ赤 */
+  .cmp th:nth-child(3){background:#1f6b3a;}   /* 改善後=緑 */
+  .cmp td:nth-child(2){background:#fff5f5;}
+  .cmp td:nth-child(3){background:#f2fbf5;}
+  .cmp td:nth-child(1){font-weight:700; color:var(--header); width:23%;}
+
+  .pill{display:inline-block; background:var(--accent-soft); color:var(--accent-deep); border-radius:12px; padding:1px 10px; font-size:12.5px; font-weight:700; margin-right:4px;}
+  .badge{display:inline-block; border-radius:12px; padding:1px 11px; font-size:12.5px; font-weight:700; margin-right:8px; vertical-align:2px;}
+  .badge-user{background:#FDECE7; color:#8f2d14; border:1px solid #e7c3ba;}
+  .badge-admin{background:var(--info-soft); color:#0b4a91; border:1px solid #bcd6f5;}
+  .prs{font-size:12.5px; color:var(--muted); margin:2px 0 8px;}
+  .voice{
+    background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--accent);
+    border-radius:8px; padding:12px 16px; margin:12px 0; font-size:14.5px; color:var(--text-2);
+  }
+  .voice b{color:var(--accent-deep);}
+  .voice ul{margin:6px 0 0; padding-left:20px;}
+  .lead{font-size:17px; color:var(--text-2);}
+  figure{margin:24px 0; text-align:center;}
+  figure svg{max-width:100%; height:auto; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow);}
+  figcaption{font-size:13px; color:var(--muted); margin-top:8px;}
+  hr.sec{border:none; border-top:1px dashed var(--border); margin:40px 0;}
+
+  /* スクリーンショット差し替え用プレースホルダー（画像を配置すると自動で切り替わる） */
+  .shot{margin:22px 0;}
+  .shot img{width:100%; display:none; border-radius:12px; border:1px solid var(--border); box-shadow:var(--shadow);}
+  .shot-fallback{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    background:repeating-linear-gradient(135deg,var(--surface-alt),var(--surface-alt) 12px,#e9ebee 12px,#e9ebee 24px);
+    border:2px dashed #b8bec6; border-radius:12px; padding:34px 20px; text-align:center;
+  }
+  .shot-fallback .ico{font-size:28px;}
+  .shot-fallback .label{font-weight:700; color:var(--text-2); font-size:13.5px;}
+  .shot-fallback .desc{font-size:12px; color:var(--muted);}
+  .shot-fallback code{background:#fff; border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:11.5px;}
+  figcaption.shot-caption{margin-top:6px;}
+  @media print{
+    .shot-fallback{background:var(--surface-alt); padding:22px 10px;}
+  }
+
+  /* 印刷ボタン */
+  .printbtn{position:fixed; right:22px; bottom:22px; background:var(--accent); color:#fff; border:none; border-radius:30px; padding:12px 22px; font-size:14px; font-weight:700; box-shadow:var(--shadow); cursor:pointer; z-index:50; display:flex; align-items:center; gap:8px;}
+  .printbtn:hover{background:var(--accent-hover);}
+
+  footer{text-align:center; color:var(--muted); font-size:12.5px; padding:40px 20px 60px;}
+
+  @media print{
+    .printbtn{display:none;}
+    body{background:#fff; font-size:12px; line-height:1.6;}
+    .cover{padding:40px 20px;}
+    .cover h1{font-size:28px;}
+    h2{margin:26px 0 10px; font-size:19px; break-after:avoid;}
+    h3{break-after:avoid;}
+    table,figure,.conclusion,.stats,.stat,.voice{break-inside:avoid;}
+    .stats{gap:10px;}
+    a{color:var(--text); text-decoration:none;}
+  }
+</style>
+</head>
+<body>
+
+  <!-- ===== 表紙 ===== -->
+  <header class="cover">
+    <svg class="torii" width="76" height="76" viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M10 26 Q50 14 90 26 L86 34 Q50 24 14 34 Z" fill="#fff"/>
+      <rect x="22" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="69" y="34" width="9" height="54" fill="#fff"/>
+      <rect x="16" y="40" width="68" height="8" fill="#fff"/>
+    </svg>
+    <div class="doctype">PoC 改善結果 報告資料</div>
+    <h1>Watashi 試験導入（PoC）<br>改善結果のご報告</h1>
+    <p class="tag">利用者からの要望と運用側で把握した課題に対し、27件の改修を反映して確認を完了しました</p>
+    <p class="meta">— 本格導入 判断会議 資料 — 2026年9月6日</p>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ===== 1. 概要と結論 ===== -->
+    <h2><span class="n">1</span>概要と結論</h2>
+    <p class="lead">本資料は、Watashi の<b>試験導入（PoC）</b>で寄せられた利用者の要望と、管理者として運用面で把握した課題に対し、<b>どういう声があって、どう直したか</b>をまとめたものです。先に実施した機能・セキュリティの検証（全227項目・不具合0件）に続き、<b>実際に使ってもらったうえでの使い勝手の確認</b>までを完了した状態のご報告になります。</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="ico">🗣️</div>
+        <div class="big">15 件</div>
+        <div class="desc">利用者の声から実施した改修（6テーマ）</div>
+      </div>
+      <div class="stat">
+        <div class="ico">🛠️</div>
+        <div class="big">12 件</div>
+        <div class="desc">管理者として把握し先回りで解消（6テーマ）</div>
+      </div>
+      <div class="stat">
+        <div class="ico">✅</div>
+        <div class="big">841 件</div>
+        <div class="desc">自動テスト全件成功（PoC開始時 613件から増加）</div>
+      </div>
+    </div>
+
+    <div class="conclusion">
+      <h3>結論</h3>
+      <p>PoC 期間中に挙がった要望・課題は<b>すべて改修として反映</b>し、再配布したうえで動作を確認しました。改修は合計 <b>27 件</b>、いずれもレビューと自動テスト（841件・全件成功）、警告をエラー扱いにしたビルドを通過しています。</p>
+      <p>使い勝手の面で「これでは業務に使えない」という水準の指摘は<b>残っていません</b>。次のステップとして、<b>本格導入のご判断</b>をお願いします（→ <a href="#next">第7章</a>）。</p>
+    </div>
+
+    <!-- ===== 2. PoCの進め方 ===== -->
+    <h2><span class="n">2</span>PoC の進め方</h2>
+    <p><b>各係から2名ずつ</b>に、日常のファイル受け渡し業務でそのまま使ってもらいました。改善の入口は次の2系統です。</p>
+    <ul>
+      <li><b>① 利用者の声</b>：実際に使って「やりにくい」「前のツールではこうできた」と感じた点を挙げてもらう</li>
+      <li><b>② 管理者の気づき</b>：管理者として実環境で運用・確認する中で把握した、本格導入前に潰しておくべき課題</li>
+    </ul>
+    <p>挙がった内容は1件ずつ Pull Request として起票・レビューし、自動テストと Release ビルド（警告をエラー扱い）を通ったものだけを配布しました。配布は <b>ClickOnce の自動更新</b>のため、利用者はアプリを起動し直すだけで最新版になります。この仕組みにより「直す → すぐ試してもらう → 次の声を聞く」を短い間隔で繰り返せました。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PoCにおける2系統の改善サイクル図">
+        <defs>
+          <marker id="arA" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#C73E1D"/></marker>
+          <marker id="arB" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#0969DA"/></marker>
+          <marker id="arN" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#1B2A41"/></marker>
+        </defs>
+
+        <rect x="24" y="56" width="236" height="104" rx="10" fill="#FDECE7" stroke="#C73E1D" stroke-width="1.8"/>
+        <text x="142" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="#1F2328">① 現場の利用者</text>
+        <text x="142" y="110" text-anchor="middle" font-size="12" fill="#8f2d14">各係から2名ずつが日常業務で使用</text>
+        <text x="142" y="134" text-anchor="middle" font-size="12" font-weight="700" fill="#8f2d14">挙がった声 → 15 件の改修</text>
+
+        <rect x="24" y="200" width="236" height="104" rx="10" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.8"/>
+        <text x="142" y="230" text-anchor="middle" font-size="14" font-weight="700" fill="#1F2328">② 管理者（運用担当）</text>
+        <text x="142" y="254" text-anchor="middle" font-size="12" fill="#0b4a91">実環境での運用・確認で課題を把握</text>
+        <text x="142" y="278" text-anchor="middle" font-size="12" font-weight="700" fill="#0b4a91">気づき → 12 件の改修</text>
+
+        <line x1="262" y1="106" x2="332" y2="146" stroke="#C73E1D" stroke-width="2.2" marker-end="url(#arA)"/>
+        <line x1="262" y1="254" x2="332" y2="214" stroke="#0969DA" stroke-width="2.2" marker-end="url(#arB)"/>
+
+        <rect x="336" y="120" width="150" height="120" rx="10" fill="#FFFFFF" stroke="#1B2A41" stroke-width="1.8"/>
+        <text x="411" y="158" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">改修</text>
+        <text x="411" y="184" text-anchor="middle" font-size="11.5" fill="#4A535C">Pull Request 単位で</text>
+        <text x="411" y="204" text-anchor="middle" font-size="11.5" fill="#4A535C">レビュー＋自動テスト</text>
+
+        <line x1="488" y1="180" x2="518" y2="180" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#arN)"/>
+
+        <rect x="522" y="120" width="150" height="120" rx="10" fill="#FFFFFF" stroke="#1B2A41" stroke-width="1.8"/>
+        <text x="597" y="158" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">再配布</text>
+        <text x="597" y="184" text-anchor="middle" font-size="11.5" fill="#4A535C">ClickOnce の自動更新で</text>
+        <text x="597" y="204" text-anchor="middle" font-size="11.5" fill="#4A535C">起動するだけで最新版</text>
+
+        <line x1="674" y1="180" x2="704" y2="180" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#arN)"/>
+
+        <rect x="708" y="120" width="148" height="120" rx="10" fill="#F2FBF5" stroke="#1F6B3A" stroke-width="1.8"/>
+        <text x="782" y="158" text-anchor="middle" font-size="14" font-weight="700" fill="#1F6B3A">確認</text>
+        <text x="782" y="184" text-anchor="middle" font-size="11.5" fill="#1f6b3a">実機と描画検証で</text>
+        <text x="782" y="204" text-anchor="middle" font-size="11.5" fill="#1f6b3a">直ったことを確認</text>
+
+        <path d="M782,244 L782,348 L142,348 L142,166" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arN)"/>
+        <text x="462" y="340" text-anchor="middle" font-size="12" fill="#6B7280">直った状態で、また使ってもらう（このサイクルを繰り返しました）</text>
+      </svg>
+      <figcaption>図1：PoC の進め方。利用者の声と管理者の気づきという2系統の入口が、同じ「改修 → 再配布 → 確認」のサイクルに入ります。</figcaption>
+    </figure>
+
+    <h3>改修 27 件の内訳</h3>
+    <p>本資料が対象とする改修は、Pull Request <code>#118</code>〜<code>#150</code> の 27 件です（うち提出用の技術レポート作成分は対象外）。起点別・テーマ別の内訳は次のとおりです。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 660" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="起点別・テーマ別の改修件数">
+        <text x="24" y="34" font-size="14.5" font-weight="700" fill="#C73E1D">■ 利用者の声から（15 件）</text>
+        <line x1="306" y1="46" x2="306" y2="302" stroke="#D5D9DE"/>
+
+        <text x="296" y="76" text-anchor="end" font-size="12.5" fill="#1F2328">目にやさしい見た目（ライト／ダーク切替）</text>
+        <rect x="310" y="60" width="270" height="22" rx="4" fill="#C73E1D"/>
+        <text x="590" y="76" font-size="12" fill="#1F2328">3 件</text>
+
+        <text x="296" y="120" text-anchor="end" font-size="12.5" fill="#1F2328">個人設定の新設</text>
+        <rect x="310" y="104" width="180" height="22" rx="4" fill="#C73E1D"/>
+        <text x="500" y="120" font-size="12" fill="#1F2328">2 件</text>
+
+        <text x="296" y="164" text-anchor="end" font-size="12.5" fill="#1F2328">ファイルの見分けやすさ（アイコン・色・種類）</text>
+        <rect x="310" y="148" width="270" height="22" rx="4" fill="#C73E1D"/>
+        <text x="590" y="164" font-size="12" fill="#1F2328">3 件</text>
+
+        <text x="296" y="208" text-anchor="end" font-size="12.5" fill="#1F2328">一覧操作（スクロール・ドラッグ）</text>
+        <rect x="310" y="192" width="270" height="22" rx="4" fill="#C73E1D"/>
+        <text x="590" y="208" font-size="12" fill="#1F2328">3 件</text>
+
+        <text x="296" y="252" text-anchor="end" font-size="12.5" fill="#1F2328">転送の速さ（ショートカット・2000件表示）</text>
+        <rect x="310" y="236" width="270" height="22" rx="4" fill="#C73E1D"/>
+        <text x="590" y="252" font-size="12" fill="#1F2328">3 件</text>
+
+        <text x="296" y="296" text-anchor="end" font-size="12.5" fill="#1F2328">小さい画面での見切れ</text>
+        <rect x="310" y="280" width="90" height="22" rx="4" fill="#C73E1D"/>
+        <text x="410" y="296" font-size="12" fill="#1F2328">1 件</text>
+
+        <line x1="24" y1="326" x2="856" y2="326" stroke="#D5D9DE" stroke-dasharray="5 4"/>
+
+        <text x="24" y="360" font-size="14.5" font-weight="700" fill="#0969DA">■ 管理者として把握（12 件）</text>
+        <line x1="306" y1="372" x2="306" y2="620" stroke="#D5D9DE"/>
+
+        <text x="296" y="394" text-anchor="end" font-size="12.5" fill="#1F2328">利用者の識別（表示名の追加）</text>
+        <rect x="310" y="378" width="90" height="22" rx="4" fill="#0969DA"/>
+        <text x="410" y="394" font-size="12" fill="#1F2328">1 件</text>
+
+        <text x="296" y="438" text-anchor="end" font-size="12.5" fill="#1F2328">管理画面の表示・監査の整合性</text>
+        <rect x="310" y="422" width="270" height="22" rx="4" fill="#0969DA"/>
+        <text x="590" y="438" font-size="12" fill="#1F2328">3 件</text>
+
+        <text x="296" y="482" text-anchor="end" font-size="12.5" fill="#1F2328">既存サーバー環境との互換確保</text>
+        <rect x="310" y="466" width="180" height="22" rx="4" fill="#0969DA"/>
+        <text x="500" y="482" font-size="12" fill="#1F2328">2 件</text>
+
+        <text x="296" y="526" text-anchor="end" font-size="12.5" fill="#1F2328">詰まったときの回復手段</text>
+        <rect x="310" y="510" width="270" height="22" rx="4" fill="#0969DA"/>
+        <text x="590" y="526" font-size="12" fill="#1F2328">3 件</text>
+
+        <text x="296" y="570" text-anchor="end" font-size="12.5" fill="#1F2328">問い合わせ対応（バージョン情報）</text>
+        <rect x="310" y="554" width="90" height="22" rx="4" fill="#0969DA"/>
+        <text x="410" y="570" font-size="12" fill="#1F2328">1 件</text>
+
+        <text x="296" y="614" text-anchor="end" font-size="12.5" fill="#1F2328">資料と実装の同期</text>
+        <rect x="310" y="598" width="180" height="22" rx="4" fill="#0969DA"/>
+        <text x="500" y="614" font-size="12" fill="#1F2328">2 件</text>
+
+        <text x="440" y="648" text-anchor="middle" font-size="11.5" fill="#9CA3AF">合計 27 件（バーの長さ＝Pull Request の本数）</text>
+      </svg>
+      <figcaption>図2：起点別・テーマ別の改修件数。赤が利用者の声から、青が管理者として把握して手を入れた分です。</figcaption>
+    </figure>
+
+    <!-- ===== 3. 利用者からの要望と対応 ===== -->
+    <h2><span class="n">3</span>利用者からの要望と対応（15 件）</h2>
+    <p class="lead">実際に使ってもらって挙がった声を6つのテーマに整理し、それぞれ「どういう声か → 何が問題だったか → どう直したか」の順にまとめます。</p>
+
+    <h3><span class="badge badge-user">利用者の声</span>3-1. 目にやさしい見た目で使いたい</h3>
+    <p class="prs">対応：#118 / #120 / #121（3件）</p>
+    <div class="voice">
+      <b>挙がった声</b>
+      <ul>
+        <li>「日中と夜で画面のまぶしさが違う。切り替えたい」</li>
+        <li>「切り替えの設定がどこにあるのか分かりにくい」</li>
+        <li>「暗い表示にすると右クリックメニューや選択中の行の文字が読みにくい」</li>
+      </ul>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>観点</th><th>従来</th><th>改善後</th></tr></thead>
+      <tbody>
+        <tr><td>切り替え方法</td><td>ホーム画面の幅広い選択欄から「システム / ライト / ダーク」の3択を選ぶ</td><td><b>月と太陽の小さなボタンをワンタッチ</b>で切り替え。ライト／ダークの2値に簡素化し、迷う要素をなくした</td></tr>
+        <tr><td>設定の保存</td><td>切り替えても再起動で戻ることがあった</td><td>選んだ見た目を保存し、再起動後も復元。旧「Windows に合わせる」設定は現在の見た目へ一度だけ自動移行</td></tr>
+        <tr><td>暗い表示の読みやすさ</td><td>右クリックメニューの文字・ショートカット表記・チェック印が読みにくく、選択行も判別しづらい</td><td>メニューを標準スタイルへ戻し、選択行は単色背景に統一。<b>明暗それぞれのコントラストを自動テストで継続チェック</b></td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="badge badge-user">利用者の声</span>3-2. 自分の使い方に合わせたい（個人設定の新設）</h3>
+    <p class="prs">対応：#124 / #125（2件）</p>
+    <div class="voice">
+      <b>挙がった声</b>
+      <ul>
+        <li>「起動するたびに同じフォルダーを開き直すのが手間」</li>
+        <li>「並び順を変えても次に開くと元に戻っている」</li>
+        <li>「設定らしきものが画面のあちこちに散らばっていて探しにくい」</li>
+      </ul>
+    </div>
+    <p>メイン画面の右上に <b>「個人設定」</b> を新設し、これまで散らばっていた設定を1か所に集約しました。</p>
+    <table>
+      <thead><tr><th style="width:230px">設定項目</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>起動時に開く場所（ローカル）</td><td>「前回の場所」または「固定フォルダー」から選択</td></tr>
+        <tr><td>起動時に開く場所（リモート）</td><td>「未選択」「前回の場所」「指定したお気に入り」から選択</td></tr>
+        <tr><td>見た目</td><td>ライト／ダーク（3-1 の切り替えと連動）</td></tr>
+        <tr><td>一覧の並び順を記憶する</td><td>名前・サイズ・更新に加え、後から追加した<b>拡張子順も記憶</b>の対象</td></tr>
+        <tr><td>Windows のごみ箱を使う</td><td>ローカル削除時の挙動を選択</td></tr>
+        <tr><td>整理操作</td><td>リモート履歴の消去、個人設定の初期化</td></tr>
+      </tbody>
+    </table>
+    <div class="tip">
+      <b>安全面の配慮：</b>固定先のフォルダーが使えなくなった場合や、権限の範囲外になった場合は、安全な場所へ自動的にフォールバックします。設定は<b>端末ごと</b>に保存され、サーバー・データベース・権限モデルには一切変更がありません。
+    </div>
+
+    <figure class="shot">
+      <img src="images/shot-personal-settings.png" alt="個人設定画面のスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：個人設定画面</div>
+        <div class="desc"><code>docs/poc-improvement-report/images/shot-personal-settings.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図：新設した「個人設定」画面（差し替え用プレースホルダー）</figcaption>
+    </figure>
+
+    <h3><span class="badge badge-user">利用者の声</span>3-3. ファイルを見分けやすくしたい</h3>
+    <p class="prs">対応：#139 / #136 / #140（3件）</p>
+    <div class="voice">
+      <b>挙がった声</b>
+      <ul>
+        <li>「一覧が文字だけで、目的のファイルを探すのに時間がかかる」</li>
+        <li>「Excel なのか PDF なのかを名前で判断している」</li>
+        <li>「同じ種類のファイルをまとめて見たい」</li>
+      </ul>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>観点</th><th>従来</th><th>改善後</th></tr></thead>
+      <tbody>
+        <tr><td>アイコン</td><td>種類を問わず同じ表示。拡張子を目で読んで判断していた</td><td>黄色いフォルダーと<b>11種類のファイルアイコン</b>を追加（Excel・Word・PowerPoint・PDF・CSV・画像・圧縮・テキスト／コード・アプリ・データベース・メディア）</td></tr>
+        <tr><td>色分け</td><td>なし</td><td>拡張子ごとの色分けを<b>個人設定で編集可能</b>。既定ルールと明暗どちらでも見やすい8色プリセットを用意。既定はオフで、従来の見た目のままも選べる</td></tr>
+        <tr><td>並べ替え</td><td>名前・サイズ・更新のみ</td><td><b>「種類」列を追加</b>し、列見出しのクリックで拡張子順に並べ替え。同じ拡張子内は常に名前の昇順（Windows エクスプローラーと同じ挙動）</td></tr>
+        <tr><td>両ペインの一貫性</td><td>—</td><td>ローカルとリモートで同じ判定・同じ並びになるよう共通化。<code>.tar.gz</code> のような複合拡張子も正しく扱う</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted); font-size:13.5px;">※ ハイコントラスト表示を使っている環境では、従来どおりシステム色の文字アイコンにフォールバックします。</p>
+
+    <h3><span class="badge badge-user">利用者の声</span>3-4. 一覧の操作が思ったとおりに動かない</h3>
+    <p class="prs">対応：#133 / #137 / #138（3件）</p>
+    <div class="voice">
+      <b>挙がった声</b>
+      <ul>
+        <li>「スクロールバーをクリックすると、意図しない位置まで飛んでしまう」</li>
+        <li>「ファイルを選ぼうとしただけでドラッグが始まってしまう」</li>
+        <li>「複数まとめて選んでも、ドラッグすると1つしか運べない」</li>
+      </ul>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>観点</th><th>従来</th><th>改善後</th></tr></thead>
+      <tbody>
+        <tr><td>スクロール操作</td><td>細い帯の中でつまみ以外を押すと、押した位置まで一気に飛ぶ</td><td><b>18px の専用スクロールレーン</b>を設け、つまみの上下をクリックすると<b>1画面ずつ移動</b>。横スクロールも「左＝前ページ／右＝次ページ」に統一</td></tr>
+        <tr><td>ドラッグの誤爆</td><td>一覧のどこを押してもドラッグが始まり、スクロール操作と競合していた</td><td>ドラッグの開始を<b>ファイル行の内側だけ</b>に限定。行のない場所のダブルクリックは無視する</td></tr>
+        <tr><td>複数まとめての転送</td><td>複数選択してもドラッグ＆ドロップでは1件しか転送できない</td><td><b>複数選択を保持したままドラッグ＆ドロップ</b>で転送できるように変更</td></tr>
+        <tr><td>フォーカス表示</td><td>青い点線が目立ちすぎるという指摘</td><td>控えめな実線へ変更。ハイコントラスト環境での見やすさは維持</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="badge badge-user">利用者の声</span>3-5. FFFTP のようにキーボードで速く転送したい</h3>
+    <p class="prs">対応：#145 / #147 / #149（3件）</p>
+    <div class="voice">
+      <b>挙がった声</b>
+      <ul>
+        <li>「以前使っていた FFFTP のように、キーボードだけで転送したい」</li>
+        <li>「一覧が 500 件で切れてしまい、その先のファイルに届かない」</li>
+        <li>「転送の進み具合を見るのに、毎回ウィンドウを開くのが面倒」</li>
+      </ul>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>観点</th><th>従来</th><th>改善後</th></tr></thead>
+      <tbody>
+        <tr><td>転送の操作</td><td>マウスでボタンを押すかドラッグする必要があった</td><td><b>Ctrl + D で右（リモート）から左へダウンロード</b>、<b>Ctrl + U で左（ローカル）から右へアップロード</b>。ペイン切替・パス入力・絞り込み・新規フォルダー・操作案内にもキーを割り当て</td></tr>
+        <tr><td>誤操作の防止</td><td>—</td><td>入力欄の編集中・<b>日本語入力の変換中</b>・キーの長押し中は転送しない</td></tr>
+        <tr><td>一覧の件数</td><td>初回・追加読み込みとも 500 件が上限</td><td><b>2000 件</b>へ拡大。まとめて反映することで描画のちらつきも抑制（検索機能の上限 500 件は従来どおり）</td></tr>
+        <tr><td>進捗の確認</td><td>転送センターを開かないと分からず、開いている間は他の操作ができなかった</td><td>転送センターを<b>開いたまま操作できる形式</b>に変更。さらに<b>ホーム画面の下部に高さ 28px の転送状況欄</b>を追加し、方向・進捗バー・割合・待機／要対応の件数を常時表示。クリックまたはキー操作で転送センターを開ける</td></tr>
+        <tr><td>失敗時の確認</td><td>エラー内容をコピーできず、問い合わせに転記しづらい</td><td>状態フィルター（件数付き）と詳細表示を追加。<b>長いパスやエラー本文を選択してコピー</b>できる。履歴整理は「完了・スキップの整理」と「失敗・中止の破棄」を分離</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="badge badge-user">利用者の声</span>3-6. 小さい画面で操作できない</h3>
+    <p class="prs">対応：#146（1件）</p>
+    <div class="voice">
+      <b>挙がった声</b>
+      <ul>
+        <li>「ノートPC だと管理画面の下のほうのボタンに届かない」</li>
+        <li>「権限の一覧が数行しか表示されず、確認しづらい」</li>
+      </ul>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>観点</th><th>従来</th><th>改善後</th></tr></thead>
+      <tbody>
+        <tr><td>画面サイズ</td><td>固定的な大きさで開き、狭い画面ではフォームの下部が見切れて操作できない</td><td>開くときに<b>モニターの作業領域と表示倍率に合わせてサイズを調整</b>し、本文全体を縦横スクロール可能に</td></tr>
+        <tr><td>権限の編集</td><td>一覧・追加・編集が同居し、それぞれが数行に潰れていた</td><td>一覧／追加／編集／実効権限プレビューを<b>切り替え式</b>にして、それぞれの表示領域を確保</td></tr>
+        <tr><td>フォルダー選択</td><td>選択欄が 64〜70 DIP と狭い</td><td><b>200 DIP へ拡大</b>。「広く開く」でサイズ変更できる別ウィンドウからも選択でき、選択結果は元の入力欄に反映</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted); font-size:13.5px;">※ 1200×720／1060×550／890×450／720×340 DIP の4サイズ × 明暗テーマで描画し、一覧の最終行とフォーム末尾まで到達できることを確認しています。</p>
+
+    <!-- ===== 4. 管理者として把握・改善した点 ===== -->
+    <h2><span class="n">4</span>管理者として把握・改善した点（12 件）</h2>
+    <p class="lead">以下は利用者から挙がったものではなく、<b>管理者として実環境で運用・確認する中で把握し、本格導入の前に解消しておくべきと判断して手を入れた</b>ものです。利用者からは見えにくいものの、展開後の運用コストと停止リスクに直結する項目です。</p>
+
+    <h3><span class="badge badge-admin">管理者の気づき</span>4-1. 利用者を名前で識別できるようにする</h3>
+    <p class="prs">対応：#119（1件）</p>
+    <p>権限設定や操作ログの確認を、認証 ID（GID）だけで行うのは実務上つらいと判断しました。任意の<b>表示名</b>（最大100文字・重複可）を追加し、<code>山田 太郎（G012345）</code> の形式でユーザー管理・ユーザー権限・信頼デバイス・操作ログに表示・検索できるようにしました。CSV の一括登録・エクスポートにも対応しています。</p>
+    <div class="note">
+      表示名は<b>あくまで表示用</b>です。認証、Windows の本人確認、JWT、権限判定、セッション失効の条件には一切使用しません。監査ログに保存済みの記録も書き換えません。
+    </div>
+
+    <h3><span class="badge badge-admin">管理者の気づき</span>4-2. 管理画面の表示と監査記録の整合性</h3>
+    <p class="prs">対応：#122 / #123 / #126（3件）</p>
+    <p>管理画面を実際に運用しながら確認する中で、ユーザー一覧・信頼端末一覧の行が正しく表示されない不具合を発見し、修正しました。あわせて監査記録まわりの安全性・整合性についても自己レビューで洗い出し、対応しています。利用者に見える形で表面化する前に解消できています。</p>
+
+    <h3><span class="badge badge-admin">管理者の気づき</span>4-3. 既存サーバー環境との互換を確保する</h3>
+    <p class="prs">対応：#134 / #135（2件）</p>
+    <p>PoC 環境へ載せる過程で、<b>既存の社内サーバー構成と噛み合わなくなっていた設定</b>を2件把握し、復元しました。これは本格導入時に既存環境で必ず踏むもので、事前に潰せた意義は大きいと考えています。</p>
+    <table>
+      <thead><tr><th style="width:250px">把握した事象</th><th>対応</th></tr></thead>
+      <tbody>
+        <tr><td>IIS の Windows 統合認証の既定値が、既存構成では認証できない側へ変わっていた</td><td>同梱設定と既定値を既存 IIS 環境と互換な動作へ復元。より厳しい設定は、必要な環境で明示的に選べる形として残した</td></tr>
+        <tr><td>1つの共有秘密で複数の Agent（踏み台）を運用する従来構成が使えなくなっていた</td><td>共有秘密での認証時も申告された Agent ID からノードを識別できるよう復元。監査ログもどの Agent 経由かを記録。旧バージョンの Agent も受理し、未登録 ID や申告の不一致は拒否</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      共有秘密を使う構成では、同じ秘密を持つ Agent はいずれも同じ ID を名乗れます。したがって<b>全 Agent を同一の管理・信頼境界として扱う</b>ことを、仕様・管理者向け資料に明記しました。より厳密な分離が必要な場合は、相互 TLS 認証による構成を選択できます。
+    </div>
+
+    <h3><span class="badge badge-admin">管理者の気づき</span>4-4. 詰まったときに管理者が自力で回復できる状態にする</h3>
+    <p class="prs">対応：#141 / #142 / #143（3件）＋メンテナンス表示（#145）</p>
+    <p>運用を想定して確認する中で、<b>接続先の共有が到達不能になると、管理者が何もできなくなる</b>状態が起こり得ることを把握しました。未完了の転送やごみ箱の管理台帳が残っている間は接続先の変更・削除がブロックされる仕様のため、共有そのものが応答しなくなると台帳を片付けられず、<b>共有の付け替えも削除も永久にできない</b>——つまり「壊れた共有を別サーバーへ逃がしたい」という一番使いたい場面で手詰まりになります。次の3点で解消しました。</p>
+    <table>
+      <thead><tr><th style="width:150px">対応</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><b>① 見える化</b></td><td>管理画面の共有詳細に残存データを表示。<b>「待てば消えるもの」と「待っても消えないもの」を区別</b>して示すため、管理者が待つべきか強制解除すべきかを判断できる</td></tr>
+        <tr><td><b>② 強制解除</b></td><td>まず<b>正規の後片付けを試み</b>（共有が生きていれば実体ごと回収）、失敗した分だけ台帳を終了させ、<b>回収できなかったパスを監査ログに残す</b>。画面では「進行中の転送が中断される」「回収できない実体がゴミとして残る」ことを確認ダイアログで明示</td></tr>
+        <tr><td><b>③ 打ち切り</b></td><td>失敗し続ける後片付けを、猶予期間（既定 7 日）を過ぎたら自動的に諦めて終了。詰まった状態そのものが起きにくくなり、警告ログの垂れ流しも止まる</td></tr>
+      </tbody>
+    </table>
+    <p>加えて、計画停止を利用者に伝える手段がないという課題に対し、<b>メンテナンスモード</b>（#145）を追加しました。管理画面から「予定／作業中／復旧確認／通常」を切り替えると、サーバーは新規の業務要求を止めつつ受付済みの要求は完了させ、利用者側は起動・ログイン・メイン画面で案内を表示して、復旧後に待機していた転送だけを再開します。</p>
+    <p style="color:var(--muted); font-size:13.5px;">※ #145 は利用者要望（ショートカット・2000件表示・転送センター）と管理者起点（メンテナンスモード）の両方を含む1本です。件数は利用者側に計上しています。</p>
+
+    <h3><span class="badge badge-admin">管理者の気づき</span>4-5. 問い合わせ対応をしやすくする</h3>
+    <p class="prs">対応：#148（1件）</p>
+    <p>「どのバージョンを使っていますか」と尋ねても即答できず、切り分けに時間がかかる——これは展開規模が大きくなるほど効いてきます。バージョン情報を専用画面へ移し、<b>表示中のアプリの実際のバージョンを確認</b>したうえで、<b>アプリ名とバージョンを問い合わせ用にコピー</b>できるようにしました。コピーに失敗した場合は再試行の案内を表示します。あわせて鳥居の「ひとこともらう」で、ごあいさつや転送操作のヒントを表示します（音や自動アニメーションはありません）。</p>
+
+    <h3><span class="badge badge-admin">管理者の気づき</span>4-6. 資料と実装のズレを止める</h3>
+    <p class="prs">対応：#144 / #150（2件）</p>
+    <p>改修を短い間隔で重ねた結果、マニュアル・仕様書の記述が実装から遅れる場面がありました。README・仕様書・利用者／管理者マニュアル（Markdown 版と HTML 版の両方）を現在の実装に同期したうえで、<b>以後ズレないようにリポジトリの作業指針と Pull Request チェックリストを整備</b>しました。以降の改修では、動作の変更と資料の更新を同じ Pull Request で行うことを必須にしています。</p>
+    <div class="tip">
+      <b>本格導入への意味：</b>展開規模が大きくなるほど、問い合わせ対応は「資料を読んでもらう」ことが基本になります。資料が実装と一致している状態を仕組みとして維持できるようにしたことで、展開後の問い合わせ対応コストを抑えられます。
+    </div>
+
+    <!-- ===== 5. 主な改善のビフォー／アフター ===== -->
+    <h2><span class="n">5</span>主な改善のビフォー／アフター</h2>
+    <p class="lead">利用者からの声が特に多かった「ファイル一覧」「転送操作」「個人設定」の3点について、画面のイメージで対比します。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ファイル一覧の従来と改善後の比較">
+        <text x="219" y="36" text-anchor="middle" font-size="14.5" font-weight="700" fill="#7a2438">従来</text>
+        <text x="661" y="36" text-anchor="middle" font-size="14.5" font-weight="700" fill="#1f6b3a">改善後</text>
+
+        <!-- 従来 -->
+        <rect x="24" y="52" width="390" height="252" rx="8" fill="#FFFFFF" stroke="#D5D9DE" stroke-width="1.5"/>
+        <rect x="24" y="52" width="390" height="30" rx="8" fill="#F0F2F5"/>
+        <rect x="24" y="74" width="390" height="8" fill="#F0F2F5"/>
+        <text x="44" y="72" font-size="12" font-weight="700" fill="#4A535C">名前</text>
+        <text x="360" y="72" font-size="12" font-weight="700" fill="#4A535C">サイズ</text>
+        <line x1="24" y1="82" x2="414" y2="82" stroke="#D5D9DE"/>
+        <text x="44" y="110" font-size="12.5" fill="#1F2328">報告書.xlsx</text><text x="396" y="110" text-anchor="end" font-size="12" fill="#6B7280">12 KB</text>
+        <text x="44" y="142" font-size="12.5" fill="#1F2328">資料</text><text x="396" y="142" text-anchor="end" font-size="12" fill="#6B7280">—</text>
+        <text x="44" y="174" font-size="12.5" fill="#1F2328">写真.png</text><text x="396" y="174" text-anchor="end" font-size="12" fill="#6B7280">840 KB</text>
+        <text x="44" y="206" font-size="12.5" fill="#1F2328">backup.tar.gz</text><text x="396" y="206" text-anchor="end" font-size="12" fill="#6B7280">31 MB</text>
+        <text x="44" y="238" font-size="12.5" fill="#1F2328">一覧.csv</text><text x="396" y="238" text-anchor="end" font-size="12" fill="#6B7280">4 KB</text>
+        <text x="44" y="270" font-size="12.5" fill="#1F2328">資料.pdf</text><text x="396" y="270" text-anchor="end" font-size="12" fill="#6B7280">2.1 MB</text>
+        <rect x="404" y="88" width="6" height="210" rx="3" fill="#E4E7EB"/>
+        <rect x="404" y="120" width="6" height="54" rx="3" fill="#B8BEC6"/>
+
+        <!-- 改善後 -->
+        <rect x="466" y="52" width="390" height="252" rx="8" fill="#FFFFFF" stroke="#1F6B3A" stroke-width="1.5"/>
+        <rect x="466" y="52" width="390" height="30" rx="8" fill="#F0F2F5"/>
+        <rect x="466" y="74" width="390" height="8" fill="#F0F2F5"/>
+        <text x="486" y="72" font-size="12" font-weight="700" fill="#4A535C">名前</text>
+        <text x="700" y="72" font-size="12" font-weight="700" fill="#1F6B3A">種類 ▲</text>
+        <text x="816" y="72" text-anchor="end" font-size="12" font-weight="700" fill="#4A535C">サイズ</text>
+        <line x1="466" y1="82" x2="856" y2="82" stroke="#D5D9DE"/>
+
+        <rect x="486" y="98" width="15" height="16" rx="2" fill="#E8B339"/>
+        <text x="509" y="110" font-size="12.5" fill="#1F2328">資料</text>
+        <text x="700" y="110" font-size="12" fill="#9CA3AF">—</text>
+        <text x="816" y="110" text-anchor="end" font-size="12" fill="#6B7280">—</text>
+
+        <rect x="486" y="130" width="15" height="16" rx="2" fill="#1F883D"/>
+        <text x="493.5" y="142" text-anchor="middle" font-size="8" font-weight="700" fill="#fff">C</text>
+        <text x="509" y="142" font-size="12.5" fill="#1F883D">一覧.csv</text>
+        <text x="700" y="142" font-size="12" fill="#4A535C">CSV</text>
+        <text x="816" y="142" text-anchor="end" font-size="12" fill="#6B7280">4 KB</text>
+
+        <rect x="486" y="162" width="15" height="16" rx="2" fill="#CF222E"/>
+        <text x="493.5" y="174" text-anchor="middle" font-size="8" font-weight="700" fill="#fff">P</text>
+        <text x="509" y="174" font-size="12.5" fill="#CF222E">資料.pdf</text>
+        <text x="700" y="174" font-size="12" fill="#4A535C">PDF</text>
+        <text x="816" y="174" text-anchor="end" font-size="12" fill="#6B7280">2.1 MB</text>
+
+        <rect x="486" y="194" width="15" height="16" rx="2" fill="#8250DF"/>
+        <text x="493.5" y="206" text-anchor="middle" font-size="8" font-weight="700" fill="#fff">▣</text>
+        <text x="509" y="206" font-size="12.5" fill="#8250DF">写真.png</text>
+        <text x="700" y="206" font-size="12" fill="#4A535C">PNG</text>
+        <text x="816" y="206" text-anchor="end" font-size="12" fill="#6B7280">840 KB</text>
+
+        <rect x="486" y="226" width="15" height="16" rx="2" fill="#BF8700"/>
+        <text x="493.5" y="238" text-anchor="middle" font-size="8" font-weight="700" fill="#fff">Z</text>
+        <text x="509" y="238" font-size="12.5" fill="#8a6400">backup.tar.gz</text>
+        <text x="700" y="238" font-size="12" fill="#4A535C">TAR.GZ</text>
+        <text x="816" y="238" text-anchor="end" font-size="12" fill="#6B7280">31 MB</text>
+
+        <rect x="486" y="258" width="15" height="16" rx="2" fill="#1D6F42"/>
+        <text x="493.5" y="270" text-anchor="middle" font-size="8" font-weight="700" fill="#fff">X</text>
+        <text x="509" y="270" font-size="12.5" fill="#1D6F42">報告書.xlsx</text>
+        <text x="700" y="270" font-size="12" fill="#4A535C">XLSX</text>
+        <text x="816" y="270" text-anchor="end" font-size="12" fill="#6B7280">12 KB</text>
+
+        <rect x="832" y="88" width="18" height="210" rx="4" fill="#EDEFF2" stroke="#D5D9DE"/>
+        <rect x="834" y="120" width="14" height="54" rx="3" fill="#8B929B"/>
+        <text x="841" y="112" text-anchor="middle" font-size="9" fill="#4A535C">▲</text>
+        <text x="841" y="284" text-anchor="middle" font-size="9" fill="#4A535C">▼</text>
+
+        <text x="219" y="336" text-anchor="middle" font-size="12" fill="#7a2438">細い6pxの帯／種類が分からない／ドラッグが暴発する</text>
+        <text x="661" y="336" text-anchor="middle" font-size="12" fill="#1f6b3a">18px 専用レーン／アイコンと色分け／「種類」列で拡張子順に整列</text>
+        <text x="440" y="364" text-anchor="middle" font-size="11.5" fill="#9CA3AF">つまみの上下をクリックすると1画面ずつ移動します（横スクロールも左＝前ページ／右＝次ページ）</text>
+      </svg>
+      <figcaption>図3：ファイル一覧の変化。種類アイコン・色分け・「種類」列の追加と、専用スクロールレーンによる操作の安定化。</figcaption>
+    </figure>
+
+    <figure>
+      <svg viewBox="0 0 880 480" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="改善後のホーム画面の構成">
+        <rect x="24" y="24" width="832" height="410" rx="10" fill="#FFFFFF" stroke="#D5D9DE" stroke-width="1.5"/>
+
+        <!-- ヘッダー -->
+        <rect x="24" y="24" width="832" height="44" rx="10" fill="#1B2A41"/>
+        <rect x="24" y="56" width="832" height="12" fill="#1B2A41"/>
+        <text x="44" y="52" font-size="14" font-weight="700" fill="#fff">⛩ Watashi</text>
+        <text x="520" y="52" font-size="11.5" fill="#c8d3e3">山田 太郎（G012345）</text>
+        <rect x="640" y="34" width="74" height="26" rx="13" fill="#243B5C" stroke="#3a4f70"/>
+        <text x="677" y="52" text-anchor="middle" font-size="11" fill="#fff">個人設定</text>
+        <rect x="722" y="34" width="86" height="26" rx="13" fill="#243B5C" stroke="#3a4f70"/>
+        <text x="765" y="52" text-anchor="middle" font-size="11" fill="#fff">バージョン情報</text>
+        <rect x="816" y="34" width="26" height="26" rx="13" fill="#C73E1D"/>
+        <text x="829" y="52" text-anchor="middle" font-size="12" fill="#fff">☾</text>
+
+        <!-- ツールバー -->
+        <text x="44" y="92" font-size="12" fill="#4A535C">選択 3 件</text>
+        <text x="120" y="92" font-size="12" fill="#4A535C">転送先：\\server\share\受渡</text>
+
+        <!-- ペイン -->
+        <rect x="40" y="108" width="350" height="252" rx="8" fill="#FFFFFF" stroke="#D5D9DE"/>
+        <rect x="40" y="108" width="350" height="26" rx="8" fill="#F0F2F5"/>
+        <rect x="40" y="126" width="350" height="8" fill="#F0F2F5"/>
+        <text x="56" y="126" font-size="11.5" font-weight="700" fill="#4A535C">ローカル（自分のPC）</text>
+        <rect x="56" y="146" width="13" height="14" rx="2" fill="#1D6F42"/><text x="78" y="158" font-size="12" fill="#1F2328">報告書.xlsx</text>
+        <rect x="56" y="176" width="13" height="14" rx="2" fill="#CF222E"/><text x="78" y="188" font-size="12" fill="#1F2328">資料.pdf</text>
+        <rect x="48" y="200" width="334" height="24" rx="4" fill="#E6F0FB"/>
+        <rect x="56" y="206" width="13" height="14" rx="2" fill="#8250DF"/><text x="78" y="218" font-size="12" fill="#1F2328">写真.png</text>
+        <rect x="56" y="236" width="13" height="14" rx="2" fill="#E8B339"/><text x="78" y="248" font-size="12" fill="#1F2328">作業中</text>
+        <rect x="374" y="140" width="12" height="212" rx="3" fill="#EDEFF2" stroke="#D5D9DE"/>
+
+        <rect x="490" y="108" width="350" height="252" rx="8" fill="#FFFFFF" stroke="#D5D9DE"/>
+        <rect x="490" y="108" width="350" height="26" rx="8" fill="#F0F2F5"/>
+        <rect x="490" y="126" width="350" height="8" fill="#F0F2F5"/>
+        <text x="506" y="126" font-size="11.5" font-weight="700" fill="#4A535C">リモート（共有フォルダー）</text>
+        <text x="528" y="158" font-size="12" fill="#1F2328">受渡</text>
+        <rect x="506" y="146" width="13" height="14" rx="2" fill="#E8B339"/>
+        <rect x="506" y="176" width="13" height="14" rx="2" fill="#1D6F42"/><text x="528" y="188" font-size="12" fill="#1F2328">集計.xlsx</text>
+        <rect x="506" y="206" width="13" height="14" rx="2" fill="#1F883D"/><text x="528" y="218" font-size="12" fill="#1F2328">一覧.csv</text>
+        <text x="528" y="248" font-size="11.5" fill="#6B7280">… 最大 2000 件まで表示</text>
+        <rect x="824" y="140" width="12" height="212" rx="3" fill="#EDEFF2" stroke="#D5D9DE"/>
+
+        <!-- 中央のショートカット -->
+        <text x="440" y="196" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F6B3A">Ctrl + U</text>
+        <text x="440" y="212" text-anchor="middle" font-size="10.5" fill="#4A535C">アップロード</text>
+        <line x1="400" y1="226" x2="478" y2="226" stroke="#1F6B3A" stroke-width="2.4" marker-end="url(#arG)"/>
+        <line x1="480" y1="266" x2="402" y2="266" stroke="#C73E1D" stroke-width="2.4" marker-end="url(#arR)"/>
+        <text x="440" y="292" text-anchor="middle" font-size="11.5" font-weight="700" fill="#C73E1D">Ctrl + D</text>
+        <text x="440" y="308" text-anchor="middle" font-size="10.5" fill="#4A535C">ダウンロード</text>
+        <defs>
+          <marker id="arG" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#1F6B3A"/></marker>
+          <marker id="arR" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#C73E1D"/></marker>
+        </defs>
+
+        <!-- 下部の転送状況欄 -->
+        <rect x="40" y="376" width="800" height="34" rx="6" fill="#F0F2F5" stroke="#C73E1D" stroke-width="1.6"/>
+        <text x="56" y="398" font-size="11.5" fill="#1F6B3A">接続：正常</text>
+        <text x="150" y="398" font-size="11.5" fill="#1F2328">⬆ 報告書.xlsx</text>
+        <rect x="256" y="389" width="150" height="10" rx="5" fill="#E4E7EB"/>
+        <rect x="256" y="389" width="93" height="10" rx="5" fill="#C73E1D"/>
+        <text x="416" y="398" font-size="11.5" fill="#1F2328">62%</text>
+        <text x="480" y="398" font-size="11.5" fill="#4A535C">待機 2 ／ 要対応 0</text>
+        <text x="824" y="398" text-anchor="end" font-size="11" fill="#0969DA">クリックで転送センター ▸</text>
+
+        <text x="440" y="460" text-anchor="middle" font-size="11.5" fill="#6B7280">下部の転送状況欄は高さ 28px。転送センターを開かなくても進み具合が分かります。</text>
+      </svg>
+      <figcaption>図4：改善後のホーム画面。テーマ切替ボタンと個人設定（右上）、Ctrl+D / Ctrl+U による転送、下部の転送状況欄。</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <img src="images/shot-home.png" alt="改善後のホーム画面のスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：ホーム画面（ダークモード・下部の転送状況欄が見える状態）</div>
+        <div class="desc"><code>docs/poc-improvement-report/images/shot-home.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図：改善後のホーム画面（差し替え用プレースホルダー）</figcaption>
+    </figure>
+
+    <figure>
+      <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="個人設定画面の構成">
+        <rect x="120" y="24" width="640" height="330" rx="10" fill="#FFFFFF" stroke="#D5D9DE" stroke-width="1.5"/>
+        <rect x="120" y="24" width="640" height="40" rx="10" fill="#F0F2F5"/>
+        <rect x="120" y="52" width="640" height="12" fill="#F0F2F5"/>
+        <text x="144" y="50" font-size="14" font-weight="700" fill="#1B2A41">個人設定</text>
+        <text x="736" y="50" text-anchor="end" font-size="13" fill="#6B7280">✕</text>
+
+        <text x="144" y="96" font-size="12.5" fill="#1F2328">起動時に開く場所（ローカル）</text>
+        <rect x="520" y="80" width="216" height="22" rx="4" fill="#F6F7F9" stroke="#D5D9DE"/>
+        <text x="628" y="96" text-anchor="middle" font-size="11.5" fill="#4A535C">前回の場所 ／ 固定フォルダー</text>
+        <line x1="144" y1="112" x2="736" y2="112" stroke="#EDEFF2"/>
+
+        <text x="144" y="132" font-size="12.5" fill="#1F2328">起動時に開く場所（リモート）</text>
+        <rect x="520" y="116" width="216" height="22" rx="4" fill="#F6F7F9" stroke="#D5D9DE"/>
+        <text x="628" y="132" text-anchor="middle" font-size="11.5" fill="#4A535C">未選択 ／ 前回 ／ お気に入り</text>
+        <line x1="144" y1="148" x2="736" y2="148" stroke="#EDEFF2"/>
+
+        <text x="144" y="168" font-size="12.5" fill="#1F2328">見た目（テーマ）</text>
+        <rect x="520" y="152" width="216" height="22" rx="4" fill="#F6F7F9" stroke="#D5D9DE"/>
+        <text x="628" y="168" text-anchor="middle" font-size="11.5" fill="#4A535C">☀ ライト ／ ☾ ダーク</text>
+        <line x1="144" y1="184" x2="736" y2="184" stroke="#EDEFF2"/>
+
+        <text x="144" y="204" font-size="12.5" fill="#1F2328">一覧の並び順を記憶する</text>
+        <rect x="520" y="188" width="216" height="22" rx="4" fill="#E6F5EB" stroke="#bfe3cb"/>
+        <text x="628" y="204" text-anchor="middle" font-size="11.5" fill="#1F6B3A">オン（拡張子順も対象）</text>
+        <line x1="144" y1="220" x2="736" y2="220" stroke="#EDEFF2"/>
+
+        <text x="144" y="240" font-size="12.5" fill="#1F2328">ファイルの色分けルール</text>
+        <rect x="520" y="224" width="216" height="22" rx="4" fill="#F6F7F9" stroke="#D5D9DE"/>
+        <text x="628" y="240" text-anchor="middle" font-size="11.5" fill="#4A535C">拡張子・色・有効／無効を編集</text>
+        <line x1="144" y1="256" x2="736" y2="256" stroke="#EDEFF2"/>
+
+        <text x="144" y="276" font-size="12.5" fill="#1F2328">Windows のごみ箱を使う</text>
+        <rect x="520" y="260" width="216" height="22" rx="4" fill="#E6F5EB" stroke="#bfe3cb"/>
+        <text x="628" y="276" text-anchor="middle" font-size="11.5" fill="#1F6B3A">オン</text>
+        <line x1="144" y1="292" x2="736" y2="292" stroke="#EDEFF2"/>
+
+        <text x="144" y="312" font-size="12.5" fill="#1F2328">整理</text>
+        <rect x="520" y="296" width="104" height="22" rx="4" fill="#FFF6E0" stroke="#f0dca0"/>
+        <text x="572" y="312" text-anchor="middle" font-size="11" fill="#8a6400">リモート履歴の消去</text>
+        <rect x="632" y="296" width="104" height="22" rx="4" fill="#FFE9EA" stroke="#f3c4c8"/>
+        <text x="684" y="312" text-anchor="middle" font-size="11" fill="#a3202b">設定の初期化</text>
+
+        <text x="440" y="382" text-anchor="middle" font-size="11.5" fill="#6B7280">設定は端末ごとに保存されます。サーバー・データベース・権限モデルの変更はありません。</text>
+      </svg>
+      <figcaption>図5：新設した「個人設定」の構成。散らばっていた設定を1か所に集約し、起動時に開く場所も選べます。</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <img src="images/shot-transfer-center.png" alt="転送センターのスクリーンショット"
+           onload="this.style.display='block'; this.nextElementSibling.style.display='none';">
+      <div class="shot-fallback">
+        <div class="ico">🖼️</div>
+        <div class="label">スクリーンショット挿入予定：転送センター（状態フィルターと詳細表示）</div>
+        <div class="desc"><code>docs/poc-improvement-report/images/shot-transfer-center.png</code> を配置すると、この枠に自動で表示されます</div>
+      </div>
+      <figcaption class="shot-caption">図：開いたまま操作できるようになった転送センター（差し替え用プレースホルダー）</figcaption>
+    </figure>
+
+    <!-- ===== 6. 品質の裏付け ===== -->
+    <h2><span class="n">6</span>品質の裏付け</h2>
+    <p class="lead">これらの改修は、使い勝手を優先して品質を落としたものではありません。改修のたびに自動テストを追加しており、PoC 期間を通じて<b>テスト件数は 613 件から 841 件へ増加</b>しています。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="自動テスト件数の推移">
+        <text x="34" y="30" font-size="12" fill="#6B7280">自動テスト件数</text>
+        <line x1="90" y1="40" x2="90" y2="300" stroke="#D5D9DE"/>
+        <line x1="90" y1="300" x2="856" y2="300" stroke="#D5D9DE"/>
+
+        <line x1="90" y1="40" x2="856" y2="40" stroke="#EDEFF2"/><text x="80" y="44" text-anchor="end" font-size="11" fill="#9CA3AF">850</text>
+        <line x1="90" y1="92" x2="856" y2="92" stroke="#EDEFF2"/><text x="80" y="96" text-anchor="end" font-size="11" fill="#9CA3AF">800</text>
+        <line x1="90" y1="144" x2="856" y2="144" stroke="#EDEFF2"/><text x="80" y="148" text-anchor="end" font-size="11" fill="#9CA3AF">750</text>
+        <line x1="90" y1="196" x2="856" y2="196" stroke="#EDEFF2"/><text x="80" y="200" text-anchor="end" font-size="11" fill="#9CA3AF">700</text>
+        <line x1="90" y1="248" x2="856" y2="248" stroke="#EDEFF2"/><text x="80" y="252" text-anchor="end" font-size="11" fill="#9CA3AF">650</text>
+        <text x="80" y="304" text-anchor="end" font-size="11" fill="#9CA3AF">600</text>
+
+        <polyline points="110,286 230,252 350,176 470,136 590,122 710,58 830,49"
+                  fill="none" stroke="#C73E1D" stroke-width="3"/>
+
+        <circle cx="110" cy="286" r="5.5" fill="#C73E1D"/><text x="110" y="274" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F2328">613</text>
+        <circle cx="230" cy="252" r="5.5" fill="#C73E1D"/><text x="230" y="240" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F2328">646</text>
+        <circle cx="350" cy="176" r="5.5" fill="#C73E1D"/><text x="350" y="164" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F2328">719</text>
+        <circle cx="470" cy="136" r="5.5" fill="#C73E1D"/><text x="470" y="124" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F2328">758</text>
+        <circle cx="590" cy="122" r="5.5" fill="#C73E1D"/><text x="590" y="110" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F2328">771</text>
+        <circle cx="710" cy="58" r="5.5" fill="#C73E1D"/><text x="710" y="46" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F2328">833</text>
+        <circle cx="830" cy="49" r="5.5" fill="#1F883D"/><text x="830" y="37" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F883D">841</text>
+
+        <text x="110" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#118</text><text x="110" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">8/21</text>
+        <text x="230" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#124</text><text x="230" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">8/24</text>
+        <text x="350" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#133</text><text x="350" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/1</text>
+        <text x="470" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#140</text><text x="470" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/4</text>
+        <text x="590" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#143</text><text x="590" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/4</text>
+        <text x="710" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#145</text><text x="710" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/5</text>
+        <text x="830" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#150</text><text x="830" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/6</text>
+
+        <text x="473" y="368" text-anchor="middle" font-size="11.5" fill="#9CA3AF">横軸＝主な改修（Pull Request 番号と反映日）。いずれの時点でも失敗・スキップは 0 件です。</text>
+      </svg>
+      <figcaption>図6：自動テスト件数の推移。改修のたびに検証を積み増しており、以後の改修で今回の動作が壊れても検知できます。</figcaption>
+    </figure>
+
+    <table>
+      <thead><tr><th style="width:210px">確認方法</th><th>内容</th><th style="width:80px">結果</th></tr></thead>
+      <tbody>
+        <tr><td>自動テスト（xUnit）</td><td>841件。今回の改修で追加した拡張子ソート、色分け設定の保存復元、スクロールのページ移動、強制解除の各ケースを含む</td><td class="ok">✓ 全件成功</td></tr>
+        <tr><td>ビルド</td><td>Release ビルドで<b>警告をエラーとして扱う</b>設定。カバレッジ 67.89%（下限 50%）</td><td class="ok">✓ 警告0・エラー0</td></tr>
+        <tr><td>画面の描画検証</td><td>ライト／ダーク両テーマ、1200×720〜720×340 DIP の各サイズ、2000件表示時の動作を実際に描画して確認</td><td class="ok">✓ OK</td></tr>
+        <tr><td>実機での操作確認</td><td>ファイル一覧の並べ替え・表示、転送操作、管理画面の強制解除の一連の流れを実際に操作して確認</td><td class="ok">✓ OK</td></tr>
+        <tr><td>依存パッケージ</td><td>既知の脆弱性の有無を確認</td><td class="ok">✓ 検出なし</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <b>レビュー指摘の扱い：</b>改修に対するレビューで見つかった問題は、その場で追加の修正として対応しています（#125・#138・#142・#150）。たとえば #142 では、追加したテストが<b>修正前のコードでは失敗すること</b>まで確認したうえで反映しました。見つかった指摘を先送りせずに閉じている状態です。
+    </div>
+
+    <!-- ===== 7. 本格導入に向けて ===== -->
+    <h2 id="next"><span class="n">7</span>本格導入に向けて</h2>
+    <p>PoC の結果、Watashi は<b>実際の業務で日常的に使える水準</b>に達したと判断しています。本格導入は次の流れを想定しています。</p>
+
+    <figure>
+      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="本格導入のロードマップ">
+        <defs>
+          <marker id="arRm" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#1B2A41"/></marker>
+        </defs>
+
+        <path d="M90,90 L130,130 L90,170 L50,130 Z" fill="#F9E5E0" stroke="#C73E1D" stroke-width="2"/>
+        <text x="90" y="126" text-anchor="middle" font-size="11" font-weight="700" fill="#5C1A0B">本格導入</text>
+        <text x="90" y="142" text-anchor="middle" font-size="11" font-weight="700" fill="#5C1A0B">の承認</text>
+        <text x="90" y="196" text-anchor="middle" font-size="11.5" font-weight="700" fill="#C73E1D">◆ ご判断</text>
+
+        <line x1="132" y1="130" x2="156" y2="130" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#arRm)"/>
+
+        <rect x="160" y="76" width="210" height="110" rx="10" fill="#FFFFFF" stroke="#1B2A41" stroke-width="1.8"/>
+        <text x="265" y="118" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">① サーバー先行更新</text>
+        <text x="265" y="146" text-anchor="middle" font-size="11.5" fill="#4A535C">中央サーバーを先に更新し</text>
+        <text x="265" y="164" text-anchor="middle" font-size="11.5" fill="#4A535C">動作を確認する</text>
+
+        <line x1="372" y1="131" x2="392" y2="131" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#arRm)"/>
+
+        <rect x="396" y="76" width="210" height="110" rx="10" fill="#FFFFFF" stroke="#1B2A41" stroke-width="1.8"/>
+        <text x="501" y="118" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">② クライアント再配布</text>
+        <text x="501" y="146" text-anchor="middle" font-size="11.5" fill="#4A535C">ClickOnce で配布し</text>
+        <text x="501" y="164" text-anchor="middle" font-size="11.5" fill="#4A535C">利用者は起動するだけ</text>
+
+        <line x1="608" y1="131" x2="628" y2="131" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#arRm)"/>
+
+        <rect x="632" y="76" width="210" height="110" rx="10" fill="#F2FBF5" stroke="#1F6B3A" stroke-width="1.8"/>
+        <text x="737" y="118" text-anchor="middle" font-size="14" font-weight="700" fill="#1F6B3A">③ 全体展開・運用開始</text>
+        <text x="737" y="146" text-anchor="middle" font-size="11.5" fill="#1f6b3a">対象を広げ、通常運用へ</text>
+        <text x="737" y="164" text-anchor="middle" font-size="11.5" fill="#1f6b3a">移行する</text>
+
+        <text x="265" y="216" text-anchor="middle" font-size="11" fill="#6B7280">リモート一覧の 2000 件表示と拡張子ソートは</text>
+        <text x="265" y="234" text-anchor="middle" font-size="11" fill="#6B7280">サーバー側の対応が前提のため、順序は固定です</text>
+
+        <text x="501" y="216" text-anchor="middle" font-size="11" fill="#6B7280">自動更新のため個別の作業は不要。</text>
+        <text x="501" y="234" text-anchor="middle" font-size="11" fill="#6B7280">起動時に更新の確認が入ります</text>
+
+        <text x="737" y="216" text-anchor="middle" font-size="11" fill="#6B7280">以後の計画停止はメンテナンスモードで</text>
+        <text x="737" y="234" text-anchor="middle" font-size="11" fill="#6B7280">事前に利用者へ案内できます</text>
+
+        <text x="440" y="276" text-anchor="middle" font-size="11.5" fill="#9CA3AF">構成・更新・切り戻しの詳細手順は別紙「メンテナンス導入・運用ガイド」に掲載しています。</text>
+      </svg>
+      <figcaption>図7：本格導入のロードマップ。◆は意思決定のタイミングです。</figcaption>
+    </figure>
+
+    <h3>展開時の前提</h3>
+    <ul>
+      <li><b>サーバーを先に更新します。</b>リモート一覧の 2000 件表示と拡張子順の並べ替えはサーバー側で処理するため、クライアントだけを新しくすると「押しても並ばない」動作になります。順序は入れ替えられません。</li>
+      <li><b>クライアントは ClickOnce の自動更新で配布します。</b>利用者側の作業は不要で、起動時に更新確認が入ります。データベースのスキーマ変更はありません。</li>
+      <li><b>以後の更新はメンテナンスモードで案内できます。</b>計画停止の予定・作業中・復旧確認を管理画面から切り替えると、利用者側に案内が表示され、待機していた転送は復旧後に再開されます。</li>
+    </ul>
+
+    <div class="conclusion">
+      <h3>ご判断のお願い</h3>
+      <p>PoC で挙がった要望と課題への対応が完了し、実際の業務で使える状態を確認できました。つきましては、<b>本格導入への移行についてご承認</b>をお願いいたします。</p>
+      <p>承認後は、上記①〜③の順で展開を進めます。</p>
+    </div>
+
+    <hr class="sec">
+
+    <!-- ===== 付録 ===== -->
+    <h2><span class="n">＊</span>付録：対応した改修の一覧</h2>
+    <p>本資料が対象とする改修 27 件の内訳です（<span class="badge badge-user">利</span>＝利用者の声から、<span class="badge badge-admin">管</span>＝管理者として把握）。</p>
+
+    <table>
+      <thead><tr><th style="width:60px">番号</th><th style="width:50px">起点</th><th>内容</th><th style="width:80px">反映日</th></tr></thead>
+      <tbody>
+        <tr><td class="num">#118</td><td>利</td><td>ライト／ダークの基盤対応、一覧の読み込み単位と最大化・復元の改善</td><td class="num">8/21</td></tr>
+        <tr><td class="num">#119</td><td>管</td><td>管理画面で任意の利用者表示名を扱えるようにする</td><td class="num">8/23</td></tr>
+        <tr><td class="num">#120</td><td>利</td><td>テーマ切り替えを月と太陽のボタンへ簡素化</td><td class="num">8/23</td></tr>
+        <tr><td class="num">#121</td><td>利</td><td>ダーク表示の右クリックメニューとファイル選択行を読みやすく</td><td class="num">8/24</td></tr>
+        <tr><td class="num">#122</td><td>管</td><td>管理画面の一覧行が正しく表示されない問題を修正</td><td class="num">8/24</td></tr>
+        <tr><td class="num">#123</td><td>管</td><td>信頼端末の一覧行が正しく表示されない問題を修正</td><td class="num">8/24</td></tr>
+        <tr><td class="num">#124</td><td>利</td><td>個人設定の新設と起動時に開く場所の復元</td><td class="num">8/24</td></tr>
+        <tr><td class="num">#125</td><td>利</td><td>個人設定・起動復元の安全性を改善（レビュー指摘対応）</td><td class="num">8/25</td></tr>
+        <tr><td class="num">#126</td><td>管</td><td>監査記録まわりの安全性と整合性を改善</td><td class="num">8/25</td></tr>
+        <tr><td class="num">#133</td><td>利</td><td>一覧のスクロール・色分け・複数選択ドラッグを改善</td><td class="num">9/1</td></tr>
+        <tr><td class="num">#134</td><td>管</td><td>IIS の Windows 統合認証の既定動作を復元</td><td class="num">9/1</td></tr>
+        <tr><td class="num">#135</td><td>管</td><td>共有秘密による複数 Agent 構成を復元</td><td class="num">9/1</td></tr>
+        <tr><td class="num">#136</td><td>利</td><td>色分けルールの個人設定とページスクロールを改善</td><td class="num">9/2</td></tr>
+        <tr><td class="num">#137</td><td>利</td><td>スクロールのページ移動と行外ダブルクリックを修正</td><td class="num">9/2</td></tr>
+        <tr><td class="num">#138</td><td>利</td><td>横スクロールのページ移動方向を修正（レビュー指摘対応）</td><td class="num">9/2</td></tr>
+        <tr><td class="num">#139</td><td>利</td><td>ファイル種類別のベクターアイコンを追加</td><td class="num">9/2</td></tr>
+        <tr><td class="num">#140</td><td>利</td><td>「種類」列の追加と拡張子順の並べ替え</td><td class="num">9/4</td></tr>
+        <tr><td class="num">#141</td><td>管</td><td>共有の廃止・付け替えを管理者が完遂できるようにする</td><td class="num">9/4</td></tr>
+        <tr><td class="num">#142</td><td>管</td><td>強制解除のレビュー指摘2件に対応</td><td class="num">9/4</td></tr>
+        <tr><td class="num">#143</td><td>管</td><td>廃止済みごみ箱の強制解除でのデッドロックを防止</td><td class="num">9/4</td></tr>
+        <tr><td class="num">#144</td><td>管</td><td>マニュアル・仕様を現在の実装に同期し、作業指針を整備</td><td class="num">9/4</td></tr>
+        <tr><td class="num">#145</td><td>利</td><td>転送ショートカット（Ctrl+D／Ctrl+U）・2000件表示・メンテナンス表示</td><td class="num">9/5</td></tr>
+        <tr><td class="num">#146</td><td>利</td><td>管理画面の小画面スクロールと権限編集領域を改善</td><td class="num">9/5</td></tr>
+        <tr><td class="num">#147</td><td>利</td><td>転送センターの一覧を広げ、詳細表示と履歴整理を改善</td><td class="num">9/6</td></tr>
+        <tr><td class="num">#148</td><td>管</td><td>バージョン情報にコピー機能と鳥居のひとことを追加</td><td class="num">9/6</td></tr>
+        <tr><td class="num">#149</td><td>利</td><td>ホーム下部に省スペースな転送進捗を表示</td><td class="num">9/6</td></tr>
+        <tr><td class="num">#150</td><td>管</td><td>HTML 版の状態バーとブランディング案内を現行 UI に同期</td><td class="num">9/6</td></tr>
+      </tbody>
+    </table>
+
+    <h3>関連資料</h3>
+    <ul>
+      <li><a href="../verification-report/index.html">Watashi 手動検証 完了のご報告</a> — 機能・セキュリティの検証結果（全227項目・不具合0件）</li>
+      <li><a href="../proposal/index.html">Watashi 導入提案資料</a> — 背景・課題・導入効果</li>
+      <li><a href="../USER-GUIDE.md">利用者マニュアル</a> ／ <a href="../ADMIN-GUIDE.md">管理者マニュアル</a> — 本資料に記載した各機能の操作手順</li>
+      <li><a href="../../deploy/MAINTENANCE-ROLLOUT-PLAN.html">メンテナンス導入・運用ガイド</a> — 更新当日の順序、復旧・切り戻しの手順</li>
+      <li><a href="../CHANGELOG.md">変更履歴</a> — 各改修の詳細</li>
+    </ul>
+
+  </div>
+
+  <footer>
+    ⛩ Watashi 試験導入（PoC）改善結果 報告資料 ／ 社内検討用
+  </footer>
+
+  <button class="printbtn" onclick="window.print()">🖨 印刷 / PDFで保存</button>
+
+</body>
+</html>
