@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Rename the on-screen application name (default "Watashi") across the WPF
   client in one shot, without touching namespaces / class names.
@@ -11,7 +11,7 @@
 
     XAML  : Text="OLD"          -> Text="NEW"
             Title="OLD          -> Title="NEW    (keeps any suffix, e.g. " - login")
-    C#    : "OLD -              -> "NEW -         (dialog / About titles)
+    C#    : "OLD -              -> "NEW -         (dialog titles)
     pubxml: <ProductName>OLD</ProductName> and PublisherName / SuiteName
 
   It does NOT change:

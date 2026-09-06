@@ -74,15 +74,15 @@ UI 文字列としての「Watashi」は以下に直書きされています。�
 | 〃 | ヘッダーの文字 | `<TextBlock Text="Watashi" Style="{StaticResource H3}" .../>` |
 | `src/Watashi.Client/Themes/Icons.xaml` | ロゴテンプレート ×2 (`ToriiLogo` / `ToriiLogoLight`) | `<TextBlock Text="Watashi" .../>` |
 | `src/Watashi.Client/App.xaml.cs` | 各種ダイアログのタイトル (配布設定エラー / 致命エラー / PC 記憶) | `"Watashi - 配布設定エラー"` / `$"Watashi - {title}"` / `"Watashi - PC 記憶"` |
-| `src/Watashi.Client/Views/MainWindow.xaml.cs` | バージョン情報 (About) ダイアログ | `"Watashi - 社内 CIFS ファイル管理ツール\nバージョン ..."` |
+| `src/Watashi.Client/Views/AboutWindow.xaml` | バージョン情報のアプリ名（コピー内容にも反映） | `Text="Watashi"` |
 
 > ロゴ直下の補足文字「CIFS ファイル管理」も、必要なら合わせて変更してください。
-> 出現箇所は 3 ファイル: `MainWindow.xaml` (ヘッダー) / `LoginWindow.xaml` (「社内 CIFS ファイル管理」) / `SplashWindow.xaml` (スプラッシュ)。
+> 出現箇所は 4 ファイル: `MainWindow.xaml` (ヘッダー) / `LoginWindow.xaml` (「社内 CIFS ファイル管理」) / `SplashWindow.xaml` (スプラッシュ) / `AboutWindow.xaml` (バージョン情報)。
 
 **置換の目安** (UI に出る文字列のみ対象、大文字小文字を区別):
 - `Text="Watashi"` → `Text="新名称"`
 - `Title="Watashi` → `Title="新名称`
-- コード内のダイアログタイトル `"Watashi - …` (`App.xaml.cs` / `MainWindow.xaml.cs`) → `"新名称 - …`
+- コード内のダイアログタイトル `"Watashi - …` (`App.xaml.cs`) → `"新名称 - …`
 
 > 漏れ防止には、`src/Watashi.Client` 配下を `Text="Watashi"` と `"Watashi - ` の 2 パターンで全文検索して洗い出すのが確実です。
 

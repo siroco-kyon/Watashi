@@ -1,0 +1,34 @@
+<Window x:Class="Watashi.Client.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="バージョン情報" Width="470" Height="550" MinWidth="320" MinHeight="300"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="{StaticResource ToriiIcon}"
+        AutomationProperties.Name="バージョン情報">
+    <DockPanel Margin="20">
+        <Button DockPanel.Dock="Bottom" Content="閉じる(_C)" IsCancel="True" Click="OnClose"
+                HorizontalAlignment="Right" Margin="0,16,0,0"/>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <TextBlock x:Name="BrandName" Text="Watashi" Style="{StaticResource H2}"/>
+                <TextBlock Text="社内 CIFS ファイル管理ツール" Style="{StaticResource Muted}" Margin="0,4,0,16" TextWrapping="Wrap"/>
+                <TextBlock Text="バージョン" FontWeight="SemiBold"/>
+                <TextBox x:Name="VersionText" IsReadOnly="True" TextWrapping="Wrap" Margin="0,6,0,8" AutomationProperties.Name="現在のバージョン"/>
+                <Button Content="バージョン情報をコピー(_V)" Click="OnCopyVersion" HorizontalAlignment="Left"/>
+                <TextBlock x:Name="CopyStatus" TextWrapping="Wrap" Margin="0,6,0,8" AutomationProperties.LiveSetting="Polite"/>
+                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16" Margin="0,8,0,0">
+                    <StackPanel>
+                        <Button x:Name="GreetingButton" Click="OnGreeting" HorizontalAlignment="Center" Padding="16,10"
+                                AutomationProperties.Name="鳥居からひとこともらう" ToolTip="押すとひとことが変わります">
+                            <StackPanel>
+                                <Image Source="{StaticResource ToriiIcon}" Width="54" Height="54" Margin="0,0,0,8"/>
+                                <AccessText Text="ひとこともらう(_G)"/>
+                            </StackPanel>
+                        </Button>
+                        <TextBlock x:Name="GreetingText" Text="鳥居をくぐって、信頼できる場所へ。" TextWrapping="Wrap"
+                                   TextAlignment="Center" Margin="0,14,0,0" MinHeight="48" AutomationProperties.LiveSetting="Polite"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
