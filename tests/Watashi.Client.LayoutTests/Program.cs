@@ -40,6 +40,7 @@ internal static partial class Program
                 Source = new Uri($"/Watashi.Client;component/Themes/Colors.{theme}.xaml", UriKind.Relative),
             };
             foreach (var key in palette.Keys) app.Resources[key] = palette[key];
+            CheckCompactTransfers(output, theme);
             CheckAbout(output, theme);
             CheckTransfers(new Size(1200, 900), output, theme);
             // Client-area DIPs, including the reduced space at 125/150% on a 1366x768 display.

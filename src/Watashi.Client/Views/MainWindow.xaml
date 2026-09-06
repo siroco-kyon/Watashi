@@ -265,7 +265,7 @@
                 BorderThickness="0,0,0,1"
                 Padding="18,10">
             <WrapPanel Orientation="Horizontal">
-                <Button Command="{Binding UploadSelectionCommand}"
+                <Button VerticalAlignment="Center" Padding="10,3" MinHeight="30" Command="{Binding UploadSelectionCommand}"
                         Style="{StaticResource PrimaryButton}"
                         Margin="0,0,8,0"
                         ToolTipService.ShowOnDisabled="True"
@@ -277,7 +277,7 @@
                         <TextBlock Text="アップロード (Ctrl+U)"/>
                     </StackPanel>
                 </Button>
-                <Button Command="{Binding DownloadSelectionCommand}"
+                <Button VerticalAlignment="Center" Padding="10,3" MinHeight="30" Command="{Binding DownloadSelectionCommand}"
                         Style="{StaticResource PrimaryButton}"
                         ToolTipService.ShowOnDisabled="True"
                         AutomationProperties.Name="ダウンロード" AutomationProperties.AcceleratorKey="Ctrl+D"
@@ -288,20 +288,18 @@
                         <TextBlock Text="ダウンロード (Ctrl+D)"/>
                     </StackPanel>
                 </Button>
-                <Button Click="OnOpenTransferCenter"
+                <Button VerticalAlignment="Center" Padding="10,3" MinHeight="30" Click="OnOpenTransferCenter"
                         Style="{StaticResource BaseButton}"
                         Margin="8,0,0,0"
                         Content="転送センター"
                         ToolTip="{Binding TransferQueue.Summary}"
                         AutomationProperties.Name="転送ジョブセンターを開く"
                         AutomationProperties.HelpText="待機中、実行中、失敗した転送の再試行や中止を管理します。"/>
-                <Button Content="操作・キー (F1)" Click="OnShowKeyboardHelp" Margin="8,0,0,0"
+                <Button VerticalAlignment="Center" Padding="10,3" MinHeight="30" Content="操作・キー (F1)" Click="OnShowKeyboardHelp" Margin="8,0,0,0"
                         AutomationProperties.AcceleratorKey="F1"/>
                 <StackPanel Margin="12,2,0,0" MaxWidth="700">
                     <TextBlock Text="{Binding UploadSummary}" TextTrimming="CharacterEllipsis" ToolTip="{Binding UploadSummary}"/>
                     <TextBlock Text="{Binding DownloadSummary}" TextTrimming="CharacterEllipsis" ToolTip="{Binding DownloadSummary}"/>
-                    <TextBlock Text="{Binding UploadUnavailableReason}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding DownloadUnavailableReason}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                 </StackPanel>
             </WrapPanel>
         </Border>
@@ -334,28 +332,25 @@
             </DockPanel>
         </Border>
 
-        <!-- ===== Status Bar ===== -->
-        <StatusBar DockPanel.Dock="Bottom">
-            <StatusBarItem>
-                <StackPanel Orientation="Horizontal">
-
-                    <TextBlock x:Name="ConnectionStatusText" Text="{Binding Maintenance.StatusLabel, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                </StackPanel>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock x:Name="MainStatusLiveRegion"
-                           Text="{Binding LatestStatusMessage}"
-                           ToolTip="{Binding LatestStatusMessage}"
-                           TextTrimming="CharacterEllipsis"
-                           MaxWidth="600"
-                           AutomationProperties.Name="{Binding LatestStatusMessage, StringFormat=操作状態: {0}}"
-                           AutomationProperties.LiveSetting="Polite"/>
-            </StatusBarItem>
-            <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="{Binding Username, StringFormat=ユーザー: {0}}"/>
-            </StatusBarItem>
-        </StatusBar>
+        <!-- One shared footer row: operation feedback and live transfer progress. -->
+        <Grid DockPanel.Dock="Bottom" Height="28" Margin="8,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="3*"/>
+            </Grid.ColumnDefinitions>
+            <DockPanel Margin="0,0,12,0">
+            <TextBlock x:Name="ConnectionStatusText" DockPanel.Dock="Left" Margin="0,0,10,0"
+                       Text="{Binding Maintenance.StatusLabel, RelativeSource={RelativeSource AncestorType=Window}}"
+                       VerticalAlignment="Center"/>
+            <TextBlock x:Name="MainStatusLiveRegion" Text="{Binding LatestStatusMessage}"
+                       ToolTip="{Binding LatestStatusMessage}" TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" Margin="0,0,12,0"
+                       AutomationProperties.Name="{Binding LatestStatusMessage, StringFormat=操作状態: {0}}"
+                       AutomationProperties.LiveSetting="Polite"/>
+            </DockPanel>
+            <controls:TransferStatusStrip Grid.Column="1" DataContext="{Binding TransferQueue}"
+                                          OpenRequested="OnOpenTransferCenter"/>
+        </Grid>
 
         <!-- ===== Transfer progress ===== -->
         <Border DockPanel.Dock="Bottom"
