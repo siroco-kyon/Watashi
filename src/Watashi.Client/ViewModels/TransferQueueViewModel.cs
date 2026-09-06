@@ -45,6 +45,9 @@ public sealed class TransferQueueItemViewModel : ObservableObject
     public int Percent => Job.TotalBytes > 0
         ? (int)Math.Clamp(Job.BytesTransferred * 100 / Job.TotalBytes, 0, 100)
         : Job.State is TransferJobStates.Completed or TransferJobStates.Skipped ? 100 : 0;
+    public string DirectionArrow => Job.Direction == TransferDirections.Upload ? "↑" : "↓";
+    public string CompactProgress => Job.State == TransferJobStates.Canceling ? "中止中" : $"{Percent}%";
+    public string ProgressDescription => $"{DirectionLabel}: {FileName} / {StateLabel} / {ProgressText}\n転送元: {SourceText}\n転送先: {DestinationText}";
     public string ProgressText => $"{FormatBytes(Job.BytesTransferred)} / {FormatBytes(Job.TotalBytes)} ({Percent}%)";
     public string SourceText => Job.Direction == TransferDirections.Upload ? Job.LocalPath : Job.RemotePath;
     public string DestinationText => Job.Direction == TransferDirections.Upload ? Job.RemotePath : Job.LocalPath;
@@ -114,6 +117,21 @@ public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<string, string> _knownStates = new(StringComparer.OrdinalIgnoreCase);
 
     public ObservableCollection<TransferQueueItemViewModel> Jobs { get; } = new();
+    public ObservableCollection<TransferQueueItemViewModel> ActiveJobs { get; } = new();
+    public bool HasActiveJobs => ActiveJobs.Count > 0;
+    public string CompactDescription => string.Join("\n", ActiveJobs.Select(job => job.ProgressDescription).Append(CompactSummary));
+    public string CompactSummary
+    {
+        get
+        {
+            var waiting = QueuedCount + RetryWaitingCount + MaintenanceWaitingCount;
+            var attention = FailedCount + PausedCount + ConflictCount;
+            var parts = new List<string>();
+            if (waiting > 0) parts.Add($"待機 {waiting}件");
+            if (attention > 0) parts.Add($"要対応 {attention}件");
+            return parts.Count > 0 ? string.Join(" · ", parts) : HasActiveJobs ? "転送中" : "転送なし";
+        }
+    }
     public ICollectionView VisibleJobs { get; }
     public IReadOnlyList<TransferFilterOption> FilterOptions { get; } = new[] { "すべて", "実行中・待機", "要対応", "完了・中止" }.Select(key => new TransferFilterOption(key)).ToArray();
     public event Action<string>? JobCompleted;
@@ -365,6 +383,14 @@ public partial class TransferQueueViewModel : ObservableObject, IAsyncDisposable
                 "完了・中止" => job.IsFinished,
                 _ => true,
             });
+        var active = Jobs.Where(job => job.IsRunning).ToArray();
+        for (var i = ActiveJobs.Count - 1; i >= 0; i--)
+            if (!active.Contains(ActiveJobs[i])) ActiveJobs.RemoveAt(i);
+        foreach (var job in active)
+            if (!ActiveJobs.Contains(job)) ActiveJobs.Add(job);
+        OnPropertyChanged(nameof(HasActiveJobs));
+        OnPropertyChanged(nameof(CompactSummary));
+        OnPropertyChanged(nameof(CompactDescription));
         OnPropertyChanged(nameof(HasJobs));
         OnPropertyChanged(nameof(HasFailed));
         OnPropertyChanged(nameof(HasPending));
