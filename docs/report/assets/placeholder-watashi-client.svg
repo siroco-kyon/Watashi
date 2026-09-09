@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1012" viewBox="0 0 1800 1012" role="img" aria-label="Watashiクライアントの二ペイン表示と転送キューのスクリーンショットを後から挿入するためのプレースホルダー">
-  <rect width="1800" height="1012" fill="#FFFFFF"/>
-  <rect x="35" y="35" width="1730" height="942" rx="24" fill="#FAFBFC" stroke="#94A3B8" stroke-width="4"/>
-  <rect x="75" y="75" width="1650" height="862" fill="none" stroke="#64748B" stroke-width="3" stroke-dasharray="18 18"/>
-  <text x="900" y="425" text-anchor="middle" font-family="Yu Gothic, sans-serif" font-size="80" font-weight="700" fill="#17324D">Watashi クライアント画面</text>
-  <text x="900" y="490" text-anchor="middle" font-family="Yu Gothic, sans-serif" font-size="58" fill="#475569"><tspan x="900" dy="72">二ペイン表示と転送キューが同時に見える画面を挿入</tspan><tspan x="900" dy="72">実データのパス・利用者名は必要に応じてマスキングする</tspan></text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1012" viewBox="0 0 1800 1012" role="img"><title>Watashi クライアント画面</title><rect width="1800" height="1012" fill="white"/>
+<text x="60" y="65" font-family="Yu Gothic, Meiryo, sans-serif" font-size="46" text-anchor="start" fill="#334155">Watashi クライアント画面</text>
+<rect x="60" y="180" width="1680" height="650" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="900.0" y="238" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">スクリーンショット差し替え欄</text>
+<text x="900.0" y="295" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155"></text>
+<text x="900" y="470" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">二ペイン表示と転送センターが同時に見える画面を挿入</text>
+<text x="900" y="522" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">実データのパス・利用者名は必要に応じてマスキングする</text>
 </svg>

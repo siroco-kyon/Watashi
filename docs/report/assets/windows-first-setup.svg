@@ -1,27 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1380" viewBox="0 0 1800 1380" role="img" aria-labelledby="title desc">
-  <title id="title">初回Windowsユーザー認証とパスワード設定</title>
-  <desc id="desc">利用者のGID入力からWindows統合認証、本人照合、初回設定待ち状態の確認、本人によるパスワード設定とトークン発行までを示す。条件を満たさない場合は共通のパスワード入力へ戻る。</desc>
-  <defs>
-    <marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#64748B"/></marker>
-    <marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#C27A21"/></marker>
-    <style>.title{font-family:'Yu Gothic',sans-serif;font-size:72px;font-weight:700;fill:#17324D}.step{font-family:'Yu Gothic',sans-serif;font-size:64px;font-weight:700;fill:#17324D;text-anchor:middle}.sub{font-family:'Yu Gothic',sans-serif;font-size:54px;font-weight:400;fill:#475569;text-anchor:middle}.fallback-title{font-family:'Yu Gothic',sans-serif;font-size:58px;font-weight:700;fill:#17324D}.fallback{font-family:'Yu Gothic',sans-serif;font-size:50px;font-weight:400;fill:#475569}.note{font-family:'Yu Gothic',sans-serif;font-size:48px;font-weight:400;fill:#475569}.label{font-family:'Yu Gothic',sans-serif;font-size:44px;font-weight:600;fill:#9A5B12;text-anchor:middle}</style>
-  </defs>
-  <rect x="35" y="35" width="1730" height="1310" rx="35" fill="#FAFCFE" stroke="#CBD5E1" stroke-width="4"/>
-  <text x="70" y="105" class="title">初回Windowsユーザー認証とパスワード設定</text>
-  <g>
-    <g><rect x="90" y="160" width="480" height="270" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="330" y="255" class="step">1. GID入力</text><text x="330" y="340" class="sub">利用者が入力</text></g>
-    <g><rect x="660" y="160" width="480" height="270" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="900" y="255" class="step">2. Windows認証</text><text x="900" y="340" class="sub">IIS / Negotiate</text></g>
-    <g><rect x="1230" y="160" width="480" height="270" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="1470" y="255" class="step">3. 本人照合</text><text x="1470" y="340" class="sub">ドメイン＋GID</text></g>
-    <g><rect x="1230" y="510" width="480" height="290" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1470" y="605" class="step">4. 状態確認</text><text x="1470" y="685" class="sub"><tspan x="1470">初回設定待ち</tspan><tspan x="1470" dy="60">期限・ロック</tspan></text></g>
-    <g><rect x="660" y="510" width="480" height="290" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="900" y="605" class="step">5. 本人が設定</text><text x="900" y="685" class="sub"><tspan x="900">ポリシー確認</tspan><tspan x="900" dy="60">トークン発行</tspan></text></g>
-    <g fill="none" stroke="#64748B" stroke-width="6" marker-end="url(#arrowGray)"><path d="M570 295 L650 295"/><path d="M1140 295 L1220 295"/><path d="M1470 430 L1470 500"/><path d="M1230 655 L1150 655"/></g>
-  </g>
-  <path d="M1470 800 L1470 890" fill="none" stroke="#C27A21" stroke-width="6" marker-end="url(#arrowOrange)"/>
-  <rect x="1360" y="820" width="220" height="55" rx="7" fill="#FFFFFF"/><text x="1470" y="860" class="label">条件不成立</text>
-  <rect x="150" y="900" width="1500" height="260" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/>
-  <text x="205" y="980" class="fallback-title">本人確認できない／Windows認証を利用できない</text>
-  <text x="205" y="1050" class="fallback">共通のパスワード入力へ戻す</text>
-  <text x="205" y="1120" class="fallback">必要時は管理者発行の一時パスワードで初回変更</text>
-  <text x="70" y="1250" class="note">Windows名はOS認証結果を使用し、未知のIDや設定済みユーザーも</text>
-  <text x="70" y="1315" class="note">同じ応答へそろえてユーザー列挙を抑える。</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1080" viewBox="0 0 1800 1080" role="img"><title>Windows認証による初回パスワード設定</title><rect width="1800" height="1080" fill="white"/>
+<text x="60" y="65" font-family="Yu Gothic, Meiryo, sans-serif" font-size="46" text-anchor="start" fill="#334155">Windows認証による初回パスワード設定</text>
+<rect x="60" y="160" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="300.0" y="218" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">1  GID入力</text>
+<text x="300.0" y="275" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">利用者が入力</text>
+<rect x="660" y="160" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="900.0" y="218" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">2  Windows認証</text>
+<text x="900.0" y="275" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">IIS / Negotiate</text>
+<rect x="1260" y="160" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="1500.0" y="218" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">3  本人照合</text>
+<text x="1500.0" y="275" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">ドメイン ＋ GID</text>
+<rect x="1260" y="490" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="1500.0" y="548" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">4  状態確認</text>
+<text x="1500.0" y="605" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">初回設定待ち</text>
+<text x="1500.0" y="657" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">期限・ロック</text>
+<rect x="660" y="490" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="900.0" y="548" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">5  本人が設定</text>
+<text x="900.0" y="605" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">ポリシー確認</text>
+<text x="900.0" y="657" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">トークン発行</text>
+<path d="M540 260 L660 260" stroke="#64748B" stroke-width="3"/><polygon points="660,260 645.5928463623571,266.9594485457797 645.5928463623571,253.04055145422032" fill="#64748B"/>
+<path d="M1140 260 L1260 260" stroke="#64748B" stroke-width="3"/><polygon points="1260,260 1245.5928463623572,266.9594485457797 1245.5928463623572,253.04055145422032" fill="#64748B"/>
+<path d="M1500 360 L1500 490" stroke="#64748B" stroke-width="3"/><polygon points="1500,490 1493.0405514542203,475.5928463623572 1506.9594485457797,475.5928463623572" fill="#64748B"/>
+<path d="M1260 590 L1140 590" stroke="#64748B" stroke-width="3"/><polygon points="1140,590 1154.4071536376428,583.0405514542203 1154.4071536376428,596.9594485457797" fill="#64748B"/>
+<path d="M1500 690 L1500 820" stroke="#64748B" stroke-width="3"/><polygon points="1500,820 1493.0405514542203,805.5928463623571 1506.9594485457797,805.5928463623571" fill="#64748B"/>
+<rect x="60" y="820" width="1680" height="160" rx="14" fill="#EEF5F5" stroke="#A8B6C5" stroke-width="2"/>
+<text x="900.0" y="878" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">本人確認不可・Windows認証不可・条件不成立</text>
+<text x="900.0" y="935" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">共通のパスワード入力へ戻る。必要時は管理者発行の一時パスワードを利用。</text>
+<text x="60" y="1040" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="start" fill="#334155">不明なID・設定済みユーザーも同じ応答へそろえ、ユーザー列挙を抑える。</text>
 </svg>

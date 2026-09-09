@@ -1,18 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1050" viewBox="0 0 1800 1050" role="img" aria-labelledby="title desc">
-  <title id="title">ファイル操作の共通処理</title>
-  <desc id="desc">認証、パス解決、認可、経路選択、SMB実行、監査と応答の順序を示す。</desc>
-  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#64748B"/></marker><style>.title{font-family:'Yu Gothic',sans-serif;font-size:72px;font-weight:700;fill:#17324D}.step{font-family:'Yu Gothic',sans-serif;font-size:72px;font-weight:700;fill:#17324D;text-anchor:middle}.sub{font-family:'Yu Gothic',sans-serif;font-size:58px;font-weight:400;fill:#475569;text-anchor:middle}.note{font-family:'Yu Gothic',sans-serif;font-size:50px;font-weight:400;fill:#475569}</style></defs>
-  <rect x="35" y="35" width="1730" height="980" rx="35" fill="#FAFCFE" stroke="#CBD5E1" stroke-width="4"/>
-  <text x="65" y="92" class="title">ファイル操作の共通処理</text>
-  <g>
-    <g><rect x="80" y="150" width="480" height="260" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="320" y="245" class="step">1. 認証</text><text x="320" y="325" class="sub">JWT・利用者状態</text></g>
-    <g><rect x="660" y="150" width="480" height="260" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="900" y="245" class="step">2. パス解決</text><text x="900" y="325" class="sub">正規化・境界</text></g>
-    <g><rect x="1240" y="150" width="480" height="260" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="1480" y="235" class="step">3. 認可</text><text x="1480" y="300" class="sub"><tspan x="1480">共有×サブパス</tspan><tspan x="1480" dy="62">×操作</tspan></text></g>
-    <g><rect x="1240" y="500" width="480" height="260" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1480" y="595" class="step">4. 経路選択</text><text x="1480" y="675" class="sub">Direct / Agent</text></g>
-    <g><rect x="660" y="500" width="480" height="260" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="900" y="595" class="step">5. 実行</text><text x="900" y="675" class="sub">SMB操作</text></g>
-    <g><rect x="80" y="500" width="480" height="260" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="320" y="595" class="step">6. 監査・応答</text><text x="320" y="675" class="sub">成功・拒否・失敗</text></g>
-    <g fill="none" stroke="#64748B" stroke-width="6" marker-end="url(#arrow)"><path d="M560 280 L650 280"/><path d="M1140 280 L1230 280"/><path d="M1480 410 L1480 490"/><path d="M1240 630 L1150 630"/><path d="M660 630 L570 630"/></g>
-  </g>
-  <text x="70" y="895" class="note">認可を先に行い、DirectとAgentへ</text>
-  <text x="70" y="960" class="note">共通の権限制御を適用する。監査も一貫して扱う。</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="900" viewBox="0 0 1800 900" role="img"><title>ファイル操作の共通処理</title><rect width="1800" height="900" fill="white"/>
+<text x="60" y="65" font-family="Yu Gothic, Meiryo, sans-serif" font-size="46" text-anchor="start" fill="#334155">ファイル操作の共通処理</text>
+<rect x="60" y="160" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="300.0" y="218" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">1  認証</text>
+<text x="300.0" y="275" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">JWT・利用者状態</text>
+<rect x="660" y="160" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="900.0" y="218" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">2  パス解決</text>
+<text x="900.0" y="275" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">正規化・境界</text>
+<rect x="1260" y="160" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="1500.0" y="218" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">3  認可</text>
+<text x="1500.0" y="275" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">共有・サブパス・操作</text>
+<rect x="1260" y="490" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="1500.0" y="548" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">4  経路選択</text>
+<text x="1500.0" y="605" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">Direct / Agent</text>
+<rect x="660" y="490" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="900.0" y="548" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">5  実行</text>
+<text x="900.0" y="605" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">SMB操作</text>
+<rect x="60" y="490" width="480" height="200" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="300.0" y="548" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">6  監査・応答</text>
+<text x="300.0" y="605" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">結果を記録して返却</text>
+<path d="M540 260 L660 260" stroke="#64748B" stroke-width="3"/><polygon points="660,260 645.5928463623571,266.9594485457797 645.5928463623571,253.04055145422032" fill="#64748B"/>
+<path d="M1140 260 L1260 260" stroke="#64748B" stroke-width="3"/><polygon points="1260,260 1245.5928463623572,266.9594485457797 1245.5928463623572,253.04055145422032" fill="#64748B"/>
+<path d="M1500 360 L1500 490" stroke="#64748B" stroke-width="3"/><polygon points="1500,490 1493.0405514542203,475.5928463623572 1506.9594485457797,475.5928463623572" fill="#64748B"/>
+<path d="M1260 590 L1140 590" stroke="#64748B" stroke-width="3"/><polygon points="1140,590 1154.4071536376428,583.0405514542203 1154.4071536376428,596.9594485457797" fill="#64748B"/>
+<path d="M660 590 L540 590" stroke="#64748B" stroke-width="3"/><polygon points="540,590 554.4071536376429,583.0405514542203 554.4071536376429,596.9594485457797" fill="#64748B"/>
+<text x="60" y="790" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="start" fill="#334155">認可後に経路を選択。拒否・障害時も実装対象の監査処理へ進む。</text>
+<text x="60" y="850" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="start" fill="#334155">メンテナンス中は業務APIの受付を停止し、転送を待機として保持する。</text>
 </svg>
