@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Watashi.Client.LayoutTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Watashi.Shared\Watashi.Shared.csproj" />
   </ItemGroup>
 
