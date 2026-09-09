@@ -11,34 +11,46 @@ public static class FileListKeyboardNavigation
     public static async Task OpenAsync(Window owner, ListView list, FileEntryCollection entries, Func<Task> open)
     {
         var location = entries.LocationKey;
-        var interrupted = false;
-        // Loading disables the list and can move focus automatically. Track explicit user
-        // input instead, so that this automatic focus loss does not cancel restoration.
-        MouseButtonEventHandler mouse = (_, _) => interrupted = true;
-        KeyEventHandler key = (_, e) =>
+        using var input = new InputInterruption(owner);
+        await open();
+        var destination = entries.LocationKey;
+        if (string.Equals(location, destination, StringComparison.OrdinalIgnoreCase)) return;
+        await list.Dispatcher.InvokeAsync(() =>
         {
-            if (e.Key is not (Key.Up or Key.Down or Key.Enter)) interrupted = true;
-        };
-        EventHandler deactivate = (_, _) => interrupted = true;
-        owner.PreviewMouseDown += mouse;
-        owner.PreviewKeyDown += key;
-        owner.Deactivated += deactivate;
-        try
+            if (input.IsInterrupted || !owner.IsActive || !list.IsEnabled || entries.LocationKey != destination) return;
+            SelectFirstRow(list);
+        }, DispatcherPriority.Loaded);
+    }
+
+    // Loading disables the list and can move focus automatically. Track explicit input
+    // instead. Keep the subscription lifetime scoped to the asynchronous navigation.
+    internal sealed class InputInterruption : IDisposable
+    {
+        private readonly Window owner;
+        public bool IsInterrupted { get; private set; }
+
+        internal InputInterruption(Window owner)
         {
-            await open();
-            var destination = entries.LocationKey;
-            if (string.Equals(location, destination, StringComparison.OrdinalIgnoreCase)) return;
-            await list.Dispatcher.InvokeAsync(() =>
-            {
-                if (interrupted || !owner.IsActive || !list.IsEnabled || entries.LocationKey != destination) return;
-                SelectFirstRow(list);
-            }, DispatcherPriority.Loaded);
+            this.owner = owner;
+            // MainWindow handles focus-changing shortcuts before this tracker runs.
+            // Observe handled input too, without changing its existing handled state.
+            owner.AddHandler(Mouse.PreviewMouseDownEvent, new MouseButtonEventHandler(OnMouseDown), handledEventsToo: true);
+            owner.AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(OnKeyDown), handledEventsToo: true);
+            owner.Deactivated += OnDeactivated;
         }
-        finally
+
+        private void OnMouseDown(object sender, MouseButtonEventArgs e) => IsInterrupted = true;
+        private void OnDeactivated(object? sender, EventArgs e) => IsInterrupted = true;
+        private void OnKeyDown(object sender, KeyEventArgs e)
         {
-            owner.PreviewMouseDown -= mouse;
-            owner.PreviewKeyDown -= key;
-            owner.Deactivated -= deactivate;
+            if (e.Key is not (Key.Up or Key.Down or Key.Enter)) IsInterrupted = true;
+        }
+
+        public void Dispose()
+        {
+            owner.RemoveHandler(Mouse.PreviewMouseDownEvent, new MouseButtonEventHandler(OnMouseDown));
+            owner.RemoveHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(OnKeyDown));
+            owner.Deactivated -= OnDeactivated;
         }
     }
 
