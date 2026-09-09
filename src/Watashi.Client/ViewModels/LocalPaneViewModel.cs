@@ -330,7 +330,6 @@ public partial class LocalPaneViewModel : ObservableObject
                 else File.Delete(full);
             });
             await RefreshAsync();
-            StatusMessage = UseRecycleBinForDeletes ? "ごみ箱へ移動しました。" : "完全に削除しました。";
         }
         catch (Exception ex) { StatusMessage = ex.Message; }
     }
