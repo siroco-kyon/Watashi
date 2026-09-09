@@ -42,6 +42,7 @@ internal static partial class Program
             foreach (var key in palette.Keys) app.Resources[key] = palette[key];
             CheckCompactTransfers(output, theme);
             CheckAbout(output, theme);
+            CheckOmikuji(output, theme);
             CheckTransfers(new Size(1200, 900), output, theme);
             // Client-area DIPs, including the reduced space at 125/150% on a 1366x768 display.
             foreach (var size in new[] { new Size(1200, 720), new Size(1060, 550), new Size(890, 450), new Size(720, 340) })
