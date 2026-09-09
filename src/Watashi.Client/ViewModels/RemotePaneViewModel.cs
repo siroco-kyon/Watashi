@@ -599,7 +599,6 @@ public partial class RemotePaneViewModel : ObservableObject
         {
             await _api.DeleteFileAsync(SelectedLocation.HostId, SelectedLocation.ShareId, JoinPath(CurrentPath, name));
             await RefreshAsync();
-            StatusMessage = $"削除しました: {name}";
         }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {

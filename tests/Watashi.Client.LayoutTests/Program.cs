@@ -51,7 +51,8 @@ internal static partial class Program
             }
         }
         CheckExpandedBrowser(output);
-        Console.WriteLine("PASS: admin and transfer layout, scrolling, virtualization, draft retention and expanded browser.");
+        CheckFileListKeyboardSelection();
+        Console.WriteLine("PASS: admin and transfer layout, scrolling, virtualization, draft retention, expanded browser and file list keyboard selection.");
     }
 
     private static void CheckAdmin(Size size, string? output, string theme)

@@ -314,19 +314,27 @@ public partial class MainWindow : Window
         _vm.Local.NavigateCommand.Execute(dlg.FolderName);
     }
 
-    private void OnLocalListKeyDown(object sender, KeyEventArgs e)
+    private async void OnLocalListKeyDown(object sender, KeyEventArgs e)
     {
         if (e.IsRepeat || Keyboard.Modifiers != ModifierKeys.None || _imeComposing) return;
-        if (e.Key == Key.Enter) { e.Handled = true; _vm.Local.OpenSelectedCommand.Execute(null); }
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            await FileListKeyboardNavigation.OpenAsync(this, LocalList, _vm.Local.Entries, _vm.Local.OpenSelectedAsync);
+        }
         else if (e.Key == Key.Back) { e.Handled = true; _vm.Local.GoUpCommand.Execute(null); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnLocalDelete(sender, e); }
         else if (e.Key == Key.F2) { e.Handled = true; OnLocalContextRename(sender, e); }
     }
 
-    private void OnRemoteListKeyDown(object sender, KeyEventArgs e)
+    private async void OnRemoteListKeyDown(object sender, KeyEventArgs e)
     {
         if (e.IsRepeat || Keyboard.Modifiers != ModifierKeys.None || _imeComposing) return;
-        if (e.Key == Key.Enter) { e.Handled = true; _ = _vm.Remote.OpenSelectedAsync(); }
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            await FileListKeyboardNavigation.OpenAsync(this, RemoteList, _vm.Remote.Entries, _vm.Remote.OpenSelectedAsync);
+        }
         else if (e.Key == Key.Back) { e.Handled = true; _vm.Remote.GoUpCommand.Execute(null); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnRemoteDelete(sender, e); }
         else if (e.Key == Key.F2) { e.Handled = true; OnRemoteContextRename(sender, e); }

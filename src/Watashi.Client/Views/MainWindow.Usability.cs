@@ -159,9 +159,11 @@ public partial class MainWindow
                 : await _vm.Local.DeleteEntriesAsync(path, targets, recycle);
             var succeeded = outcomes.Count(x => x.Succeeded);
             var summary = $"削除結果: 成功 {succeeded:N0} 件 / 失敗 {outcomes.Count - succeeded:N0} 件";
-            _vm.StatusMessage = summary;
+            // Successful deletion is silent; never promote "失敗 0 件" to an error banner.
+            if (outcomes.All(x => x.Succeeded)) _vm.StatusMessage = string.Empty;
             if (outcomes.Any(x => !x.Succeeded))
             {
+                _vm.StatusMessage = summary;
                 var result = new Window { Title = summary, Owner = this, Width = 640, Height = 430, WindowStartupLocation = WindowStartupLocation.CenterOwner };
                 result.Content = new TextBox { Text = string.Join("\n", outcomes.Select(x => x.Succeeded ? $"成功: {x.Name}" : $"失敗: {x.Name} — {x.Error}")),
                     IsReadOnly = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(16) };
