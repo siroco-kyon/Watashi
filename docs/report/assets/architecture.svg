@@ -1,24 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1050" viewBox="0 0 1800 1050" role="img" aria-labelledby="title desc">
-  <title id="title">Watashiの構成と信頼境界</title>
-  <desc id="desc">WPFクライアント、中央サーバー、SMBサーバー、Agent、Gateway、Target Agentの接続関係を示す。</desc>
-  <defs>
-    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2E74B5"/></marker>
-    <style>
-      .title{font-family:'Yu Gothic',sans-serif;font-size:72px;font-weight:700;fill:#17324D}.box-title{font-family:'Yu Gothic',sans-serif;font-size:60px;font-weight:700;fill:#17324D;text-anchor:middle}.sub{font-family:'Yu Gothic',sans-serif;font-size:50px;font-weight:400;fill:#475569;text-anchor:middle}.label{font-family:'Yu Gothic',sans-serif;font-size:36px;font-weight:600;fill:#334155;text-anchor:middle}.note{font-family:'Yu Gothic',sans-serif;font-size:48px;font-weight:400;fill:#475569}
-    </style>
-  </defs>
-  <rect x="35" y="35" width="1730" height="980" rx="35" fill="#FAFCFE" stroke="#CBD5E1" stroke-width="4"/>
-  <text x="70" y="110" class="title">Watashiの構成と信頼境界</text>
-  <g><rect x="70" y="220" width="390" height="270" rx="22" fill="#EAF2F8" stroke="#2E74B5" stroke-width="4"/><text x="265" y="305" class="box-title">WPF Client</text><text x="265" y="385" class="sub"><tspan x="265">利用者端末</tspan><tspan x="265" dy="56">Bearer token</tspan></text></g>
-  <g><rect x="675" y="175" width="465" height="360" rx="22" fill="#DDEEF5" stroke="#1F4D78" stroke-width="4"/><text x="907.5" y="270" class="box-title">Central Server</text><text x="907.5" y="350" class="sub"><tspan x="907.5">認証・認可・監査</tspan><tspan x="907.5" dy="56">ルーティング</tspan><tspan x="907.5" dy="56">SQLite</tspan></text></g>
-  <g><rect x="1350" y="95" width="380" height="270" rx="22" fill="#E8F5F2" stroke="#2A8C82" stroke-width="4"/><text x="1540" y="185" class="box-title">SMB Server</text><text x="1540" y="265" class="sub"><tspan x="1540">Direct経路</tspan><tspan x="1540" dy="56">SMB資格情報</tspan></text></g>
-  <g><rect x="1300" y="430" width="400" height="280" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/><text x="1500" y="520" class="box-title">Agent</text><text x="1500" y="600" class="sub"><tspan x="1500">mTLS / 共有秘密</tspan><tspan x="1500" dy="56">SMB実行</tspan></text></g>
-  <g><rect x="675" y="700" width="415" height="270" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/><text x="882.5" y="790" class="box-title">Gateway</text><text x="882.5" y="870" class="sub"><tspan x="882.5">一段中継</tspan><tspan x="882.5" dy="56">共有秘密</tspan></text></g>
-  <g><rect x="1280" y="770" width="400" height="230" rx="22" fill="#FFF5E8" stroke="#C27A21" stroke-width="4"/><text x="1480" y="840" class="box-title">Target Agent</text><text x="1480" y="910" class="sub"><tspan x="1480">隔離網</tspan><tspan x="1480" dy="52">SMB実行</tspan></text></g>
-  <g fill="none" stroke="#2E74B5" stroke-width="6" marker-end="url(#arrowBlue)"><path d="M460 355 L675 355"/><path d="M1140 275 L1350 230"/><path d="M1140 440 L1300 535"/><path d="M905 535 L885 700"/><path d="M1090 835 L1280 865"/></g>
-  <g fill="#FFFFFF" opacity="0.94"><rect x="492" y="300" width="152" height="54" rx="10"/><rect x="1152" y="175" width="205" height="54" rx="10"/><rect x="1142" y="390" width="170" height="92" rx="10"/><rect x="808" y="560" width="164" height="92" rx="10"/><rect x="1095" y="760" width="170" height="92" rx="10"/></g>
-  <g class="label"><text x="568" y="339">HTTP(S)</text><text x="1255" y="214">Direct / SMB</text><text x="1227" y="425"><tspan x="1227">HTTP(S)</tspan><tspan x="1227" dy="40">Agent認証</tspan></text><text x="890" y="595"><tspan x="890">HTTP(S)</tspan><tspan x="890" dy="40">共有秘密</tspan></text><text x="1180" y="795"><tspan x="1180">HTTP(S)</tspan><tspan x="1180" dy="40">共有秘密</tspan></text></g>
-  <text x="75" y="806" class="note">信頼境界ごとに</text>
-  <text x="75" y="871" class="note">資格情報と保護方式を分け、</text>
-  <text x="75" y="936" class="note">接続条件を統制する。</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1040" viewBox="0 0 1800 1040" role="img"><title>Watashiの構成と接続経路</title><rect width="1800" height="1040" fill="white"/>
+<text x="60" y="65" font-family="Yu Gothic, Meiryo, sans-serif" font-size="46" text-anchor="start" fill="#334155">Watashiの構成と接続経路</text>
+<rect x="60" y="355" width="320" height="220" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="220.0" y="413" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">WPF Client</text>
+<text x="220.0" y="470" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">利用者端末</text>
+<text x="220.0" y="522" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">Bearer token</text>
+<rect x="560" y="355" width="360" height="250" rx="14" fill="#EEF5F5" stroke="#A8B6C5" stroke-width="2"/>
+<text x="740.0" y="413" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">Central Server</text>
+<text x="740.0" y="470" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">認証・認可・監査</text>
+<text x="740.0" y="522" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">経路選択・SQLite</text>
+<path d="M380 465 L560 465" stroke="#64748B" stroke-width="3"/><polygon points="560,465 545.5928463623571,471.9594485457797 545.5928463623571,458.0405514542203" fill="#64748B"/>
+<text x="470.0" y="445.0" font-family="Yu Gothic, Meiryo, sans-serif" font-size="34" text-anchor="middle" fill="#334155">HTTP(S)</text>
+<text x="1000" y="102" font-family="Yu Gothic, Meiryo, sans-serif" font-size="36" text-anchor="start" fill="#334155">Direct</text>
+<text x="1000" y="397" font-family="Yu Gothic, Meiryo, sans-serif" font-size="36" text-anchor="start" fill="#334155">単一Agent</text>
+<text x="1000" y="727" font-family="Yu Gothic, Meiryo, sans-serif" font-size="36" text-anchor="start" fill="#334155">Gateway</text>
+<rect x="1460" y="130" width="280" height="160" rx="14" fill="#EEF5F5" stroke="#A8B6C5" stroke-width="2"/>
+<text x="1600.0" y="188" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">SMB</text>
+<text x="1600.0" y="245" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">共有ファイル</text>
+<path d="M920 390 L980 210" stroke="#64748B" stroke-width="3"/><polygon points="980,210 982.0463705895299,225.86859689482048 968.8417453914838,221.46705516213842" fill="#64748B"/>
+<path d="M980 210 L1460 210" stroke="#64748B" stroke-width="3"/><polygon points="1460,210 1445.5928463623572,216.95944854577968 1445.5928463623572,203.04055145422032" fill="#64748B"/>
+<text x="1220.0" y="190.0" font-family="Yu Gothic, Meiryo, sans-serif" font-size="34" text-anchor="middle" fill="#334155">SMB資格情報</text>
+<rect x="1000" y="425" width="300" height="180" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="1150.0" y="483" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">Agent</text>
+<text x="1150.0" y="540" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">SMB実行</text>
+<rect x="1460" y="425" width="280" height="180" rx="14" fill="#EEF5F5" stroke="#A8B6C5" stroke-width="2"/>
+<text x="1600.0" y="483" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">SMB</text>
+<text x="1600.0" y="540" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">共有ファイル</text>
+<path d="M920 505 L1000 505" stroke="#64748B" stroke-width="3"/><polygon points="1000,505 985.5928463623571,511.9594485457797 985.5928463623571,498.0405514542203" fill="#64748B"/>
+<path d="M1300 505 L1460 505" stroke="#64748B" stroke-width="3"/><polygon points="1460,505 1445.5928463623572,511.9594485457797 1445.5928463623572,498.0405514542203" fill="#64748B"/>
+<text x="1380.0" y="485.0" font-family="Yu Gothic, Meiryo, sans-serif" font-size="34" text-anchor="middle" fill="#334155">SMB</text>
+<text x="1120" y="650" font-family="Yu Gothic, Meiryo, sans-serif" font-size="34" text-anchor="middle" fill="#334155">HTTP(S) ＋ mTLS / 共有秘密</text>
+<rect x="680" y="755" width="300" height="180" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="830.0" y="813" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">Gateway</text>
+<text x="830.0" y="870" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">一段中継</text>
+<rect x="1100" y="755" width="300" height="180" rx="14" fill="#F5F7FA" stroke="#A8B6C5" stroke-width="2"/>
+<text x="1250.0" y="813" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">Target Agent</text>
+<text x="1250.0" y="870" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">SMB実行</text>
+<rect x="1510" y="755" width="230" height="180" rx="14" fill="#EEF5F5" stroke="#A8B6C5" stroke-width="2"/>
+<text x="1625.0" y="813" font-family="Yu Gothic, Meiryo, sans-serif" font-size="42" text-anchor="middle" fill="#17324D">SMB</text>
+<text x="1625.0" y="870" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="middle" fill="#334155">隔離網</text>
+<path d="M740 605 L830 755" stroke="#64748B" stroke-width="3"/><polygon points="830,755 816.619902710774,746.2265744129875 828.5552585005071,739.0653609391476" fill="#64748B"/>
+<path d="M980 845 L1100 845" stroke="#64748B" stroke-width="3"/><polygon points="1100,845 1085.5928463623572,851.9594485457797 1085.5928463623572,838.0405514542203" fill="#64748B"/>
+<path d="M1400 845 L1510 845" stroke="#64748B" stroke-width="3"/><polygon points="1510,845 1495.5928463623572,851.9594485457797 1495.5928463623572,838.0405514542203" fill="#64748B"/>
+<text x="1455.0" y="825.0" font-family="Yu Gothic, Meiryo, sans-serif" font-size="34" text-anchor="middle" fill="#334155">SMB</text>
+<text x="1010" y="995" font-family="Yu Gothic, Meiryo, sans-serif" font-size="34" text-anchor="middle" fill="#334155">Server → Gateway → Target Agent は HTTP(S) ＋ 共有秘密</text>
+<text x="65" y="750" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="start" fill="#334155">通信区間ごとに</text>
+<text x="65" y="802" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="start" fill="#334155">資格情報と</text>
+<text x="65" y="854" font-family="Yu Gothic, Meiryo, sans-serif" font-size="38" text-anchor="start" fill="#334155">保護方式を設定</text>
 </svg>
