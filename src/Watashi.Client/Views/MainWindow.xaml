@@ -158,7 +158,8 @@
                     <Image Source="{StaticResource ToriiIcon}" Width="26" Height="26" Margin="0,0,10,0"
                            RenderOptions.BitmapScalingMode="HighQuality"/>
                     <StackPanel Orientation="Vertical">
-                        <TextBlock Text="Watashi" Style="{StaticResource H3}"/>
+                        <TextBlock Text="Watashi" Style="{StaticResource H3}" Background="Transparent"
+                                   MouseLeftButtonDown="OnBrandClick"/>
                         <TextBlock Text="CIFS ファイル管理" Style="{StaticResource Caption}" Margin="0,-2,0,0"/>
                     </StackPanel>
                 </StackPanel>
