@@ -275,8 +275,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task RefreshAllAsync()
     {
-        Local.RefreshCommand.Execute(null);
-        await Remote.RefreshAsync();
+        await Task.WhenAll(Local.RefreshAsync(), Remote.RefreshAsync());
     }
 
     [RelayCommand]

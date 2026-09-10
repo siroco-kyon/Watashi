@@ -30,6 +30,11 @@ internal static partial class Program
         app.Resources["NotBool"] = new NotBoolConverter();
         app.Resources["StatusBrush"] = new StatusMessageToBrushConverter();
         app.Resources["DiagnosticStatusLabel"] = new DiagnosticStatusToLabelConverter();
+        if (args.Contains("--keyboard-input"))
+        {
+            CheckKeyboardInput();
+            return;
+        }
         var output = args.FirstOrDefault();
         if (output is not null) Directory.CreateDirectory(output);
 

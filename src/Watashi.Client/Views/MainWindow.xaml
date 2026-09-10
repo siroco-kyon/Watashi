@@ -140,9 +140,7 @@
         </DataTemplate>
     </Window.Resources>
 
-    <Window.InputBindings>
-        <KeyBinding Key="F5" Command="{Binding RefreshAllCommand}" />
-    </Window.InputBindings>
+
 
     <DockPanel LastChildFill="True">
         <controls:MaintenanceBanner DockPanel.Dock="Top"/>
@@ -423,24 +421,24 @@
                         <TextBlock Text="{Binding LocalSelectionCount, StringFormat=選択 {0} 件}" Margin="10,0,0,0" VerticalAlignment="Center"/>
                     </WrapPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
-                        <Button Style="{StaticResource IconButton}" Command="{Binding Local.GoBackCommand}"
+                        <Button Style="{StaticResource IconButton}" Click="OnLocalGoBack"
                                 IsEnabled="{Binding Local.CanGoBack}"
                                 AutomationProperties.Name="ローカルの履歴を戻る"
                                 ToolTip="戻る (Alt+←)" Margin="0,0,2,0">
                             <TextBlock Text="◀" FontSize="11"/>
                         </Button>
-                        <Button Style="{StaticResource IconButton}" Command="{Binding Local.GoForwardCommand}"
+                        <Button Style="{StaticResource IconButton}" Click="OnLocalGoForward"
                                 IsEnabled="{Binding Local.CanGoForward}"
                                 AutomationProperties.Name="ローカルの履歴を進む"
                                 ToolTip="進む (Alt+→)" Margin="0,0,2,0">
                             <TextBlock Text="▶" FontSize="11"/>
                         </Button>
-                        <Button Style="{StaticResource IconButton}" Command="{Binding Local.GoUpCommand}"
+                        <Button Style="{StaticResource IconButton}" Click="OnLocalGoUp"
                                 AutomationProperties.Name="ローカルの親フォルダへ移動"
                                 ToolTip="親フォルダへ (Alt+↑ / BackSpace)" Margin="0,0,2,0">
                             <TextBlock Text="⬆" FontSize="12"/>
                         </Button>
-                        <Button Style="{StaticResource IconButton}" Command="{Binding Local.RefreshCommand}"
+                        <Button Style="{StaticResource IconButton}" Click="OnLocalRefresh"
                                 AutomationProperties.Name="ローカル一覧を再読み込み"
                                 ToolTip="再読み込み (F5)" Margin="0,0,8,0">
                             <TextBlock Text="⟳" FontSize="13"/>
@@ -626,8 +624,7 @@
                                           MinWidth="140"
                                           AutomationProperties.Name="リモートのお気に入り"/>
                                 <Button Grid.Row="0" Grid.Column="2" Content="移動" Margin="6,0,0,0"
-                                        Command="{Binding Remote.OpenSavedPlaceCommand}"
-                                        CommandParameter="{Binding Remote.SelectedFavorite}"
+                                        Click="OnOpenRemoteFavorite"
                                         IsEnabled="{Binding Remote.HasSelectedFavorite}"
                                         AutomationProperties.Name="選択したお気に入りへ移動"/>
                                 <Button Grid.Row="0" Grid.Column="3" Content="削除" Margin="4,0,0,0"
@@ -650,8 +647,7 @@
                                           MinWidth="140"
                                           AutomationProperties.Name="最近使ったリモート場所"/>
                                 <Button Grid.Row="2" Grid.Column="4" Content="移動" Margin="4,0,0,0"
-                                        Command="{Binding Remote.OpenSavedPlaceCommand}"
-                                        CommandParameter="{Binding Remote.SelectedRecent}"
+                                        Click="OnOpenRemoteRecent"
                                         IsEnabled="{Binding Remote.HasSelectedRecent}"
                                         AutomationProperties.Name="選択した最近使った場所へ移動"/>
                             </Grid>
@@ -731,8 +727,7 @@
                                                 IsEnabled="{Binding Remote.CanLoadMoreSearch}"
                                                 AutomationProperties.Name="検索結果をさらに読み込む"/>
                                         <Button Content="場所を開く" Margin="4,0,0,0"
-                                                Command="{Binding Remote.OpenSearchResultCommand}"
-                                                CommandParameter="{Binding Remote.SelectedSearchResult}"
+                                                Click="OnOpenRemoteSearchResult"
                                                 IsEnabled="{Binding Remote.HasSelectedSearchResult}"
                                                 AutomationProperties.Name="選択した検索結果の場所を開く"/>
                                     </StackPanel>
@@ -743,25 +738,25 @@
                     -->
 
                     <DockPanel DockPanel.Dock="Top" Margin="10,8,10,8">
-                        <Button Style="{StaticResource IconButton}" Command="{Binding Remote.GoBackCommand}"
+                        <Button Style="{StaticResource IconButton}" Click="OnRemoteGoBack"
                                 IsEnabled="{Binding Remote.CanGoBack}"
                                 AutomationProperties.Name="リモートの履歴を戻る"
                                 ToolTip="戻る (Alt+←)" Margin="0,0,2,0">
                             <TextBlock Text="◀" FontSize="11"/>
                         </Button>
-                        <Button Style="{StaticResource IconButton}" Command="{Binding Remote.GoForwardCommand}"
+                        <Button Style="{StaticResource IconButton}" Click="OnRemoteGoForward"
                                 IsEnabled="{Binding Remote.CanGoForward}"
                                 AutomationProperties.Name="リモートの履歴を進む"
                                 ToolTip="進む (Alt+→)" Margin="0,0,2,0">
                             <TextBlock Text="▶" FontSize="11"/>
                         </Button>
-                        <Button Style="{StaticResource IconButton}" Command="{Binding Remote.GoUpCommand}"
+                        <Button Style="{StaticResource IconButton}" Click="OnRemoteGoUp"
                                 IsEnabled="{Binding Remote.CanGoUp}"
                                 AutomationProperties.Name="リモートの親フォルダへ移動"
                                 ToolTip="親フォルダへ (Alt+↑ / BackSpace)" Margin="0,0,2,0">
                             <TextBlock Text="⬆" FontSize="12"/>
                         </Button>
-                        <Button Style="{StaticResource IconButton}" Command="{Binding Remote.RefreshCommand}"
+                        <Button Style="{StaticResource IconButton}" Click="OnRemoteRefresh"
                                 AutomationProperties.Name="リモート一覧を再読み込み"
                                 ToolTip="再読み込み (F5)" Margin="0,0,8,0">
                             <TextBlock Text="⟳" FontSize="13"/>
@@ -922,7 +917,7 @@
                                 BorderBrush="{StaticResource BorderBrush}" Padding="10,6">
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" Content="次の2000件を読み込む" Margin="8,0,0,0"
-                                        Command="{Binding Remote.LoadMoreCommand}"
+                                        Click="OnRemoteLoadMore"
                                         IsEnabled="{Binding Remote.HasMoreEntries}"
                                         Visibility="{Binding Remote.HasMoreEntries, Converter={StaticResource BoolToVis}}"
                                         AutomationProperties.Name="リモート一覧をさらに読み込む"/>

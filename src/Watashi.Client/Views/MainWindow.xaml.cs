@@ -101,11 +101,7 @@ public partial class MainWindow : Window
         }, System.Windows.Threading.DispatcherPriority.Input);
     }
 
-    private void OnRefresh(object sender, RoutedEventArgs e)
-    {
-        _vm.Local.RefreshCommand.Execute(null);
-        _ = _vm.Remote.RefreshAsync();
-    }
+    private async void OnRefresh(object sender, RoutedEventArgs e) => await RefreshFromKeyboardAsync();
 
     private void OnToggleTheme(object sender, RoutedEventArgs e) => _vm.Theme.Toggle();
 
@@ -190,25 +186,25 @@ public partial class MainWindow : Window
         await _vm.Remote.LoadHostsAndLocationsAsync();
     }
 
-    private void OnLocalDoubleClick(object sender, MouseButtonEventArgs e)
+    private async void OnLocalDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (!IsFileListRowInput(sender, e.OriginalSource)) return;
         e.Handled = true;
-        _vm.Local.OpenSelectedCommand.Execute(null);
+        await RunPaneAsync(false, _vm.Local.OpenSelectedAsync);
     }
 
-    private void OnRemoteDoubleClick(object sender, MouseButtonEventArgs e)
+    private async void OnRemoteDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (!IsFileListRowInput(sender, e.OriginalSource)) return;
         e.Handled = true;
-        _ = _vm.Remote.OpenSelectedAsync();
+        await RunPaneAsync(true, _vm.Remote.OpenSelectedAsync);
     }
 
-    private void OnRemoteSearchDoubleClick(object sender, MouseButtonEventArgs e)
+    private async void OnRemoteSearchDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (!IsFileListRowInput(sender, e.OriginalSource)) return;
         e.Handled = true;
-        _ = _vm.Remote.OpenSearchResultAsync(_vm.Remote.SelectedSearchResult);
+        await RunPaneAsync(true, () => _vm.Remote.OpenSearchResultAsync(_vm.Remote.SelectedSearchResult));
     }
 
     private static bool IsFileListRowInput(object sender, object originalSource)
@@ -254,14 +250,14 @@ public partial class MainWindow : Window
         };
     }
 
-    private void OnLocalPathKeyDown(object sender, KeyEventArgs e)
+    private async void OnLocalPathKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter) { e.Handled = true; _vm.Local.NavigateCommand.Execute(_vm.Local.CurrentPath); }
+        if (e.Key == Key.Enter && !_imeComposing && !e.IsRepeat) { e.Handled = true; await RunPaneAsync(false, () => _vm.Local.NavigateAsync(_vm.Local.CurrentPath)); }
     }
 
-    private void OnRemotePathKeyDown(object sender, KeyEventArgs e)
+    private async void OnRemotePathKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter) { e.Handled = true; _vm.Remote.NavigateCommand.Execute(_vm.Remote.CurrentPath); }
+        if (e.Key == Key.Enter && !_imeComposing && !e.IsRepeat) { e.Handled = true; await RunPaneAsync(true, () => _vm.Remote.NavigateAsync(_vm.Remote.CurrentPath)); }
     }
 
     // パス入力欄: フォーカスが入ったら全選択する。クリックでも Tab 移動でも効くので
@@ -293,15 +289,15 @@ public partial class MainWindow : Window
         textBox.CaretIndex = 0;
     }
 
-    private void OnLocalGo(object sender, RoutedEventArgs e) => _vm.Local.NavigateCommand.Execute(_vm.Local.CurrentPath);
-    private void OnRemoteGo(object sender, RoutedEventArgs e) => _vm.Remote.NavigateCommand.Execute(_vm.Remote.CurrentPath);
+    private async void OnLocalGo(object sender, RoutedEventArgs e) => await RunPaneAsync(false, () => _vm.Local.NavigateAsync(_vm.Local.CurrentPath));
+    private async void OnRemoteGo(object sender, RoutedEventArgs e) => await RunPaneAsync(true, () => _vm.Remote.NavigateAsync(_vm.Remote.CurrentPath));
 
     /// <summary>
     /// ローカルペイン用のフォルダ参照ダイアログを開く。
     /// .NET 8 WPF ネイティブの OpenFolderDialog (Vista 形式) を使うため WinForms 参照は不要。
     /// 現在のパスが存在すればそこを起点に開き、それ以外は OS デフォルト (= UserProfile 近辺)。
     /// </summary>
-    private void OnLocalBrowse(object sender, RoutedEventArgs e)
+    private async void OnLocalBrowse(object sender, RoutedEventArgs e)
     {
         var current = _vm.Local.CurrentPath;
         var dlg = new OpenFolderDialog
@@ -311,7 +307,7 @@ public partial class MainWindow : Window
             InitialDirectory = !string.IsNullOrEmpty(current) && Directory.Exists(current) ? current : string.Empty,
         };
         if (dlg.ShowDialog(this) != true) return;
-        _vm.Local.NavigateCommand.Execute(dlg.FolderName);
+        await RunPaneAsync(false, () => _vm.Local.NavigateAsync(dlg.FolderName));
     }
 
     private async void OnLocalListKeyDown(object sender, KeyEventArgs e)
@@ -320,9 +316,9 @@ public partial class MainWindow : Window
         if (e.Key == Key.Enter)
         {
             e.Handled = true;
-            await FileListKeyboardNavigation.OpenAsync(this, LocalList, _vm.Local.Entries, _vm.Local.OpenSelectedAsync);
+            await RunPaneAsync(false, _vm.Local.OpenSelectedAsync);
         }
-        else if (e.Key == Key.Back) { e.Handled = true; _vm.Local.GoUpCommand.Execute(null); }
+        else if (e.Key == Key.Back) { e.Handled = true; await RunPaneAsync(false, _vm.Local.GoUpAsync); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnLocalDelete(sender, e); }
         else if (e.Key == Key.F2) { e.Handled = true; OnLocalContextRename(sender, e); }
     }
@@ -333,9 +329,9 @@ public partial class MainWindow : Window
         if (e.Key == Key.Enter)
         {
             e.Handled = true;
-            await FileListKeyboardNavigation.OpenAsync(this, RemoteList, _vm.Remote.Entries, _vm.Remote.OpenSelectedAsync);
+            await RunPaneAsync(true, _vm.Remote.OpenSelectedAsync);
         }
-        else if (e.Key == Key.Back) { e.Handled = true; _vm.Remote.GoUpCommand.Execute(null); }
+        else if (e.Key == Key.Back) { e.Handled = true; await RunPaneAsync(true, _vm.Remote.GoUpAsync); }
         else if (e.Key == Key.Delete) { e.Handled = true; OnRemoteDelete(sender, e); }
         else if (e.Key == Key.F2) { e.Handled = true; OnRemoteContextRename(sender, e); }
     }
@@ -352,8 +348,8 @@ public partial class MainWindow : Window
         try
         {
         var name = Views.PromptDialog.Show("リモートに作成する新しいフォルダ名:", "新規フォルダ", this);
-        if (string.IsNullOrWhiteSpace(name)) return;
-        await _vm.Remote.NewFolderAsync(name);
+        if (string.IsNullOrWhiteSpace(name)) { FileListKeyboardNavigation.FocusSelection(RemoteList); return; }
+        await RunPaneAsync(true, () => _vm.Remote.NewFolderAsync(name));
         }
         finally { _vm.FileOperationInProgress = false; }
     }
@@ -365,8 +361,8 @@ public partial class MainWindow : Window
         try
         {
         var name = Views.PromptDialog.Show("ローカルに作成する新しいフォルダ名:", "新規フォルダ", this);
-        if (string.IsNullOrWhiteSpace(name)) return;
-        await _vm.Local.NewFolderWithNameAsync(name);
+        if (string.IsNullOrWhiteSpace(name)) { FileListKeyboardNavigation.FocusSelection(LocalList); return; }
+        await RunPaneAsync(false, () => _vm.Local.NewFolderWithNameAsync(name));
         }
         finally { _vm.FileOperationInProgress = false; }
     }
@@ -377,8 +373,8 @@ public partial class MainWindow : Window
     // ===== Context menu handlers =====
     // ContextMenu の MenuItem からも、ListView の KeyDown (F2 など) からも同じ入口に集約する。
 
-    private void OnLocalContextOpen(object sender, RoutedEventArgs e)
-        => _vm.Local.OpenSelectedCommand.Execute(null);
+    private async void OnLocalContextOpen(object sender, RoutedEventArgs e)
+        => await RunPaneAsync(false, _vm.Local.OpenSelectedAsync);
 
     private void OnUpload(object sender, RoutedEventArgs e)
         => ExecuteTransfer(true);
@@ -411,14 +407,14 @@ public partial class MainWindow : Window
             $"\"{target.Name}\" の新しい名前:",
             target.Name,
             this);
-        if (newName is null) return;
-        await _vm.Local.RenameSelectedAsync(newName);
+        if (newName is null) { FileListKeyboardNavigation.FocusSelection(LocalList); return; }
+        await RunPaneAsync(false, () => _vm.Local.RenameSelectedAsync(newName));
         }
         finally { _vm.FileOperationInProgress = false; }
     }
 
-    private void OnRemoteContextOpen(object sender, RoutedEventArgs e)
-        => _ = _vm.Remote.OpenSelectedAsync();
+    private async void OnRemoteContextOpen(object sender, RoutedEventArgs e)
+        => await RunPaneAsync(true, _vm.Remote.OpenSelectedAsync);
 
     private void OnRemoteContextDownload(object sender, RoutedEventArgs e)
         => ExecuteTransfer(false);
@@ -464,8 +460,8 @@ public partial class MainWindow : Window
             $"\"{target.Name}\" の新しい名前:",
             target.Name,
             this);
-        if (newName is null) return;
-        await _vm.Remote.RenameSelectedAsync(newName);
+        if (newName is null) { FileListKeyboardNavigation.FocusSelection(RemoteList); return; }
+        await RunPaneAsync(true, () => _vm.Remote.RenameSelectedAsync(newName));
         }
         finally { _vm.FileOperationInProgress = false; }
     }

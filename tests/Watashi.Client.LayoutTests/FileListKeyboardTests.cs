@@ -52,7 +52,7 @@ internal static partial class Program
             Require(earlierHandlerRan, "The shortcut handler must run before the tracker.");
             Require(input.IsInterrupted, $"Handled {key} must cancel focus restoration during loading.");
         }
-        foreach (var key in new[] { Key.Up, Key.Down, Key.Enter })
+        foreach (var key in new[] { Key.Up, Key.Down, Key.Enter, Key.Back, Key.Home, Key.End, Key.PageUp, Key.PageDown, Key.Left, Key.Right, Key.Space })
         {
             var owner = new Window();
             using var input = new FileListKeyboardNavigation.InputInterruption(owner);
