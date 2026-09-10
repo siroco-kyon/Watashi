@@ -53,6 +53,8 @@ internal static partial class Program
         void KeyInput(Key key)
         {
             var target = Keyboard.FocusedElement as UIElement ?? owner;
+            // Disabled rows no longer receive real keyboard input during listing loads.
+            if (!target.IsEnabled) target = owner;
             var args = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(owner)!, 0, key)
             { RoutedEvent = Keyboard.PreviewKeyDownEvent };
             target.RaiseEvent(args);
@@ -108,6 +110,18 @@ internal static partial class Program
                 var focus = Keyboard.FocusedElement;
                 gate.SetResult(); PumpKeyboardTask(operation);
                 Require(ReferenceEquals(focus, Keyboard.FocusedElement), $"Handled {key} must keep its new focus target.");
+            }
+            foreach (var key in new[] { Key.Back, Key.PageDown, Key.Home })
+            {
+                FileListKeyboardNavigation.FocusSelection(list);
+                var gate = new TaskCompletionSource();
+                var operation = FileListKeyboardNavigation.OpenAsync(owner, list, entries, async () =>
+                {
+                    list.IsEnabled = false; await gate.Task;
+                    Replace("continued-" + key, "continued.txt"); list.IsEnabled = true;
+                });
+                KeyInput(key);
+                gate.SetResult(); PumpKeyboardTask(operation); AssertRow("continued.txt");
             }
             FileListKeyboardNavigation.FocusSelection(list);
             var oldGate = new TaskCompletionSource();

@@ -122,7 +122,11 @@ public static class FileListKeyboardNavigation
         private void OnDeactivated(object? sender, EventArgs e) => IsInterrupted = true;
         private void OnKeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key is not (Key.Up or Key.Down or Key.Enter)) IsInterrupted = true;
+            // Navigation keys pressed again while the disabled list is loading cannot
+            // move focus elsewhere. They must not leave the completed listing unfocused.
+            if (e.IsRepeat || e.Key is Key.Up or Key.Down or Key.Left or Key.Right or
+                Key.Home or Key.End or Key.PageUp or Key.PageDown or Key.Enter or Key.Back or Key.Space) return;
+            IsInterrupted = true;
         }
 
         public void Dispose()
