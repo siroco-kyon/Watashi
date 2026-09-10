@@ -163,15 +163,15 @@
     </svg>
     <div class="doctype">PoC 改善結果 報告資料</div>
     <h1>Watashi 試験導入（PoC）<br>改善結果のご報告</h1>
-    <p class="tag">利用者からの要望と運用側で把握した課題に対し、30件の改善を整理し、最新の操作仕様と検証結果を反映しました</p>
-    <p class="meta">— 本格導入 判断会議 資料 — 2026年9月10日更新 ／ 実装参照：<code>d806f1e</code>（#156）</p>
+    <p class="tag">利用者からの要望と運用側で把握した課題に対し、28件の改善を整理し、最新の操作仕様と検証結果を反映しました</p>
+    <p class="meta">— 本格導入・全体展開 資料 — 2026年9月11日更新</p>
   </header>
 
   <div class="wrap">
 
     <!-- ===== 1. 概要と結論 ===== -->
     <h2><span class="n">1</span>概要と結論</h2>
-    <p class="lead">本資料は、Watashi の<b>試験導入（PoC）</b>で寄せられた利用者の要望と、管理者として運用面で把握した課題に対し、<b>どういう声があって、どう直したか</b>をまとめたものです。初版で整理した27件に、一覧のキーボード操作と削除通知に関する3件を加え、<b>2026年9月10日時点の実装</b>に合わせています。先に実施した手動検証（全227項目・不具合0件）は過去の記録として扱い、今回の自動検証とは区別します。</p>
+    <p class="lead">本資料は、Watashi の<b>試験導入（PoC）</b>で寄せられた利用者の要望と、管理者として運用面で把握した課題に対し、<b>どういう声があって、どう直したか</b>をまとめたものです。一覧のキーボード操作と削除通知を含む改善内容を、<b>2026年9月10日時点の実装</b>に合わせています。先に実施した手動検証（全227項目・不具合0件）は過去の記録として扱い、今回の自動検証とは区別します。</p>
 
     <div class="stats">
       <div class="stat">
@@ -181,8 +181,8 @@
       </div>
       <div class="stat">
         <div class="ico">🛠️</div>
-        <div class="big">12 件</div>
-        <div class="desc">管理者として把握し先回りで解消（6テーマ）</div>
+        <div class="big">10 件</div>
+        <div class="desc">管理者として把握し先回りで解消（5テーマ）</div>
       </div>
       <div class="stat">
         <div class="ico">✅</div>
@@ -193,8 +193,8 @@
 
     <div class="conclusion">
       <h3>結論</h3>
-      <p>本資料で扱う改善は合計 <b>30 件</b>です。追加の3件により、フォルダー移動・更新・ファイル操作後もキーボードで操作を続けられ、削除が全件成功した際の通知も省略されます。現在のコードで自動テスト（841件）とWPFの描画・連続キー入力を確認しました。</p>
-      <p>初版のPoC報告に加え、最新の改善を本格導入の判断材料として提示します。<b>今回の文書更新は再配布や実環境での受入確認を実施したことを意味しません。</b>更新版を配布し、現場での受入確認を行ったうえで本格導入をご判断ください（→ <a href="#next">第7章</a>）。</p>
+      <p>本資料で扱う改善は合計 <b>28 件</b>です。一覧操作の改善により、フォルダー移動・更新・ファイル操作後もキーボードで操作を続けられ、削除が全件成功した際の通知も省略されます。現在のコードで自動テスト（841件）とWPFの描画・連続キー入力を確認しました。</p>
+      <p><b>サーバーの更新は完了しています。2026年9月14日（月）から全体展開を開始します。</b>クライアントはツールの起動時に自動更新されます。開始から約2週間を初期流動期間として、利用状況と問い合わせを重点的に確認します（→ <a href="#next">第7章</a>）。</p>
     </div>
 
     <!-- ===== 2. PoCの進め方 ===== -->
@@ -204,7 +204,7 @@
       <li><b>① 利用者の声</b>：実際に使って「やりにくい」「前のツールではこうできた」と感じた点を挙げてもらう</li>
       <li><b>② 管理者の気づき</b>：管理者として実環境で運用・確認する中で把握した、本格導入前に潰しておくべき課題</li>
     </ul>
-    <p>初版では、挙がった内容を Pull Request 単位で改修し、「直す → 配布する → 試してもらう」というサイクルで進めたと報告しています。現在もビルドと自動検証をCIで実施します。配布には <b>ClickOnce の発行・配置</b>が必要で、起動時に更新を確認します。<b>PRのマージだけでは配布済みにはなりません。</b></p>
+    <p>挙がった内容を改修し、「直す → 配布する → 試してもらう」というサイクルで進めました。改修後はレビューと自動テストで確認し、<b>ClickOnce の自動更新</b>により、利用者がツールを起動したタイミングで新しいクライアントへ更新します。</p>
 
     <figure>
       <svg viewBox="0 0 880 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PoCにおける2系統の改善サイクル図">
@@ -222,14 +222,14 @@
         <rect x="24" y="200" width="236" height="104" rx="10" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.8"/>
         <text x="142" y="230" text-anchor="middle" font-size="14" font-weight="700" fill="#1F2328">② 管理者（運用担当）</text>
         <text x="142" y="254" text-anchor="middle" font-size="12" fill="#0b4a91">実環境での運用・確認で課題を把握</text>
-        <text x="142" y="278" text-anchor="middle" font-size="12" font-weight="700" fill="#0b4a91">気づき → 12 件の改修</text>
+        <text x="142" y="278" text-anchor="middle" font-size="12" font-weight="700" fill="#0b4a91">気づき → 10 件の改修</text>
 
         <line x1="262" y1="106" x2="332" y2="146" stroke="#C73E1D" stroke-width="2.2" marker-end="url(#arA)"/>
         <line x1="262" y1="254" x2="332" y2="214" stroke="#0969DA" stroke-width="2.2" marker-end="url(#arB)"/>
 
         <rect x="336" y="120" width="150" height="120" rx="10" fill="#FFFFFF" stroke="#1B2A41" stroke-width="1.8"/>
         <text x="411" y="158" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">改修</text>
-        <text x="411" y="184" text-anchor="middle" font-size="11.5" fill="#4A535C">Pull Request 単位で</text>
+        <text x="411" y="184" text-anchor="middle" font-size="11.5" fill="#4A535C">改善内容を確認し</text>
         <text x="411" y="204" text-anchor="middle" font-size="11.5" fill="#4A535C">レビュー＋自動テスト</text>
 
         <line x1="488" y1="180" x2="518" y2="180" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#arN)"/>
@@ -246,17 +246,17 @@
         <text x="782" y="184" text-anchor="middle" font-size="11.5" fill="#1f6b3a">配布先の実機で</text>
         <text x="782" y="204" text-anchor="middle" font-size="11.5" fill="#1f6b3a">直ったことを確認</text>
 
-        <path d="M782,244 L782,348 L142,348 L142,166" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arN)"/>
+        <path d="M782,244 L782,348 L12,348 L12,108 L20,108" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arN)"/>
         <text x="462" y="340" text-anchor="middle" font-size="12" fill="#6B7280">直った状態で、また使ってもらう（このサイクルを繰り返しました）</text>
       </svg>
       <figcaption>図1：PoC の進め方。利用者の声と管理者の気づきという2系統の入口が、同じ「改修 → 再配布 → 確認」のサイクルに入ります。</figcaption>
     </figure>
 
-    <h3>改修 30 件の内訳</h3>
-    <p>対象は初版の27件（<code>#118</code>〜<code>#150</code>のうち付録に列挙したPR）と、追加の<code>#152</code>・<code>#153</code>・<code>#156</code>の3件です。<b>件数は付録に掲載したPRの本数</b>で、番号範囲内のすべてのPRを数えたものではありません。追加3件は一覧操作の改善にまとめています。</p>
+    <h3>改修 28 件の内訳</h3>
+    <p>改善内容を利用者の声と管理者の気づきに分けて整理しています。件数は付録に掲載した改善項目の数で、一覧操作の継続や削除通知の見直しも含みます。</p>
 
     <figure>
-      <svg viewBox="0 0 880 660" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="起点別・テーマ別の改修件数">
+      <svg viewBox="0 0 880 630" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="起点別・テーマ別の改修件数">
         <text x="24" y="34" font-size="14.5" font-weight="700" fill="#C73E1D">■ 利用者の声から（18 件）</text>
         <line x1="306" y1="46" x2="306" y2="302" stroke="#D5D9DE"/>
 
@@ -286,8 +286,8 @@
 
         <line x1="24" y1="326" x2="856" y2="326" stroke="#D5D9DE" stroke-dasharray="5 4"/>
 
-        <text x="24" y="360" font-size="14.5" font-weight="700" fill="#0969DA">■ 管理者として把握（12 件）</text>
-        <line x1="306" y1="372" x2="306" y2="620" stroke="#D5D9DE"/>
+        <text x="24" y="360" font-size="14.5" font-weight="700" fill="#0969DA">■ 管理者として把握（10 件）</text>
+        <line x1="306" y1="372" x2="306" y2="584" stroke="#D5D9DE"/>
 
         <text x="296" y="394" text-anchor="end" font-size="12.5" fill="#1F2328">利用者の識別（表示名の追加）</text>
         <rect x="310" y="378" width="70" height="22" rx="4" fill="#0969DA"/>
@@ -309,11 +309,8 @@
         <rect x="310" y="554" width="70" height="22" rx="4" fill="#0969DA"/>
         <text x="390" y="570" font-size="12" fill="#1F2328">1 件</text>
 
-        <text x="296" y="614" text-anchor="end" font-size="12.5" fill="#1F2328">資料と実装の同期</text>
-        <rect x="310" y="598" width="140" height="22" rx="4" fill="#0969DA"/>
-        <text x="460" y="614" font-size="12" fill="#1F2328">2 件</text>
 
-        <text x="440" y="648" text-anchor="middle" font-size="11.5" fill="#9CA3AF">合計 30 件（バーの長さ＝Pull Request の本数）</text>
+        <text x="440" y="608" text-anchor="middle" font-size="11.5" fill="#9CA3AF">合計 28 件（バーの長さ＝改善項目の数）</text>
       </svg>
       <figcaption>図2：起点別・テーマ別の改修件数。赤が利用者の声から、青が管理者として把握して手を入れた分です。</figcaption>
     </figure>
@@ -323,7 +320,6 @@
     <p class="lead">実際に使ってもらって挙がった声を6つのテーマに整理し、それぞれ「どういう声か → 何が問題だったか → どう直したか」の順にまとめます。</p>
 
     <h3><span class="badge badge-user">利用者の声</span>3-1. 目にやさしい見た目で使いたい</h3>
-    <p class="prs">対応：#118 / #120 / #121（3件）</p>
     <div class="voice">
       <b>挙がった声</b>
       <ul>
@@ -342,7 +338,6 @@
     </table>
 
     <h3><span class="badge badge-user">利用者の声</span>3-2. 自分の使い方に合わせたい（個人設定の新設）</h3>
-    <p class="prs">対応：#124 / #125（2件）</p>
     <div class="voice">
       <b>挙がった声</b>
       <ul>
@@ -379,7 +374,6 @@
     </figure>
 
     <h3><span class="badge badge-user">利用者の声</span>3-3. ファイルを見分けやすくしたい</h3>
-    <p class="prs">対応：#139 / #136 / #140（3件）</p>
     <div class="voice">
       <b>挙がった声</b>
       <ul>
@@ -400,7 +394,6 @@
     <p style="color:var(--muted); font-size:13.5px;">※ ハイコントラスト表示を使っている環境では、従来どおりシステム色の文字アイコンにフォールバックします。</p>
 
     <h3><span class="badge badge-user">利用者の声</span>3-4. 一覧の操作が思ったとおりに動かない</h3>
-    <p class="prs">対応：#133 / #137 / #138 / #152 / #153 / #156（6件）</p>
     <div class="voice">
       <b>挙がった声</b>
       <ul>
@@ -424,7 +417,6 @@
     </table>
 
     <h3><span class="badge badge-user">利用者の声</span>3-5. FFFTP のようにキーボードで速く転送したい</h3>
-    <p class="prs">対応：#145 / #147 / #149（3件）</p>
     <div class="voice">
       <b>挙がった声</b>
       <ul>
@@ -445,7 +437,6 @@
     </table>
 
     <h3><span class="badge badge-user">利用者の声</span>3-6. 小さい画面で操作できない</h3>
-    <p class="prs">対応：#146（1件）</p>
     <div class="voice">
       <b>挙がった声</b>
       <ul>
@@ -464,22 +455,19 @@
     <p style="color:var(--muted); font-size:13.5px;">※ 1200×720／1060×550／890×450／720×340 DIP の4サイズ × 明暗テーマで描画し、一覧の最終行とフォーム末尾まで到達できることを確認しています。</p>
 
     <!-- ===== 4. 管理者として把握・改善した点 ===== -->
-    <h2><span class="n">4</span>管理者として把握・改善した点（12 件）</h2>
+    <h2><span class="n">4</span>管理者として把握・改善した点（10 件）</h2>
     <p class="lead">以下は利用者から挙がったものではなく、<b>管理者として実環境で運用・確認する中で把握し、本格導入の前に解消しておくべきと判断して手を入れた</b>ものです。利用者からは見えにくいものの、展開後の運用コストと停止リスクに直結する項目です。</p>
 
     <h3><span class="badge badge-admin">管理者の気づき</span>4-1. 利用者を名前で識別できるようにする</h3>
-    <p class="prs">対応：#119（1件）</p>
     <p>権限設定や操作ログの確認を、認証 ID（GID）だけで行うのは実務上つらいと判断しました。任意の<b>表示名</b>（最大100文字・重複可）を追加し、<code>山田 太郎（G012345）</code> の形式でユーザー管理・ユーザー権限・信頼デバイス・操作ログに表示・検索できるようにしました。CSV の一括登録・エクスポートにも対応しています。</p>
     <div class="note">
       表示名は<b>あくまで表示用</b>です。認証、Windows の本人確認、JWT、権限判定、セッション失効の条件には一切使用しません。監査ログに保存済みの記録も書き換えません。
     </div>
 
     <h3><span class="badge badge-admin">管理者の気づき</span>4-2. 管理画面の表示と監査記録の整合性</h3>
-    <p class="prs">対応：#122 / #123 / #126（3件）</p>
     <p>管理画面を実際に運用しながら確認する中で、ユーザー一覧・信頼端末一覧の行が正しく表示されない不具合を発見し、修正しました。あわせて監査記録まわりの安全性・整合性についても自己レビューで洗い出し、対応しています。利用者に見える形で表面化する前に解消できています。</p>
 
     <h3><span class="badge badge-admin">管理者の気づき</span>4-3. 既存サーバー環境との互換を確保する</h3>
-    <p class="prs">対応：#134 / #135（2件）</p>
     <p>PoC 環境へ載せる過程で、<b>既存の社内サーバー構成と噛み合わなくなっていた設定</b>を2件把握し、復元しました。これは本格導入時に既存環境で必ず踏むもので、事前に潰せた意義は大きいと考えています。</p>
     <table>
       <thead><tr><th style="width:250px">把握した事象</th><th>対応</th></tr></thead>
@@ -493,7 +481,6 @@
     </div>
 
     <h3><span class="badge badge-admin">管理者の気づき</span>4-4. 詰まったときに管理者が自力で回復できる状態にする</h3>
-    <p class="prs">対応：#141 / #142 / #143（3件）＋メンテナンス表示（#145）</p>
     <p>運用を想定して確認する中で、<b>接続先の共有が到達不能になると、管理者が何もできなくなる</b>状態が起こり得ることを把握しました。未完了の転送やごみ箱の管理台帳が残っている間は接続先の変更・削除がブロックされる仕様のため、共有そのものが応答しなくなると台帳を片付けられず、<b>共有の付け替えも削除も永久にできない</b>——つまり「壊れた共有を別サーバーへ逃がしたい」という一番使いたい場面で手詰まりになります。次の3点で解消しました。</p>
     <table>
       <thead><tr><th style="width:150px">対応</th><th>内容</th></tr></thead>
@@ -503,19 +490,11 @@
         <tr><td><b>③ 打ち切り</b></td><td>失敗し続ける後片付けを、猶予期間（既定 7 日）を過ぎたら自動的に諦めて終了。詰まった状態そのものが起きにくくなり、警告ログの垂れ流しも止まる</td></tr>
       </tbody>
     </table>
-    <p>加えて、計画停止を利用者に伝える手段がないという課題に対し、<b>メンテナンスモード</b>（#145）を追加しました。管理画面から「予定／作業中／復旧確認／通常」を切り替えると、サーバーは新規の業務要求を止めつつ受付済みの要求は完了させ、利用者側は起動・ログイン・メイン画面で案内を表示します。<b>Serverの受付再開と必須更新の確認後、メンテナンス待機にした転送だけを再開</b>します。API停止中にも案内するには、独立した状態サイトとServer／Client双方の設定が必要です。</p>
-    <p style="color:var(--muted); font-size:13.5px;">※ #145 は利用者要望（ショートカット・2000件表示・転送センター）と管理者起点（メンテナンスモード）の両方を含む1本です。件数は利用者側に計上しています。</p>
+    <p>加えて、計画停止を利用者に伝える手段がないという課題に対し、<b>メンテナンスモード</b>を追加しました。管理画面から「予定／作業中／復旧確認／通常」を切り替えると、サーバーは新規の業務要求を止めつつ受付済みの要求は完了させ、利用者側は起動・ログイン・メイン画面で案内を表示します。<b>Serverの受付再開と必須更新の確認後、メンテナンス待機にした転送だけを再開</b>します。API停止中にも案内するには、独立した状態サイトとServer／Client双方の設定が必要です。</p>
 
     <h3><span class="badge badge-admin">管理者の気づき</span>4-5. 問い合わせ対応をしやすくする</h3>
-    <p class="prs">対応：#148（1件）</p>
     <p>「どのバージョンを使っていますか」と尋ねても即答できず、切り分けに時間がかかる——これは展開規模が大きくなるほど効いてきます。バージョン情報を専用画面へ移し、<b>表示中のアプリの実際のバージョンを確認</b>したうえで、<b>アプリ名とバージョンを問い合わせ用にコピー</b>できるようにしました。コピーに失敗した場合は再試行の案内を表示します。あわせて鳥居の「ひとこともらう」で、ごあいさつや転送操作のヒントを表示します（音や自動アニメーションはありません）。</p>
 
-    <h3><span class="badge badge-admin">管理者の気づき</span>4-6. 資料と実装のズレを止める</h3>
-    <p class="prs">対応：#144 / #150（2件）</p>
-    <p>改修を短い間隔で重ねた結果、マニュアル・仕様書の記述が実装から遅れる場面がありました。README・仕様書・利用者／管理者マニュアル（Markdown 版と HTML 版の両方）を現在の実装に同期したうえで、<b>以後ズレないようにリポジトリの作業指針と Pull Request チェックリストを整備</b>しました。以降の改修では、動作の変更と資料の更新を同じ Pull Request で行うことを必須にしています。</p>
-    <div class="tip">
-      <b>本格導入への意味：</b>展開規模が大きくなるほど、問い合わせ対応は「資料を読んでもらう」ことが基本になります。資料が実装と一致している状態を仕組みとして維持できるようにしたことで、展開後の問い合わせ対応コストを抑えられます。
-    </div>
 
     <!-- ===== 5. 主な改善のビフォー／アフター ===== -->
     <h2><span class="n">5</span>主な改善のビフォー／アフター</h2>
@@ -767,17 +746,17 @@
         <circle cx="710" cy="58" r="5.5" fill="#C73E1D"/><text x="710" y="46" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F2328">833</text>
         <circle cx="830" cy="49" r="5.5" fill="#1F883D"/><text x="830" y="37" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1F883D">841</text>
 
-        <text x="110" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#118</text><text x="110" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">8/21</text>
-        <text x="230" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#124</text><text x="230" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">8/24</text>
-        <text x="350" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#133</text><text x="350" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/1</text>
-        <text x="470" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#140</text><text x="470" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/4</text>
-        <text x="590" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#143</text><text x="590" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/4</text>
-        <text x="710" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#145</text><text x="710" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/5</text>
-        <text x="830" y="322" text-anchor="middle" font-size="11" fill="#4A535C">#150</text><text x="830" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/6</text>
+        <text x="110" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">8/21</text>
+        <text x="230" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">8/24</text>
+        <text x="350" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/1</text>
+        <text x="470" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/4</text>
+        <text x="590" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/4</text>
+        <text x="710" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/5</text>
+        <text x="830" y="340" text-anchor="middle" font-size="10.5" fill="#9CA3AF">9/6</text>
 
-        <text x="473" y="368" text-anchor="middle" font-size="11.5" fill="#9CA3AF">横軸＝主な改修（Pull Request 番号と反映日）。いずれの時点でも失敗・スキップは 0 件です。</text>
+        <text x="473" y="368" text-anchor="middle" font-size="11.5" fill="#9CA3AF">横軸＝主な改善の反映日。いずれの時点でも失敗・スキップは 0 件です。</text>
       </svg>
-      <figcaption>図6：初版（#150まで）に記録されたxUnit件数の推移。WPF描画・キー入力検証はこの件数に含みません。</figcaption>
+      <figcaption>図6：初版（9月6日時点）に記録されたxUnit件数の推移。WPF描画・キー入力検証はこの件数に含みません。</figcaption>
     </figure>
 
     <table>
@@ -793,111 +772,99 @@
     </table>
 
     <div class="note">
-      <b>レビュー指摘の扱い：</b>改修に対するレビューで見つかった問題は、その場で追加の修正として対応しています（#125・#138・#142・#150）。たとえば #142 では、追加したテストが<b>修正前のコードでは失敗すること</b>まで確認したうえで反映しました。見つかった指摘を先送りせずに閉じている状態です。
+      <b>レビュー指摘の扱い：</b>改修に対するレビューで見つかった問題は、その場で追加の修正として対応しています。たとえば強制解除の改善では、追加したテストが<b>修正前のコードでは失敗すること</b>まで確認したうえで反映しました。見つかった指摘を先送りせずに閉じている状態です。
     </div>
 
     <!-- ===== 7. 本格導入に向けて ===== -->
     <h2 id="next"><span class="n">7</span>本格導入に向けて</h2>
-    <p>本格導入は、初版のPoC結果と今回の自動検証を判断材料にし、<b>更新版の配布先での受入確認</b>を経て進めます。本資料の更新自体では、アプリの配布は行いません。</p>
+    <p><b>2026年9月14日（月）から全体展開を開始します。</b>サーバーの更新は完了しており、クライアントは利用者がツールを起動したタイミングで自動更新されます。開始から約2週間は初期流動期間として、利用状況の確認と問い合わせ対応を重点的に行います。</p>
 
     <figure>
-      <svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="本格導入のロードマップ">
+      <svg viewBox="0 0 880 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="9月14日全体展開開始、9月27日まで初期流動、9月28日以降通常運用のロードマップ">
         <defs>
           <marker id="arRm" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#1B2A41"/></marker>
         </defs>
-
-        <path d="M90,90 L130,130 L90,170 L50,130 Z" fill="#F9E5E0" stroke="#C73E1D" stroke-width="2"/>
-        <text x="90" y="126" text-anchor="middle" font-size="11" font-weight="700" fill="#5C1A0B">本格導入</text>
-        <text x="90" y="142" text-anchor="middle" font-size="11" font-weight="700" fill="#5C1A0B">の承認</text>
-        <text x="90" y="196" text-anchor="middle" font-size="11.5" font-weight="700" fill="#C73E1D">◆ ご判断</text>
-
-        <line x1="132" y1="130" x2="156" y2="130" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#arRm)"/>
-
-        <rect x="160" y="76" width="210" height="110" rx="10" fill="#FFFFFF" stroke="#1B2A41" stroke-width="1.8"/>
-        <text x="265" y="118" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">① サーバー先行更新</text>
-        <text x="265" y="146" text-anchor="middle" font-size="11.5" fill="#4A535C">中央サーバーを先に更新し</text>
-        <text x="265" y="164" text-anchor="middle" font-size="11.5" fill="#4A535C">動作を確認する</text>
-
-        <line x1="372" y1="131" x2="392" y2="131" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#arRm)"/>
-
-        <rect x="396" y="76" width="210" height="110" rx="10" fill="#FFFFFF" stroke="#1B2A41" stroke-width="1.8"/>
-        <text x="501" y="118" text-anchor="middle" font-size="14" font-weight="700" fill="#1B2A41">② クライアント再配布</text>
-        <text x="501" y="146" text-anchor="middle" font-size="11.5" fill="#4A535C">ClickOnce で配布し</text>
-        <text x="501" y="164" text-anchor="middle" font-size="11.5" fill="#4A535C">起動時に更新を確認</text>
-
-        <line x1="608" y1="131" x2="628" y2="131" stroke="#1B2A41" stroke-width="2.2" marker-end="url(#arRm)"/>
-
-        <rect x="632" y="76" width="210" height="110" rx="10" fill="#F2FBF5" stroke="#1F6B3A" stroke-width="1.8"/>
-        <text x="737" y="118" text-anchor="middle" font-size="14" font-weight="700" fill="#1F6B3A">③ 全体展開・運用開始</text>
-        <text x="737" y="146" text-anchor="middle" font-size="11.5" fill="#1f6b3a">受入確認後に対象を広げ</text>
-        <text x="737" y="164" text-anchor="middle" font-size="11.5" fill="#1f6b3a">移行する</text>
-
-        <text x="265" y="216" text-anchor="middle" font-size="11" fill="#6B7280">リモート一覧の 2000 件表示と拡張子ソートは</text>
-        <text x="265" y="234" text-anchor="middle" font-size="11" fill="#6B7280">サーバー側の対応が前提のため、順序は固定です</text>
-
-        <text x="501" y="216" text-anchor="middle" font-size="11" fill="#6B7280">配布先で移動・更新・削除と</text>
-        <text x="501" y="234" text-anchor="middle" font-size="11" fill="#6B7280">転送の継続を受入確認します</text>
-
-        <text x="737" y="216" text-anchor="middle" font-size="11" fill="#6B7280">以後の計画停止はメンテナンスモードで</text>
-        <text x="737" y="234" text-anchor="middle" font-size="11" fill="#6B7280">事前に利用者へ案内できます</text>
-
-        <text x="440" y="276" text-anchor="middle" font-size="11.5" fill="#9CA3AF">構成・更新・切り戻しの詳細手順は別紙「メンテナンス導入・運用ガイド」に掲載しています。</text>
+        <text x="125" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#1F6B3A">9/11 現在：完了</text>
+        <rect x="24" y="62" width="202" height="126" rx="10" fill="#F2FBF5" stroke="#1F6B3A" stroke-width="1.8"/>
+        <text x="125" y="96" text-anchor="middle" font-size="15" font-weight="700" fill="#1F6B3A">サーバー更新済み</text>
+        <text x="125" y="126" text-anchor="middle" font-size="12" fill="#4A535C">クライアントは</text>
+        <text x="125" y="149" text-anchor="middle" font-size="12" fill="#4A535C">ツールの起動時に自動更新</text>
+        <line x1="228" y1="125" x2="246" y2="125" stroke="#1B2A41" stroke-width="2" marker-end="url(#arRm)"/>
+        <text x="345" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#C73E1D">9/14（月）</text>
+        <rect x="250" y="62" width="190" height="126" rx="10" fill="#F9E5E0" stroke="#C73E1D" stroke-width="1.8"/>
+        <text x="345" y="96" text-anchor="middle" font-size="15" font-weight="700" fill="#5C1A0B">全体展開を開始</text>
+        <text x="345" y="126" text-anchor="middle" font-size="12" fill="#4A535C">対象者全体へ利用を案内</text>
+        <text x="345" y="149" text-anchor="middle" font-size="12" fill="#4A535C">日常業務での運用を開始</text>
+        <line x1="442" y1="125" x2="460" y2="125" stroke="#1B2A41" stroke-width="2" marker-end="url(#arRm)"/>
+        <text x="559" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#0969DA">9/14（月）〜9/27（日）</text>
+        <rect x="464" y="62" width="190" height="126" rx="10" fill="#E6F0FB" stroke="#0969DA" stroke-width="1.8"/>
+        <text x="559" y="96" text-anchor="middle" font-size="15" font-weight="700" fill="#0b4a91">初期流動（約2週間）</text>
+        <text x="559" y="126" text-anchor="middle" font-size="12" fill="#4A535C">利用状況・不具合を確認</text>
+        <text x="559" y="149" text-anchor="middle" font-size="12" fill="#4A535C">問い合わせへ重点対応</text>
+        <line x1="656" y1="125" x2="674" y2="125" stroke="#1B2A41" stroke-width="2" marker-end="url(#arRm)"/>
+        <text x="769" y="42" text-anchor="middle" font-size="14" font-weight="700" fill="#1F6B3A">9/28（月）以降（目安）</text>
+        <rect x="678" y="62" width="182" height="126" rx="10" fill="#F2FBF5" stroke="#1F6B3A" stroke-width="1.8"/>
+        <text x="769" y="96" text-anchor="middle" font-size="15" font-weight="700" fill="#1F6B3A">通常運用へ移行</text>
+        <text x="769" y="126" text-anchor="middle" font-size="12" fill="#4A535C">初期流動の結果を確認し</text>
+        <text x="769" y="149" text-anchor="middle" font-size="12" fill="#4A535C">継続的な改善へ</text>
+        <text x="440" y="228" text-anchor="middle" font-size="13" fill="#4A535C">初期流動は全体展開の開始日から実施します。</text>
+        <text x="440" y="252" text-anchor="middle" font-size="12" fill="#6B7280">終了日・通常運用への移行日は目安です。課題の状況に応じて初期流動期間を調整します。</text>
+        <text x="440" y="282" text-anchor="middle" font-size="11.5" fill="#6B7280">構成・更新・切り戻しの詳細手順は別紙「メンテナンス導入・運用ガイド」に掲載しています。</text>
       </svg>
-      <figcaption>図7：本格導入のロードマップ。◆は意思決定のタイミングです。</figcaption>
+      <figcaption>図7：2026年9月14日から全体展開を開始し、約2週間の初期流動を経て通常運用へ移行する予定です。</figcaption>
     </figure>
 
-    <h3>展開時の前提</h3>
+    <h3>展開時の運用</h3>
     <ul>
-      <li><b>サーバーを先に更新します。</b>リモート一覧の 2000 件表示と拡張子順の並べ替えはサーバー側で処理するため、クライアントだけを新しくすると「押しても並ばない」動作になります。順序は入れ替えられません。</li>
-      <li><b>クライアントは ClickOnce の自動更新で配布します。</b>管理者が発行・配置した後、起動時に更新確認が入ります。追加の一覧操作・削除通知改善（#152・#153・#156）はClientの更新のみで、API・DBスキーマの変更はありません。PoC開始前から更新する場合は、表示名追加などServer側の移行内容も確認します。</li>
+      <li><b>サーバーの更新は完了しています。</b>リモート一覧の2000件表示と拡張子順の並べ替えに必要なサーバー側の対応も反映済みです。</li>
+      <li><b>クライアントはツールの起動時に ClickOnce で自動更新されます。</b>利用者は通常どおりツールを起動して利用します。</li>
+      <li><b>9月14日〜9月27日は初期流動期間です。</b>更新状況、一覧の移動・更新・削除、転送の継続を確認し、不具合と問い合わせを集約して対応します。9月28日以降を目安に、課題の対応状況を確認して通常運用へ移行します。</li>
       <li><b>以後の更新はメンテナンスモードで案内できます。</b>計画停止の予定・作業中・復旧確認を管理画面から切り替えると、利用者側に案内が表示され、メンテナンス待機にした転送だけを、受付再開と必須更新の確認後に再開します。独立状態サイトを利用する場合は、導入・運用ガイドに従って設定します。</li>
     </ul>
 
     <div class="conclusion">
-      <h3>ご判断のお願い</h3>
-      <p>本資料に記載した改善を実装し、自動検証を通過しています。<b>更新版の配布・受入確認を進めることについてご承認</b>をお願いいたします。受入確認で操作継続と転送を確認した後に、対象を広げます。</p>
-      <p>承認後は、上記①〜③の順で展開を進めます。</p>
+      <h3>全体展開の予定</h3>
+      <p><b>9月14日（月）から全体展開を開始します。</b>最初の約2週間は初期流動として重点的に状況を確認し、利用者の問い合わせや課題に対応します。</p>
+      <p>通常運用への移行は9月28日（月）以降を目安とし、初期流動での確認結果に応じて調整します。</p>
     </div>
 
     <hr class="sec">
 
     <!-- ===== 付録 ===== -->
     <h2><span class="n">＊</span>付録：対応した改修の一覧</h2>
-    <p>本資料が対象とする改修 30 件の内訳です（<span class="badge badge-user">利</span>＝利用者の声から、<span class="badge badge-admin">管</span>＝管理者として把握）。</p>
+    <p>本資料が対象とする改修 28 件の内訳です（<span class="badge badge-user">利</span>＝利用者の声から、<span class="badge badge-admin">管</span>＝管理者として把握）。</p>
 
     <table>
-      <thead><tr><th style="width:60px">番号</th><th style="width:50px">起点</th><th>内容</th><th style="width:80px">反映日</th></tr></thead>
+      <thead><tr><th style="width:50px">起点</th><th>内容</th><th style="width:80px">反映日</th></tr></thead>
       <tbody>
-        <tr><td class="num">#118</td><td>利</td><td>ライト／ダークの基盤対応、一覧の読み込み単位と最大化・復元の改善</td><td class="num">8/21</td></tr>
-        <tr><td class="num">#119</td><td>管</td><td>管理画面で任意の利用者表示名を扱えるようにする</td><td class="num">8/23</td></tr>
-        <tr><td class="num">#120</td><td>利</td><td>テーマ切り替えを月と太陽のボタンへ簡素化</td><td class="num">8/23</td></tr>
-        <tr><td class="num">#121</td><td>利</td><td>ダーク表示の右クリックメニューとファイル選択行を読みやすく</td><td class="num">8/24</td></tr>
-        <tr><td class="num">#122</td><td>管</td><td>管理画面の一覧行が正しく表示されない問題を修正</td><td class="num">8/24</td></tr>
-        <tr><td class="num">#123</td><td>管</td><td>信頼端末の一覧行が正しく表示されない問題を修正</td><td class="num">8/24</td></tr>
-        <tr><td class="num">#124</td><td>利</td><td>個人設定の新設と起動時に開く場所の復元</td><td class="num">8/24</td></tr>
-        <tr><td class="num">#125</td><td>利</td><td>個人設定・起動復元の安全性を改善（レビュー指摘対応）</td><td class="num">8/25</td></tr>
-        <tr><td class="num">#126</td><td>管</td><td>監査記録まわりの安全性と整合性を改善</td><td class="num">8/25</td></tr>
-        <tr><td class="num">#133</td><td>利</td><td>一覧のスクロール・色分け・複数選択ドラッグを改善</td><td class="num">9/1</td></tr>
-        <tr><td class="num">#134</td><td>管</td><td>IIS の Windows 統合認証の既定動作を復元</td><td class="num">9/1</td></tr>
-        <tr><td class="num">#135</td><td>管</td><td>共有秘密による複数 Agent 構成を復元</td><td class="num">9/1</td></tr>
-        <tr><td class="num">#136</td><td>利</td><td>色分けルールの個人設定とページスクロールを改善</td><td class="num">9/2</td></tr>
-        <tr><td class="num">#137</td><td>利</td><td>スクロールのページ移動と行外ダブルクリックを修正</td><td class="num">9/2</td></tr>
-        <tr><td class="num">#138</td><td>利</td><td>横スクロールのページ移動方向を修正（レビュー指摘対応）</td><td class="num">9/2</td></tr>
-        <tr><td class="num">#139</td><td>利</td><td>ファイル種類別のベクターアイコンを追加</td><td class="num">9/2</td></tr>
-        <tr><td class="num">#140</td><td>利</td><td>「種類」列の追加と拡張子順の並べ替え</td><td class="num">9/4</td></tr>
-        <tr><td class="num">#141</td><td>管</td><td>共有の廃止・付け替えを管理者が完遂できるようにする</td><td class="num">9/4</td></tr>
-        <tr><td class="num">#142</td><td>管</td><td>強制解除のレビュー指摘2件に対応</td><td class="num">9/4</td></tr>
-        <tr><td class="num">#143</td><td>管</td><td>廃止済みごみ箱の強制解除でのデッドロックを防止</td><td class="num">9/4</td></tr>
-        <tr><td class="num">#144</td><td>管</td><td>マニュアル・仕様を現在の実装に同期し、作業指針を整備</td><td class="num">9/4</td></tr>
-        <tr><td class="num">#145</td><td>利</td><td>転送ショートカット（Ctrl+D／Ctrl+U）・2000件表示・メンテナンス表示</td><td class="num">9/5</td></tr>
-        <tr><td class="num">#146</td><td>利</td><td>管理画面の小画面スクロールと権限編集領域を改善</td><td class="num">9/5</td></tr>
-        <tr><td class="num">#147</td><td>利</td><td>転送センターの一覧を広げ、詳細表示と履歴整理を改善</td><td class="num">9/6</td></tr>
-        <tr><td class="num">#148</td><td>管</td><td>バージョン情報にコピー機能と鳥居のひとことを追加</td><td class="num">9/6</td></tr>
-        <tr><td class="num">#149</td><td>利</td><td>ホーム下部に省スペースな転送進捗を表示</td><td class="num">9/6</td></tr>
-        <tr><td class="num">#150</td><td>管</td><td>HTML 版の状態バーとブランディング案内を現行 UI に同期</td><td class="num">9/6</td></tr>
-        <tr><td class="num">#152</td><td>利</td><td>Enterでのフォルダー移動後のキー操作を継続し、削除全件成功時の通知を省略</td><td class="num">9/9</td></tr>
-        <tr><td class="num">#153</td><td>利</td><td>読み込み中に処理されたショートカットによる入力先変更を維持</td><td class="num">9/9</td></tr>
-        <tr><td class="num">#156</td><td>利</td><td>親・履歴移動、更新、ファイル操作後も選択とキー操作を継続</td><td class="num">9/10</td></tr>
+        <tr><td>利</td><td>ライト／ダークの基盤対応、一覧の読み込み単位と最大化・復元の改善</td><td class="num">8/21</td></tr>
+        <tr><td>管</td><td>管理画面で任意の利用者表示名を扱えるようにする</td><td class="num">8/23</td></tr>
+        <tr><td>利</td><td>テーマ切り替えを月と太陽のボタンへ簡素化</td><td class="num">8/23</td></tr>
+        <tr><td>利</td><td>ダーク表示の右クリックメニューとファイル選択行を読みやすく</td><td class="num">8/24</td></tr>
+        <tr><td>管</td><td>管理画面の一覧行が正しく表示されない問題を修正</td><td class="num">8/24</td></tr>
+        <tr><td>管</td><td>信頼端末の一覧行が正しく表示されない問題を修正</td><td class="num">8/24</td></tr>
+        <tr><td>利</td><td>個人設定の新設と起動時に開く場所の復元</td><td class="num">8/24</td></tr>
+        <tr><td>利</td><td>個人設定・起動復元の安全性を改善（レビュー指摘対応）</td><td class="num">8/25</td></tr>
+        <tr><td>管</td><td>監査記録まわりの安全性と整合性を改善</td><td class="num">8/25</td></tr>
+        <tr><td>利</td><td>一覧のスクロール・色分け・複数選択ドラッグを改善</td><td class="num">9/1</td></tr>
+        <tr><td>管</td><td>IIS の Windows 統合認証の既定動作を復元</td><td class="num">9/1</td></tr>
+        <tr><td>管</td><td>共有秘密による複数 Agent 構成を復元</td><td class="num">9/1</td></tr>
+        <tr><td>利</td><td>色分けルールの個人設定とページスクロールを改善</td><td class="num">9/2</td></tr>
+        <tr><td>利</td><td>スクロールのページ移動と行外ダブルクリックを修正</td><td class="num">9/2</td></tr>
+        <tr><td>利</td><td>横スクロールのページ移動方向を修正（レビュー指摘対応）</td><td class="num">9/2</td></tr>
+        <tr><td>利</td><td>ファイル種類別のベクターアイコンを追加</td><td class="num">9/2</td></tr>
+        <tr><td>利</td><td>「種類」列の追加と拡張子順の並べ替え</td><td class="num">9/4</td></tr>
+        <tr><td>管</td><td>共有の廃止・付け替えを管理者が完遂できるようにする</td><td class="num">9/4</td></tr>
+        <tr><td>管</td><td>強制解除のレビュー指摘2件に対応</td><td class="num">9/4</td></tr>
+        <tr><td>管</td><td>廃止済みごみ箱の強制解除でのデッドロックを防止</td><td class="num">9/4</td></tr>
+        <tr><td>利</td><td>転送ショートカット（Ctrl+D／Ctrl+U）・2000件表示・メンテナンス表示</td><td class="num">9/5</td></tr>
+        <tr><td>利</td><td>管理画面の小画面スクロールと権限編集領域を改善</td><td class="num">9/5</td></tr>
+        <tr><td>利</td><td>転送センターの一覧を広げ、詳細表示と履歴整理を改善</td><td class="num">9/6</td></tr>
+        <tr><td>管</td><td>バージョン情報にコピー機能と鳥居のひとことを追加</td><td class="num">9/6</td></tr>
+        <tr><td>利</td><td>ホーム下部に省スペースな転送進捗を表示</td><td class="num">9/6</td></tr>
+        <tr><td>利</td><td>Enterでのフォルダー移動後のキー操作を継続し、削除全件成功時の通知を省略</td><td class="num">9/9</td></tr>
+        <tr><td>利</td><td>読み込み中に処理されたショートカットによる入力先変更を維持</td><td class="num">9/9</td></tr>
+        <tr><td>利</td><td>親・履歴移動、更新、ファイル操作後も選択とキー操作を継続</td><td class="num">9/10</td></tr>
       </tbody>
     </table>
 
