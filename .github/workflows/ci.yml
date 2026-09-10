@@ -46,6 +46,9 @@ jobs:
       - name: Check WPF admin and transfer layout without opening windows
         run: dotnet run --project tests/Watashi.Client.LayoutTests --configuration Release --no-build
 
+      - name: Check continuous WPF keyboard input
+        run: dotnet run --project tests/Watashi.Client.LayoutTests --configuration Release --no-build -- --keyboard-input
+
       - name: Enforce line coverage floor
         shell: pwsh
         run: |

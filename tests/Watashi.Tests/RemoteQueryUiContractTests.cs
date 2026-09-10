@@ -13,8 +13,11 @@ public sealed class RemoteQueryUiContractTests
         var doc = XDocument.Load(path);
 
         text.Should().Contain("Remote.AddCurrentFavoriteCommand")
-            .And.Contain("Remote.LoadMoreCommand")
+            .And.Contain("Click=\"OnRemoteLoadMore\"")
             .And.Contain("VirtualizingPanel.VirtualizationMode=\"Recycling\"");
+
+        File.ReadAllText(RepoFile("src/Watashi.Client/Views/MainWindow.KeyboardNavigation.cs"))
+            .Should().Contain("RunPaneAsync(true, _vm.Remote.LoadMoreAsync)");
 
         var automationNames = doc.Descendants()
             .Select(e => e.Attributes().FirstOrDefault(a =>

@@ -41,7 +41,7 @@ public partial class MainWindow
         _vm.Remote.SelectionRequested += name => SelectName(RemoteList, name);
     }
 
-    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (!IsActive || e.IsRepeat || _imeComposing || e.Key is Key.ImeProcessed or Key.DeadCharProcessed) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
@@ -56,7 +56,7 @@ public partial class MainWindow
         else if (key == Key.F6 && modifiers is ModifierKeys.None or ModifierKeys.Shift)
         {
             e.Handled = true;
-            (_vm.IsRemotePaneActive ? LocalList : RemoteList).Focus();
+            FileListKeyboardNavigation.FocusSelection(_vm.IsRemotePaneActive ? LocalList : RemoteList);
         }
         else if (modifiers == ModifierKeys.Control && key is Key.L or Key.F)
         {
@@ -78,20 +78,26 @@ public partial class MainWindow
             e.Handled = true;
             var remote = RemoteFilterBox.IsKeyboardFocusWithin;
             (remote ? RemoteFilterBox : LocalFilterBox).Clear();
-            (remote ? RemoteList : LocalList).Focus();
+            FileListKeyboardNavigation.FocusSelection(remote ? RemoteList : LocalList);
         }
         else if (modifiers == ModifierKeys.None && key == Key.F1)
         {
             e.Handled = true;
             OnShowKeyboardHelp(sender, e);
         }
-        else if (modifiers == ModifierKeys.Alt && key is Key.Left or Key.Right or Key.Up)
+        else if (modifiers == ModifierKeys.None && key == Key.F5)
         {
             e.Handled = true;
-            ICommand command = _vm.IsRemotePaneActive
-                ? key == Key.Left ? _vm.Remote.GoBackCommand : key == Key.Right ? _vm.Remote.GoForwardCommand : _vm.Remote.GoUpCommand
-                : key == Key.Left ? _vm.Local.GoBackCommand : key == Key.Right ? _vm.Local.GoForwardCommand : _vm.Local.GoUpCommand;
-            if (command.CanExecute(null)) command.Execute(null);
+            await RefreshFromKeyboardAsync();
+        }
+        else if (!input && modifiers == ModifierKeys.Alt && key is Key.Left or Key.Right or Key.Up)
+        {
+            e.Handled = true;
+            var remote = _vm.IsRemotePaneActive;
+            Func<Task> action = remote
+                ? key == Key.Left ? _vm.Remote.GoBackAsync : key == Key.Right ? _vm.Remote.GoForwardAsync : _vm.Remote.GoUpAsync
+                : key == Key.Left ? _vm.Local.GoBackAsync : key == Key.Right ? _vm.Local.GoForwardAsync : _vm.Local.GoUpAsync;
+            await RunPaneAsync(remote, action, restoreHistory: key != Key.Up);
         }
     }
 
@@ -153,10 +159,18 @@ public partial class MainWindow
             panel.Children.Add(new ListBox { ItemsSource = targets.Select(x => x.Name) });
             dialog.Content = panel;
             dialog.Loaded += (_, _) => cancel.Focus();
-            if (dialog.ShowDialog() != true) return;
-            var outcomes = remote
-                ? await _vm.Remote.DeleteEntriesAsync(location!, path, targets)
-                : await _vm.Local.DeleteEntriesAsync(path, targets, recycle);
+            if (dialog.ShowDialog() != true)
+            {
+                FileListKeyboardNavigation.FocusSelection(remote ? RemoteList : LocalList);
+                return;
+            }
+            IReadOnlyList<FileOperationOutcome> outcomes = [];
+            await RunPaneAsync(remote, async () =>
+            {
+                outcomes = remote
+                    ? await _vm.Remote.DeleteEntriesAsync(location!, path, targets)
+                    : await _vm.Local.DeleteEntriesAsync(path, targets, recycle);
+            });
             var succeeded = outcomes.Count(x => x.Succeeded);
             var summary = $"削除結果: 成功 {succeeded:N0} 件 / 失敗 {outcomes.Count - succeeded:N0} 件";
             // Successful deletion is silent; never promote "失敗 0 件" to an error banner.

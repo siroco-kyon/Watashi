@@ -61,7 +61,7 @@ dotnet run --project tests/Watashi.Client.LayoutTests --configuration Release
 dotnet build src\Watashi.Client\Watashi.Client.csproj
 ```
 
-レイアウト検証は明暗テーマと1200×720／1060×550／890×450／720×340 DIPの本文領域で、一覧の高さ・2000件の仮想化・スクロール終端・入力保持・拡大ブラウズの反映を確認します。DPI換算は通常テストで別途確認します。実際のモニター間移動、Windowsの高コントラスト、キーボードのフォーカス移動は実機確認が必要です。
+レイアウト検証は明暗テーマと1200×720／1060×550／890×450／720×340 DIPの本文領域で、一覧の高さ・2000件の仮想化・スクロール終端・入力保持・拡大ブラウズの反映を確認します。DPI換算は通常テストで別途確認します。実際のモニター間移動、Windowsの高コントラスト、キーボードの操作感は実機確認が必要です。フォーカスと連続入力の自動検証は下記の `--keyboard-input` で行います。
 
 認証・セッション変更時は、全体テストに加えて境界テストを絞って先に実行すると原因を特定しやすい:
 
@@ -296,3 +296,8 @@ if (!ReferenceEquals(e.OriginalSource, sender)) return;
 
 `AdminViewModelBase.SafeAsync(action, successMessage)` は、action 内で `StatusMessage` を書き換えた場合(バリデーション失敗の早期 return 等)は `successMessage` で上書きしません。
 逆に言うと、**action 内で StatusMessage を一切触らず正常終了した場合のみ** successMessage が表示されます。
+
+
+### キーボード連続操作の検証
+
+Windowsのデスクトップセッションで `dotnet run --project tests/Watashi.Client.LayoutTests --configuration Release -- --keyboard-input` を実行します。検証用ウィンドウが一時的に開き、Enter→下→Backspace→下→Enter、履歴・更新・削除・名前変更・新規作成・空一覧・読み込み中の入力先切り替えを検証します。実サーバーや利用者のファイルには接続しません。テスト中は別のウィンドウへ切り替えないでください。通常の引数なしWPF検証は画面を開きません。
